@@ -6,6 +6,10 @@ A project to convert the existing post-wildfire debris-flow hazard assessment co
 
 * [X] Upload the original code
 * [ ] Walk through and comment the code
+    * [ ] Step 1
+    * [ ] 1B
+    * [ ] 2
+    * [ ] 3
 * [ ] Get a test case up and running
 * [ ] Set up 3 working fires
     * [ ] one small for unit tests
