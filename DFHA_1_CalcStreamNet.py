@@ -1,8 +1,14 @@
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# This step of the code seems to implement the algorithm that determines the
+# stream network.
+
+### SETUP
+# Initial tasks before running anything
+
+# Notify console of the current step
 print("Post-Fire Debris-Flow Hazard Assessment: Step 1 - Estimate Modeled Stream Network")
 print("Importing Modules...")
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Import modules
 import time
 import arcpy
 import os
@@ -21,80 +27,86 @@ import calendar
 import shutil
 import sys
 
-
+# Set up arcpy.
 arcpy.CheckOutExtension('3D')
 arcpy.CheckOutExtension('spatial')
 workingdir = os.getcwd()
 env.workspace = workingdir
-
 arcpy.env.overwriteOutput = True
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#fire_list = ['T32117E1','T33115A1','T33115E1','T33116A1','T33116E1','T33117A1','T33117E1','T33118E1','T34115A1','T34116A1','T34117A1','T34118E1','T34119A1','T34119E1','T34120A1','T34120E1','T32115E1','T32116E1']
-#fire_list = ['T33116E1','T33115E1','T33116A1','T33115A1','T32116E1','T32115E1','T34119A1']
-fire_list = ['col'] #3 letter abbreviation
-state_list =['CA'] #State abbreviation
-fireyear_list = ['2022'] #fire start year
 
-#fire_name_list = ['T32117E1','T33115A1','T33115E1','T33116A1','T33116E1','T33117A1','T33117E1','T33118E1','T34115A1','T34116A1','T34117A1','T34118E1','T34119A1','T34119E1','T34120A1','T34120E1','T32115E1','T32116E1']
-fire_name_list = ['Colorado'] #Full fire name (e.g. Station, or CZU Complex)
-fire_location_list = ['Monterey County, CA'] # Location, State (e.g. Angeles National Forest, CA) See main webpage for examples of formatting
-fire_start_date_list = ['January 21, 2022'] #Full date of initiation in MM DD, YYYY format
 
+### PARAMETERS
+# Set various input parameters for the script
+
+# string metadata for the fire
+fire_name_list = ['Colorado']                 # Full fire name
+fire_list = ['col']                           # 3 letter abbreviation
+state_list =['CA']                            # State abbreviation
+fire_location_list = ['Monterey County, CA']  # Location, State  (See main webpage for examples of formatting)
+fire_start_date_list = ['January 21, 2022']   # Full start date -- MM DD, YYYY format
+fireyear_list = ['2022']                      # fire start year
+
+# The drive that holds the input datasets
 server_root = 'P:\\'
 
-pre_fire = 'NO'
-#pre_fire = 'YES'
-
+# Pre-fire assessment parameters
+pre_fire = 'NO'   # Change to 'YES' to implement a pre-fire assessment
 if pre_fire == 'YES':
-    evt_version = 140
-    mtbs_perim_distance_km = 50
-    prefire_percentile_list = [0.5, 0.84]
+    evt_version = 140                        # ??? Unknown
+    mtbs_perim_distance_km = 50              # ??? Unknown
+    prefire_percentile_list = [0.5, 0.84]    # The percentiles to compute
 
-#CHECK FOR DUPLICATE PERIMETER ID ON SERVER?
-perim_check = 'YES' #DEFAULT
-#perim_check = 'NO'
+# Output options. Options are 'YES' and 'NO'
+make_webtext = 'YES'    # Prepare output for the web app
+make_booktext= 'YES'    # ??? Perhaps for PDF Output
+log_modelrun = 'YES'    # Create a logfile for the run
+perim_check = 'YES'     # Prevent from overwriting an existing run on the server
 
-make_webtext = 'YES' #DEFAULT
-#make_webtext = 'NO'
+# Algorithm Options
+segment_guess = 'PERIM'  # ??? Unknown. Options are 'PERIM' and 'NO_PERIM'
+barc_threshold = 'CALC'  # ??? Unknown. Options are 'CALC' and 'DEFINED'
+                         # Original notes say that you should only use 'DEFINED'
+                         # if you have DNBR but no SBS or BARC4, and that the option
+                         # has not been tested on recent versions of ArcGIS
+                         # (so this option may be defunct)
 
-make_booktext= 'YES' #DEFAULT
-#make_booktext = 'NO'
+# Options for designing network basins
+min_basin_size_km2 = 0.025   # Minimum basin size
+max_basin_size_km2 = 8.0     # Maximum basin size
+cell_res = 10.0              # ??? something about resolution. Perhaps 10 meters of topography file?
+burn_acc_threshold = 100     # ??? Original comment is: n_pixels
 
-log_modelrun = 'YES' #DEFAULT
-#log_modelrun = 'NO'
-
-#segment_guess = 'NO_PERIM'
-segment_guess = 'PERIM' #DEFAULT
-
-#barc_threshold = 'DEFINED' #USE ONLY IF YOU HAVE DNBR BUT NO SBS OR BARC4!!!! This has not been tested on recent versions of arcgis.
-barc_threshold = 'CALC' #DEFAULT
-
-min_basin_size_km2 = 0.025
-max_basin_size_km2 = 8.0
-cell_res = 10.0
-burn_acc_threshold = 100 # n_pixels
+# Maximum segment length is based on an algorithm option
 if segment_guess == 'PERIM':
     max_segment_length_m = 200
 else:
     max_segment_length_m = 500
-confine_threshold_degree = 174
-slope_threshold_pct = 12
-pct_burn_threshold = 0.25
-perim_buffer_dist_m = 500
+
+# Thresholds for triggering debris-flow
+confine_threshold_degree = 174  # ??? Perhaps a limit of topographic slope
+slope_threshold_pct = 12        # ??? Perhaps related to topographic slope
+pct_burn_threshold = 0.25       # ???
+perim_buffer_dist_m = 500       # ???
+
+# ??? Sum threshold parameters. Unknown what these are
 if segment_guess == 'PERIM':
     dev_sum_threshold = 250
 else:
     dev_sum_threshold = 250
 db_sum_threshold = 1
 
-
+# Location of data inputs and processing scripts
+# Note: We should probably make separate settings for these
 server_dir = os.path.join(server_root,'DF_Assessment_GeneralData')
 script_dir = os.path.join(server_root,'Scripts')
 
+# ??? Need to research what acc is
 min_acc = (min_basin_size_km2 * 1000000) / (cell_res * cell_res)
 max_acc = (max_basin_size_km2 * 1000000) / (cell_res * cell_res)
 
+# ??? Unknown
+# This may be a step to initialize a set of lists
 soil_warn_list = []
 fire_watch_list = []
 fire_name_list_all = []
@@ -103,10 +115,12 @@ fire_start_date_list_all = []
 fire_statename_list = []
 fire_state_name_list_all = []
 
+# Set the dNBR thresholds for the 4-step BARC classification
 dnbr_unburned = 25
 dnbr_low = 125
 dnbr_mod = 250
 dnbr_high = 500
+
 
 
 
