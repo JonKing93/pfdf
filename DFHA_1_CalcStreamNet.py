@@ -1,8 +1,6 @@
 # This step of the code seems to implement the algorithm that determines the
 # stream network.
 
-# Test edit.
-
 ### SETUP
 # Initial tasks before running anything
 
