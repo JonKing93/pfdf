@@ -45,7 +45,7 @@ arcpy.env.overwriteOutput = True
 if parameters.make_logfile:
     logfile = log.create(workingdir, parameters.logfile)
 
-# Begin processing the fire. Notify console
+# Begin processing the fire. Notify console and logfile
 notify.processing(fire.id)
 if parameters.make_logfile:
     log.write(logfile, fire.ID, 'Start Step 1')
@@ -57,19 +57,26 @@ arcpy.ClearEnvironment("extent")
 arcpy.ClearEnvironment("snapRaster")
 arcpy.ClearEnvironment("mask")
 
+# Initialize dictionary of geodatabase file paths
+gdb = dict
+
+# Add paths to fire-independent geodatabases
+keys = ['evt', 'landfire', 'mtbs', 'soils', 'projection']
+for key in keys:
+    file = getattr(parameters, f"{key}_gdb_name")
+    path = os.path.join(parameters.server_dir, file)
+    gdb.add(key, path)
 
 
 
 
 
-
-
-    # Locate fire-independent geodatabases
-    evt_gdb        = os.path.join(server_dir, evt_gdb_name)
-    landfire_gdb   = os.path.join(server_dir, landfire_gdb_name)
-    mtbs_gdb       = os.path.join(server_dir, mtbs_gdb_name)
-    soils_gdb      = os.path.join(server_dir, soils_gdb_name)
-    projection_gdb = os.path.join(server_dir, projection_gdb_name)
+# Locate fire-independent geodatabases
+evt_gdb        = os.path.join(parameters.server_dir, evt_gdb_name)
+landfire_gdb   = os.path.join(parameters.server_dir, landfire_gdb_name)
+mtbs_gdb       = os.path.join(server_dir, mtbs_gdb_name)
+soils_gdb      = os.path.join(server_dir, soils_gdb_name)
+projection_gdb = os.path.join(server_dir, projection_gdb_name)
 
     # Locate and create fire-dependent geodatabases
     firein_gdb         = locate_geodatabase(i, firein_gdb_tag, workingdir)
