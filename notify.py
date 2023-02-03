@@ -7,6 +7,8 @@ FUNCTIONS:
     processing  - Notifies console that a particular fire is being processed
 """
 
+from datetime import datetime
+
 def step1():
     print("Post-Fire Debris-Flow Hazard Assessment: Step 1 - Estimate Modeled Stream Network")
 
@@ -14,4 +16,6 @@ def importing():
     print("Importing Modules...")
 
 def processing(fire):
+    start = datetime.now()
     print(f'Processing Fire: {fire}')
+    print(f'  Processing started at {start.hour}:{start.minute} GMT')
