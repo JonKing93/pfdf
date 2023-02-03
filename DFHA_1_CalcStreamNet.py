@@ -53,32 +53,16 @@ def suppress_stdout():
             sys.stdout = old_stdout
 
 
-### RUN
-# Implement the algorithm to calculate the stream basin networks
+# Get the full name for the fire and notify console
+fire = parameters.code + parameters.year
+print(f'Processing Fire: {fire}')
 
-# Iterate through fires begin analyzed
-for fire_name in fire_list:
-    i_index = fire_list.index(fire_name)
-
-    # Get metadata strings for the fire
-    state_abbrev = state_list[i_index]
-    fire_year = fireyear_list[i_index]
-    fire_name_full = fire_name_list[i_index]
-    fire_name_full = str.replace(fire_name_full,' Fire','')
-    fire_name_full = str.replace(fire_name_full,' fire','')
-    fire_location = fire_location_list[i_index]
-    fire_start_date = fire_start_date_list[i_index]
-    i = fire_name+fire_year
-
-    # Notify console of the fire being processed
-    print('Processing Fire = '+i+'...')
-
-    # Clear saved variables from ArcPy
-    arcpy.env.overwriteOutput = True
-    arcpy.ClearEnvironment("cellSize")
-    arcpy.ClearEnvironment("extent")
-    arcpy.ClearEnvironment("snapRaster")
-    arcpy.ClearEnvironment("mask")
+# Clear saved variables from ArcPy
+arcpy.env.overwriteOutput = True
+arcpy.ClearEnvironment("cellSize")
+arcpy.ClearEnvironment("extent")
+arcpy.ClearEnvironment("snapRaster")
+arcpy.ClearEnvironment("mask")
 
     # Get strings for the current time
     now = time.gmtime()

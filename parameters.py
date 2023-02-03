@@ -14,7 +14,7 @@ name = 'Colorado'                   # Full fire name
 code = 'col'                        # 3 letter abbreviation
 state = 'CA'                        # 2 letter state abbreviation
 location = 'Monterey County'        # Should not include state abbreviation
-start_date = 'January 21, 2022'     # Start date
+start_year = '2022'                 #
 
 # Pre-fire assessment
 pre_fire = False                        # Whether to compute a pre-fire assessment
