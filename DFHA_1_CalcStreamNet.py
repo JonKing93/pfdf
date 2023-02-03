@@ -32,33 +32,23 @@ import sys
 from contextlib import contextmanager
 import sys, os
 
+# Get the working directory
+workingdir = os.getcwd()
 
 # Set up arcpy.
 arcpy.CheckOutExtension('3D')
 arcpy.CheckOutExtension('spatial')
-workingdir = os.getcwd()
 env.workspace = workingdir
 arcpy.env.overwriteOutput = True
 
+# Create logfile
+if parameters.make_logfile:
+    logfile = log.create(workingdir, parameters.logfile)
 
-
-### NOTIFICATION UTILITIES
-# A few utilities related to console/log file output
-
-# Define a function to suppress console outut
-@contextmanager
-def suppress_stdout():
-    with open(os.devnull, "w") as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
-
-
-# Get the full name for the fire and notify console
-fire = parameters.code + parameters.year
+# Begin processing the fire. Notify console
+notify.processing(fire.id)
+if parameters.make_logfile:
+    log.write(logfile, fire.ID, 'Start Step 1')
 
 # Clear saved variables from ArcPy
 arcpy.env.overwriteOutput = True
@@ -73,28 +63,6 @@ arcpy.ClearEnvironment("mask")
 
 
 
-
-
-    # Get strings for the current time
-    now = time.gmtime()
-    day = time.strftime('%d', now)
-    year = time.strftime('%y', now)
-    hour = time.strftime('%H', now)
-    minute = time.strftime('%M', now)
-    second = time.strftime('%S', now)
-    monthstr = time.strftime('%m', now)
-    zone = 'GMT'
-
-    monthint = int(monthstr)
-    month = calendar.month_abbr[monthint]
-    datetimenow = datetime.datetime.now()
-    year4digit = datetimenow.year
-
-    # Notify user of computation start time. Optionally write to log file.
-    print(' Processing Started at '+str(hour)+':'+str(minute)+' GMT')
-    if log_modelrun == 'YES':
-        string = 'Start Step 1'
-        write_log(logfile,i,string)
 
     # Locate fire-independent geodatabases
     evt_gdb        = os.path.join(server_dir, evt_gdb_name)
@@ -991,6 +959,20 @@ arcpy.ClearEnvironment("mask")
     arcpy.RasterToOtherFormat_conversion(dem, scratch, "TIFF")
 
     os.chdir(scratch)
+
+######################
+# I moved this here. It probably shouldn't stay here.
+    # Define a function to suppress console outut
+    @contextmanager
+    def suppress_stdout():
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+######################
 
     with suppress_stdout():
 
