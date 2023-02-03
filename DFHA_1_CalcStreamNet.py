@@ -139,40 +139,7 @@ modelcalcs_web_gdb_tag = 'dfestimates_wgs84'
 
 
 
-### GEODATABASE SETUP UTILITIES
-# Functions to help locate and set up geodatabase files
 
-
-
-
-
-def create_geodatabase(fire_tag, gdb_tag, folder_path):
-    """
-    create_geodatabase  Creates a fire-specific geodatabase in the indicated folder
-    ----------
-    filepath = create_geodatabase(fire_tag, gdb_tag, folder_path)
-    Creates a fire-specific geodatabase in the indicated folder and returns the 
-    path to the folder. The name of the geodatabase is the fire tag appended to the 
-    geodatabase tag. Checks if a geodatabase matching the name exists in the indicated
-    folder. If not, creates a new geodatabase matching that name in the folder.
-    ----------
-    Inputs:
-        fire_tag (str): The name of the fire. Often includes the fire name and location.
-        gdb_tag (str): A tag describing the geodatabase.
-        folder_path (str): The path to the folder in which to place the file
-
-    Outputs:
-        filepath (str): The path to the geodatabase file
-
-    Creates:
-        A geodatabase file in the indicated folder.
-    """
-
-    filename = geodatabase_name(fire_tag, gdb_tag)
-    filepath = locate_geodatabase(fire_tag, gdb_tag, filename)
-    if not os.path.exists(filepath):
-        arcpy.CreateFileGDB_management(folder_path, filename, "CURRENT")
-    return filepath
 
 
 
