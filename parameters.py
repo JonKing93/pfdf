@@ -20,7 +20,7 @@ start_date = 'January 21, 2022'     # Start date
 pre_fire = False                        # Whether to compute a pre-fire assessment
 evt_version = 140                       # ???
 mtbs_perim_distance_km = 50             # ???
-prefire_percentile_list = [0.5 0.84]    # The percentiles to compute
+prefire_percentile_list = [0.5, 0.84]    # The percentiles to compute
 
 # Overwrite permission
 overwrite = False       # Whether Step 1 is allowed to overwrite an existing analysis
