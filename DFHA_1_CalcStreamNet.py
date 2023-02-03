@@ -67,16 +67,19 @@ for key in keys:
     path = os.path.join(parameters.server_dir, file)
     gdb.add(key, path)
 
+# Add paths to fire-dependent input geodatabases
+path = geodatabase.path(workingdir, fire.id, parameters.firein_gdb_tag)
+gdb.add('firein', path)
+
+# Add paths to fire-dependent output geodatabases
+keys = ['temp','modelcalcs','modelcalcs_web']
+for key in keys:
+    tag = getattr(parameters, f"{key}_gdb_tag")
+    path = geodatabase.create(workingdir, fire.id, tag)
+    gdb.add(key, path)
 
 
 
-
-# Locate fire-independent geodatabases
-evt_gdb        = os.path.join(parameters.server_dir, evt_gdb_name)
-landfire_gdb   = os.path.join(parameters.server_dir, landfire_gdb_name)
-mtbs_gdb       = os.path.join(server_dir, mtbs_gdb_name)
-soils_gdb      = os.path.join(server_dir, soils_gdb_name)
-projection_gdb = os.path.join(server_dir, projection_gdb_name)
 
     # Locate and create fire-dependent geodatabases
     firein_gdb         = locate_geodatabase(i, firein_gdb_tag, workingdir)
