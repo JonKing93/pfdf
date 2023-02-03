@@ -78,17 +78,10 @@ for key in keys:
     path = geodatabase.create(workingdir, fire.id, tag)
     gdb.add(key, path)
 
+# Set the ArPy scratch folder
+arcpy.env.scratchWorkspace = gdb['temp']
 
 
-
-    # Locate and create fire-dependent geodatabases
-    firein_gdb         = locate_geodatabase(i, firein_gdb_tag, workingdir)
-    temp_gdb           = create_geodatabase(i, temp_gdb_tag, workingdir)
-    modelcalcs_gdb     = create_geodatabase(i, modelcalcs_gdb_tag, workingdir)
-    modelcalcs_web_gdb = create_geodatabase(i, modelcalcs_web_gdb_tag, workingdir)
-
-    # Set the ArcPy scratch folder
-    arcpy.env.scratchWorkspace = temp_gdb
 
 
 
