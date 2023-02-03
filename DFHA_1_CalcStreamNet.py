@@ -1,14 +1,17 @@
 # This step of the code seems to implement the algorithm that determines the
 # stream network.
 
-### SETUP
-# Initial tasks before running anything
+# Notify console of current step
+import notify
+notify.step1()
 
-# Notify console of the current step
-print("Post-Fire Debris-Flow Hazard Assessment: Step 1 - Estimate Modeled Stream Network")
-print("Importing Modules...")
+# Import my modules
+notify.importing()
+import fire
+import geodatabase
+import parameters
 
-# Import modules
+# Import external modules
 import time
 import arcpy
 import os
@@ -28,6 +31,7 @@ import shutil
 import sys
 from contextlib import contextmanager
 import sys, os
+
 
 # Set up arcpy.
 arcpy.CheckOutExtension('3D')
@@ -55,7 +59,6 @@ def suppress_stdout():
 
 # Get the full name for the fire and notify console
 fire = parameters.code + parameters.year
-print(f'Processing Fire: {fire}')
 
 # Clear saved variables from ArcPy
 arcpy.env.overwriteOutput = True
@@ -63,6 +66,14 @@ arcpy.ClearEnvironment("cellSize")
 arcpy.ClearEnvironment("extent")
 arcpy.ClearEnvironment("snapRaster")
 arcpy.ClearEnvironment("mask")
+
+
+
+
+
+
+
+
 
     # Get strings for the current time
     now = time.gmtime()
