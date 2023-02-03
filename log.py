@@ -22,6 +22,7 @@ def create(folder, file):
         log = open(path, 'wt')
         log.write('TIMESTAMP,FIRE_ID,Processing_Step_Completed\n')
         log.close()
+    return path
 
 
 
