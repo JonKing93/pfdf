@@ -142,44 +142,9 @@ modelcalcs_web_gdb_tag = 'dfestimates_wgs84'
 ### GEODATABASE SETUP UTILITIES
 # Functions to help locate and set up geodatabase files
 
-def geodatabase_name(fire_tag, gdb_tag):
-    """
-    geodatabase_name  Returns the name of a fire-specific geodatabase
-    ----------
-    name = geodatabase_name(fire_tag, gdb_tag)
-    Returns the name of a fire-specific geodatabase. Creates the name by
-    appending the fire tag to the geodatabase tag and adding a '.gdb' extension
-    ----------
-    Inputs:
-        fire_tag (str): The name of the fire. Often includes the fire name and location.
-        gdb_tag (str): A tag describing the geodatabase.
 
-    Outputs:
-        name (str): The name of the geodatabase
-    """
-    return fire_tag + gdb_tag + '.gdb'
 
-def locate_geodatabase(fire_tag, gdb_tag, folder_path):
-    """
-    locate_geodatabase  Returns the path to a fire-specific geodatabase
-    ----------
-    path = locate_geodatabase(fire_tag, gdb_tag, folder_path)
-    Returns the path to a fire-specific geodatabase. Creates a file name by appending
-    the fire tag to the geodatabase tag and adding a '.gdb' extension. The full path
-    places this file name within an indicated folder.
-    ----------
-    Inputs:
-        fire_tag (str): The name of the fire. Often includes the fire name and location.
-        gdb_tag (str): A tag describing the geodatabase.
-        folder_path (str): The path to the folder in which to place the file
 
-    Outputs:
-        path (str): The path to the geodatabase file.
-    """
-
-    file_name = geodatabase_name(fire_tag, gdb_tag)
-    path = os.path.join(folder_path, file_name)
-    return (path, file_name)
 
 def create_geodatabase(fire_tag, gdb_tag, folder_path):
     """
@@ -265,10 +230,10 @@ for fire_name in fire_list:
     fire_name_full = str.replace(fire_name_full,' fire','')
     fire_location = fire_location_list[i_index]
     fire_start_date = fire_start_date_list[i_index]
-    fire_tag = fire_name+fire_year
+    i = fire_name+fire_year
 
     # Notify console of the fire being processed
-    print('Processing Fire = '+fire_tag+'...')
+    print('Processing Fire = '+i+'...')
 
     # Clear saved variables from ArcPy
     arcpy.env.overwriteOutput = True
@@ -306,10 +271,10 @@ for fire_name in fire_list:
     projection_gdb = os.path.join(server_dir, projection_gdb_name)
 
     # Locate and create fire-dependent geodatabases
-    firein_gdb         = locate_geodatabase(fire_tag, firein_gdb_tag, workingdir)
-    temp_gdb           = create_geodatabase(fire_tag, temp_gdb_tag, workingdir)
-    modelcalcs_gdb     = create_geodatabase(fire_tag, modelcalcs_gdb_tag, workingdir)
-    modelcalcs_web_gdb = create_geodatabase(fire_tag, modelcalcs_web_gdb_tag, workingdir)
+    firein_gdb         = locate_geodatabase(i, firein_gdb_tag, workingdir)
+    temp_gdb           = create_geodatabase(i, temp_gdb_tag, workingdir)
+    modelcalcs_gdb     = create_geodatabase(i, modelcalcs_gdb_tag, workingdir)
+    modelcalcs_web_gdb = create_geodatabase(i, modelcalcs_web_gdb_tag, workingdir)
 
     # Set the ArcPy scratch folder
     arcpy.env.scratchWorkspace = temp_gdb
