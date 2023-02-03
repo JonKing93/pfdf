@@ -52,29 +52,6 @@ def suppress_stdout():
         finally:
             sys.stdout = old_stdout
 
-# Define a function that writes a message to a log file, along with a timestamp
-def write_log(logfile,id,string):
-    targetfile = open(logfile,'a')
-
-    # Format the current time stamp
-    log_now = time.gmtime()
-    timestamp = time.strftime('%Y-%m-%d %H:%M:%S GMT', log_now)
-    zone = 'GMT'
-
-    # Write message and timestamp to file
-    log_string = timestamp+','+id+','+string+'\n'
-    targetfile.write(log_string)
-    targetfile.close()
-
-# Create a logfile if appropriate
-if log_modelrun == 'YES':
-    logfile = os.path.join(workingdir,logfile_name)
-    if not os.path.isfile(logfile):
-        target = open(logfile,'wt')
-        target.write('TIMESTAMP,FIRE_ID,Processing_Step_Completed\n')
-        target.close()
-
-
 
 ### RUN
 # Implement the algorithm to calculate the stream basin networks
