@@ -58,25 +58,25 @@ arcpy.ClearEnvironment("snapRaster")
 arcpy.ClearEnvironment("mask")
 
 # Initialize dictionary of geodatabase file paths
-gdb = dict
+gdb = dict()
 
 # Add paths to fire-independent geodatabases
 keys = ['evt', 'landfire', 'mtbs', 'soils', 'projection']
 for key in keys:
     file = getattr(parameters, f"{key}_gdb_name")
     path = os.path.join(parameters.server_dir, file)
-    gdb.add(key, path)
+    gdb[key] = path
 
 # Add paths to fire-dependent input geodatabases
 path = geodatabase.path(workingdir, fire.id, parameters.firein_gdb_tag)
-gdb.add('firein', path)
+gdb['firein'] = path
 
 # Add paths to fire-dependent output geodatabases
 keys = ['temp','modelcalcs','modelcalcs_web']
 for key in keys:
     tag = getattr(parameters, f"{key}_gdb_tag")
     path = geodatabase.create(workingdir, fire.id, tag)
-    gdb.add(key, path)
+    gdb[key] = path
 
 # Set the ArPy scratch folder
 arcpy.env.scratchWorkspace = gdb['temp']
