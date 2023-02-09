@@ -15,6 +15,14 @@ soils      = input + "STATSGO_Soils.gdb"
 projection = input + "ProjectionData.gdb"
 dem        = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
 
+# Fire-dependent inputs
+firein = output + "df_input"
+dem        = firein + "/col2022_dem"
+sev        = firein + "/col2022_sev"
+dnbr       = firein + "/col2022_dnbr"
+perim_feat = firein + "/col2022_perim_feat"
+db_feat    = firein + "/col2022_db_feat"
+
 # Log
 log = output + "log.txt"
 

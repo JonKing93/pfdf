@@ -1,10 +1,6 @@
 # This step of the code seems to implement the algorithm that determines the
 # stream network.
 
-# Notify console of current step
-import notify
-notify.step1()
-
 # Import my modules
 import notify
 import fire
@@ -32,6 +28,9 @@ import shutil
 import sys
 from contextlib import contextmanager
 import sys, os
+
+# Notify console of current step
+notify.step1()
 
 # Create folders
 os.mkdir(paths.output)
@@ -108,22 +107,7 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 
 
 
-# INPUT DATA
 
-    dem_name = i+'_dem'
-    dem = os.path.join(firein_gdb,dem_name)
-
-    sev_name = i+'_sev'
-    sev = os.path.join(firein_gdb,sev_name)
-
-    dnbr_name = i+'_dnbr'
-    dnbr = os.path.join(firein_gdb,dnbr_name)
-
-    perim_feat_name = i+"_perim_feat"
-    perim_feat = os.path.join(firein_gdb,perim_feat_name)
-
-    db_feat_name = i+"_db_feat"
-    db_feat = os.path.join(firein_gdb,db_feat_name)
 
 # GET UTM ZONE OF PERIMETER
 
