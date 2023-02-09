@@ -32,23 +32,27 @@ import sys
 from contextlib import contextmanager
 import sys, os
 
-# Get the working directory
-workingdir = os.getcwd()
+# Create folders
+os.mkdir(paths.output)
+os.mkdir(paths.backup)
+os.mkdir(paths.scratch)
+os.mkdir(paths.kernel)
 
 # Set up arcpy.
 arcpy.CheckOutExtension('3D')
 arcpy.CheckOutExtension('spatial')
-env.workspace = workingdir
+arcpy.env.workspace = paths.output
 arcpy.env.overwriteOutput = True
 
 # Create logfile
-if parameters.make_logfile:
-    logfile = log.create(workingdir, parameters.logfile)
+# !!!!!!!!!!!!!!!!! Needs updating
+if options.log
+    logfile = log.create(working_dir, parameters.logfile)
 
 # Begin processing the fire. Notify console and logfile
 notify.processing(fire.id)
 if parameters.make_logfile:
-    log.write(logfile, fire.ID, 'Start Step 1')
+    log.write(logfile, fire.id, 'Start Step 1')
 
 # Clear saved variables from ArcPy
 arcpy.env.overwriteOutput = True
@@ -56,80 +60,16 @@ arcpy.ClearEnvironment("cellSize")
 arcpy.ClearEnvironment("extent")
 arcpy.ClearEnvironment("snapRaster")
 arcpy.ClearEnvironment("mask")
+arcpy.env.scratchWorkspace = paths.arcpy_scratch
 
-# Initialize dictionary of geodatabase file paths
-gdb = dict()
+# !!!!!!!!!!!!!
+# Should add overwrite check here
 
-# Add paths to fire-independent geodatabases
-keys = ['evt', 'landfire', 'mtbs', 'soils', 'projection']
-for key in keys:
-    file = getattr(parameters, f"{key}_gdb_name")
-    path = os.path.join(parameters.server_dir, file)
-    gdb[key] = path
-
-# Add paths to fire-dependent input geodatabases
-path = geodatabase.path(workingdir, fire.id, parameters.firein_gdb_tag)
-gdb['firein'] = path
-
-# Add paths to fire-dependent output geodatabases
-keys = ['temp','modelcalcs','modelcalcs_web']
-for key in keys:
-    tag = getattr(parameters, f"{key}_gdb_tag")
-    path = geodatabase.create(workingdir, fire.id, tag)
-    gdb[key] = path
-
-# Set the ArPy scratch folder
-arcpy.env.scratchWorkspace = gdb['temp']
+ # Create symbology folder
+ 
 
 
-
-
-
-
-    backup_dir_name = i+'_AssessmentData'
-    backup_dir = os.path.join(server_root,state_abbrev,'Assessment_Data',backup_dir_name)
-    if not os.path.exists(os.path.join(server_root,state_abbrev)): os.mkdir(os.path.join(server_root,state_abbrev))
-    if not os.path.exists(os.path.join(server_root,state_abbrev,'Assessment_Data')): os.mkdir(os.path.join(server_root,state_abbrev,'Assessment_Data'))
-    if not os.path.exists (backup_dir): os.mkdir(backup_dir)
-
-    perim_dir_name = 'AnalyzedPerimeters'
-    perim_dir = os.path.join(server_dir,perim_dir_name)
-
-    analyzed_perim_gdb_name = 'DFAssessment_AnalyzedPerimeters.gdb'
-    analyzed_perim_gdb = os.path.join(perim_dir,analyzed_perim_gdb_name)
-
-    perim_check_feat_name = i+'_perim_feat'
-    perim_check_feat = os.path.join(analyzed_perim_gdb,perim_check_feat_name)
-
-    if perim_check == 'YES':
-        if arcpy.Exists(perim_check_feat):
-            print('     Fire Name = '+i+' Has Already Been Assigned, Please Rename Input GDB and Feature Classes to a Unique Abbreviation...')
-            print('     Terminating Program...')
-            quit()
-        else:
-            print('     Duplicate Perimter ID Check = Pass...')
-
-    else:
-        print('     Not Checking for Duplicate Perimeter ID...')
-
-    dem_ref_gdb_name = 'NationalElevationDataset.gdb'
-    dem_ref_gdb = os.path.join(server_dir,dem_ref_gdb_name)
-    dem_ref_feat_name = 'NED_Tile_Reference_1deg_10m'
-    dem_ref_feat = os.path.join(dem_ref_gdb,dem_ref_feat_name)
-
-    scratch_name = i+"_scratch"
-    scratch = os.path.join(workingdir,scratch_name)
-    if not os.path.exists (scratch): os.mkdir(scratch)
-
-    kerneldir = os.path.join(scratch,"kernel_files")
-    if not os.path.exists (kerneldir): os.mkdir(kerneldir)
-
-    symbology_dir_name = 'AssessmentResults_Symbology'
-    streamwork_symbology_dir_name = 'StreamWork_Symbology'
-    symbology_dir = os.path.join(server_dir,symbology_dir_name)
-    streamwork_symbology_dir = os.path.join(symbology_dir,streamwork_symbology_dir_name)
-
-    state_abbrev_full_list = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
+    state_abbrev_full_list = 
     state_name_full_list = ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming']
 
     state_index = state_abbrev_full_list.index(state_abbrev)
