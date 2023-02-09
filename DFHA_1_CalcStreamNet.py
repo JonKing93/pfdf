@@ -75,7 +75,6 @@ zonefile = f"UTMZone_{zone}_Perim_Feat"
 ref_utmzone_perim_feat = os.path.join(paths.projection, zonefile)
 ref_utmzone_desc = arcpy.Describe(ref_utmzone_perim_feat)
 
-    print('         Burn Area Located in UTM Zone '+zone_str+'...')
 
 # CALCULATING BOX OF EXTENT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -19,3 +19,8 @@ def processing(fire):
 
 def calculating_extent():
     print('     Calculating Relevant Extent Data....')
+
+def zone(zone):
+    print(f"         Burn Area Located in UTM Zone {zone}...")
+
+
