@@ -12,9 +12,6 @@ from datetime import datetime
 def step1():
     print("Post-Fire Debris-Flow Hazard Assessment: Step 1 - Estimate Modeled Stream Network")
 
-def importing():
-    print("Importing Modules...")
-
 def processing(fire):
     start = datetime.now()
     print(f'Processing Fire: {fire}')

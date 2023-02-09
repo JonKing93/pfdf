@@ -6,10 +6,11 @@ import notify
 notify.step1()
 
 # Import my modules
-notify.importing()
+import notify
 import fire
 import geodatabase
 import parameters
+import dftools
 
 # Import external modules
 import time
@@ -106,7 +107,7 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 
 
 
-    
+
 # INPUT DATA
 
     dem_name = i+'_dem'
