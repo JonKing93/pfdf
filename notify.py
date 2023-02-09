@@ -16,3 +16,6 @@ def processing(fire):
     start = datetime.now()
     print(f'Processing Fire: {fire}')
     print(f'  Processing started at {start.hour}:{start.minute} GMT')
+
+def calculating_extent():
+    print('     Calculating Relevant Extent Data....')

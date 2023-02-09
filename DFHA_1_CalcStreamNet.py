@@ -68,40 +68,11 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 # !!!!!!!!!!!!!
 # Check that input files exist and are valid
 
+# Get UTM zone
 
 
 
 
-
-
-# GET UTM ZONE OF PERIMETER
-
-    print('     Calculating Relevant Extent Data....')
-
-    arcpy.env.overwriteOutput = True
-    arcpy.ClearEnvironment("cellSize")
-    arcpy.ClearEnvironment("extent")
-    arcpy.ClearEnvironment("snapRaster")
-    arcpy.ClearEnvironment("mask")
-    arcpy.ResetEnvironments()
-
-    centroid_feat_name = i+'_centroid_feat'
-    centroid_feat = os.path.join(firein_gdb,centroid_feat_name)
-
-    in_perim_centroid_feat_name = i+'_perim_centroid_feat'
-    in_perim_centroid_feat = os.path.join(temp_gdb,in_perim_centroid_feat_name)
-
-    in_perim_dissolve_feat_name = i+'_perim_dissolve_feat'
-    in_perim_dissolve_feat = os.path.join(temp_gdb,in_perim_dissolve_feat_name)
-
-    utmzone_feat_name = 'UTMZones_Feat_GCS_WGS84'
-    utmzone_feat = os.path.join(projection_gdb,utmzone_feat_name)
-
-    perim_centroid_utmfind_feat_name = i+'_perim_centroid_utmfind_feat'
-    perim_centroid_utmfind_feat = os.path.join(temp_gdb,perim_centroid_utmfind_feat_name)
-
-    perim_centroid_utmzone_feat_name = i+'_perim_centroid_utmzone_feat'
-    perim_centroid_utmzone_feat = os.path.join(temp_gdb,perim_centroid_utmzone_feat_name)
 
     perim_field_list = arcpy.ListFields(perim_feat)
     for perim_field in perim_field_list:
