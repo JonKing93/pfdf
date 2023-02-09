@@ -74,41 +74,6 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-    if make_webtext == 'YES':
-
-        print('     Acquiring Text Entry Information...')
-
-        fire_info_name = 'Fire Name = '+str(fire_name_full)
-        fire_info_location = 'Location = '+str(fire_location)
-        fire_info_start_date = 'Start Date = '+str(fire_start_date)
-
-        fire_name_list_all.append(fire_name_full)
-        fire_location_list_all.append(fire_location)
-        fire_start_date_list_all.append(fire_start_date)
-        fire_state_name_list_all.append(state_name_full)
-
-        fire_state_name = state_name_full
-
-    
-
-
-
-
-
-
 # GET UTM ZONE OF PERIMETER
 
     print('     Calculating Relevant Extent Data....')
