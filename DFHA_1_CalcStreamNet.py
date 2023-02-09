@@ -77,6 +77,7 @@ notify.zone(zone)
 
 # Calculate the box of extent
 notify.rectangle()
+extent.calculate()
 
 
 

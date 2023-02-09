@@ -2,14 +2,14 @@
 extent  Calculates the box of extent
 """
 
-def calculate(utmzone, perimeter, dd, box, extent_dd, analysis, extent):
+def calculate(utmzone, perimeter, dd, box, extent_dd, analysis, extent, cell_res):
 
-    # Get the spatial reference for the perimeter
-    describe = arcpy.Describe(perimeter)
-    spatial_ref = describe.SpatialReference
+    # Get the spatial and UTM references for the perimeter
+    perim_ref = arcpy.Describe(perimeter).SpatialReference
+    utm_ref = utmzone.SpatialReference
 
     # ???? Something about the projection
-    if spatial_ref.name = "GCS_North_American_1983":
+    if perim_ref.name = "GCS_North_American_1983":
         arcpy.management.CopyFeatures(perimeter, dd)
     else:
         arcpy.management.Project(perimeter, dd, 
@@ -44,8 +44,7 @@ def calculate(utmzone, perimeter, dd, box, extent_dd, analysis, extent):
         for row in cursor:
             row[0] = 1
             cursor.updateRow(row)
-extent
 
     # ???????
-    arcpy.management.Project(extent_dd, analysis, spatial_ref)
-    arcpy.conversion.PolygonToRaster(analysis, field, extent, 'CELL_CENTER', '', )
+    arcpy.management.Project(extent_dd, analysis, utm_ref)
+    arcpy.conversion.PolygonToRaster(analysis, field, extent, 'CELL_CENTER', '', cell_res)
