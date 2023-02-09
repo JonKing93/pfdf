@@ -79,62 +79,8 @@ notify.zone(zone)
 notify.rectangle()
 extent.calculate()
 
+# Extract the DEM
 
-
-# CALCULATING BOX OF EXTENT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    ref_utmzone_desc = arcpy.Describe(ref_utmzone_perim_feat)
-    utm_spatial_ref = ref_utmzone_desc.SpatialReference
-
-    perim_desc = arcpy.Describe(perim_feat)
-    perim_spatial_ref = perim_desc.SpatialReference
-
-    perim_dd_feat_name = perim_feat_name+'_dd'
-    perim_dd_feat = os.path.join(temp_gdb,perim_dd_feat_name)
-
-    perim_box_dd_feat_name = perim_dd_feat_name+'_box'
-    perim_box_dd_feat = os.path.join(temp_gdb,perim_box_dd_feat_name)
-
-    extentbox_dd_feat_name = i+'_extent_dd_feat'
-    extentbox_dd_feat = os.path.join(temp_gdb,extentbox_dd_feat_name)
-
-    extentbox_feat_name = i+'_analysis_extent_feat'
-    extentbox_feat = os.path.join(firein_gdb,extentbox_feat_name)
-
-    extentbox_name = i+'_extent'
-    extentbox = os.path.join(temp_gdb,extentbox_name)
-
-    if perim_spatial_ref.name == 'GCS_North_American_1983':
-        arcpy.CopyFeatures_management(perim_feat,perim_dd_feat)
-    else:
-        arcpy.Project_management(perim_feat,perim_dd_feat,"GEOGCS['GCS_North_American_1983',DATUM['D_North_American_1983',SPHEROID['GRS_1980',6378137.0,298.257222101]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]]")
-
-    desc = arcpy.Describe(perim_dd_feat)
-    extent = desc.extent
-    left = extent.XMin
-    bottom = extent.YMin
-    top = extent.YMax
-    right = extent.XMax
-
-    lowerleft = extent.lowerLeft
-    lowerright = extent.lowerRight
-    upperright = extent.upperRight
-    upperleft = extent.upperLeft
-
-    arcpy.MinimumBoundingGeometry_management(perim_dd_feat,perim_box_dd_feat,'RECTANGLE_BY_AREA','ALL')
-
-    arcpy.Buffer_analysis(perim_box_dd_feat,extentbox_dd_feat,0.02)
-
-    arcpy.AddField_management(extentbox_dd_feat,"Extent_Code", "SHORT", "", "", "", "", "NULLABLE", "NON_REQUIRED", "")
-
-    extent_code_field_list = ['Extent_Code']
-    with arcpy.da.UpdateCursor(extentbox_dd_feat, extent_code_field_list) as cursor:
-        for row in cursor:
-            row[0] = 1
-            cursor.updateRow(row)
-
-    arcpy.Project_management(extentbox_dd_feat,extentbox_feat,utm_spatial_ref)
-    arcpy.PolygonToRaster_conversion(extentbox_feat,'Extent_Code',extentbox,'CELL_CENTER','',cell_res)
 
 # EXTRACT DEM~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
