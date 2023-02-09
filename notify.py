@@ -23,4 +23,6 @@ def calculating_extent():
 def zone(zone):
     print(f"         Burn Area Located in UTM Zone {zone}...")
 
+def rectangle():
+    print('         Creating Extent Rectangle...')
 

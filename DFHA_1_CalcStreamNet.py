@@ -70,15 +70,18 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 
 # Get UTM zone
 zone = zone.utm(perimeter)
-notify.zone(zone)
 zonefile = f"UTMZone_{zone}_Perim_Feat"
 ref_utmzone_perim_feat = os.path.join(paths.projection, zonefile)
 ref_utmzone_desc = arcpy.Describe(ref_utmzone_perim_feat)
+notify.zone(zone)
+
+# Calculate the box of extent
+notify.rectangle()
+
 
 
 # CALCULATING BOX OF EXTENT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    print('         Creating Extent Rectangle...')
     ref_utmzone_desc = arcpy.Describe(ref_utmzone_perim_feat)
     utm_spatial_ref = ref_utmzone_desc.SpatialReference
 
