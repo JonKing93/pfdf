@@ -65,22 +65,26 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 # !!!!!!!!!!!!!
 # Should add overwrite check here
 
- # Create symbology folder
- 
+# !!!!!!!!!!!!!
+# Check that input files exist and are valid
 
 
-    state_abbrev_full_list = 
-    state_name_full_list = ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming']
 
-    state_index = state_abbrev_full_list.index(state_abbrev)
-    state_name_full = state_name_full_list[state_index]
 
-    if os.path.exists(projection_gdb):
-        print('     Connected to P: Drive, Continuing Processing...')
-    else:
-        print('     Not Connected to P: Drive, Terminating Program')
-        print('     Please Reconnect to P: Drive and Restart Script')
-        sys.exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     if make_webtext == 'YES':
@@ -98,26 +102,11 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 
         fire_state_name = state_name_full
 
-    tau_py = 'DFTools_TauDEM_PRO.py'
-    arc_py = 'DFTools_ArcGIS_PRO.py'
-    confine_py = 'DFTools_Confinement_PRO.py'
-    prefire_py = 'DFTools_PreFire_PRO.py'
-    #module_list = [tau_py,arc_py,confine_py]
-    module_list = [tau_py,arc_py,confine_py,prefire_py]
+    
 
 
-    for module_name in module_list:
 
-        in_module = os.path.join(script_dir,module_name)
-        out_module = os.path.join(workingdir,module_name)
-
-        shutil.copy(in_module,out_module)
-
-    import DFTools_TauDEM_PRO as DFTools_TauDEM
-    import DFTools_ArcGIS_PRO as DFTools_ArcGIS
-    import DFTools_Confinement_PRO as DFTools_Confinement
-    import DFTools_PreFire_PRO as DFTools_PreFire
-
+    
 # INPUT DATA
 
     dem_name = i+'_dem'
