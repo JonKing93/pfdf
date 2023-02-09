@@ -42,6 +42,6 @@ centroid          = firein + "/col2022_centroid_feat"
 in_perim_centroid = firein + "/col2022_perim_centroid_feat"
 in_perim_dissolve = firein + "/col2022_perim_dissolve_feat"
 utmzone           = projection + "/UTMZones_Feat_GCS_WGS84"
-utmfind           = temp + "/col2022_perim_centroid_utmfind_feat"
-centroid_utmzone  = temp + "/col2022_perim_centroid_utmzone_feat"
+utmfind           = arcpy_scratch + "/col2022_perim_centroid_utmfind_feat"
+centroid_utmzone  = arcpy_scratch + "/col2022_perim_centroid_utmzone_feat"
 

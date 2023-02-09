@@ -69,46 +69,11 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 # Check that input files exist and are valid
 
 # Get UTM zone
-
-
-
-
-
-    perim_field_list = arcpy.ListFields(perim_feat)
-    for perim_field in perim_field_list:
-        field_name = perim_field.name
-        if field_name == 'OBJECTID' or field_name == 'Shape_Area' or field_name == 'SHAPE' or field_name == 'Shape' or field_name == 'Shape_Length' or field_name == 'OBJECTID_1' or field_name == 'OBJECTID_12':
-            pass
-        else:
-            arcpy.DeleteField_management(perim_feat,field_name)
-
-    arcpy.AddField_management(perim_feat, "Perim_ID", "SHORT", "", "", "", "", "NULLABLE", "NON_REQUIRED", "")
-
-    perim_id_field_list = ['Perim_ID']
-    with arcpy.da.UpdateCursor(perim_feat, perim_id_field_list) as cursor:
-        for row in cursor:
-            row[0] = 1
-            cursor.updateRow(row)
-
-    arcpy.Dissolve_management(perim_feat,in_perim_dissolve_feat,'Perim_ID')
-
-    arcpy.FeatureToPoint_management(in_perim_dissolve_feat,in_perim_centroid_feat)
-
-    arcpy.Project_management(in_perim_centroid_feat,perim_centroid_utmfind_feat,utmzone_feat)
-
-    arcpy.Identity_analysis(perim_centroid_utmfind_feat,utmzone_feat,perim_centroid_utmzone_feat,"ALL")
-
-    zone_array = arcpy.da.TableToNumPyArray(perim_centroid_utmzone_feat,'ZONE')
-
-    zone_array2 = zone_array[0]
-    zone = int(zone_array2[0])
-    zone_str = str(zone)
-
-    ref_utmzone_perim_feat_name = 'UTMZone_'+zone_str+'_Perim_Feat'
-    ref_utmzone_perim_feat = os.path.join(projection_gdb,ref_utmzone_perim_feat_name)
-
-    ref_utmzone_desc = arcpy.Describe(ref_utmzone_perim_feat)
-    utm_spatial_ref = ref_utmzone_desc.SpatialReference
+zone = zone.utm(perimeter)
+notify.zone(zone)
+zonefile = f"UTMZone_{zone}_Perim_Feat"
+ref_utmzone_perim_feat = os.path.join(paths.projection, zonefile)
+ref_utmzone_desc = arcpy.Describe(ref_utmzone_perim_feat)
 
     print('         Burn Area Located in UTM Zone '+zone_str+'...')
 
