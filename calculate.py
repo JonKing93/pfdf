@@ -1,7 +1,7 @@
 perimeter_ID_field_name = "Perim_ID"
 
 
-def utmzone(perimeter, centroid, dissolved, utm, zone):
+def utmzone(perimeter, dissolved, centroid, utm, zone):
     """
     calculate.utmzone  Returns the UTM zone of the centroid of the fire perimeter
     ----------
@@ -64,3 +64,13 @@ def utmzone(perimeter, centroid, dissolved, utm, zone):
     zone = arcpy.da.TableToNumPyArray(zone, "ZONE")
     zone = zone[0][0]   # ??????? Is this necessary
     return int(zone)
+
+def extent():
+    """
+    calculate.extent  Calculates the box of extent for the fire perimeter
+    ----------
+    Inputs:
+        
+    """
+
+    # 
