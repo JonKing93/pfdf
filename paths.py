@@ -6,6 +6,22 @@ paths  Defines paths to use with the DFHA Step 1
 input = "/home/jking/DFHA/"
 output = "home/jking/code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment/output/"
 backup = "home/jking/code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment/backup/"
+log = output + "log.txt"
+
+# UTM Zone
+centroid          = firein + "/col2022_centroid_feat"
+in_perim_centroid = firein + "/col2022_perim_centroid_feat"
+in_perim_dissolve = firein + "/col2022_perim_dissolve_feat"
+utmzone           = projection + "/UTMZones_Feat_GCS_WGS84"
+utmfind           = arcpy_scratch + "/col2022_perim_centroid_utmfind_feat"
+centroid_utmzone  = arcpy_scratch + "/col2022_perim_centroid_utmzone_feat"
+
+
+
+
+
+
+
 
 # Fire-independent input geodatabases
 evt        = input + "LandFire_EVT.gdb"
@@ -24,7 +40,6 @@ perim_feat = firein + "/col2022_perim_feat"
 db_feat    = firein + "/col2022_db_feat"
 
 # Log
-log = output + "log.txt"
 
 # Working folders
 arcpy_scratch  = output + "arcpy_scratch"
@@ -38,12 +53,6 @@ modelcalcs_web = output + "dfestimates_wgs84"
 symbology      = output + "Symbology"  
 
 # Zone outputs
-centroid          = firein + "/col2022_centroid_feat"
-in_perim_centroid = firein + "/col2022_perim_centroid_feat"
-in_perim_dissolve = firein + "/col2022_perim_dissolve_feat"
-utmzone           = projection + "/UTMZones_Feat_GCS_WGS84"
-utmfind           = arcpy_scratch + "/col2022_perim_centroid_utmfind_feat"
-centroid_utmzone  = arcpy_scratch + "/col2022_perim_centroid_utmzone_feat"
 
 # DEM Extraction
 dem_extent = arcpy_scatch + "/col2022_extent_dem_ref_feat"

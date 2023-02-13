@@ -1,28 +1,19 @@
-"""
-zone  Calculates the UTM zone
-"""
+perimeter_ID_field_name = "Perim_ID"
 
-import notify
-from paths import in_perim_dissolve as dissolved
-from paths import in_perim_centroid as centroid
 
-def utm():
+def utm(perimeter, centroid, in_centroid, dissolved, utmzone, utmfind, pc_utmzone)
     """
-    zone.utm  Returns the UTM zone of the perimeter.
-    ----------
-    (zone) = zone.utm(perimeter)
-    Returns an arcpy Feature and Describe object that record the UTM zone of the
-    fire perimeter.
-    ----------
     Inputs:
-        perimeter (ArcPy Feature [1]): The feature for the fire perimeter
-
-    Outputs:
-        zone (int): The UTM zone of the fire perimeter
+        perimeter (str): The path to the arcpy Feature holding the fire perimeter
+        dissolved (str): The path to the arcpy Feature in which to output the
+            dissolved / merged perimeter.
+        centroid (str): The path to the arcpy Feature in which to output the
+            centroid of the fire perimeter
+        in_centroid (str)
+        utmzone (str)
+        utmfind (str)
+        pc_utmzone (str)
     """
-
-    # Notify console of current process
-    notify.calculating_extent()
 
     # Reset arcpy environment
     arcpy.env.overwriteOutput = True
@@ -37,15 +28,15 @@ def utm():
     shapes = ("SHAPE", "Shape", "Shape_Area", "Shape_Length")
     keep = objectids + shapes
 
-    # Remove all other fields from the perimeter
-    fields = acrpy.ListFields(perimeter)
+    # Remove all other fields from the perimeter feature
+    fields = arcpy.ListFields(perimeter)
     for field in fields:
         name = field.name
         if name not in keep:
             acrpy.management.DeleteField(perimeter, name)
 
     # Add a field for the fire perimeter ID
-    id = "Perim_ID"
+    id = perimeter_ID_field_name
     arcpy.management.AddField(perimeter, id, "SHORT")
 
     # Merge the perimeter
@@ -58,10 +49,12 @@ def utm():
     # Get the centroid of the perimeter
     arcpy.management.FeatureToPoint(dissolved, centroid)
 
-    # Project the centroid into UTM and extract the UTM zone
+    # Project the centroid into UTM
+    arcpy.management.Project(centroid, utmfind, utmzone)
+
+    # Project the centroid into UTM and return the zone
     arcpy.management.Project(centroid, centroid, utm)
     arcpy.analysis.Identity(centroid, utm, zone)
     zone = arcpy.da.TableToNumPyArray(zone, "ZONE")
     zone = zone[0][0]   # ??????? Is this necessary
     return int(zone)
-    
