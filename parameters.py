@@ -13,7 +13,7 @@ prefire_percentile_list = [0.5, 0.84]    # The percentiles to compute
 # Options for designing network basins
 min_basin_size_km2 = 0.025   # Minimum basin size
 max_basin_size_km2 = 8.0     # Maximum basin size
-cell_res = 10.0              # ??? something about resolution. Perhaps 10 meters of topography file?
+cellsize = 10.0              # The cell size (in meters) when converting features to rasters
 burn_acc_threshold = 100     # ??? Original comment is: n_pixels
 
 # Algorithm Options

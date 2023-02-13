@@ -79,17 +79,18 @@ zone = calculate.utmzone(paths.perimeter, paths.dissolved, paths.centroid,
 notify.zone(zone)
 utm_feature = os.path.join(paths.projection, f"UTMZone_{zone}_Perim_Feat")
 utm_describe = arcpy.Describe(utm_feature)
+utm_reference = utm_describe.SpatialReference
 
 # Calculate the box of extent
 notify.rectangle()
+calculate.extent(paths.perimeter, paths.perimeter_nad83, paths.box_feature,
+                utm_reference, paths.box_feature, paths.box_raster, parameters.cellsize)
+                 
+                 
 
 
 
 
-
-# Calculate the box of extent
-notify.rectangle()
-extent.calculate()
 
 # Extract the DEM if it does not exist
 if arcpy.Exists(paths.firedem):
