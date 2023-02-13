@@ -87,10 +87,8 @@ extent.calculate()
     # IDENTIFY DEM TILES
 
     if arcpy.Exists(dem):
-        print('     DEM Exists, Skipping NED Extraction...')
         pass
     else:
-        print('     Extracting DEM Data...')
 
         dem_ref_desc = arcpy.Describe(dem_ref_feat)
         dem_ref_sr = dem_ref_desc.SpatialReference

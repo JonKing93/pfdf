@@ -26,3 +26,8 @@ def zone(zone):
 def rectangle():
     print('         Creating Extent Rectangle...')
 
+def dem(exists):
+    if exists:
+        print('     DEM Exists, Skipping NED Extraction...')
+    else:
+        print('     Extracting DEM Data...')
