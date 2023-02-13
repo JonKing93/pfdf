@@ -79,22 +79,20 @@ notify.zone(zone)
 notify.rectangle()
 extent.calculate()
 
-# Extract the DEM
+# Extract the DEM if it does not exist
+if arcpy.Exists(paths.firedem):
+    notify.dem(exist=True)
+else:
+    notify.dem(exist=False)
+    dem.extract(paths.dem, paths.demextent)
 
 
 # EXTRACT DEM~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # IDENTIFY DEM TILES
 
-    if arcpy.Exists(dem):
-        pass
-    else:
 
-        dem_ref_desc = arcpy.Describe(dem_ref_feat)
-        dem_ref_sr = dem_ref_desc.SpatialReference
 
-        extentbox_dem_ref_feat_name = i+'_extent_dem_ref_feat'
-        extentbox_dem_ref_feat = os.path.join(temp_gdb,extentbox_dem_ref_feat_name)
 
         arcpy.Project_management(extentbox_feat,extentbox_dem_ref_feat,dem_ref_sr)
 

@@ -26,8 +26,10 @@ def zone(zone):
 def rectangle():
     print('         Creating Extent Rectangle...')
 
-def dem(exists):
-    if exists:
+def dem(*, exists):
+    if not isinstance(exists, bool):
+        raise TypeError('The "exists" input must be a bool')
+    elif exists:
         print('     DEM Exists, Skipping NED Extraction...')
     else:
         print('     Extracting DEM Data...')

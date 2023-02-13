@@ -17,7 +17,7 @@ dem        = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
 
 # Fire-dependent inputs
 firein = output + "df_input"
-dem        = firein + "/col2022_dem"
+firedem        = firein + "/col2022_dem"
 sev        = firein + "/col2022_sev"
 dnbr       = firein + "/col2022_dnbr"
 perim_feat = firein + "/col2022_perim_feat"
@@ -45,3 +45,6 @@ utmzone           = projection + "/UTMZones_Feat_GCS_WGS84"
 utmfind           = arcpy_scratch + "/col2022_perim_centroid_utmfind_feat"
 centroid_utmzone  = arcpy_scratch + "/col2022_perim_centroid_utmzone_feat"
 
+# DEM Extraction
+dem_extent = arcpy_scatch + "/col2022_extent_dem_ref_feat"
+dem_layer = arcpy_scratch + "/"
