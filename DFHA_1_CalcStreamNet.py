@@ -72,14 +72,13 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 # CALCULATIONS
 
 # Get UTM zone of the centroid of the fire perimeter
-zone = calculate.utmzone(paths.perimeter, paths.dissolved, paths.centroid, 
-                         paths.utm, paths.zone)
+zone = calculate.utmzone(paths.perimeter, paths.utm, paths.dissolved,
+                         paths.centroid, paths.centroid_utm, paths.zone)
 
-# Notify console. Get the feature and Describe object for the zone
+# Notify console. Get the spatial reference for the zone
 notify.zone(zone)
-utm_feature = os.path.join(paths.projection, f"UTMZone_{zone}_Perim_Feat")
-utm_describe = arcpy.Describe(utm_feature)
-utm_reference = utm_describe.SpatialReference
+zone = os.path.join(paths.projection, f"UTMZone_{zone}_Perim_Feat")
+zone = arcpy.Describe(zone).spatialReference
 
 # Calculate the box of extent
 notify.rectangle()

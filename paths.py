@@ -22,9 +22,10 @@ perimeter = fire_input + "col2022_perim_feat"
 firedem = fire_input + "col2022_dem"
 
 # UTM Zone outputs
-dissolved = arcpy_scratch + "col2022_perim_dissolve"
-centroid = arcpy_scratch + "col2022_perim_centroid"
-zone = arcpy_scatch + "col2022_perim_centroid_utmzone"
+dissolved = scratch + "dissolved"
+centroid = scratch + "centroid"
+centroid_utm = scratch + "centroid_utm"
+zone = scratch + "zone"
 
 # Extent box outputs
 perimeter_nad83 = arcpy_scratch + "col2022_perim_feat_nad83"

@@ -1,29 +1,33 @@
+import arcpy
+
 perimeter_ID_name = "Perimeter_ID"
 extent_code_field_name = "Extent_Code"
 
 
-def utmzone(perimeter, stripped, dissolved, centroid, utm, zone):
+def utmzone(perimeter, utm, dissolved, centroid, centroid_utm, zone):
     """
     calculate.utmzone  Returns the UTM zone of the centroid of the fire perimeter
     ----------
-    zone = calculate.utmzone(perimeter, stripped, dissolved, centroid, utm, zone)
-    Returns the UTM zone for a fire perimeter. Begins by copying the input 
-    perimeter(s) to a scratch workspace and stripping all non-required fields.
-    Dissolves all perimeter polygons into a single (possibly multi-part) polygon
-    and determines the centroid of that polygon. Projects the centroid into UTM,
-    and returns the UTM zone as an int.
+    zone = calculate.utmzone(perimeter, utm, dissolved, centroid, centroid_utm, zone)
+    Returns the UTM zone for a fire perimeter. Dissolves all perimeter into a
+    single (possibly multi-part) polygon and determines the centroid of that
+    polygon. Projects the centroid to UTM and determines its UTM zone using the
+    overlap of the centroid with UTM zone polygons. Returns the UTM zone as an
+    int.
     ----------
     Inputs:
-        perimeter (str): The path to the input arcpy Feature holding the fire perimeter(s)
-        stripped (str): The path to the output arcpy feature holding the fire
-            perimeter(s) stripped of all non-required fields.
-        dissolved (str): The path to the output arcpy feature with the dissolved
-            fire perimeter.
+        perimeter (str): The path to the input arcpy feature holding the fire
+            perimeter polygons
+        utm (str): The path to the input arcpy feature holding the UTM zone
+            polygons. The polygons must include a "ZONE" field.
+        dissolved (str): The path to the output arcpy feature holding the
+            dissolved (merged) fire perimeter polygon.
         centroid (str): The path to the output arcpy feature holding the
             centroid of the fire perimeter
-        utm (str): The path to the input arcpy feature used to define UTM zones
-        zone (str): The path to the output arcpy feature holding the UTM zone of
-            the centroid of the fire perimeter.
+        centroid_utm (str): The path to the output arcpy feature holding the
+            centroid of the fire perimeter projected to UTM.
+        zone (str): The path to the output arcpy feature identifying the UTM
+            zone of the centroid of the fire perimeter.
 
     Outputs:
         zone (int): The UTM zone of the centroid of the fire perimeter
@@ -37,8 +41,8 @@ def utmzone(perimeter, stripped, dissolved, centroid, utm, zone):
     arcpy.management.Dissolve(perimeter, dissolved)
     arcpy.management.FeatureToPoint(dissolved, centroid)
 
-    # Project the centroid to UTM. Identify the zone it's in
-    arcpy.management.Project(centroid, centroid, utm)
+    # Project the centroid to UTM and find the overlapping UTM zone polygon
+    arcpy.management.Project(centroid, centroid_utm, utm)
     arcpy.analysis.Identity(centroid, utm, zone)
 
     # Return zone as an int
