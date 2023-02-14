@@ -3,16 +3,15 @@ paths  Defines paths to use with the DFHA Step 1
 """
 
 # IO
-input = "/home/jking/DFHA/"
-output = "home/jking/code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment/output/"
-backup = "home/jking/code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment/backup/"
+repo = "/home/jking/code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment/"
+input = repo + "input/"
+output = repo + "output/"
+backup = repo + "backup/"
 log = output + "log.txt"
 
-# Working folders
-fire_input    = output + "df_input/"
-arcpy_scratch  = output + "arcpy_scratch/"
-scratch        = output + "scratch/"
-kernel         = output + "kernel/"
+# Working folders / geodatabases
+fire_input = input + "col2022_df_input.gdb/"
+scratch = output + "scratch.gdb/"
 
 # Fire-independent inputs
 utm = input + "ProjectionData.gdb/UTMZones_Feat_GCS_WGS84"

@@ -91,7 +91,7 @@ if arcpy.Exists(paths.firedem):
     notify.dem(exists=True)
 else:
     notify.dem(exists=False)
-    calculate.dem()
+    calculate.dem(paths.perimeter, )
 
 
                  

@@ -1,25 +1,29 @@
-perimeter_ID_field_name = "Perim_ID"
+perimeter_ID_name = "Perimeter_ID"
 extent_code_field_name = "Extent_Code"
 
 
-def utmzone(perimeter, dissolved, centroid, utm, zone):
+def utmzone(perimeter, stripped, dissolved, centroid, utm, zone):
     """
     calculate.utmzone  Returns the UTM zone of the centroid of the fire perimeter
     ----------
-    zone = calculate.utmzone(perimeter, dissolved, centroid, utm, zone)
-    Returns the UTM zone for a fire perimeter. Proceeds by dissolving the fire
-    perimeter into a single polygon and then determining the centroid of that
-    polygon. Projects the centroid into UTM and returns the zone as an int.
+    zone = calculate.utmzone(perimeter, stripped, dissolved, centroid, utm, zone)
+    Returns the UTM zone for a fire perimeter. Begins by copying the input 
+    perimeter(s) to a scratch workspace and stripping all non-required fields.
+    Dissolves all perimeter polygons into a single (possibly multi-part) polygon
+    and determines the centroid of that polygon. Projects the centroid into UTM,
+    and returns the UTM zone as an int.
     ----------
     Inputs:
-        perimeter (str): The path to the arcpy Feature holding the fire perimeter
-        dissolved (str): The path to the arcpy Feature in which to output the
-            dissolved / merged perimeter.
-        centroid (str): The path to the arcpy Feature in which to output the
+        perimeter (str): The path to the input arcpy Feature holding the fire perimeter(s)
+        stripped (str): The path to the output arcpy feature holding the fire
+            perimeter(s) stripped of all non-required fields.
+        dissolved (str): The path to the output arcpy feature with the dissolved
+            fire perimeter.
+        centroid (str): The path to the output arcpy feature holding the
             centroid of the fire perimeter
-        utm (str): The path to the arcpy feature used to define UTM zones
-        zone (str): The path to the arcpy feature holding the UTM zone of the
-            centroid of the fire perimeter.
+        utm (str): The path to the input arcpy feature used to define UTM zones
+        zone (str): The path to the output arcpy feature holding the UTM zone of
+            the centroid of the fire perimeter.
 
     Outputs:
         zone (int): The UTM zone of the centroid of the fire perimeter
@@ -28,45 +32,18 @@ def utmzone(perimeter, dissolved, centroid, utm, zone):
         Files matching the paths of the dissolved, centroid, and zone inputs.
     """
 
-    # Reset arcpy environment
-    arcpy.env.overwriteOutput = True
-    arcpy.ClearEnvironment("cellSize")
-    arcpy.ClearEnvironment("extent")
-    arcpy.ClearEnvironment("snapRaster")
-    arcpy.ClearEnvironment("mask")
-    arcpy.ResetEnvironments()
-
-    # Get the set of fields to retain in the perimeter
-    objectids = ("OBJECTID", "OBJECTID_1", "OBJECTID_12")
-    shapes = ("SHAPE", "Shape", "Shape_Area", "Shape_Length")
-    keep = objectids + shapes
-
-    # Remove all other fields from the perimeter feature
-    fields = arcpy.ListFields(perimeter)
-    for field in fields:
-        name = field.name
-        if name not in keep:
-            acrpy.management.DeleteField(perimeter, name)
-
-    # Add a field for the fire perimeter ID
-    id = perimeter_ID_field_name
-    arcpy.management.AddField(perimeter, id, "SHORT")
-
-    # Merge the perimeter
-    with arcpy.da.UpdateCursor(perimeter, id) as cursor:
-        for row in cursor:
-            row[0] = 1
-            cursor.updateRow(row)
-    arcpy.management.Dissolve(perimeter, dissolved, id)
-
-    # Get the centroid of the perimeter
+    # Dissolve (merge) polygons into a single fire-perimeter polygon. Get the
+    # centroid of this polygon
+    arcpy.management.Dissolve(perimeter, dissolved)
     arcpy.management.FeatureToPoint(dissolved, centroid)
 
-    # Project the centroid into UTM and return the zone
+    # Project the centroid to UTM. Identify the zone it's in
     arcpy.management.Project(centroid, centroid, utm)
-    arcpy.analysis.Identify(centroid, utm, zone)
-    zone = arcpy.da.TableToNumPyArray(zone, "ZONE")
-    zone = zone[0][0]   # ??????? Is this necessary
+    arcpy.analysis.Identity(centroid, utm, zone)
+
+    # Return zone as an int
+    zones = arcpy.da.TableToNumPyArray(zone, "ZONE")
+    zone = zones["ZONE"][0]
     return int(zone)
 
 def extent(perimeter, perimeter_nad83, box, utmzone, box_raster, cellsize):
