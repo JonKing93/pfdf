@@ -124,3 +124,26 @@ def extent(perimeter, perimeter_nad83, box, utmzone, box_raster, cellsize):
     arcpy.management.Project(box, box, utmzone)
     arcpy.conversion.PolygonToRaster(box, field, box_raster, 'CELL_CENTER', cellsize=cellsize)
     
+def demlist(dem, box, box_dem, dem_layer, tiles):
+    """
+    """
+
+    # Project the extent box into the projection used by the DEM
+    projection = arcpy.Describe(dem).SpatialReference
+    arcpy.Project(box, box_dem, projection)
+
+    # Create a layer where the DEM intersects the extent box.
+    arcpy.management.MakeFeatureLayer(dem, dem_layer)
+    arcpy.management.SelectLayerByLocation(dem_layer, "INTERSECT", box_dem)
+
+    # ??? tiles? Get a list of DEM tiles
+    arcpy.management.CopyFeatures(dem_layer, firedem)
+    firedem = arcpy.da.TableToNumPyArray(firedem, "FILE_ID")
+    firedem = firedem['FILE_ID']
+    
+
+
+
+
+
+

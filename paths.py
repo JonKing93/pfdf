@@ -14,9 +14,13 @@ arcpy_scratch  = output + "arcpy_scratch/"
 scratch        = output + "scratch/"
 kernel         = output + "kernel/"
 
-# Inputs
-perimeter = fire_input + "col2022_perim_feat"
+# Fire-independent inputs
 utm = input + "ProjectionData.gdb/UTMZones_Feat_GCS_WGS84"
+dem = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
+
+# Fire-dependent inputs
+perimeter = fire_input + "col2022_perim_feat"
+firedem = fire_input + "col2022_dem"
 
 # UTM Zone outputs
 dissolved = arcpy_scratch + "col2022_perim_dissolve"
@@ -27,6 +31,11 @@ zone = arcpy_scatch + "col2022_perim_centroid_utmzone"
 perimeter_nad83 = arcpy_scratch + "col2022_perim_feat_nad83"
 box_feature = output + "col2022_extent_feature"
 box_raster = output + "col2022_extent_raster"
+
+# DEM extraction outputs
+box_dem = arcpy_scratch + "col2022_extent_dem_ref_feat"
+dem_layer = arcpy_scratch + "NED_Tile_Reference_1deg_10m_extent_dem_ref_feat"
+
 
 
 

@@ -85,6 +85,15 @@ utm_reference = utm_describe.SpatialReference
 notify.rectangle()
 calculate.extent(paths.perimeter, paths.perimeter_nad83, paths.box_feature,
                 utm_reference, paths.box_feature, paths.box_raster, parameters.cellsize)
+
+# Check for a DEM for the fire. Extract one if it does not exist
+if arcpy.Exists(paths.firedem):
+    notify.dem(exists=True)
+else:
+    notify.dem(exists=False)
+    calculate.dem()
+
+
                  
                  
 
