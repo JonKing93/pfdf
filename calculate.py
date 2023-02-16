@@ -82,11 +82,11 @@ def extent(perimeter, bounds, buffered, buffer, raster, cellsize)
     # Export to raster
     arcpy.conversion.PolygonToRaster(extentbox, 'OBJECTID', raster, 'CELL_CENTER', cellsize=cellsize)
 
-def demtiles(extent, dem, projected, intersect, firedem)
+def firetiles(extent, demtiles, projected, intersect, firetiles)
     """
-    calculate.demtiles  Return the list of DEM tiles that contain the fire area
+    calculate.firetiles  Return the list of DEM tiles that contain the fire area
     ----------
-    tiles = calculate.demtiles(extent, dem, projected, intersect, firedem)
+    tiles = calculate.firetiles(extent, demtiles, projected, intersect, firetiles)
     Determines the DEM tiles that contain the fire area and returns the File IDs
     of those tiles as a list. Begins by projecting the fire extent box into the
     same projection as the DEM tiles index. Then, groups the DEM tiles that
@@ -96,13 +96,13 @@ def demtiles(extent, dem, projected, intersect, firedem)
     Inputs:
         extent (str): The path to the input arcpy feature holding the extent box
             of the fire perimeter
-        dem (str): The path to the input arcpy feature holding the polygon tiles
+        demtiles (str): The path to the input arcpy feature holding the polygon tiles
             of the DEM
         projected (str): The path to the output arcpy feature holding the extent
             box projected into the same system as the DEM
         intersect (str): The path to the output arcpy layer selecting the DEM
             tiles that overlap with the extent box
-        firedem (str): The path to the output arcpy feature holding the DEM
+        firetiles (str): The path to the output arcpy feature holding the DEM
             tiles that contain the fire extent box
 
     Outputs:
@@ -114,30 +114,45 @@ def demtiles(extent, dem, projected, intersect, firedem)
     """
 
     # Project the extent box into the projection used by the DEM
-    projection = arcpy.Describe(dem).spatialReference
+    projection = arcpy.Describe(demtiles).spatialReference
     arcpy.management.Project(extent, projected, projection)
     extent = projected
 
     # Get the DEM tiles that include the extent box
-    arcpy.management.MakeFeatureLayer(dem, intersect)
+    arcpy.management.MakeFeatureLayer(demtiles, intersect)
     arcpy.management.SelectLayerByLocation(intersect, "INTERSECT", extent)
-    arcpy.management.CopyFeatures(intersect, firedem)
+    arcpy.management.CopyFeatures(intersect, firetiles)
 
     # Return the files with the DEM data needed to model the fire area
-    demfiles = arcpy.da.TableToNumPyArray(firedem, 'FILE_ID')
+    demfiles = arcpy.da.TableToNumPyArray(firetiles, 'FILE_ID')
     demfiles = demfiles['FILE_ID'].tolist()
     return demfiles
 
-def mosaic(tiles, mosaic):
+def mosaic(rasters, mosaic):
     """
     calculate.mosaic  Creates a mosaic of raster datasets
+    ----------
+    calculate.mosaic(rasters, mosaic)
+    Merges a set of rasters into a single raster (also known as a mosaic).
+    Creates a new arcpy raster holding the final mosaic.
+    ----------
+    Inputs:
+        rasters (str list): A list of paths to the input rasters that should be 
+            merged into a mosaic.
+        mosaic (str): The path to the output raster mosaic
+
+    Saves:
+        A file matching the name of the mosaic input.
     """
 
-    for t in range(0, len(tiles)):
-        if t==0:
-            arcpy.management.Copy(tiles[t], mosaic)
+    for r in range(0, len(rasters)):
+        if r==0:
+            arcpy.management.Copy(rasters[r], mosaic)
         else:
-            arcpy.management.Copy(tiles[t], mosaic)
+            arcpy.management.Mosaic(rasters[r], mosaic)
+
+            
+
 
 
 

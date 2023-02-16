@@ -20,7 +20,7 @@ def processing(fire):
 def calculating_extent():
     print('     Calculating Relevant Extent Data....')
 
-def zone(zone):
+def utmzone(utmzone):
     print(f"         Burn Area Located in UTM Zone {zone}...")
 
 def rectangle():
@@ -34,11 +34,12 @@ def dem(*, exists):
     else:
         print('     Extracting DEM Data...')
 
-def ndems(demlist):
-    ndems = len(demlist)
-    print(f"     Burn area intersects {ndems} DEM Tile(s)...")
+def tiles(tiles):
+    ndems = len(tiles)
+    print(f"     Burn area intersects {ndems} DEM Tile(s)")
+    print(f"     Processing DEM tiles...")
 
-def tile(tile):
-    print(f"         Processing DEM Tile: {tile}")
+def projecting():
+        print('         Projecting DEM Data to UTM...')
 
 

@@ -13,37 +13,34 @@ log = output + "log.txt"
 fire_input = input + "col2022_df_input.gdb/"
 scratch = output + "scratch.gdb/"
 
-# Fire-independent inputs
-utm = input + "ProjectionData.gdb/UTMZones_Feat_GCS_WGS84"
-demtiles = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
-demdata = input + "DEM_data"
-
-# Fire-dependent inputs
+# Perimeter
 perimeter = fire_input + "col2022_perim_feat"
-firedem = fire_input + "col2022_dem"
 
-# UTM Zone outputs
-dissolved = scratch + "dissolved"
-centroid = scratch + "centroid"
+# UTM zone
+utm          = input + "ProjectionData.gdb/UTMZones_Feat_GCS_WGS84"
+dissolved    = scratch + "dissolved"
+centroid     = scratch + "centroid"
 centroid_utm = scratch + "centroid_utm"
-zone = scratch + "zone"
+zone         = scratch + "zone"
 
-# Extent box outputs
-bounds = scratch + "bounds"
-extent_feature = "extent_feature"
-extent_raster = "extent_raster"
+# Extent box
+bounds         = scratch + "bounds"
+extent_feature = output + "extent_feature"
+extent_raster  = output + "extent_raster"
+
+# DEM
+firedem_existing = fire_input + "col2022_dem"
+reference_tiles  = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
+demdata          = input + "DEM_data"
+
+projected   = scratch + "projected"
+intersect   = scratch + "intersect"
+firetiles   = scratch + "firetiles"
+mosaic      = scratch + "mosaic"
+firedem     = output + "firedem"
 
 
 
-
-
-perimeter_nad83 = arcpy_scratch + "col2022_perim_feat_nad83"
-box_feature = output + "col2022_extent_feature"
-box_raster = output + "col2022_extent_raster"
-
-# DEM extraction outputs
-box_dem = arcpy_scratch + "col2022_extent_dem_ref_feat"
-dem_layer = arcpy_scratch + "NED_Tile_Reference_1deg_10m_extent_dem_ref_feat"
 
 
 

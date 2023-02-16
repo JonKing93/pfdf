@@ -72,31 +72,31 @@ arcpy.env.scratchWorkspace = paths.arcpy_scratch
 # CALCULATIONS
 
 # Get UTM zone of the centroid of the fire perimeter
-zone = calculate.utmzone(paths.perimeter, paths.utm, paths.dissolved,
+utmzone = calculate.utmzone(paths.perimeter, paths.utm, paths.dissolved,
                          paths.centroid, paths.centroid_utm, paths.zone)
 
 # Notify console. Get the spatial reference for the zone
-notify.zone(zone)
-zone = os.path.join(paths.projection, f"UTMZone_{zone}_Perim_Feat")
-zone = arcpy.Describe(zone).spatialReference
+notify.utmzone(utmzone)
+utmzone = os.path.join(paths.projection, f"UTMZone_{utmzone}_Perim_Feat")
+utmzone = arcpy.Describe(utmzone).spatialReference
 
 # Calculate the box of extent
 notify.rectangle()
 calculate.extent(paths.perimeter, paths.bounds, paths.extent_feature, 
                  parameters.extent_buffer, paths.extent_raster, parameters.cellsize)
 
-# Check for DEM data for the fire.
-if arcpy.Exists(paths.firedem):
+# Check for DEM data for the fire. Build it if it does not exist
+if arcpy.Exists(paths.firedem_existing):
     notify.dem(exists=True)
 
-# Extract DEM data if it does not exist. Identify the DEM tiles in the fire
+# Extract DEM data if it does not exist. Identify the DEM tiles in the fire area
 else:
     notify.dem(exists=False)
-    tiles = calculate.demtiles(paths.extent_feature, paths.demtiles, paths.projected,
-                              paths.intersect, paths.firedem)
-    notify.ndems(tiles)
+    tiles = calculate.firetiles(paths.extent_feature, paths.reference_tiles,
+                               paths.projected, paths.intersect, paths.firetiles)
+    notify.tiles(tiles)
 
-    # Get the folders holding the DEM tiles
+    # Get the folders holding the DEM tiles for the fire area
     demfolders = []
     for tile in tiles:
         folder = f"grd{tile}_13"
@@ -104,58 +104,17 @@ else:
         demfolders.append(path)
 
     # Create a raster mosaic from the DEM tiles
-    calculate.mosaic(demfolders, paths.)
+    calculate.mosaic(demfolders, paths.mosaic)
 
-        notify.tile(tile)
-
-        # Get the folder holding the DEM data
-        folder = 
-        folder = os.path.join(paths.demdata, tile, folder)
-        
-        # Load each tile and add it to a raster mosaic
+    # Project the raster into the UTM zone
+    notify.projecting()
+    arcpy.management.ProjectRaster(paths.mosaic, paths.firedem, utmzone, 
+                                   'BILINEAR', parameters.cellsize)
 
 
 
 
-                 
-                 
-
-
-
-
-# EXTRACT DEM~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    # IDENTIFY DEM TILES
-
-
-
-
-        for dem_tile in dem_list:
-
-            dem_index = dem_list.index(dem_tile)
-
-            dem_tile_name = str(dem_tile)
-
-            temp_dem_name = i+'_dem_temp'
-            temp_dem = os.path.join(temp_gdb,temp_dem_name)
-
-            print('         Processing DEM Tile = '+dem_tile_name+'...')
-
-            raw_dem_name = 'grd'+dem_tile_name+'_13'
-
-            dem_dir = os.path.join(server_dir,'NED_10m',dem_tile_name)
-
-            in_dem_tile = os.path.join(dem_dir,raw_dem_name)
-            out_dem_tile = os.path.join(temp_gdb,dem_tile_name)
-
-            if dem_index == 0:
-                arcpy.Copy_management(in_dem_tile,temp_dem)
-            else:
-                arcpy.Mosaic_management(in_dem_tile,temp_dem)
-
-        print('         Projecting DEM Data...')
-
-        arcpy.ProjectRaster_management(temp_dem,dem,utm_spatial_ref,'BILINEAR',10,'','')
+# --------------------
 
     if arcpy.Exists(db_feat):
         print('     Debris Basins Found...')
