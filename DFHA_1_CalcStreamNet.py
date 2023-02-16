@@ -85,7 +85,7 @@ notify.rectangle()
 calculate.extent(paths.perimeter, paths.bounds, paths.extent_feature, 
                  parameters.extent_buffer, paths.extent_raster, parameters.cellsize)
 
-# Check for DEM data for the fire. Build it if it does not exist
+# Check for DEM data for the fire
 if arcpy.Exists(paths.firedem_existing):
     notify.dem(exists=True)
 
@@ -111,7 +111,9 @@ else:
     arcpy.management.ProjectRaster(paths.mosaic, paths.firedem, utmzone, 
                                    'BILINEAR', parameters.cellsize)
 
-
+# Check for debris basins
+if arcpy.Exists(paths.basins_existing):
+    
 
 
 # --------------------

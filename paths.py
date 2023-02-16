@@ -28,7 +28,7 @@ bounds         = scratch + "bounds"
 extent_feature = output + "extent_feature"
 extent_raster  = output + "extent_raster"
 
-# DEM
+# DEM (Digital elevation model)
 firedem_existing = fire_input + "col2022_dem"
 reference_tiles  = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
 demdata          = input + "DEM_data"
@@ -38,6 +38,9 @@ intersect   = scratch + "intersect"
 firetiles   = scratch + "firetiles"
 mosaic      = scratch + "mosaic"
 firedem     = output + "firedem"
+
+# Debris basins
+basins_existing = fire_input + "col2022_db_feat"
 
 
 
@@ -57,26 +60,14 @@ landfire   = input + "LandFire_SAF_SRM.gdb"
 mtbs       = input + "DFHA/MTBS_Data.gdb"
 soils      = input + "STATSGO_Soils.gdb"
 projection = input + "ProjectionData.gdb"
-dem        = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
 
 # Fire-dependent inputs
-firedem        = firein + "/col2022_dem"
 sev        = firein + "/col2022_sev"
 dnbr       = firein + "/col2022_dnbr"
-db_feat    = firein + "/col2022_db_feat"
-
-# Log
-
 
 
 # Output geodatabases
-firein         = output + "df_input"
 modelcalcs     = output + "dfestimates_utm"
 modelcalcs_web = output + "dfestimates_wgs84"
 symbology      = output + "Symbology"  
 
-# Zone outputs
-
-# DEM Extraction
-dem_extent = arcpy_scatch + "/col2022_extent_dem_ref_feat"
-dem_layer = arcpy_scratch + "/"
