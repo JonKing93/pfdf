@@ -15,7 +15,8 @@ scratch = output + "scratch.gdb/"
 
 # Fire-independent inputs
 utm = input + "ProjectionData.gdb/UTMZones_Feat_GCS_WGS84"
-dem = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
+demtiles = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
+demdata = input + "DEM_data"
 
 # Fire-dependent inputs
 perimeter = fire_input + "col2022_perim_feat"
@@ -28,6 +29,14 @@ centroid_utm = scratch + "centroid_utm"
 zone = scratch + "zone"
 
 # Extent box outputs
+bounds = scratch + "bounds"
+extent_feature = "extent_feature"
+extent_raster = "extent_raster"
+
+
+
+
+
 perimeter_nad83 = arcpy_scratch + "col2022_perim_feat_nad83"
 box_feature = output + "col2022_extent_feature"
 box_raster = output + "col2022_extent_raster"

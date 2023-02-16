@@ -10,6 +10,9 @@ evt_version = 140                       # ???
 mtbs_perim_distance_km = 50             # ???
 prefire_percentile_list = [0.5, 0.84]    # The percentiles to compute
 
+# Extent box
+extent_buffer = 0.02
+
 # Options for designing network basins
 min_basin_size_km2 = 0.025   # Minimum basin size
 max_basin_size_km2 = 8.0     # Maximum basin size

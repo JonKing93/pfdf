@@ -82,30 +82,45 @@ zone = arcpy.Describe(zone).spatialReference
 
 # Calculate the box of extent
 notify.rectangle()
-calculate.extent(paths.perimeter, paths.perimeter_nad83, paths.box_feature,
-                utm_reference, paths.box_feature, paths.box_raster, parameters.cellsize)
+calculate.extent(paths.perimeter, paths.bounds, paths.extent_feature, 
+                 parameters.extent_buffer, paths.extent_raster, parameters.cellsize)
 
-# Check for a DEM for the fire. Extract one if it does not exist
+# Check for DEM data for the fire.
 if arcpy.Exists(paths.firedem):
     notify.dem(exists=True)
+
+# Extract DEM data if it does not exist. Identify the DEM tiles in the fire
 else:
     notify.dem(exists=False)
-    calculate.dem(paths.perimeter, )
+    tiles = calculate.demtiles(paths.extent_feature, paths.demtiles, paths.projected,
+                              paths.intersect, paths.firedem)
+    notify.ndems(tiles)
+
+    # Get the folders holding the DEM tiles
+    demfolders = []
+    for tile in tiles:
+        folder = f"grd{tile}_13"
+        path = os.path.join(paths.demdata, tile, folder)
+        demfolders.append(path)
+
+    # Create a raster mosaic from the DEM tiles
+    calculate.mosaic(demfolders, paths.)
+
+        notify.tile(tile)
+
+        # Get the folder holding the DEM data
+        folder = 
+        folder = os.path.join(paths.demdata, tile, folder)
+        
+        # Load each tile and add it to a raster mosaic
+
+
 
 
                  
                  
 
 
-
-
-
-# Extract the DEM if it does not exist
-if arcpy.Exists(paths.firedem):
-    notify.dem(exist=True)
-else:
-    notify.dem(exist=False)
-    dem.extract(paths.dem, paths.demextent)
 
 
 # EXTRACT DEM~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -114,33 +129,6 @@ else:
 
 
 
-
-        arcpy.Project_management(extentbox_feat,extentbox_dem_ref_feat,dem_ref_sr)
-
-        dem_ref_layer = os.path.join(temp_gdb,dem_ref_feat_name+'.lyr')
-
-        extent_demtiles_feat_name = i+'_extent_demtiles_feat'
-        extent_demtiles_feat = os.path.join(temp_gdb,extent_demtiles_feat_name)
-
-        arcpy.MakeFeatureLayer_management(dem_ref_feat,dem_ref_layer)
-        arcpy.SelectLayerByLocation_management(dem_ref_layer, "INTERSECT",extentbox_dem_ref_feat,'','NEW_SELECTION')
-        arcpy.CopyFeatures_management(dem_ref_layer,extent_demtiles_feat)
-
-        dem_array_import = arcpy.da.TableToNumPyArray(extent_demtiles_feat, ('FILE_ID'))
-
-        ndems = len(dem_array_import)
-
-        dem_array = dem_array_import['FILE_ID']
-
-        dem_list_import = dem_array.tolist()
-
-        dem_list = []
-
-        for dem_string in dem_list_import:
-            dem_string2 = str(dem_string)
-            dem_list.append(dem_string2)
-
-        print('     Burn area intersects '+str(ndems)+' DEM Tile(s)...')
 
         for dem_tile in dem_list:
 

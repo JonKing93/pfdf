@@ -1,6 +1,5 @@
 import arcpy
 
-perimeter_ID_name = "Perimeter_ID"
 extent_code_field_name = "Extent_Code"
 
 
@@ -33,7 +32,7 @@ def utmzone(perimeter, utm, dissolved, centroid, centroid_utm, zone):
         zone (int): The UTM zone of the centroid of the fire perimeter
 
     Saves:
-        Files matching the paths of the dissolved, centroid, and zone inputs.
+        Files matching names of the dissolved, centroid, and zone inputs.
     """
 
     # Dissolve (merge) polygons into a single fire-perimeter polygon. Get the
@@ -41,7 +40,8 @@ def utmzone(perimeter, utm, dissolved, centroid, centroid_utm, zone):
     arcpy.management.Dissolve(perimeter, dissolved)
     arcpy.management.FeatureToPoint(dissolved, centroid)
 
-    # Project the centroid to UTM and find the overlapping UTM zone polygon
+    # Project the centroid into the same ... as the UTM polygons. Then determine
+    # the UTM zone polygon that contains the centroid.
     arcpy.management.Project(centroid, centroid_utm, utm)
     arcpy.analysis.Identity(centroid, utm, zone)
 
@@ -50,78 +50,100 @@ def utmzone(perimeter, utm, dissolved, centroid, centroid_utm, zone):
     zone = zones["ZONE"][0]
     return int(zone)
 
-def extent(perimeter, perimeter_nad83, box, utmzone, box_raster, cellsize):
+def extent(perimeter, bounds, buffered, buffer, raster, cellsize)
     """
-    calculate.extent  Calculates the box of extent for the fire perimeter
+    calculate.extent  Returns an extent box for the fire perimeter as a raster.
     ----------
-    calculate.extent(perimeter, perimeter_nad83, box, utmzone, box_raster, cellsize)
-    Finds a rectangular bounding box of minimum area to surround the fire
-    perimeter. Adds a buffer so the fire perimeter is not on the very edge of
-    the extent box. Converts the extent box to a raster in a UTM projection.
+    calculate.extent(perimeter, bounds, buffered, buffer, raster, cellsize)
+    Finds a rectangular bounding box of minimum area that surrounds the fire
+    perimeters. Adds a buffer so the fire perimeter is not on the very edge of
+    the extent box, then converts the box to a raster.
     ----------
     Inputs:
-        perimeter (str): The path to the arcpy Feature holding the fire perimeter
-        perimeter_nad83 (str): The path to the arcpy Feature in which to output 
-            the fire perimeter projected into the NAD83 coordinate system.
-        box (str): The path to the arcpy Feature in which to output the UTM
-            projected extent box.
-        utmzone (str): The SpatialReference field of the UTM zone 
-        box_raster (str): The path to the file in which to save the raster
-            version of the extent box.
-        cellsize (float): The resolution (in meters) to use when converting to raster.
+        perimeter (str): The path to the input arcpy feature holding the fire perimeter
+        bounds (str): The path to the output arcpy feature holding the minimum
+            bounding box for the fire perimeter.
+        buffered (str): The path to the output arcpy feature holding the
+            buffered bounding box
+        buffer (positive float): The size of the buffer to apply to the extent box.
+        raster (str): The path to the output arcpy raster for the extent box.
+        cellsize (float): The resolution (in meters) to use when converting the
+            extent box to a raster.
 
     Saves:
-        Files matching the names of the perimeter_nad83, box, and box_raster inputs 
+        Files matching the names of the bounds, buffered, and raster inputs.
     """
 
-    # Project the fire perimeter into GCS North American 1983 (NAD83)
-    if arcpy.Describe(perimeter).SpatialReference == 'GCS_North_American_1983':
-        arcpy.management.CopyFeatures(perimeter, perimeter_nad83)
-    else:
-        arcpy.management.Project(perimeter, perimeter_nad83,
-              "GEOGCS['GCS_North_American_1983',"
-            + "DATUM['D_North_American_1983',"
-            + "SPHEROID['GRS_1980',6378137.0,298.257222101]],"
-            + "PRIMEM['Greenwich',0.0],"
-            + "UNIT['Degree',0.0174532925199433]]"
-        )
+    # Get a rectangular bounding box (extent box) that contains the fire
+    # perimeter. Buffer the edges so the perimeter is not on the very edge.
+    arcpy.management.MinimumBoundingGeometry(perimeter, bounds, 'RECTANGLE_BY_AREA')
+    arcpy.analysis.Buffer(bounds, extentbox, buffer)
 
-    # Get a rectangular bounding box that contains the fire perimeter. Place a 
-    # buffer around the edges so the fire perimeter is not on the very edge
-    arcpy.management.MinimumBoundingGeometry(perimeter_nad83, box, 'RECTANGLE_BY_AREA', 'ALL')
-    arcpy.analysis.Buffer(box, box, 0.02)
+    # Export to raster
+    arcpy.conversion.PolygonToRaster(extentbox, 'OBJECTID', raster, 'CELL_CENTER', cellsize=cellsize)
 
-    # Add a field for the fire extent
-    field = extent_code_field_name
-    arcpy.management.AddField(box, field, "SHORT")
-
-    # ??????????
-    with arcpy.da.UpdateCursor(box, field) as cursor:
-        for row in cursor:
-            row[0] = 1
-            cursor.updateRow(row)
-
-    # Project the extent box back into UTM. Convert to raster
-    arcpy.management.Project(box, box, utmzone)
-    arcpy.conversion.PolygonToRaster(box, field, box_raster, 'CELL_CENTER', cellsize=cellsize)
-    
-def demlist(dem, box, box_dem, dem_layer, tiles):
+def demtiles(extent, dem, projected, intersect, firedem)
     """
+    calculate.demtiles  Return the list of DEM tiles that contain the fire area
+    ----------
+    tiles = calculate.demtiles(extent, dem, projected, intersect, firedem)
+    Determines the DEM tiles that contain the fire area and returns the File IDs
+    of those tiles as a list. Begins by projecting the fire extent box into the
+    same projection as the DEM tiles index. Then, groups the DEM tiles that
+    intersect the extent box into a layer, and exports the layer to a new
+    feature. Returns the file IDs of the tiles in this feature as a list.
+    ----------
+    Inputs:
+        extent (str): The path to the input arcpy feature holding the extent box
+            of the fire perimeter
+        dem (str): The path to the input arcpy feature holding the polygon tiles
+            of the DEM
+        projected (str): The path to the output arcpy feature holding the extent
+            box projected into the same system as the DEM
+        intersect (str): The path to the output arcpy layer selecting the DEM
+            tiles that overlap with the extent box
+        firedem (str): The path to the output arcpy feature holding the DEM
+            tiles that contain the fire extent box
+
+    Outputs:
+        tiles (str list): A list of File IDs for the DEM tiles that contain the
+            fire area.
+
+    Saves:
+        Files matching the names of the projected, intersect, and firedem inputs
     """
 
     # Project the extent box into the projection used by the DEM
-    projection = arcpy.Describe(dem).SpatialReference
-    arcpy.Project(box, box_dem, projection)
+    projection = arcpy.Describe(dem).spatialReference
+    arcpy.management.Project(extent, projected, projection)
+    extent = projected
 
-    # Create a layer where the DEM intersects the extent box.
-    arcpy.management.MakeFeatureLayer(dem, dem_layer)
-    arcpy.management.SelectLayerByLocation(dem_layer, "INTERSECT", box_dem)
+    # Get the DEM tiles that include the extent box
+    arcpy.management.MakeFeatureLayer(dem, intersect)
+    arcpy.management.SelectLayerByLocation(intersect, "INTERSECT", extent)
+    arcpy.management.CopyFeatures(intersect, firedem)
 
-    # ??? tiles? Get a list of DEM tiles
-    arcpy.management.CopyFeatures(dem_layer, firedem)
-    firedem = arcpy.da.TableToNumPyArray(firedem, "FILE_ID")
-    firedem = firedem['FILE_ID']
-    
+    # Return the files with the DEM data needed to model the fire area
+    demfiles = arcpy.da.TableToNumPyArray(firedem, 'FILE_ID')
+    demfiles = demfiles['FILE_ID'].tolist()
+    return demfiles
+
+def mosaic(tiles, mosaic):
+    """
+    calculate.mosaic  Creates a mosaic of raster datasets
+    """
+
+    for t in range(0, len(tiles)):
+        if t==0:
+            arcpy.management.Copy(tiles[t], mosaic)
+        else:
+            arcpy.management.Copy(tiles[t], mosaic)
+
+
+
+
+
+
 
 
 

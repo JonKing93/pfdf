@@ -33,3 +33,12 @@ def dem(*, exists):
         print('     DEM Exists, Skipping NED Extraction...')
     else:
         print('     Extracting DEM Data...')
+
+def ndems(demlist):
+    ndems = len(demlist)
+    print(f"     Burn area intersects {ndems} DEM Tile(s)...")
+
+def tile(tile):
+    print(f"         Processing DEM Tile: {tile}")
+
+
