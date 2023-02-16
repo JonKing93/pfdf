@@ -1,16 +1,8 @@
-# This step of the code seems to implement the algorithm that determines the
-# stream network.
-
-# This is a test edit.
-
-### SETUP
-# Initial tasks before running anything
-
-# Notify console of the current step
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 print("Post-Fire Debris-Flow Hazard Assessment: Step 1 - Estimate Modeled Stream Network")
 print("Importing Modules...")
 
-# Import modules
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 import time
 import arcpy
 import os
@@ -28,90 +20,81 @@ import datetime
 import calendar
 import shutil
 import sys
-from contextlib import contextmanager
-import sys, os
 
-# Set up arcpy.
+
 arcpy.CheckOutExtension('3D')
 arcpy.CheckOutExtension('spatial')
 workingdir = os.getcwd()
 env.workspace = workingdir
+
 arcpy.env.overwriteOutput = True
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+#fire_list = ['T32117E1','T33115A1','T33115E1','T33116A1','T33116E1','T33117A1','T33117E1','T33118E1','T34115A1','T34116A1','T34117A1','T34118E1','T34119A1','T34119E1','T34120A1','T34120E1','T32115E1','T32116E1']
+#fire_list = ['T33116E1','T33115E1','T33116A1','T33115A1','T32116E1','T32115E1','T34119A1']
+fire_list = ['col'] #3 letter abbreviation
+state_list =['CA'] #State abbreviation
+fireyear_list = ['2022'] #fire start year
 
+#fire_name_list = ['T32117E1','T33115A1','T33115E1','T33116A1','T33116E1','T33117A1','T33117E1','T33118E1','T34115A1','T34116A1','T34117A1','T34118E1','T34119A1','T34119E1','T34120A1','T34120E1','T32115E1','T32116E1']
+fire_name_list = ['Colorado'] #Full fire name (e.g. Station, or CZU Complex)
+fire_location_list = ['Monterey County, CA'] # Location, State (e.g. Angeles National Forest, CA) See main webpage for examples of formatting
+fire_start_date_list = ['January 21, 2022'] #Full date of initiation in MM DD, YYYY format
 
-### PARAMETERS
-# Set various input parameters for the script
-
-# string metadata for the fire
-fire_name_list = ['Colorado']                 # Full fire name
-fire_list = ['col']                           # 3 letter abbreviation
-state_list =['CA']                            # State abbreviation
-fire_location_list = ['Monterey County, CA']  # Location, State  (See main webpage for examples of formatting)
-fire_start_date_list = ['January 21, 2022']   # Full start date -- MM DD, YYYY format
-fireyear_list = ['2022']                      # fire start year
-
-# The drive that holds the input datasets
 server_root = 'P:\\'
 
-# Pre-fire assessment parameters
-pre_fire = 'NO'   # Change to 'YES' to implement a pre-fire assessment
+pre_fire = 'NO'
+#pre_fire = 'YES'
+
 if pre_fire == 'YES':
-    evt_version = 140                        # ??? Unknown
-    mtbs_perim_distance_km = 50              # ??? Unknown
-    prefire_percentile_list = [0.5, 0.84]    # The percentiles to compute
+    evt_version = 140
+    mtbs_perim_distance_km = 50
+    prefire_percentile_list = [0.5, 0.84]
 
-# Output options. Options are 'YES' and 'NO'
-perim_check = 'YES'               # Prevent from overwriting an existing run on the server
-make_webtext = 'YES'              # Prepare output for the web app
-make_booktext= 'YES'              # ??? Perhaps for PDF Output
-log_modelrun = 'YES'              # Create a logfile for the run
-logfile_name = 'DFModel_Log.txt'  # Name of the log file
+#CHECK FOR DUPLICATE PERIMETER ID ON SERVER?
+perim_check = 'YES' #DEFAULT
+#perim_check = 'NO'
 
-# Algorithm Options
-segment_guess = 'PERIM'  # ??? Unknown. Options are 'PERIM' and 'NO_PERIM'
-barc_threshold = 'CALC'  # ??? Unknown. Options are 'CALC' and 'DEFINED'
-                         # Original notes say that you should only use 'DEFINED'
-                         # if you have DNBR but no SBS or BARC4, and that the option
-                         # has not been tested on recent versions of ArcGIS
-                         # (so this option may be defunct)
+make_webtext = 'YES' #DEFAULT
+#make_webtext = 'NO'
 
-# Options for designing network basins
-min_basin_size_km2 = 0.025   # Minimum basin size
-max_basin_size_km2 = 8.0     # Maximum basin size
-cell_res = 10.0              # ??? something about resolution. Perhaps 10 meters of topography file?
-burn_acc_threshold = 100     # ??? Original comment is: n_pixels
+make_booktext= 'YES' #DEFAULT
+#make_booktext = 'NO'
 
-# Maximum segment length is based on an algorithm option
+log_modelrun = 'YES' #DEFAULT
+#log_modelrun = 'NO'
+
+#segment_guess = 'NO_PERIM'
+segment_guess = 'PERIM' #DEFAULT
+
+#barc_threshold = 'DEFINED' #USE ONLY IF YOU HAVE DNBR BUT NO SBS OR BARC4!!!! This has not been tested on recent versions of arcgis.
+barc_threshold = 'CALC' #DEFAULT
+
+min_basin_size_km2 = 0.025
+max_basin_size_km2 = 8.0
+cell_res = 10.0
+burn_acc_threshold = 100 # n_pixels
 if segment_guess == 'PERIM':
     max_segment_length_m = 200
 else:
     max_segment_length_m = 500
-
-# Thresholds for triggering debris-flow
-confine_threshold_degree = 174  # ??? Perhaps a limit of topographic slope
-slope_threshold_pct = 12        # ??? Perhaps related to topographic slope
-pct_burn_threshold = 0.25       # ???
-perim_buffer_dist_m = 500       # ???
-
-# ??? Sum threshold parameters. Unknown what these are
+confine_threshold_degree = 174
+slope_threshold_pct = 12
+pct_burn_threshold = 0.25
+perim_buffer_dist_m = 500
 if segment_guess == 'PERIM':
     dev_sum_threshold = 250
 else:
     dev_sum_threshold = 250
 db_sum_threshold = 1
 
-# Location of data inputs and processing scripts
-# Note: We should probably make separate settings for these
+
 server_dir = os.path.join(server_root,'DF_Assessment_GeneralData')
 script_dir = os.path.join(server_root,'Scripts')
 
-# ??? Need to research what acc is
 min_acc = (min_basin_size_km2 * 1000000) / (cell_res * cell_res)
 max_acc = (max_basin_size_km2 * 1000000) / (cell_res * cell_res)
 
-# ??? Unknown
-# This may be a step to initialize a set of lists
 soil_warn_list = []
 fire_watch_list = []
 fire_name_list_all = []
@@ -120,89 +103,25 @@ fire_start_date_list_all = []
 fire_statename_list = []
 fire_state_name_list_all = []
 
-# Set the dNBR thresholds for the 4-step BARC classification
 dnbr_unburned = 25
 dnbr_low = 125
 dnbr_mod = 250
 dnbr_high = 500
 
-# Fire-independent geodatabase file names
-evt_gdb_name = 'LandFire_EVT.gdb'
-landfire_gdb_name = 'LandFire_SAF_SRM.gdb'
-mtbs_gdb_name = 'MTBS_Data.gdb'
-soils_gdb_name = 'STATSGO_Soils.gdb'
-projection_gdb_name = 'ProjectionData.gdb'
-
-# Fire-dependent geodatabase tags
-firein_gdb_tag = 'df_input'
-temp_gdb_tag = 'scratch'
-modelcalcs_gdb_tag = 'dfestimates_utm'
-modelcalcs_web_gdb_tag = 'dfestimates_wgs84'
 
 
 
-### GEODATABASE SETUP UTILITIES
-# Functions to help locate and set up geodatabase files
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-
-def locate_geodatabase(fire_tag, gdb_tag, folder_path):
-    """
-    locate_geodatabase  Returns the path to a fire-specific geodatabase
-    ----------
-    path = locate_geodatabase(fire_tag, gdb_tag, folder_path)
-    Returns the path to a fire-specific geodatabase. Creates a file name by appending
-    the fire tag to the geodatabase tag and adding a '.gdb' extension. The full path
-    places this file name within an indicated folder.
-    ----------
-    Inputs:
-        fire_tag (str): The name of the fire. Often includes the fire name and location.
-        gdb_tag (str): A tag describing the geodatabase.
-        folder_path (str): The path to the folder in which to place the file
-
-    Outputs:
-        path (str): The path to the geodatabase file.
-    """
-
-    file_name = geodatabase_name(fire_tag, gdb_tag)
-    path = os.path.join(folder_path, file_name)
-    return (path, file_name)
-
-def create_geodatabase(fire_tag, gdb_tag, folder_path):
-    """
-    create_geodatabase  Creates a fire-specific geodatabase in the indicated folder
-    ----------
-    filepath = create_geodatabase(fire_tag, gdb_tag, folder_path)
-    Creates a fire-specific geodatabase in the indicated folder and returns the 
-    path to the folder. The name of the geodatabase is the fire tag appended to the 
-    geodatabase tag. Checks if a geodatabase matching the name exists in the indicated
-    folder. If not, creates a new geodatabase matching that name in the folder.
-    ----------
-    Inputs:
-        fire_tag (str): The name of the fire. Often includes the fire name and location.
-        gdb_tag (str): A tag describing the geodatabase.
-        folder_path (str): The path to the folder in which to place the file
-
-    Outputs:
-        filepath (str): The path to the geodatabase file
-
-    Creates:
-        A geodatabase file in the indicated folder.
-    """
-
-    filename = geodatabase_name(fire_tag, gdb_tag)
-    filepath = locate_geodatabase(fire_tag, gdb_tag, filename)
-    if not os.path.exists(filepath):
-        arcpy.CreateFileGDB_management(folder_path, filename, "CURRENT")
-    return filepath
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-
-
-### NOTIFICATION UTILITIES
-# A few utilities related to console/log file output
-
-# Define a function to suppress console outut
+# START THE SCRIPT
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from contextlib import contextmanager
+import sys, os
 @contextmanager
 def suppress_stdout():
     with open(os.devnull, "w") as devnull:
@@ -213,38 +132,31 @@ def suppress_stdout():
         finally:
             sys.stdout = old_stdout
 
-# Define a function that writes a message to a log file, along with a timestamp
 def write_log(logfile,id,string):
     targetfile = open(logfile,'a')
 
-    # Format the current time stamp
     log_now = time.gmtime()
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S GMT', log_now)
     zone = 'GMT'
 
-    # Write message and timestamp to file
     log_string = timestamp+','+id+','+string+'\n'
     targetfile.write(log_string)
     targetfile.close()
 
-# Create a logfile if appropriate
 if log_modelrun == 'YES':
+    logfile_name = 'DFModel_Log.txt'
     logfile = os.path.join(workingdir,logfile_name)
-    if not os.path.isfile(logfile):
+
+    if os.path.isfile (logfile):
+        pass
+    else:
         target = open(logfile,'wt')
         target.write('TIMESTAMP,FIRE_ID,Processing_Step_Completed\n')
         target.close()
 
-
-
-### RUN
-# Implement the algorithm to calculate the stream basin networks
-
-# Iterate through fires begin analyzed
 for fire_name in fire_list:
-    i_index = fire_list.index(fire_name)
 
-    # Get metadata strings for the fire
+    i_index = fire_list.index(fire_name)
     state_abbrev = state_list[i_index]
     fire_year = fireyear_list[i_index]
     fire_name_full = fire_name_list[i_index]
@@ -252,57 +164,68 @@ for fire_name in fire_list:
     fire_name_full = str.replace(fire_name_full,' fire','')
     fire_location = fire_location_list[i_index]
     fire_start_date = fire_start_date_list[i_index]
-    fire_tag = fire_name+fire_year
 
-    # Notify console of the fire being processed
-    print('Processing Fire = '+fire_tag+'...')
+    i = fire_name+fire_year
 
-    # Clear saved variables from ArcPy
+    print('Processing Fire = '+i+'...')
+
     arcpy.env.overwriteOutput = True
     arcpy.ClearEnvironment("cellSize")
     arcpy.ClearEnvironment("extent")
     arcpy.ClearEnvironment("snapRaster")
     arcpy.ClearEnvironment("mask")
 
-    # Get strings for the current time
     now = time.gmtime()
+    datetimenow = datetime.datetime.now()
+    year4digit = datetimenow.year
+    monthstr = time.strftime('%m', now)
+    monthint = int(monthstr)
+    month = calendar.month_abbr[monthint]
+
     day = time.strftime('%d', now)
     year = time.strftime('%y', now)
     hour = time.strftime('%H', now)
     minute = time.strftime('%M', now)
     second = time.strftime('%S', now)
-    monthstr = time.strftime('%m', now)
     zone = 'GMT'
 
-    monthint = int(monthstr)
-    month = calendar.month_abbr[monthint]
-    datetimenow = datetime.datetime.now()
-    year4digit = datetimenow.year
-
-    # Notify user of computation start time. Optionally write to log file.
     print(' Processing Started at '+str(hour)+':'+str(minute)+' GMT')
+
     if log_modelrun == 'YES':
         string = 'Start Step 1'
         write_log(logfile,i,string)
 
-    # Locate fire-independent geodatabases
-    evt_gdb        = os.path.join(server_dir, evt_gdb_name)
-    landfire_gdb   = os.path.join(server_dir, landfire_gdb_name)
-    mtbs_gdb       = os.path.join(server_dir, mtbs_gdb_name)
-    soils_gdb      = os.path.join(server_dir, soils_gdb_name)
-    projection_gdb = os.path.join(server_dir, projection_gdb_name)
 
-    # Locate and create fire-dependent geodatabases
-    firein_gdb         = locate_geodatabase(fire_tag, firein_gdb_tag, workingdir)
-    temp_gdb           = create_geodatabase(fire_tag, temp_gdb_tag, workingdir)
-    modelcalcs_gdb     = create_geodatabase(fire_tag, modelcalcs_gdb_tag, workingdir)
-    modelcalcs_web_gdb = create_geodatabase(fire_tag, modelcalcs_web_gdb_tag, workingdir)
+    firein_gdb_name = i+'_df_input.gdb'
+    firein_gdb = os.path.join(workingdir,firein_gdb_name) # Geodatabase Name and Path
 
-    # Set the ArcPy scratch folder
+    temp_gdb_name = i+'_scratch.gdb'
+    temp_gdb = os.path.join(workingdir,temp_gdb_name) # Geodatabase Name and Path
+    if not os.path.exists (temp_gdb): arcpy.CreateFileGDB_management(workingdir, temp_gdb_name, "CURRENT")    # Create File Geodatabase
     arcpy.env.scratchWorkspace = temp_gdb
 
+    modelcalcs_gdb_name = i+'_dfestimates_utm.gdb'
+    modelcalcs_gdb = os.path.join(workingdir,modelcalcs_gdb_name) # Geodatabase Name and Path
+    if not os.path.exists (modelcalcs_gdb): arcpy.CreateFileGDB_management(workingdir, modelcalcs_gdb_name, "CURRENT")    # Create File Geodatabase
 
+    modelcalcs_web_gdb_name = i+'_dfestimates_wgs84.gdb'
+    modelcalcs_web_gdb = os.path.join(workingdir,modelcalcs_web_gdb_name) # Geodatabase Name and Path
+    if not os.path.exists (modelcalcs_web_gdb): arcpy.CreateFileGDB_management(workingdir, modelcalcs_web_gdb_name, "CURRENT")    # Create File Geodatabase
 
+    evt_gdb_name = 'LandFire_EVT.gdb'
+    evt_gdb = os.path.join(server_dir,evt_gdb_name)
+
+    landfire_gdb_name = 'LandFire_SAF_SRM.gdb'
+    landfire_gdb = os.path.join(server_dir,landfire_gdb_name)
+
+    mtbs_gdb_name = 'MTBS_Data.gdb'
+    mtbs_gdb = os.path.join(server_dir,mtbs_gdb_name)
+
+    soils_gdb_name = 'STATSGO_Soils.gdb'
+    soils_gdb = os.path.join(server_dir,soils_gdb_name) # Soils Geodatabase Name and Path
+
+    projection_gdb_name = 'ProjectionData.gdb'
+    projection_gdb = os.path.join(server_dir,projection_gdb_name)
 
     backup_dir_name = i+'_AssessmentData'
     backup_dir = os.path.join(server_root,state_abbrev,'Assessment_Data',backup_dir_name)
