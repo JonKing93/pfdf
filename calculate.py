@@ -1,6 +1,5 @@
 import arcpy
-
-extent_code_field_name = "Extent_Code"
+import os.path
 
 
 def utmzone(perimeter, utm, dissolved, centroid, centroid_utm, zone):
@@ -50,7 +49,7 @@ def utmzone(perimeter, utm, dissolved, centroid, centroid_utm, zone):
     zone = zones["ZONE"][0]
     return int(zone)
 
-def extent(perimeter, bounds, buffered, buffer, raster, cellsize)
+def extent(perimeter, bounds, buffered, buffer, raster, cellsize):
     """
     calculate.extent  Returns an extent box for the fire perimeter as a raster.
     ----------
@@ -77,12 +76,12 @@ def extent(perimeter, bounds, buffered, buffer, raster, cellsize)
     # Get a rectangular bounding box (extent box) that contains the fire
     # perimeter. Buffer the edges so the perimeter is not on the very edge.
     arcpy.management.MinimumBoundingGeometry(perimeter, bounds, 'RECTANGLE_BY_AREA')
-    arcpy.analysis.Buffer(bounds, extentbox, buffer)
+    arcpy.analysis.Buffer(bounds, buffered, buffer)
 
     # Export to raster
-    arcpy.conversion.PolygonToRaster(extentbox, 'OBJECTID', raster, 'CELL_CENTER', cellsize=cellsize)
+    arcpy.conversion.PolygonToRaster(buffered, 'OBJECTID', raster, 'CELL_CENTER', cellsize=cellsize)
 
-def firetiles(extent, demtiles, projected, intersect, firetiles)
+def firetiles(extent, demtiles, projected, intersect, firetiles):
     """
     calculate.firetiles  Return the list of DEM tiles that contain the fire area
     ----------
@@ -145,11 +144,13 @@ def mosaic(rasters, mosaic):
         A file matching the name of the mosaic input.
     """
 
+    # Initialize the mosaic
+    [path, name] = os.path.split(mosaic)
+    arcpy.management.CreateRasterDataset(path, name)
+
+    # Add each raster to the mosaic
     for r in range(0, len(rasters)):
-        if r==0:
-            arcpy.management.Copy(rasters[r], mosaic)
-        else:
-            arcpy.management.Mosaic(rasters[r], mosaic)
+        arcpy.management.Mosaic(rasters[r], mosaic)
 
 def clip(extent, basins, projected, clipped):
     """

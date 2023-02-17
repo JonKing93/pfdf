@@ -47,8 +47,8 @@ else:
 db_sum_threshold = 1
 
 # ??? acc stands for accumulation in some way...
-min_acc = (min_basin_size_km2 * 1000000) / (cell_res * cell_res)
-max_acc = (max_basin_size_km2 * 1000000) / (cell_res * cell_res)
+min_acc = (min_basin_size_km2 * 1000000) / (cellsize * cellsize)
+max_acc = (max_basin_size_km2 * 1000000) / (cellsize * cellsize)
 
 # dNBR thresholds for the 4-step BARC classification
 dnbr_unburned = 25

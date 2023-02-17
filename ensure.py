@@ -49,17 +49,17 @@ def projection(name, file, target, projected, isrequired=True, israster=False, c
     """
 
     # Ensure cellsize is set for rasters
-    if israster
+    if israster:
         if cellsize==None:
             raise TypeError('You must set the "cellsize" input when checking raster data')
-        elif not isinstance(cellsize, Real)
+        elif not isinstance(cellsize, Real):
             raise TypeError('cellsize must be a float')
 
     # If missing and required, throw an error. If missing and not required,
     # return the original input file
-    if not arcpy.Exist(file):
+    if not arcpy.Exists(file):
         if isrequired:
-            raise ValueError("File does not exist")
+            raise ValueError(f"File does not exist\n\tFile: {file}")
         else:
             return file
 

@@ -3,54 +3,60 @@ paths  Defines paths to use with the DFHA Step 1
 """
 
 # IO
-repo = "/home/jking/code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment/"
-input = repo + "input/"
-output = repo + "output/"
-backup = repo + "backup/"
-log = output + "log.txt"
+repo = r"C:\Users\jking\Documents\arcpy-testing"
+input = repo + r"\input"
+output = repo + r"\output"
 
 # Working folders / geodatabases
-fire_input = input + "col2022_df_input.gdb/"
-scratch = output + "scratch.gdb/"
+fire_input = input + r"\col2022_df_input.gdb"
+saved = output + r"\output.gdb"
+scratch = output + r"\scratch.gdb"
 
 # Multi-purpose
-perimeter = fire_input + "col2022_perim_feat"
-projected   = scratch + "projected"
+perimeter = fire_input + r"\col2022_perim_feat"
+projection = input + r"\ProjectionData.gdb"
+projected   = scratch + r"\projected"
 
 # UTM zone
-utm          = input + "ProjectionData.gdb/UTMZones_Feat_GCS_WGS84"
-dissolved    = scratch + "dissolved"
-centroid     = scratch + "centroid"
-centroid_utm = scratch + "centroid_utm"
-zone         = scratch + "zone"
+utm          = projection + r"\UTMZones_Feat_GCS_WGS84"
+dissolved    = scratch + r"\dissolved"
+centroid     = scratch + r"\centroid"
+centroid_utm = scratch + r"\centroid_utm"
+zone         = scratch + r"\zone"
 
 # Extent box
-bounds         = scratch + "bounds"
-extent_feature = output + "extent_feature"
-extent_raster  = output + "extent_raster"
+bounds         = scratch + r"\bounds"
+extent_feature = saved + r"\extent_feature"
+extent_raster  = saved + r"\extent_raster"
 
 # DEM (Digital elevation model)
-firedem_existing = fire_input + "col2022_dem"
-reference_tiles  = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
-demdata          = input + "DEM_data"
+firedem_existing = fire_input + r"\col2022_dem"
+reference_tiles  = input + r"\NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
+demdata          = input + r"\DEM"
 
-intersect   = scratch + "intersect"
-firetiles   = scratch + "firetiles"
-mosaic      = scratch + "mosaic"
-firedem     = output + "firedem"
+intersect   = scratch + r"\intersect"
+firetiles   = scratch + r"\firetiles"
+mosaic      = scratch + r"\mosaic"
+firedem     = saved + r"\firedem"
 
 # Debris basins
-basins_existing = fire_input + "col2022_db_feat"
-basins_dataset = input + "DebrisBasins.gdb/WesternUS_db_feat"
-clipped = output + "clipped"
-basins = output + "basins"
-
-# UTM projections
-demUTM = output + "dem_utm"
-severityUTM = output + "severity_utm"
+basins_existing = fire_input + r"\col2022_db_feat"
+basins_dataset = input + r"\DebrisBasins.gdb/WesternUS_db_feat"
+clipped = scratch + r"\clipped"
+basins = saved + r"\basins"
 
 # Burn Severity
-severity = fire_input + "col2022_sev"
+severity = fire_input + r"\col2022_sev"
+dnbr = fire_input + r"\col2022_dnbr"
+
+# UTM projections
+extent_utm   = saved + r"\extent_utm"
+dem_utm      = saved + r"\dem_utm"
+basins_utm   = saved + r"\basins_utm"
+severity_utm = saved + r"\severity_utm"
+dnbr_utm     = saved + r"\dnbr_utm"
+
+
 
 
 

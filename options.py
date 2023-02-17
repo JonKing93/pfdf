@@ -6,5 +6,6 @@ options  Algorithm options
 overwrite = False
 webtext = True
 booktest = True
-log = True
+log = False
+
 

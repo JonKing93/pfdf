@@ -21,7 +21,7 @@ def calculating_extent():
     print('    Calculating Relevant Extent Data....')
 
 def utmzone(utmzone):
-    print(f"    Burn Area Located in UTM Zone {zone}...")
+    print(f"    Burn Area Located in UTM Zone {utmzone}...")
 
 def rectangle():
     print('    Creating Extent Rectangle...')
@@ -60,5 +60,5 @@ def projections():
     print("    Checking Projections...")
 
 def projected(projection):
-    print(f"    Input Data Projected as {projection.name}")
+    print(f"    All Input Data Projected as {projection.name}")
     print("    Continuing Processing...")
