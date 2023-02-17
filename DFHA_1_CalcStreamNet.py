@@ -140,6 +140,9 @@ else:
         setattr(paths, files[f], utmpath)
     notify.projected(utmzone)
 
+# 
+nRows = arcpy.GetRaste
+
 
 
 # CALCULATING COMMON EXTENT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -203,11 +206,6 @@ else:
             arcpy.Delete_management(dnbr)
         else:
             pass
-
-        arcpy.env.overwriteOutput = True
-        arcpy.env.cellSize = extentbox
-        arcpy.env.extent = extentbox
-        arcpy.env.snapRaster = extentbox
 
         out_dem = Raster(extentbox) * Raster(dem_orig)
         out_dem.save(dem)
