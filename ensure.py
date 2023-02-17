@@ -47,8 +47,8 @@ def projection(name, file, target, projected, isrequired=True, israster=False, c
             was re-projected).
     """
 
-    # If missing and not required, just return the original file. If missing and
-    # required, throw an error
+    # If missing and required, throw an error. If missing and not required,
+    # return the original input file
     if not arcpy.Exist(file):
         if isrequired:
             raise ValueError("File does not exist")
