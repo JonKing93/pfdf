@@ -115,174 +115,32 @@ if arcpy.Exists(paths.basins_existing):
 else:
     notify.basins(exist=False)
 
-    # Clip the debris-basins dataset to the fire perimeter extent box
-    calculate.clip(paths.extent_feature, paths.basins, paths.projected, paths.clipped)
+    # Check if there are debris-basins from the dataset in the fire extent box
+    calculate.clip(paths.extent_feature, paths.basins_dataset, paths.projected, paths.clipped)
+    nBasins = int(arcpy.management.GetCount(clipped).getOutput(0))
+    notify.nBasins(nBasins)
+
+    # If there are basins in the extent, save them as the basins for the fire
+    if nBasins > 0:
+        arcpy.management.CopyFeatures(clipped, paths.basins)
+
+    # Ensure inputs use the same projection. Start by noting dataset characteristics
+    notify.projections()
+    names = ["Burn Perimeter", "DEM", "Debris Basins", "Burn Severity", "dNBR"]
+    files = ["extent_feature", "firedem", "basins", "severity", "dnbr"]
+    toUTM = ["extentUTM", "demUTM", "basinsUTM", "severityUTM", "dnbrUTM"]
+    required = [True, True, False, False, False]
+    israster = [False, True, False, True, True]
+
+    # Re-project any inputs that are not in UTM
+    for f in range(0, len(files)):
+        path = getattr(paths, files[f])
+        reprojected = getattr(paths, toUTM[f])
+        utmpath = ensure.projection(names[f], path, utmzone, reprojected, required[f], israster[f], parameters.cellsize)
+        setattr(paths, files[f], utmpath)
+    notify.projected(utmzone)
 
 
-
-# --------------------
-
-
-
-
-
-        temp_db_feat = os.path.join(temp_gdb,db_feat_name)
-
-        DFTools_ArcGIS.ExtractFeaturesDiffProj(paths.extent_feature, paths.basins, temp_db_feat)
-
-        result = arcpy.GetCount_management(temp_db_feat)
-        db_count = int(result.getOutput(0))
-
-        if db_count == 0:
-            arcpy.Delete_management(temp_db_feat)
-            print('         No Debris Basins Found...')
-        else:
-            print('         '+str(db_count)+' Debris Basins Identified..')
-            arcpy.CopyFeatures_management(temp_db_feat,db_feat)
-
-# CHECK PROJECTIONS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    print("     Checking Projections...")
-
-    ref_utmzone_desc = arcpy.Describe(ref_utmzone_perim_feat)
-    utm_spatial_ref = ref_utmzone_desc.SpatialReference
-
-    project_check = "Fail"
-
-    dem_desc = arcpy.Describe(dem)
-    dem_spatial_ref = dem_desc.SpatialReference
-    print("         DEM Projection = "+dem_spatial_ref.name)
-
-    if dem_spatial_ref.name == utm_spatial_ref.name:
-        dem_project_check = "Pass"
-    else:
-        dem_project_check = "Fail"
-
-    if arcpy.Exists(sev):
-        sev_desc = arcpy.Describe(sev)
-        sev_spatial_ref = sev_desc.SpatialReference
-        print("         Burn Severity Projection = "+sev_spatial_ref.name)
-        if sev_spatial_ref.name == utm_spatial_ref.name:
-            sev_project_check = "Pass"
-        else:
-            sev_project_check = "Fail"
-    else:
-        sev_project_check = "Pass"
-
-    if arcpy.Exists(dnbr):
-        dnbr_desc = arcpy.Describe(dnbr)
-        dnbr_spatial_ref = dnbr_desc.SpatialReference
-        print("         dNBR Projection = "+dnbr_spatial_ref.name)
-        if dnbr_spatial_ref.name == utm_spatial_ref.name:
-            dnbr_project_check = "Pass"
-        else:
-            dnbr_project_check = "Fail"
-    else:
-        dnbr_project_check = "Pass"
-
-    perim_desc = arcpy.Describe(perim_feat)
-    perim_spatial_ref = perim_desc.SpatialReference
-    print("         Burn Perimeter Projection = "+perim_spatial_ref.name)
-
-    if perim_spatial_ref.name == utm_spatial_ref.name:
-        perim_project_check = "Pass"
-    else:
-        perim_project_check = "Fail"
-
-    if arcpy.Exists(db_feat):
-        db_desc = arcpy.Describe(db_feat)
-        db_spatial_ref = db_desc.SpatialReference
-        print("         Debris Basin Projection = "+db_spatial_ref.name)
-
-        if db_spatial_ref.name == utm_spatial_ref.name:
-            db_project_check = "Pass"
-        else:
-            db_project_check = "Fail"
-
-    else:
-        db_project_check = "Pass"
-
-    if (dem_project_check == "Fail") or (sev_project_check == "Fail") or (perim_project_check == "Fail") or (db_project_check == "Fail"):
-        project_check = "Fail"
-    else:
-        project_check = "Pass"
-
-    if project_check == "Fail":
-        print("     WARNING: Input Data Projections are not all "+utm_spatial_ref.name+", Reprojecting Datasets...")
-        print("         DEM Projection Check = "+dem_project_check)
-
-        if dem_project_check == "Fail":
-            print("             Projecting DEM to UTM...")
-            z_dem = temp_gdb+"\\z"+i+"_dem"
-            arcpy.Copy_management(dem, z_dem)
-            arcpy.Delete_management(dem)
-            arcpy.ProjectRaster_management(z_dem, dem, utm_spatial_ref, "BILINEAR", cell_res)
-        else:
-            pass
-
-        arcpy.env.overwriteOutput = True
-        arcpy.env.cellSize = dem
-        arcpy.env.extent = dem
-        arcpy.env.snapRaster = dem
-
-        if arcpy.Exists(sev):
-            print("         Burn Severity Projection Check = "+sev_project_check)
-            if sev_project_check == "Fail":
-                print("             Projecting Burn Severity Raster to UTM...")
-                arcpy.env.cellSize = dem
-                arcpy.env.extent = dem
-                arcpy.env.snapRaster = dem
-                z_sev = os.path.join(temp_gdb,i+'_sev')
-                arcpy.Copy_management(sev, z_sev)
-                arcpy.Delete_management(sev)
-                arcpy.ProjectRaster_management(z_sev, sev, dem, "NEAREST", cell_res)
-            else:
-                pass
-        else:
-            pass
-
-        if arcpy.Exists(sev):
-            print("         dNBR Projection Check = "+dnbr_project_check)
-            if dnbr_project_check == "Fail":
-                print("             Projecting dNBR Raster to UTM...")
-                arcpy.env.cellSize = dem
-                arcpy.env.extent = dem
-                arcpy.env.snapRaster = dem
-                z_dnbr = temp_gdb+"\\z"+i+"_dnbr"
-                arcpy.Copy_management(dnbr, z_dnbr)
-                arcpy.Delete_management(dnbr)
-                arcpy.ProjectRaster_management(z_dnbr, dnbr, dem, "NEAREST", cell_res)
-            else:
-                pass
-        else:
-            pass
-
-        print("         Burn Perimeter Projection Check = "+perim_project_check)
-        if perim_project_check == "Fail":
-            print("             Projecting Burn Perimeter Feature Class to UTM...")
-            z_perim_feat = temp_gdb+"\\z"+i+"_perim_feat"
-            arcpy.Copy_management(perim_feat, z_perim_feat)
-            arcpy.Delete_management(perim_feat)
-            arcpy.Project_management(z_perim_feat, perim_feat, dem)
-        else:
-            pass
-
-        if arcpy.Exists(db_feat):
-            print("         Debris Basin Projection Check = "+db_project_check)
-            if db_project_check == "Fail":
-                print("             Projecting Debris Basin Feature Class to UTM...")
-                z_db_feat_name = "z"+i+"_db_feat"
-                z_db_feat = os.path.join(temp_gdb,z_db_feat_name)
-                arcpy.Copy_management(db_feat, z_db_feat)
-                arcpy.Delete_management(db_feat)
-                arcpy.Project_management(z_db_feat, db_feat, dem)
-            else:
-                pass
-        else:
-            pass
-
-    else:
-        print("     Input Data Properly Projected as "+utm_spatial_ref.name+", Continuing Processing...")
 
 # CALCULATING COMMON EXTENT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

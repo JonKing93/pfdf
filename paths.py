@@ -41,8 +41,16 @@ firedem     = output + "firedem"
 
 # Debris basins
 basins_existing = fire_input + "col2022_db_feat"
-basins = input + "DebrisBasins.gdb/WesternUS_db_feat"
+basins_dataset = input + "DebrisBasins.gdb/WesternUS_db_feat"
 clipped = output + "clipped"
+basins = output + "basins"
+
+# UTM projections
+demUTM = output + "dem_utm"
+severityUTM = output + "severity_utm"
+
+# Burn Severity
+severity = fire_input + "col2022_sev"
 
 
 
@@ -59,20 +67,21 @@ clipped = output + "clipped"
 
 
 
-# Fire-independent input geodatabases
-evt        = input + "LandFire_EVT.gdb"
-landfire   = input + "LandFire_SAF_SRM.gdb"
-mtbs       = input + "DFHA/MTBS_Data.gdb"
-soils      = input + "STATSGO_Soils.gdb"
-projection = input + "ProjectionData.gdb"
 
-# Fire-dependent inputs
-sev        = firein + "/col2022_sev"
-dnbr       = firein + "/col2022_dnbr"
+# # Fire-independent input geodatabases
+# evt        = input + "LandFire_EVT.gdb"
+# landfire   = input + "LandFire_SAF_SRM.gdb"
+# mtbs       = input + "DFHA/MTBS_Data.gdb"
+# soils      = input + "STATSGO_Soils.gdb"
+# projection = input + "ProjectionData.gdb"
+
+# # Fire-dependent inputs
+# sev        = firein + "/col2022_sev"
+# dnbr       = firein + "/col2022_dnbr"
 
 
-# Output geodatabases
-modelcalcs     = output + "dfestimates_utm"
-modelcalcs_web = output + "dfestimates_wgs84"
-symbology      = output + "Symbology"  
+# # Output geodatabases
+# modelcalcs     = output + "dfestimates_utm"
+# modelcalcs_web = output + "dfestimates_wgs84"
+# symbology      = output + "Symbology"  
 

@@ -175,7 +175,7 @@ def clip(extent, basins, projected, clipped):
         Files matching the names of the projected and clipped inputs
     """
 
-    # Project the basins into the same system as the extent box, then clip
+    # Project the basins into the same system as the extent box
     projection = arcpy.Describe(extent).spatialReference
     arcpy.management.Project(basins, projected, projection)
 
