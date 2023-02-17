@@ -13,8 +13,9 @@ log = output + "log.txt"
 fire_input = input + "col2022_df_input.gdb/"
 scratch = output + "scratch.gdb/"
 
-# Perimeter
+# Multi-purpose
 perimeter = fire_input + "col2022_perim_feat"
+projected   = scratch + "projected"
 
 # UTM zone
 utm          = input + "ProjectionData.gdb/UTMZones_Feat_GCS_WGS84"
@@ -33,7 +34,6 @@ firedem_existing = fire_input + "col2022_dem"
 reference_tiles  = input + "NationalElevationDataset.gdb/NED_Tile_Reference_1deg_10m"
 demdata          = input + "DEM_data"
 
-projected   = scratch + "projected"
 intersect   = scratch + "intersect"
 firetiles   = scratch + "firetiles"
 mosaic      = scratch + "mosaic"
@@ -41,6 +41,11 @@ firedem     = output + "firedem"
 
 # Debris basins
 basins_existing = fire_input + "col2022_db_feat"
+basins = input + "DebrisBasins.gdb/WesternUS_db_feat"
+clipped = output + "clipped"
+
+
+
 
 
 

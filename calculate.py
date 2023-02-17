@@ -151,10 +151,36 @@ def mosaic(rasters, mosaic):
         else:
             arcpy.management.Mosaic(rasters[r], mosaic)
 
-            
+def clip(extent, basins, projected, clipped):
+    """
+    calculate.clip  Clip a set of basin features to the fire extent box
+    ----------
+    calculate.clip(extent, basins, projected, clipped)
+    Reduces a set of debris-basin feature to the features within the fire
+    perimeter extent box. Projects the debris-basin features into the same
+    system as the extent box before clipping. The output clipped features will
+    be in the same projection as the input extent box.
+    ----------
+    Inputs:
+        extent (str): The path to the input arcpy feature holding the fire
+            perimeter extent box
+        basins (str): The path to the input arcpy features holding the 
+            debris-basins to be clipped
+        projected (str): The path to the output arcpy feature holding the 
+            debris-basins projected into the same system as the extent box
+        clipped (str): The path to the output arcpy feature holding the
+            debris-basins 
 
+    Saves:
+        Files matching the names of the projected and clipped inputs
+    """
 
+    # Project the basins into the same system as the extent box, then clip
+    projection = arcpy.Describe(extent).spatialReference
+    arcpy.management.Project(basins, projected, projection)
 
+    # Clip the basins to the fire perimeter extent box
+    arcpy.analysis.Clip(projected, extent, clipped)
 
 
 

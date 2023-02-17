@@ -85,15 +85,15 @@ notify.rectangle()
 calculate.extent(paths.perimeter, paths.bounds, paths.extent_feature, 
                  parameters.extent_buffer, paths.extent_raster, parameters.cellsize)
 
-# Check for DEM data for the fire
+# Check for DEM data for the fire. Extract DEM if it doesn't exist.
 if arcpy.Exists(paths.firedem_existing):
     notify.dem(exists=True)
-
-# Extract DEM data if it does not exist. Identify the DEM tiles in the fire area
 else:
     notify.dem(exists=False)
+
+    # Identify DEM tiles that contain the fire area
     tiles = calculate.firetiles(paths.extent_feature, paths.reference_tiles,
-                               paths.projected, paths.intersect, paths.firetiles)
+                                paths.projected, paths.intersect, paths.firetiles)
     notify.tiles(tiles)
 
     # Get the folders holding the DEM tiles for the fire area
@@ -103,36 +103,32 @@ else:
         path = os.path.join(paths.demdata, tile, folder)
         demfolders.append(path)
 
-    # Create a raster mosaic from the DEM tiles
+    # Create a raster mosaic from the DEM tiles and project into the UTM zone
     calculate.mosaic(demfolders, paths.mosaic)
-
-    # Project the raster into the UTM zone
     notify.projecting()
     arcpy.management.ProjectRaster(paths.mosaic, paths.firedem, utmzone, 
                                    'BILINEAR', parameters.cellsize)
 
-# Check for debris basins
+# Check for fire-specific debris basins. Locate them if they don't exist
 if arcpy.Exists(paths.basins_existing):
-    
+    notify.basins(exist=True)
+else:
+    notify.basins(exist=False)
+
+    # Clip the debris-basins dataset to the fire perimeter extent box
+    calculate.clip(paths.extent_feature, paths.basins, paths.projected, paths.clipped)
+
 
 
 # --------------------
 
-    if arcpy.Exists(db_feat):
-        print('     Debris Basins Found...')
-    else:
-        print('     Searching for Debris Basins...')
 
-        db_gdb_name = 'DebrisBasins.gdb'
-        db_gdb = os.path.join(server_dir,db_gdb_name)
 
-        temp_db_feat_name = 'z_'+i+"_db_feat"
+
+
         temp_db_feat = os.path.join(temp_gdb,db_feat_name)
 
-        server_db_feat_name = 'WesternUS_db_feat'
-        server_db_feat = os.path.join(db_gdb,server_db_feat_name)
-
-        DFTools_ArcGIS.ExtractFeaturesDiffProj(extentbox_feat,server_db_feat,temp_db_feat)
+        DFTools_ArcGIS.ExtractFeaturesDiffProj(paths.extent_feature, paths.basins, temp_db_feat)
 
         result = arcpy.GetCount_management(temp_db_feat)
         db_count = int(result.getOutput(0))

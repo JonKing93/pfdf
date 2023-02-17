@@ -42,4 +42,10 @@ def tiles(tiles):
 def projecting():
         print('         Projecting DEM Data to UTM...')
 
-
+def basins(*, exist):
+    if not isinstance(exist, bool):
+        raise TypeError('The "exist" input must be a bool')
+    elif exist:
+        print('     Debris Basins Found...')
+    else:
+        print('     Searching for Debris Basins...')
