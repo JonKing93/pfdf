@@ -3,6 +3,7 @@ ensure  Functions that ensure a condition is met
 """
 
 import arcpy
+from numbers import Real
 
 def projection(name, file, target, projected, isrequired=True, israster=False, cellsize=None):
     """
@@ -47,6 +48,13 @@ def projection(name, file, target, projected, isrequired=True, israster=False, c
             was re-projected).
     """
 
+    # Ensure cellsize is set for rasters
+    if israster
+        if cellsize==None:
+            raise TypeError('You must set the "cellsize" input when checking raster data')
+        elif not isinstance(cellsize, Real)
+            raise TypeError('cellsize must be a float')
+
     # If missing and required, throw an error. If missing and not required,
     # return the original input file
     if not arcpy.Exist(file):
@@ -57,7 +65,7 @@ def projection(name, file, target, projected, isrequired=True, israster=False, c
 
     # Get the current projection and notify the console
     projection = arcpy.Describe(file).spatialReference
-    print(f"          {name} Projection: {projection.name}")
+    print(f"        {name} Projection: {projection.name}")
 
     # Return the original file if it's already in the correct projection
     if projection.name == target.name:
@@ -65,7 +73,7 @@ def projection(name, file, target, projected, isrequired=True, israster=False, c
 
     # Otherwise, re-project the file into the target projection
     else:
-        print(f"          Projecting {name} to {projection.name}...")
+        print(f"        Projecting {name} to {projection.name}...")
         if israster:
             arcpy.management.ProjectRaster(file, projected, target, 'BILINEAR', cellsize)
         else:
