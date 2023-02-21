@@ -56,6 +56,18 @@ basins_utm   = saved + r"\basins_utm"
 severity_utm = saved + r"\severity_utm"
 dnbr_utm     = saved + r"\dnbr_utm"
 
+# Regridded rasters
+dem_regrid      = saved + r"\dem_regrid"
+severity_regrid = saved + r"\severity_regrid"
+dnbr_regrid     = saved + r"\dnbr_regrid"
+
+# Soils
+soil_database = input + r"\STATSGO_Soils.gdb\STATSGO_US_NAD27_Albers"
+soil = fire_input + r"\col2022_soils_feat"
+
+
+
+
 
 
 
@@ -78,12 +90,8 @@ dnbr_utm     = saved + r"\dnbr_utm"
 # evt        = input + "LandFire_EVT.gdb"
 # landfire   = input + "LandFire_SAF_SRM.gdb"
 # mtbs       = input + "DFHA/MTBS_Data.gdb"
-# soils      = input + "STATSGO_Soils.gdb"
 # projection = input + "ProjectionData.gdb"
 
-# # Fire-dependent inputs
-# sev        = firein + "/col2022_sev"
-# dnbr       = firein + "/col2022_dnbr"
 
 
 # # Output geodatabases

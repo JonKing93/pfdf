@@ -62,3 +62,12 @@ def projections():
 def projected(projection):
     print(f"    All Input Data Projected as {projection.name}")
     print("    Continuing Processing...")
+
+def extent(shared=None):
+    if shared==None:
+        print("    Checking DEM, Severity and dNBR Extents...")
+    elif shared:
+        print('        DEM, Severity, and dNBR Share Common Extent, Continuing Processing...')
+    else:
+        print('        Regridding Rasters to Common Extent...')
+

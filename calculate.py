@@ -1,5 +1,6 @@
 import arcpy
 import os.path
+import notify.regrid
 
 
 def utmzone(perimeter, utm, dissolved, centroid, centroid_utm, zone):
@@ -148,7 +149,7 @@ def mosaic(rasters, mosaic):
     [path, name] = os.path.split(mosaic)
     arcpy.management.CreateRasterDataset(path, name)
 
-    # Add each raster to the mosaic
+    # Add each raster
     for r in range(0, len(rasters)):
         arcpy.management.Mosaic(rasters[r], mosaic)
 
@@ -182,6 +183,71 @@ def clip(extent, basins, projected, clipped):
 
     # Clip the basins to the fire perimeter extent box
     arcpy.analysis.Clip(projected, extent, clipped)
+
+def rasterSize(raster):
+    """
+    calculate.rasterSize  Return the size of a raster dataset.
+    ----------
+    size = calculate.rasterSize(raster)
+    Returns the size of a raster dataset. The output size is a list with two
+    elements - the first element is the number of rows, and the second is the
+    number of columns. If the raster dataset does not exist, throws an error.
+
+    size = calculate.rasterSize(raster, required=False)
+    Indicate that the raster dataset is not required to exist. If the raster
+    does not exist, returns None instead of a size list.
+    ----------
+    Inputs:
+        raster (str): The path to an input arcpy raster dataset
+        required (bool): True (default) if the function should throw an error
+            when the raster does not exist. Set to False to return a size of 
+            [0, 0] instead.
+
+    Outputs:
+        size (int list [2] | None): The size of the queried raster. First
+            element is the number of rows, second is the number of columns. If
+            the raster does not exist and is not required, returns None.
+    """
+
+    # Handle non-existent rasters
+    if not arcpy.Exists(raster):
+        if required:
+            raise ValueError(f'The raster does not exist\n\tRaster: {raster}')
+        else:
+            return None
+
+    # Get the size
+    nRows = arcpy.management.GetRasterProperties(raster, 'ROWCOUNT')
+    nCols = arcpy.management.GetRasterProperties(raster, 'COLUMNCOUNT')
+    return [nRows, nCols]
+
+def regrid(raster, extent, regridded):
+    """
+    calculate.regrid  Regrids a raster dataset to the fire extent box
+    ----------
+    regridded = calculate.regrid(raster, extent, regridded)
+    Restricts an input raster dataset to the domain of an input raster extent.
+    Saves the regridded raster to a new arcpy raster. Returns the path to this
+    raster.
+    ----------
+    Inputs:
+        raster (str): The path to the input arcpy raster that should be regridded
+        extent (arcpy Raster): The raster object for the fire extent
+        regridded (str): The path to the output arcpy raster holding the
+            regridded dataset.
+
+    Outputs:
+        regridded (str): The path to the output arcpy raster holding the
+            regridded dataset.
+    """
+
+    # Apply the extent raster to the input dataset and save
+    dataset = Raster(raster)
+    dataset = extent * dataset
+    dataset.save(regridded)
+
+    # Return the path to the regridded raster
+    return regridded
 
 
 

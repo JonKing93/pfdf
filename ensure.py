@@ -17,7 +17,8 @@ def projection(name, file, target, projected, isrequired=True, israster=False, c
 
     path = ensure.projection(name, path, target, projected, isrequired=False)
     Indicates that the data file is not required to exist. If the feature does
-    not exist, returns the path to the input data file.
+    not exist, returns the path to the input data file (rather than throwing 
+    an error)
 
     path = ensure.projection(name, path, target, projected, isrequired, israster=True, cellsize)
     Indicates that the input data is raster data, rather than Feature data.
