@@ -89,11 +89,11 @@ else:
     israster = [False, True, False, True, True]
 
     # Re-project any inputs that are not in UTM
-    for f in range(0, len(files)):
-        path = getattr(paths, files[f])
-        reprojected = getattr(paths, toUTM[f])
-        utmpath = ensure.projection(names[f], path, utmzone, reprojected, required[f], israster[f], parameters.cellsize)
-        setattr(paths, files[f], utmpath)
+    for (name, file, newfile, required, israster) in zip(names, files, toUTM, required, israster):
+        path = getattr(paths, file)
+        reprojected = getattr(paths, newfile)
+        utmpath = ensure.projection(name, path, utmzone, reprojected, required, israster, parameters.cellsize)
+        setattr(paths, files, utmpath)
     notify.projected(utmzone)
 
     # Get the sizes of the input rasters
@@ -125,8 +125,39 @@ else:
             paths.dnbr = calculate.regrid(paths.dnbr, bounds, paths.dnbr_regrid)
         notify.extent(shared=True)
 
-    # Extract soil data
+    # Extract soil data. Clip soil database to fire perimeter
     notify.soils()
+    calculate.clip(paths.extent_feature, paths.soil_database, paths.soil)
+
+    # Check for missing soil data. Notify console if missing
+    soil_properties = ["KFFACT", "THICK"]
+    for property in soil_properties:
+        values = arcpy.da.TableToNumPyArray(paths.soil, property)
+        if np.amin(values) <= 0:
+            notify.missing_soil(property, paths.soil)
+
+    # Define the burned area. Use the dissolved polygons as the perimeter
+    notify.burn()
+    paths.perimeter = paths.dissolved
+
+    # List metadata fields and values that should be added to the perimeter
+    fields = ["ID",   "Name", "Location", "Start_Date"]
+    types =  ["TEXT", "TEXT", "TEXT", "DATE"]
+    values = [fire.id, fire.name, fire.location, fire.start]
+
+    # Add the metadata values
+    for (field, type, value) in zip(fields, types, values):
+        arcpy.management.AddField(paths.perimeter, field, type)
+        with arcpy.da.UpdateCursor(paths.perimeter, field) as cursor:
+            row = next(cursor)
+            row = value
+            cursor.updateRow(row)
+
+    # Buffer the fire perimeter
+    arcpy.analysis.Buffer(paths.perimeter, paths.buffered,
+                          parameters.perim_buffer_dist_m, dissolve_option='ALL')
+
+    
     
 
 
@@ -136,115 +167,11 @@ else:
 
 
 
-
-# EXTRACT SOILS DATA~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    print("     Extracting Soils Data...")
-
-    in_soils_feat_name = 'STATSGO_US_NAD27_Albers'
-    in_soils_gdb_name = 'STATSGO_Soils.gdb'
-    in_soils_gdb = os.path.join(server_dir,in_soils_gdb_name)
-    in_soils_feat = os.path.join(in_soils_gdb,in_soils_feat_name)
-
-    in_soils2_feat_name = in_soils_feat_name
-    in_soils2_feat = os.path.join(temp_gdb,in_soils2_feat_name)
-
-    fire_soils_feat_name = i+'_soils_feat'
-    fire_soils_feat = os.path.join(firein_gdb,fire_soils_feat_name)
-
-    DFTools_ArcGIS.ExtractFeaturesDiffProj(extentbox_feat,in_soils_feat,fire_soils_feat)
-
-    soils_list = ['KFFACT','THICK']
-
-    soil_check_list = [0] * len(soils_list)
-
-    for soil_prop in soils_list:
-
-        soil_prop_index = soils_list.index(soil_prop)
-
-        zsoil_name = i+'_z'+soil_prop
-        zsoil = os.path.join(temp_gdb,zsoil_name)
-
-        soil_name = i+'_'+soil_prop
-        soil = os.path.join(firein_gdb,soil_name)
-
-        soil_area_name = i+'_'+soil_prop+'_area'
-        soil_area = os.path.join(temp_gdb,soil_area_name)
-
-        soil_prop_array = arcpy.da.TableToNumPyArray(fire_soils_feat,soil_prop)
-        min_prop_value = soil_prop_array[soil_prop].min()
-
-        if min_prop_value <= 0:
-            print('         WARNING: Soil '+soil_prop+' May Contain Missing Data, Manual Editing of '+fire_soils_feat+' May Be Required...')
-            soil_warn_list_string = '    WARNING: Soil '+soil_prop+' May Contain Missing Data, Manual Editing of '+fire_soils_feat+' May Be Required...'
-            soil_check_list[soil_prop_index] = 0
-        else:
-            print('         Soil '+soil_prop+' Data Verified')
-            soil_warn_list_string = '    '+i+': Soil '+soil_prop+' Data Verified, No Manual Editing Required...'
-            soil_check_list[soil_prop_index] = 1
-
-        soil_warn_list.append(soil_warn_list_string)
-
-        if min(soil_check_list) == 0:
-            soil_check = 0
-        else:
-            soil_check = 1
-
 # DETERMINING BURNED AREA~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    print('     Defining Burned Area...')
 
-    perim_dissolve_feat_name = i+'_perim_dissolve_feat_UTM'
-    perim_dissolve_feat = os.path.join(temp_gdb,perim_dissolve_feat_name)
 
-    arcpy.Dissolve_management(perim_feat,perim_dissolve_feat,'Perim_ID')
 
-    arcpy.DeleteFeatures_management(perim_feat)
-    arcpy.CopyFeatures_management(perim_dissolve_feat,perim_feat)
-
-    perim_name = i+'_perim'
-    perim = os.path.join(temp_gdb,perim_name)
-
-    arcpy.AddField_management(perim_feat,'Fire_ID','TEXT','','',20,'Fire_ID')
-    arcpy.AddField_management(perim_feat,'Fire_Name','TEXT','','',50,'Fire_Name')
-    arcpy.AddField_management(perim_feat,'Start_Date','TEXT','','',20,'Start_Date')
-    arcpy.AddField_management(perim_feat,'State_Name','TEXT','','',20,'State_Name')
-    arcpy.AddField_management(perim_feat,'Area_km2','DOUBLE')
-    arcpy.AddField_management(perim_feat,'Acres','DOUBLE')
-
-    fire_info_field_list = ['Fire_ID','Fire_Name','Start_Date','State_Name','Shape_Area','Area_km2','Acres']
-    with arcpy.da.UpdateCursor(perim_feat, fire_info_field_list) as cursor:
-        for row in cursor:
-            row[0] = i
-            row[1] = fire_name_full
-            row[2] = fire_start_date
-            row[3] = fire_state_name
-            row[5] = row[4] / 1000000
-            row[6] = row[4] / 4046.86
-            cursor.updateRow(row)
-
-    arcpy.FeatureToPoint_management(perim_dissolve_feat, centroid_feat)
-
-    perim_buff_feat_name = i+'_perim_buff'+str(perim_buffer_dist_m)+'m_feat'
-    perim_buff_feat = os.path.join(temp_gdb,perim_buff_feat_name)
-
-    perim_buff_name = i+'_perim_buff'+str(perim_buffer_dist_m)+'m'
-    perim_buff = os.path.join(temp_gdb,perim_buff_name)
-
-    perim_buff_null_name = i+'_perim_buff'+str(perim_buffer_dist_m)+'m_null'
-    perim_buff_null = os.path.join(temp_gdb,perim_buff_null_name)
-
-    perim_buff_bin_name = i+'_perim_buff'+str(perim_buffer_dist_m)+'m_bin'
-    perim_buff_bin = os.path.join(temp_gdb,perim_buff_bin_name)
-
-    arcpy.Buffer_analysis(perim_feat,perim_buff_feat,perim_buffer_dist_m,'FULL','','ALL','Perim_ID')
-    arcpy.AddField_management(perim_buff_feat, "PerimBuff_ID", "SHORT", "", "", "", "", "NULLABLE", "NON_REQUIRED", "")
-
-    perim_buff_id_field_list = ['PerimBuff_ID']
-    with arcpy.da.UpdateCursor(perim_buff_feat, perim_buff_id_field_list) as cursor:
-        for row in cursor:
-            row[0] = 1
-            cursor.updateRow(row)
 
     arcpy.env.cellSize = dem
     arcpy.env.extent = dem

@@ -150,8 +150,8 @@ def mosaic(rasters, mosaic):
     arcpy.management.CreateRasterDataset(path, name)
 
     # Add each raster
-    for r in range(0, len(rasters)):
-        arcpy.management.Mosaic(rasters[r], mosaic)
+    for raster in rasters:
+        arcpy.management.Mosaic(raster, mosaic)
 
 def clip(extent, basins, projected, clipped):
     """

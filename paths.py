@@ -65,6 +65,8 @@ dnbr_regrid     = saved + r"\dnbr_regrid"
 soil_database = input + r"\STATSGO_Soils.gdb\STATSGO_US_NAD27_Albers"
 soil = fire_input + r"\col2022_soils_feat"
 
+# Burned area
+buffered = scratch = r"\col2022_perim_buff"
 
 
 

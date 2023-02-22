@@ -71,3 +71,13 @@ def extent(shared=None):
     else:
         print('        Regridding Rasters to Common Extent...')
 
+def soil():
+    print("    Extracting Soils Data...")
+
+def missing_soil(field, file):
+    print(f'        WARNING: Soil {field} May Contain Missing Data, Manual Editing of {file} May Be Required...')
+
+def burn():
+    print('    Defining Burned Area...')
+
+

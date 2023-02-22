@@ -10,9 +10,10 @@ VARIABLES:
     id          - A 7 letter ID for the fire
 """
 
+from datetime import datetime
+
 name = 'Colorado'
 code = 'col'
-state = 'CA'
-location = 'Monterey County'
-year = '2022'
-id = code + year
+location = 'Monterey County, CA'
+start = datetime(year=2022, month=1, day=21)
+id = code + str(start.year)
