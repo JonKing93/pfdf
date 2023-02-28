@@ -22,7 +22,7 @@ arcpy.CheckOutExtension('spatial')
 arcpy.env.overwriteOutput = True
 
 # !!!!!!!!!
-# Eventually should restore early parts of the original script that, 
+# Eventually should reexamine early parts of the original script
 # for example, check that files exist, make the log file, set overwrite options, etc
 
 # Get UTM zone of the centroid of the fire perimeter
@@ -36,7 +36,7 @@ utmzone = arcpy.Describe(utmzone).spatialReference
 
 # Calculate the box of extent
 notify.rectangle()
-calculate.extent(paths.perimeter, paths.bounds, paths.extent_feature, 
+calculate.extent(paths.perimeter, paths.bounds, paths.extent_feature,
                  parameters.extent_buffer, paths.extent_raster, parameters.cellsize)
 
 # Use existing fire-perimeter DEM data if it exists
@@ -61,7 +61,7 @@ else:
     # Create a raster mosaic from the DEM tiles and project into the UTM zone
     calculate.mosaic(demfolders, paths.mosaic)
     notify.projecting()
-    arcpy.management.ProjectRaster(paths.mosaic, paths.firedem, utmzone, 
+    arcpy.management.ProjectRaster(paths.mosaic, paths.firedem, utmzone,
                                    'BILINEAR', parameters.cellsize)
 
 # Use existing debris-basins for the fire if they exist
@@ -157,486 +157,158 @@ else:
     arcpy.analysis.Buffer(paths.perimeter, paths.buffered,
                           parameters.perim_buffer_dist_m, dissolve_option='ALL')
 
-    
-    
+    # Convert the perimeter and buffered perimeter to rasters using the DEM's grid
+    arcpy.env.cellSize = paths.firedem
+    arcpy.env.snapRaster = paths.firedem
+    arcpy.conversion.FeatureToRaster(paths.buffered, 'OBJECTID', paths.buffered_raster)
+    arcpy.conversion.FeatureToRaster(paths.perimeter, 'OBJECTID', paths.perimeter_raster)
 
+    # Save missing data masks for the rasters. Use 0, 10 for the buffered mask
+    arcpy.ddd.Reclassify(paths.buffered_raster, "VALUE", "NoData 0;1 10", paths.buffered_mask)
+    if segment_guess == "PERIM":
+        arcpy.ddd.Reclassify(paths.perimeter_raster, "VALUE", "NoData 0", paths.mask)
 
-
-
-
-
-
-
-# DETERMINING BURNED AREA~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-
-
-
-    arcpy.env.cellSize = dem
-    arcpy.env.extent = dem
-    arcpy.env.snapRaster = dem
-    dem_info = arcpy.Raster(dem)
-    cell_res = dem_info.meanCellHeight
-
-    arcpy.FeatureToRaster_conversion(perim_buff_feat,'PerimBuff_ID',perim_buff,dem)
-
-    out_perim_buff_null = IsNull(perim_buff)
-    out_perim_buff_null.save(perim_buff_null)
-
-    out_perim_buff_bin = Con(Raster(perim_buff_null) > 0, 0, 10)
-    out_perim_buff_bin.save(perim_buff_bin)
-
-    perim_null = os.path.join(temp_gdb,i+"_perimnull")
-    perim_bin =  os.path.join(temp_gdb,i+"_perbin")
-    zburn =  os.path.join(temp_gdb,i+"_zburn")
-    burn =  os.path.join(temp_gdb,i+"_burn")
-
-    z1burn_bin =  os.path.join(temp_gdb,i+"_z1bbin")
-    z2burn_bin =  os.path.join(temp_gdb,i+"_z2bbin")
-    burn_bin =  os.path.join(temp_gdb,i+"_burnbin")
-
-    arcpy.env.cellSize = dem
-    arcpy.env.extent = dem
-    arcpy.env.snapRaster = dem
-
-    dem_info = arcpy.Raster(dem)
-    cell_res = dem_info.meanCellHeight
-
-    arcpy.FeatureToRaster_conversion(perim_feat, "Perim_ID", perim)
-
-    if segment_guess == 'PERIM':
-
-        out_perim_null = IsNull(perim)
-        out_perim_null.save(perim_null)
-
-        out_perim_bin = Con(Raster(perim_null) > 0, 0, 1)
-        out_perim_bin.save(perim_bin)
-
+    # If not using the perimeter mask, fill DEM values outside the perimeter with NoData
     else:
-        arcpy.Copy_management(perim,perim_bin)
+        paths.mask = paths.perimeter_raster
+        dem_masked = Raster(paths.perimeter_raster) * Raster(paths.firedem)
+        dem_masked.save(paths.firedem_masked)
+        paths.firedem = paths.firedem_masked
 
+    # Calculate slope
+    notify.slope()
+    slope = arcpy.sa.Slope(paths.firedem, "PERCENT_RISE")
+    slope.save(paths.slope)
 
-    if segment_guess == 'NO_PERIM':
-        z_dem_name = i+'_z_dem'
-        z_dem = os.path.join(temp_gdb,z_dem_name)
-        arcpy.Copy_management(dem,z_dem)
-        arcpy.Delete_management(dem)
+    # Calculate hillshade
+    notify.hillshade()
+    hillshade = arcpy.sa.Hillshade(paths.firedem)
+    hillshade.save(paths.hillshade)
 
-        out_dem = Raster(perim) * Raster(z_dem)
-        out_dem.save(dem)
+    # If there is a burn severity map, clip to the fire perimeter. Locate
+    # burned areas.
+    if arcpy.Exists(paths.severity):
+        severity = Raster(paths.severity) * Raster(paths.perimeter_raster)
+        isburned = severity >= 2
+        isburned.save(paths.isburned)
 
-# CALCULATE SLOPE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Also locate missing data values
+        ismissing = arcpy.sa.IsNull(severity)
+        hasdata = arcpy.sa.Con(ismissing, 0, 1)
+        hasdata.save(paths.hasburndata)
 
-    print('     Calculating Slope (%)...')
-    slppct_name = i+'_slppct'
-    slppct = os.path.join(temp_gdb,slppct_name)
-    out_slppct = Slope(dem,"PERCENT_RISE")
-    out_slppct.save(slppct)
-
-    slpdeg_name = i+'_slpdeg'
-    slpdeg = os.path.join(temp_gdb,slpdeg_name)
-    out_slpdeg = Slope(dem,"DEGREE")
-    out_slpdeg.save(slpdeg)
-
-# CALCULATE HILLSHADE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    print('     Calculating Shaded Relief...')
-    shd_name = i+"_shd"
-    shd = os.path.join(firein_gdb,i+"_shd")
-    out_shd = Hillshade(dem)
-    out_shd.save(shd)
-
-
-# CALC PRE-FIRE dNBR and Severity~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    arcpy.ClearEnvironment('mask')
-
-    if pre_fire == 'YES':
-
-        print('     Running Pre-Fire Scenario...')
-
-        #BARC Thresholds
-
-        print('         Calculating Pre-Fire BARC4 Thresholds...')
-
-        if barc_threshold == 'CALC':
-
-            mtbs_perim_feat_name = 'WesternUS_MTBS_Perim_20012014'
-            mtbs_perim_feat = os.path.join(mtbs_gdb,mtbs_perim_feat_name)
-
-            mtbs_meta_table_name = 'WesternUS_MTBS_Metadata_20012014'
-            mtbs_meta_table = os.path.join(mtbs_gdb,mtbs_meta_table_name)
-
-            barc_thresholds = DFTools_PreFire.ExtractBarcThresholds(i,perim_feat,temp_gdb,mtbs_perim_feat,mtbs_meta_table,mtbs_perim_distance_km)
-
-            barc_low_threshold = barc_thresholds[0]
-            barc_mod_threshold = barc_thresholds[1]
-            barc_high_threshold = barc_thresholds[2]
-
-            print('             Median Regional BARC Thresholds:')
-            print('                 Low = '+str(barc_low_threshold))
-            print('                 Moderate = '+str(barc_mod_threshold))
-            print('                 High = '+str(barc_high_threshold))
-
-            arcpy.env.extent = dem
-
-        else:
-            dnbr_unburned = 25
-            barc_low_threshold = dnbr_low
-            barc_mod_threshold = dnbr_mod
-            barc_high_threshold = dnbr_high
-
-            print('             Defined BARC Thresholds:')
-            print('                 Low = '+str(barc_low_threshold))
-            print('                 Moderate = '+str(barc_mod_threshold))
-            print('                 High = '+str(barc_high_threshold))
-        #DNBR Parameters
-
-        print('         Extracting Pre-Fire dNBR parameters...')
-
-        us_evt_name = 'us_'+str(evt_version)+'evt'
-        us_evt = os.path.join(evt_gdb,us_evt_name)
-
-        fire_parameters = DFTools_PreFire.ExtractParameters(i,perim,us_evt)
-        fire_kappa = fire_parameters[0]
-        fire_lambda = fire_parameters[1]
-        fire_dnbr_fit = fire_parameters[2]
-        fire_rdnbr_fit = fire_parameters[3]
-
-        #Simulate DNBR
-
-        for percentile in prefire_percentile_list:
-
-            percentile_100 = int(round(percentile * 100,0))
-            percentile_100_string = str('%.0f' % percentile_100)
-
-            print('         Simulating dNBR for Weibull Percentile = '+str(percentile)+'...')
-
-            percentile_100 = int(round(percentile * 100,0))
-            percentile_100_string = str('%.0f' % percentile_100)
-
-
-            evt_simdnbr_adj_name = i+'_SimDNBR_P'+percentile_100_string+'_adj'
-            evt_simdnbr_adj = os.path.join(temp_gdb,evt_simdnbr_adj_name)
-
-            evt_simdnbr_name = i+'_SimDNBR_P'+percentile_100_string
-            evt_simdnbr = os.path.join(firein_gdb,evt_simdnbr_name)
-
-            SimDataList = DFTools_PreFire.SimDNBRSev(i,fire_lambda,fire_kappa,percentile,evt_simdnbr,evt_simdnbr_adj,barc_thresholds)
-
-            simdnbr = SimDataList[0]
-            simsev = SimDataList[1]
-
-    if arcpy.Exists(sev):
-        out_zburn = Con(Raster(sev) >= 2, 1)
-        out_zburn.save(zburn)
-        out_burn = Raster(zburn) * Raster(perim)
-        out_burn.save(burn)
-
-        out_z2burn_bin = IsNull(burn)
-        out_z2burn_bin.save(z2burn_bin)
-        out_burn_bin = Con(Raster(z2burn_bin) > 0, 0, 1)
-        out_burn_bin.save(burn_bin)
-
+    # Otherwise, use the fire perimeter directly as the burn masks
     else:
-        arcpy.Copy_management(perim,burn)
-        arcpy.Copy_management(perim_bin,burn_bin)
+        paths.isburned = paths.perimeter_raster
+        paths.hasburndata = paths.mask
 
-# CALCULATE FLOW DIRECTION, ACCUMULATION AND RELIEF USING TAUDEM~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    print('     Routing Flow Using TauDEM...')
-
-    # CONVERT DEM TO TIF
-
+    # Convert DEM to TIF for use with TauDEM.
     arcpy.env.compression = "NONE"
-    if segment_guess == 'NO_PERIM':
-        arcpy.env.mask = perim
-    arcpy.RasterToOtherFormat_conversion(dem, scratch, "TIFF")
+    if segment_guess == "NO_PERIM":
+        arcpy.env.extent = paths.perimeter_raster
+    arcpy.conversion.RasterToOtherFormat(paths.firedem, paths.firedem_tiff, "TIFF")
 
-    os.chdir(scratch)
+    # Remove pits
+    pitremove = f"PitRemove -z {paths.firedem} -fel {paths.pitfilled}"
+    os.system(pitremove)
 
-######################
-# I moved this here. It probably shouldn't stay here.
-    # Define a function to suppress console outut
-    @contextmanager
-    def suppress_stdout():
-    with open(os.devnull, "w") as devnull:
-        old_stdout = sys.stdout
-        sys.stdout = devnull
-        try:
-            yield
-        finally:
-            sys.stdout = old_stdout
-######################
+    # Calculate D8 and D-infinity flow directions
+    d8flow = f"D8FlowDir -fel {paths.pitfilled} -p {paths.d8flow} -sd8 {paths.d8slope}"
+    os.system(d8flow)
+    diflow = f"DinfFlowDir -fel {paths.pitfilled} -ang {paths.diflow} -slp {paths.dislope}"
+    os.system(diflow)
 
-    with suppress_stdout():
+    # Calculate D8 upslope area. Also get relief and length (vertical and
+    # horizontal components of the longest flow path). Relief and length are
+    # based on D-Infinity flow outputs - use a threshold of 0.49 so that the
+    # processing of these outputs mimics a D8 flow model.
+    area = f"AreaD8 -p {paths.d8flow} -ad8 {paths.d8area} -nc"
+    os.system(area)
+    relief = f"DinfDistUp -ang {paths.diflow} -fel {paths.pitfilled} -du {paths.d8relief} -m max v -nc -thresh 0.49"
+    os.system(relief)
+    length = f"DinfDistUp -ang {paths.diflow} -fel {paths.pitfilled} -du {paths.d8length} -m max h -nc -thresh 0.49"
+    os.system(length)
 
-        # REMOVE PITS
-        dem_taudem_name = i+"_dem.tif"
-        dem_taudem = os.path.join(scratch,dem_taudem_name)
+    # Export TauDEM to ArcGIS workspace
+    # !!!!!!!!!!!!!!! This should be removed eventually
+    notify.taudem_export()
+    export.raster(paths.d8flow, paths.flow)
+    export.raster(paths.d8area, paths.area)
+    export.raster(paths.d8relief, paths.relief)
+    export.raster(paths.d8length, paths.length)
 
-        fel_taudem_name = i+"_fel.tif"
-        fel_taudem = os.path.join(scratch,fel_taudem_name)
+    # Reclassify TauDEM flow directions to mimic ArcPy flow directions
+    notify.flow_translation()
+    mapping = ";".join(["1 1", "2 128", "3 64", "4 32", "5 16", "6 8", "7 4", "8 2"]) # e.g. from 2 to 128
+    arcpy.ddd.Reclassify(paths.d8flow, "VALUE", mapping, paths.flow, "NODATA")
 
-        pitremove_cmd = "PitRemove -z "+dem_taudem_name+" -fel "+fel_taudem_name
-        os.system(pitremove_cmd)
+    # Locate upstream area greater within the maximum
+    normal_area = Raster(paths.flow) < parameters.max_acc
+    normal_area.save(normal_area)
 
-        # CALC D8 FLOW DIRECTION
-        fdird8_taudem_name = i+"_d8.tif"
-        fdird8_taudem = os.path.join(scratch,fdird8_taudem_name)
-
-        sd8_taudem_name = i+"_sd8.tif"
-        sd8_taudem = os.path.join(scratch,sd8_taudem_name)
-
-        d8fdir_cmd = "D8FlowDir -fel "+fel_taudem_name+" -p "+fdird8_taudem_name+" -sd8 "+sd8_taudem_name
-        os.system(d8fdir_cmd)
-
-        # CALC D8 UPSLOPE AREA
-        aread8_taudem_name = i+"_aread8.tif"
-        aread8_taudem = os.path.join(scratch,aread8_taudem_name)
-
-        aread8_cmd = "AreaD8 -p "+fdird8_taudem_name+" -ad8 "+aread8_taudem_name+" -nc"
-        os.system(aread8_cmd)
-
-        # CALC D-INFINITY FLOW DIRECTION
-        dinfang_taudem_name = i+"_ang.tif"
-        dinfang_taudme = os.path.join(scratch,dinfang_taudem_name)
-
-        dinfslp_taudem_name = i+"_dinfslp.tif"
-        dinfslp_taudme = os.path.join(scratch,dinfslp_taudem_name)
-
-        dinffdir_cmd = "DinfFlowdir -fel "+fel_taudem_name+" -ang "+dinfang_taudem_name+" -slp "+dinfslp_taudem_name
-        os.system(dinffdir_cmd)
-
-        # CALC D-INFINITY UPSLOPE AREA
-        areadinf_taudem_name = i+"_sca.tif"
-        areadinf_taudem = os.path.join(scratch,areadinf_taudem_name)
-
-        areadinf_cmd = "AreaDinf -ang "+dinfang_taudem_name+" -sca "+areadinf_taudem_name+" -nc"
-        os.system(areadinf_cmd)
-
-        # CALC D-INFINITY BASED RELIEF BUT TRANSLATING TO D8 USING THRESHOLD = 0.49 (TARBOTON PERSONAL COMM.)
-        reliefd8_taudem_name = i+"_reliefd8.tif"
-        relief_taudem = os.path.join(scratch,reliefd8_taudem_name)
-
-        dinfdistup_cmd = "DinfDistUp -ang "+dinfang_taudem_name+" -fel "+fel_taudem_name+" -du "+reliefd8_taudem_name+" -m max v -nc -thresh 0.49"
-        os.system(dinfdistup_cmd)
-
-        # CALC D-INFINITY BASED FLOW LENGTH BUT TRANSLATING TO D8 USING THRESHOLD = 0.49 (TARBOTON PERSONAL COMM.)
-        lengthd8_taudem_name = i+"_lend8.tif"
-        lengthd8_taudem = os.path.join(scratch,lengthd8_taudem_name)
-
-        lengthd8_cmd = "DinfDistUp -ang "+dinfang_taudem_name+" -fel "+fel_taudem_name+" -du "+lengthd8_taudem_name+" -m max h -nc -thresh 0.49"
-        os.system(lengthd8_cmd)
-
-    os.chdir(workingdir)
-
-    # TRANSLATE THE TAUDEM D8 FLOW DIRECTION INTO ARCGIS D8 FLOW DIRECTIONS
-
-    print('     Converting TauDEM Derivatives to ArcGIS Rasters...')
-
-    fdir_taudem_arc = os.path.join(temp_gdb,i+"_taud8")
-    fdir = os.path.join(firein_gdb,i+"_fdir")
-    facc = os.path.join(firein_gdb,i+"_facc")
-    relief = os.path.join(firein_gdb,i+"_relief")
-    flen = os.path.join(temp_gdb,i+"_flen")
-
-    arcpy.Copy_management(fdird8_taudem,fdir_taudem_arc)
-    arcpy.Copy_management(aread8_taudem,facc)
-    arcpy.Copy_management(relief_taudem,relief)
-    arcpy.Copy_management(lengthd8_taudem,flen)
-
-    # FLOW DIRECTION
-    print('     Translating TauDEM Flow Direction...')
-
-    fdir_remap = workingdir+"\\"+i+"_TauDEM_FDirRemap.txt"
-
-    target = open(fdir_remap,'wt')
-    target.write("1 : 1\n")
-    target.write("2 : 128\n")
-    target.write("3 : 64\n")
-    target.write("4 : 32\n")
-    target.write("5 : 16\n")
-    target.write("6 : 8\n")
-    target.write("7 : 4\n")
-    target.write("8 : 2\n")
-    target.close()
-    outfdir = arcpy.sa.ReclassByASCIIFile(fdir_taudem_arc,fdir_remap,"NODATA")
-    outfdir.save(fdir)
-
-
-    if segment_guess == 'NO_PERIM':
-        z_fdir_name = i+'_z_d8'
-        z_fdir = os.path.join(temp_gdb,z_fdir_name)
-        arcpy.Copy_management(fdir,z_fdir)
-        arcpy.Delete_management(fdir)
-
-        out_fdir = Raster(perim) * Raster(z_fdir)
-        out_fdir.save(fdir)
-
-        z_facc_name = i+'_z_facc'
-        z_facc = os.path.join(temp_gdb,z_facc_name)
-        arcpy.Copy_management(facc,z_facc)
-        arcpy.Delete_management(facc)
-
-        out_facc = Raster(perim) * Raster(z_facc)
-        out_facc.save(facc)
-
-    facc_cl_name = i+'_facc_cl'
-    facc_cl = os.path.join(temp_gdb,facc_cl_name)
-
-    if segment_guess == 'NO_PERIM':
-        arcpy.env.mask = perim
-
-    out_facc_cl = Con(Raster(facc) >= max_acc,0,1)
-    out_facc_cl.save(facc_cl)
-
-    # BURNED AREA FLOW ACCUMULATION
-    print('     Accumulating Burned Area...')
-
-    burn_bin = os.path.join(temp_gdb,i+"_burnbin")
-    burn_bin_taudem_name = i+"_burnbin.tif"
-    burn_bin_taudem = os.path.join(scratch,burn_bin_taudem_name)
-
-    bslp = os.path.join(temp_gdb,i+"_bslp")
-    bslp_taudem_name = i+"_bslp.tif"
-    bslp_taudem = os.path.join(scratch,bslp_taudem_name)
-
+    # Convert burn mask to TIFF
     arcpy.env.compression = "NONE"
-    arcpy.RasterToOtherFormat_conversion(burn_bin, scratch, "TIFF")
+    arcpy.conversion.RasterToOtherFormat(paths.hasburndata, paths.hasburn_tiff, "TIFF")
 
-    os.chdir(scratch)
+    # Use TauDEM to get the cumulative upslope burned area
+    notify.burn_area()
+    d8area = f"AreaD8 -p {paths.d8flow} -ad8 {paths.d8burned_area} -wg {paths.hasburn_tiff} -nc"
+    os.system(d8area)
+    # !!!!!!! Next line should not be required
+    export.raster(paths.d8burned_area, paths.burned_area)
 
-    burn_aread8_taudem_name = i+"_baread8.tif"
-    burn_aread8_taudem = os.path.join(scratch,burn_aread8_taudem_name)
+    # Define the stream network.
+    notify.streams()
+    all_area = arcpy.Raster(paths.area)
+    burned_area = arcpy.Raster(paths.burned_area)
+    streams = arcpy.sa.Con((all_area >= parameters.min_acc) & (burned_area > parameters.burn_acc_threshold), 1)
+    streams.save(paths.stream_raster)
 
-    with suppress_stdout():
-
-        burn_aread8_cmd = "AreaD8 -p "+fdird8_taudem_name+" -ad8 "+burn_aread8_taudem_name+" -wg "+burn_bin_taudem_name+" -nc"
-        os.system(burn_aread8_cmd)
-
-    os.chdir(workingdir)
-
-    z_bacc = os.path.join(temp_gdb,'z'+i+'_bacc')
-    z2_bacc_null = os.path.join(temp_gdb,'z2'+i+'_bacc')
-    bacc = os.path.join(temp_gdb,i+'_bacc')
-    bacc_bin = os.path.join(temp_gdb,i+'_baccbin')
-
-    arcpy.Copy_management(burn_aread8_taudem,bacc)
-
-    if segment_guess == 'NO_PERIM':
-        z_bacc_name = i+'_z_bacc'
-        z_bacc = os.path.join(temp_gdb,z_bacc_name)
-        arcpy.Copy_management(bacc,z_bacc)
-        arcpy.Delete_management(bacc)
-
-        out_bacc = Raster(perim) * Raster(z_bacc)
-        out_bacc.save(bacc)
-
-    # ALL STREAMS BETWEEN MIN AND MAX ACCUM THRESHOLDS
-
-    print("     Defining Stream Network...")
-
-    if segment_guess == 'NO_PERIM':
-        arcpy.env.mask = perim
-
-    z_strm_name = i+'_zstrm'
-    z_strm = os.path.join(temp_gdb,z_strm_name)
-
-    strm_binary_name = i+'_strm_bin'
-    strm_binary = os.path.join(temp_gdb,strm_binary_name)
-
-    hill_binary_name = i+'_hill_bin'
-    hill_binary = os.path.join(temp_gdb,hill_binary_name)
-
-    zbin_allstrm_link_feat_name = "z"+i+"_alllink_feat"
-    zbin_allstrm_link_feat = os.path.join(temp_gdb,zbin_allstrm_link_feat_name)
-
-    z_link_name = i+'_zlink'
-    z_link = os.path.join(temp_gdb,z_link_name)
-
-    z_link_feat_name = i+'_zlink_feat'
-    z_link_feat = os.path.join(temp_gdb,z_link_feat_name)
-
-    dense_link_feat_name = i+'_denselink_feat'
-    dense_link_feat = os.path.join(temp_gdb,dense_link_feat_name)
-
-    bin_allstrm_link_name = i+"_alllink"
-    bin_allstrm_link = os.path.join(temp_gdb,bin_allstrm_link_name)
-
-    bin_allstrm_link_feat_name = i+"_alllink_feat"
-    bin_allstrm_link_feat = os.path.join(temp_gdb,bin_allstrm_link_feat_name)
-
-    if segment_guess == 'NO_PERIM':
-        arcpy.env.mask = perim
-        out_z_strm = Con((Raster(facc) >= min_acc) & (Raster(bacc) > burn_acc_threshold), 1)
-        out_z_strm.save(z_strm)
-
-    else:
-        out_z_strm = Con((Raster(facc) >= min_acc) & (Raster(bacc) > burn_acc_threshold), 1)
-        out_z_strm.save(z_strm)
-
-    DFTools_ArcGIS.ReplaceNull(z_strm,strm_binary,0,1)
-    DFTools_ArcGIS.ReplaceNull(z_strm,hill_binary,1,0)
-
-    if segment_guess == 'NO_PERIM':
-        arcpy.env.mask = perim
-
-    arcpy.ResetEnvironments()
+    # Get the stream linkages
     arcpy.env.cellSize = dem
     arcpy.env.snapRaster = dem
     arcpy.env.extent = perim
+    stream_links = arcpy.sa.StreamLink(paths.streams_raster, paths.flow)
 
-    out_z_link = StreamLink(z_strm,fdir)
-    out_z_link.save(z_link)
-
-    arcpy.RasterToPolyline_conversion(z_strm,z_link_feat,'','','NO_SIMPLIFY')
-
-    arcpy.env.cellSize = dem
-    arcpy.env.extent = dem
-    arcpy.env.snapRaster = dem
-
-    z_dense_pts_name = 'z'+i+'_dense_pts_feat'
-    z_dense_pts = os.path.join(temp_gdb,z_dense_pts_name)
-
-    segment_length_string = str(max_segment_length_m)+' Meters'
-    arcpy.GeneratePointsAlongLines_management(z_link_feat,z_dense_pts,'DISTANCE',segment_length_string)
-    arcpy.SplitLineAtPoint_management(z_link_feat,z_dense_pts,dense_link_feat,'2')
-
-    arcpy.AddField_management(dense_link_feat, "Segment_ID", "LONG", "", "", "", "", "NULLABLE", "NON_REQUIRED", "")
-
-    dense_link_id_field_list = ['OBJECTID','Segment_ID']
-    with arcpy.da.UpdateCursor(dense_link_feat, dense_link_id_field_list) as cursor:
+    # Convert stream raster to polyline feature. Place points at fixed intervals
+    # along the network and use to split into stream segments.
+    arcpy.conversion.RasterToPolyline(paths.streams_raster, paths.streams, simplify="NO_SIMPLIFY")
+    interval = f"{parameters.max_segment_length_m} Meters"
+    arcpy.management.GeneratePointsAlongLines(paths.streams, paths.stream_points, "DISTANCE", interval)
+    arcpy.management.SplitLineAtPoint(paths.streams, paths.stream_points, paths.segments, search_radius="2")
+    
+    # Assign a segment ID attribute to the segments. The segment ID should match the object ID
+    arcpy.management.AddField(paths.segments, "Segment_ID", "LONG",
+                 field_is_nullable="NULLABLE", field_is_required="NON_REQUIRED")
+    cursorFields = ["OBJECTID", "SEGMENT_ID"]
+    with arcpy.da.UpdateCursor(paths.segments, cursorFields) as cursor:
         for row in cursor:
             row[1] = row[0]
             cursor.updateRow(row)
 
-    arcpy.DeleteField_management(dense_link_feat, "arcid;grid_code;from_node;to_node")
+    # Remove unneeded fields
+    remove = ["arcid", "grid_code", "from_node", "to_node"]
+    arcpy.management.DeleteField(stream.segments, remove)
 
+    # Convert the stream segments back to a raster wherein the raster value is
+    # the ID number of the stream segment
     arcpy.env.cellSize = dem
     arcpy.env.extent = dem
     arcpy.env.snapRaster = dem
+    arcpy.conversion.PolylineToRaster(paths.segments, "Segment_ID", paths.segment_raster)
 
-    arcpy.PolylineToRaster_conversion(dense_link_feat,'Segment_ID',bin_allstrm_link)
+    # Convert the stream raster back to a network
+    # ????? It seems odd that we convert to raster and then convert right back to feature
+    arcpy.sa.StreamToFeature(paths.segment_raster, paths.flow, paths.segments2, "NO_SIMPLIFY")
+    arcpy.management.AlterField(paths.segments2, "grid_code", "Segment_ID")
 
-    out_bin_allstrm_link_feat = StreamToFeature(bin_allstrm_link,fdir,bin_allstrm_link_feat,'NO_SIMPLIFY')
-    arcpy.AddField_management(bin_allstrm_link_feat, "Segment_ID", "LONG", "", "", "", "", "NULLABLE", "NON_REQUIRED", "")
+    # Get the stream order number
+    strahler = arcpy.sa.StreamOrder(paths.segment_raster, paths.flow, "STRAHLER")
+    strahler.save(paths.strahler_raster)
+    arcpy.sa.StreamToFeature(paths.strahler_raster, paths.flow, paths.strahler, "NO_SIMPLIFY")
 
-    segment_id_field_list = ['grid_code','Segment_ID']
-    with arcpy.da.UpdateCursor(bin_allstrm_link_feat, segment_id_field_list) as cursor:
-        for row in cursor:
-            row[1] = row[0]
-            cursor.updateRow(row)
 
-    arcpy.DeleteField_management(bin_allstrm_link_feat, "arcid;grid_code")
 
-    bin_allstrm = os.path.join(temp_gdb,i+"_allstrm")
-    bin_allstrm_ord = temp_gdb+"\\"+i+"_allord"
-    bin_allstrm_ord_feat = temp_gdb+"\\"+i+"_allord_feat"
-    out_bin_allstrm_ord = StreamOrder(bin_allstrm_link, fdir, "STRAHLER")
-    out_bin_allstrm_ord.save(bin_allstrm_ord)
-
-    StreamToFeature(bin_allstrm_ord,fdir,bin_allstrm_ord_feat,"NO_SIMPLIFY")
 
     # CHECK TO SEE IF THERE ARE DEBRIS BASINS, IF YES, THEN FIND STREAMS BELOW BASINS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
