@@ -32,11 +32,13 @@ def build(N, directory=None):
     associated kernel file.
 
     files = kernel.build(N, directory)
-    Builds the kernel files in the specified directory.
+    Builds the kernel files in the specified directory. Raises a ValueError if
+    the directory does not exist.
     ----------
     Inputs:
         N (int): The size of the kernel. Should be odd.
-        directory (str): The path of a directory in which to build the kernel files.
+        directory (str): The path of an existing directory in which to build
+            the kernel files.
 
     Outputs:
         files (dict): Holds the full path of the kernel file for each direction.
