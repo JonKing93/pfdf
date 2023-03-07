@@ -1,5 +1,27 @@
 """
 stream  Functions that delineate the stream network.
+----------
+This module delineates an initial hazard assessment stream network. This network
+consists of drainages that are both (1) large enough for debris-flows to occur,
+and (2) below a sufficient amount of burned area. This network is only an
+initial estimate of potentially hazardous drainages. Hazard assessment users
+may want to apply additional screenings to filter this initial network to a
+final network of drainage basins.
+
+This module requires flow directions and upslope areas computed using a D8 flow
+model. A potential workflow for hazard assessment users is as follows:
+
+    * Acquire DEM data
+    * Calculate flow directions and upslope areas
+    *** Run this module
+    * Screen the initial network
+    * Apply a hazard assessment model to the final network
+----------
+Key functions:
+    network     - Delineates the stream network
+
+Utilities:
+    raster_size - Returns the resolution of a raster as a float
 """
 
 from typing import Dict, Optional
