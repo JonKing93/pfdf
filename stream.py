@@ -88,8 +88,8 @@ def network(total_area: str,     min_basin_area: float,
             the split stream link polylines. Must be set when providing a max_segment_length.
 
     Outputs:
-        A dict mapping keys to the final feature and raster layers of the stream
-        network. (All keys are strings)
+        A dict mapping str keys to the paths of the final feature and raster layers
+        for the stream network.
 
         feature (str): The absolute path to the final arcpy feature layer
             representing the stream links as a set of polylines.
