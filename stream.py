@@ -14,7 +14,7 @@ def network(total_area: str,     min_basin_area: float,
             split_points: Optional[str] = None,
             split_streams: Optional[str] = None) -> Dict[str, str]:
     """
-    stream.network  Delineates the stream network
+    network  Delineates the stream network
     ----------
     network(total_area, min_basin_area, burned_area, min_burned_area,
             flow_direction, stream_features, stream_raster)
@@ -115,13 +115,39 @@ def network(total_area: str,     min_basin_area: float,
     # Convert streams to polyline features
     arcpy.sa.StreamToFeature(streams, flow_direction, stream_features, "NO_SIMPLIFY")
 
-    # Optionally split long segments
-    # TODO: Research effects of search_radius before code review.
+    # If splitting long segments, get a search radius smaller than the raster
+    # resolution. (Enables multiple splitting without searching too far)
     if splitting:
-        arcpy.management.GeneratePointsAlongLines(stream_features, split_points, "DISTANCE", max_segment_length)
-        arcpy.management.SplitLineAtPoint(stream_features, split_points, split_streams, search_radius="2")
+        width = raster_size(total_area, "CELLSIZEX")
+        height = raster_size(total_area, "CELLSIZEY")
+        min_resolution = min(height, width)
+        radius = min_resolution / 5  # 5 is arbitrary, anything > 1 should be fine
+
+        # Split the long segments
+        max_length = f"{max_segment_length} meters"
+        arcpy.management.GeneratePointsAlongLines(stream_features, split_points, "DISTANCE", max_length)
+        arcpy.management.SplitLineAtPoint(stream_features, split_points, split_streams, radius)
         output['feature'] = split_streams
 
     # Create stream link raster and return output paths
     arcpy.conversion.PolylineToRaster(output['feature'], "OBJECTID", stream_raster)
     return output
+
+def raster_size(raster, field):
+    """
+    raster_size  Returns a raster resolution as a float
+    ----------
+    raster_size(raster, field)
+    Returns the X or Y resolution of a raster layer as a float.
+    ----------
+    Inputs:
+        raster (str): The path to the arcpy raster layer being queried
+        field ("CELLSIZEX" | "CELLSIZEY"): The resolution field to query
+
+    Outputs:
+        float: The queried resolution
+    """
+
+    resolution = arcpy.management.GetRasterProperties(raster, field)
+    resolution = resolution.getOutput(0)
+    return float(resolution)
