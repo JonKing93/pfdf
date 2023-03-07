@@ -1,4 +1,3 @@
-
 """
 stream  Functions that delineate the stream network.
 """
@@ -13,7 +12,7 @@ def network(total_area: str,     min_basin_area: float,
             stream_features: str, stream_raster: str,
             max_segment_length: Optional[float] = None,
             split_points: Optional[str] = None,
-            split_segments: Optional[str] = None) -> Dict[str, str]
+            split_streams: Optional[str] = None) -> Dict[str, str]:
     """
     stream.network  Delineates the stream network
     ----------
@@ -79,7 +78,7 @@ def network(total_area: str,     min_basin_area: float,
     """
 
     # Note if splitting segments over the maximum length
-    if maximum_segment_length is None:
+    if max_segment_length is None:
         splitting = False
     else:
         splitting = True
@@ -98,19 +97,20 @@ def network(total_area: str,     min_basin_area: float,
             raise MissingPathError
 
     # Get absolute paths
-    output_feature = path.abspath(output_feature)
-    output_raster = path.abspath(output_raster)
+    output_feature = path.abspath(stream_features)
+    output_raster = path.abspath(stream_raster)
     if splitting:
         split_points = path.abspath(split_points)
         split_streams = path.abspath(split_streams)
 
     # Initialize output dict of stream layer paths
-    output = {'feature': output_feature, 'raster': output_raster}
+    output = {'feature': stream_features, 'raster': stream_raster}
 
     # Locate drainage streams
     total_area = arcpy.Raster(total_area)
     burned_area = arcpy.Raster(burned_area)
-    streams = (total_area >= minimum_basin_area) & (burned_area >= minimum_burned_area)
+    streams = (total_area >= min_basin_area) & (burned_area >= min_burned_area)
+    streams = arcpy.sa.Con(streams, 1)
 
     # Convert streams to polyline features
     arcpy.sa.StreamToFeature(streams, flow_direction, stream_features, "NO_SIMPLIFY")
@@ -118,10 +118,10 @@ def network(total_area: str,     min_basin_area: float,
     # Optionally split long segments
     # TODO: Research effects of search_radius before code review.
     if splitting:
-        arcpy.management.GeneratePointsAlongLines(stream_features, split_points, maximum_segment_length)
+        arcpy.management.GeneratePointsAlongLines(stream_features, split_points, "DISTANCE", max_segment_length)
         arcpy.management.SplitLineAtPoint(stream_features, split_points, split_streams, search_radius="2")
         output['feature'] = split_streams
 
     # Create stream link raster and return output paths
-    arcpy.management.PolylineToRaster(output['feature'], "OBJECTID", output_raster)
+    arcpy.conversion.PolylineToRaster(output['feature'], "OBJECTID", stream_raster)
     return output
