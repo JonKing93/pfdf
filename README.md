@@ -1,17 +1,18 @@
-# debris-flow-hazard-assessment
+# post-wildfire-debris-flow-hazard-assessment
 
-A project to convert the existing post-wildfire debris-flow hazard assessment code (DFHA) to a Python library.
+A Python library to implement post-wildfire debris-flow hazard assessments.
 
-## Current Tasks
+## Status
+This project is motivated by an unpublished collection of scripts written by Dennis Staley. The project is currently focused on adapting those scripts into a modern Python library.
 
-* [X] Upload the original code
-* [ ] Walk through and comment the code
-    * [ ] Step 1
-    * [ ] 1B
-    * [ ] 2
-    * [ ] 3
-* [ ] Get a test case up and running
-* [ ] Set up 3 working fires
-    * [ ] one small for unit tests
-    * [ ] one standard size
-    * [ ] one large for speed testing
+## Branches
+
+main: This holds the current official version of the Python library. All code on this branch has been reviewed.
+
+original: This branch serves as a reference and holds the original scripts and.
+
+dev: This is the main development branch. It represents the most up-to-date version of the code, and includes recent, unreviewed updates. Code on this branch is not necessarily stable and may change without warning.
+
+
+
+
