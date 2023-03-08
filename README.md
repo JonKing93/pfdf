@@ -9,7 +9,7 @@ This project is motivated by an unpublished collection of scripts written by Den
 
 main: This holds the current official version of the Python library. All code on this branch has been reviewed.
 
-original: This branch serves as a reference and holds the original scripts and.
+original: This branch serves as a reference. It holds the original scripts that the project is based on.
 
 dev: This is the main development branch. It represents the most up-to-date version of the code, and includes recent, unreviewed updates. Code on this branch is not necessarily stable and may change without warning.
 
