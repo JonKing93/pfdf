@@ -39,11 +39,17 @@ bools = Union[bool, List[bool]]
 in_gdb = Path.cwd() / "stream-inputs.gdb"
 out_gdb = Path.cwd() / "stream-outputs.gdb"
 
-output = ["stream_links","split_points","split_links","stream_raster_split","stream_raster_unsplit"]
-input = ["total_area","burned_area","flow_direction"] + output
+output = [
+    "stream_links",
+    "split_points",
+    "split_links",
+    "stream_raster_split",
+    "stream_raster_unsplit",
+]
+input = ["total_area", "burned_area", "flow_direction"] + output
 
-output = {name: str(out_gdb/name) for name in output}
-input = {name: str(in_gdb/name) for name in input}
+output = {name: str(out_gdb / name) for name in output}
+input = {name: str(in_gdb / name) for name in input}
 
 # Testing parameters
 min_basin_area = 250
@@ -96,7 +102,7 @@ def output_files(files: strs, israster: Optional[bools] = None) -> Callable:
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            
+
             # Delete the files
             for file in files:
                 delete(file)
@@ -114,8 +120,11 @@ def output_files(files: strs, israster: Optional[bools] = None) -> Callable:
                 assert ismatch, f"{file} does not match expected values"
 
             return output
+
         return wrapper
+
     return decorator
+
 
 def final_paths(feature: str, raster: str) -> Callable:
     """
@@ -135,31 +144,41 @@ def final_paths(feature: str, raster: str) -> Callable:
     Outputs:
         A decorator for the test function.
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             final = func(*args, **kwargs)
             assert isinstance(final, dict), "Final paths not returned as dict"
-            
+
             keys = final.keys()
-            assert len(keys)==2, "Final paths must only have 2 keys"
-            assert 'feature' in keys, "'feature' must be a final path key"
-            assert 'raster' in keys, "'raster' must be a final path key"
-            
-            assert final['feature']==output[feature], f"Final feature path does not match expected value."
-            assert final['raster']==output[raster], f"Final raster path does not match its expected value"
+            assert len(keys) == 2, "Final paths must only have 2 keys"
+            assert "feature" in keys, "'feature' must be a final path key"
+            assert "raster" in keys, "'raster' must be a final path key"
+
+            assert (
+                final["feature"] == output[feature]
+            ), f"Final feature path does not match expected value."
+            assert (
+                final["raster"] == output[raster]
+            ), f"Final raster path does not match its expected value"
             return final
+
         return wrapper
+
     return decorator
-        
+
+
 # Decorator utility functions
 def delete(name: str) -> None:
     """Deletes a layer from the output geodatabase"""
     arcpy.management.Delete(output[name])
 
+
 def exists(name: str) -> bool:
     """True if a layer exists in the output geodatabase"""
     return arcpy.Exists(output[name])
+
 
 def equal_rasters(name: str) -> bool:
     """True if an output raster has identical values to the input raster of the same name"""
@@ -167,16 +186,21 @@ def equal_rasters(name: str) -> bool:
     produced = arcpy.RasterToNumPyArray(output[name])
     return numpy.array_equal(expected, produced, equal_nan=True)
 
+
 def equal_features(name: str) -> bool:
     """True if an output feature has identical value to the input feature of the same name"""
     expected = arcpy.da.FeatureClassToNumPyArray(input[name], "SHAPE@WKT")
     produced = arcpy.da.FeatureClassToNumPyArray(output[name], "SHAPE@WKT")
     return numpy.array_equal(expected, produced)
 
+
 # Tests for stream module utilities
 class TestCheckSplitPaths:
-
-    @pytest.mark.parametrize('split_points','split_links', [(None,'a/path'), ('a/path',None), ('a/path','another/path')])
+    @pytest.mark.parametrize(
+        "split_points",
+        "split_links",
+        [(None, "a/path"), ("a/path", None), ("a/path", "another/path")],
+    )
     @staticmethod
     def test_missing_paths(split_points, split_links):
         with pytest.raises(ValueError):
@@ -189,8 +213,9 @@ class TestCheckSplitPaths:
         output = stream.check_split_paths(split_points, split_links)
         assert output is None
 
+
 class TestRasterSize:
-    raster = input['total_area']
+    raster = input["total_area"]
 
     def test_height(self):
         resolution = stream.raster_size(self.raster, "CELLSIZEX")
@@ -200,42 +225,59 @@ class TestRasterSize:
         resolution = stream.raster_size(self.raster, "CELLSIZEY")
         assert resolution == 10
 
+
 # Tests for low-level functions
 class TestLinks:
     @staticmethod
-    @output_files('stream_links')
+    @output_files("stream_links")
     def test():
-        out = stream.links(input['total_area'], min_basin_area,
-                           input['burned_area'], min_burned_area,
-                           input['flow_direction'], output['stream_links'])
+        out = stream.links(
+            input["total_area"],
+            min_basin_area,
+            input["burned_area"],
+            min_burned_area,
+            input["flow_direction"],
+            output["stream_links"],
+        )
         assert out is None
+
 
 class TestSplit:
     @staticmethod
-    @output_files(['split_points','split_links'])
+    @output_files(["split_points", "split_links"])
     def test():
-        out = stream.split(input['stream_links'], max_segment_length, search_radius,
-                              output['split_points'], output['split_links'])
+        out = stream.split(
+            input["stream_links"],
+            max_segment_length,
+            search_radius,
+            output["split_points"],
+            output["split_links"],
+        )
         assert out is None
+
 
 class TestSearchRadius:
     raster = input["total_area"]
-    
+
     def test_default(self):
         radius = stream.search_radius(self.raster)
-        assert radius==2
+        assert radius == 2
 
-    @pytest.mark.parametrize('divisor,expected_radius', [(10,1), (5,2), (2,5), (1,10)])
+    @pytest.mark.parametrize(
+        "divisor,expected_radius", [(10, 1), (5, 2), (2, 5), (1, 10)]
+    )
     def test_divisor(self, divisor, expected_radius):
         radius = stream.search_radius(self.raster, divisor)
         assert radius == expected_radius
 
+
 class TestRaster:
     @staticmethod
-    @output_files('stream_raster_unsplit', israster=True)
+    @output_files("stream_raster_unsplit", israster=True)
     def test():
-        out = stream.raster(input['stream_links'], output['stream_raster_unsplit'])
+        out = stream.raster(input["stream_links"], output["stream_raster_unsplit"])
         assert out is None
+
 
 # Tests for high-level user functions
 class TestNetwork:
@@ -243,45 +285,68 @@ class TestNetwork:
 
     # A standard run with no segment splitting
     @staticmethod
-    @output_files(['stream_links','stream_raster_unsplit'], israster)
-    @final_paths('stream_links','stream_raster_unsplit')
+    @output_files(["stream_links", "stream_raster_unsplit"], israster)
+    @final_paths("stream_links", "stream_raster_unsplit")
     def test_no_split():
-        return stream.network(input['total_area'], min_basin_area,
-                             input['burned_area'], min_burned_area,
-                             input['flow_direction'],
-                             output['stream_links'], output['stream_raster_unsplit'])
+        return stream.network(
+            input["total_area"],
+            min_basin_area,
+            input["burned_area"],
+            min_burned_area,
+            input["flow_direction"],
+            output["stream_links"],
+            output["stream_raster_unsplit"],
+        )
 
     # A standard run with segment splitting
     @staticmethod
-    @output_files(['split_links','stream_raster_split'], israster)
-    @final_paths('split_links', 'stream_raster_split')
+    @output_files(["split_links", "stream_raster_split"], israster)
+    @final_paths("split_links", "stream_raster_split")
     def test_split():
-        return stream.network(input['total_area'], min_basin_area,
-                             input['burned_area'], min_burned_area,
-                             input['flow_direction'],
-                             output['stream_links'], output['stream_raster_split'],
-                             max_segment_length, output['split_points'], output['split_links'])
+        return stream.network(
+            input["total_area"],
+            min_basin_area,
+            input["burned_area"],
+            min_burned_area,
+            input["flow_direction"],
+            output["stream_links"],
+            output["stream_raster_split"],
+            max_segment_length,
+            output["split_points"],
+            output["split_links"],
+        )
 
     # Splitting paths should be ignored when there is no maxlength
     @staticmethod
-    @output_files(['stream_links','stream_raster_unsplit'], israster)
-    @final_paths('stream_links', 'stream_raster_unsplit')
+    @output_files(["stream_links", "stream_raster_unsplit"], israster)
+    @final_paths("stream_links", "stream_raster_unsplit")
     def test_splitpaths_but_no_maxlength():
         return stream.network(
-            input['total_area'], min_basin_area, input['burned_area'], min_burned_area,
-            input['flow_direction'], output['stream_links'], output['stream_raster_unsplit'],
-            None, output['split_points'], output['split_links'])
+            input["total_area"],
+            min_basin_area,
+            input["burned_area"],
+            min_burned_area,
+            input["flow_direction"],
+            output["stream_links"],
+            output["stream_raster_unsplit"],
+            None,
+            output["split_points"],
+            output["split_links"],
+        )
 
     # Throw an error when maxlength is specified, but splitting paths are missing
     @staticmethod
     def test_split_missing_path():
         with pytest.raises(ValueError):
-            return stream.network(input['total_area'], min_basin_area,
-                             input['burned_area'], min_burned_area,
-                             input['flow_direction'],
-                             output['stream_links'], output['stream_raster_split'],
-                             max_segment_length, None, output['split_links'])
-
-
-        
-        
+            return stream.network(
+                input["total_area"],
+                min_basin_area,
+                input["burned_area"],
+                min_burned_area,
+                input["flow_direction"],
+                output["stream_links"],
+                output["stream_raster_split"],
+                max_segment_length,
+                None,
+                output["split_links"],
+            )

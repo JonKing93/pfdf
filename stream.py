@@ -28,13 +28,19 @@ from typing import Dict, Optional
 import arcpy
 from os import path
 
-def network(total_area: str,     min_basin_area: float,
-            burned_area: str,    min_burned_area: float,
-            flow_direction: str,
-            stream_features: str, stream_raster: str,
-            max_segment_length: Optional[float] = None,
-            split_points: Optional[str] = None,
-            split_streams: Optional[str] = None) -> Dict[str, str]:
+
+def network(
+    total_area: str,
+    min_basin_area: float,
+    burned_area: str,
+    min_burned_area: float,
+    flow_direction: str,
+    stream_features: str,
+    stream_raster: str,
+    max_segment_length: Optional[float] = None,
+    split_points: Optional[str] = None,
+    split_streams: Optional[str] = None,
+) -> Dict[str, str]:
     """
     network  Delineates the stream network
     ----------
@@ -119,12 +125,15 @@ def network(total_area: str,     min_basin_area: float,
         if missing is not None:
             MissingPathError = TypeError(
                 f"You must provide the '{missing}' input when enforcing a "
-                 "maximum stream segment length.")
+                "maximum stream segment length."
+            )
             raise MissingPathError
-        
+
     # Create output dict of stream paths
-    output = {'feature': path.abspath(final_features),
-              'raster': path.abspath(stream_raster)}
+    output = {
+        "feature": path.abspath(final_features),
+        "raster": path.abspath(stream_raster),
+    }
 
     # Locate drainage streams
     total_area = arcpy.Raster(total_area)
@@ -145,12 +154,17 @@ def network(total_area: str,     min_basin_area: float,
 
         # Split the long segments
         max_length = f"{max_segment_length} meters"
-        arcpy.management.GeneratePointsAlongLines(stream_features, split_points, "DISTANCE", max_length)
-        arcpy.management.SplitLineAtPoint(stream_features, split_points, split_streams, radius)
+        arcpy.management.GeneratePointsAlongLines(
+            stream_features, split_points, "DISTANCE", max_length
+        )
+        arcpy.management.SplitLineAtPoint(
+            stream_features, split_points, split_streams, radius
+        )
 
     # Create stream link raster and return output paths
-    arcpy.conversion.PolylineToRaster(output['feature'], "OBJECTID", stream_raster)
+    arcpy.conversion.PolylineToRaster(output["feature"], "OBJECTID", stream_raster)
     return output
+
 
 def raster_size(raster, field):
     """
