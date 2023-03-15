@@ -25,8 +25,8 @@ Utilities:
 """
 
 from typing import Dict, Optional
-import arcpy
 from os import path
+import arcpy
 
 
 def network(
