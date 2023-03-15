@@ -21,7 +21,7 @@ To run the tests, you will need to:
     * Run `pytest test_stream.py`
 """
 
-import sys, functools, pytest
+import sys, pytest
 from pathlib import Path
 from typing import List, Union, Optional
 import arcpy
