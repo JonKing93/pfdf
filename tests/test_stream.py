@@ -71,6 +71,7 @@ arcpy.env.overwriteOutput = True
 min_basin_area = 250
 min_burned_area = 100
 max_segment_length = 500
+long_segment_length = 1000000
 search_radius = 2
 
 # Type alias
@@ -204,7 +205,7 @@ class TestLinks(CheckAllFires):
 
 
 class TestSplit(CheckAllFires):
-    def test(_, fire):
+    def test_standard(_, fire):
         outputs = [split_points, split_links]
         delete(outputs)
         out = stream.split(
@@ -216,6 +217,18 @@ class TestSplit(CheckAllFires):
         )
         assert out is None
         validate_outputs(fire, outputs)
+
+    def test_all_shorter(_, fire):
+        delete([split_points, stream_links])
+        out = stream.split(
+            fire[stream_links],
+            long_segment_length,
+            search_radius,
+            output[split_points],
+            output[stream_links],
+        )
+        assert out is None
+        validate_outputs(fire, stream_links)
 
 
 class TestSearchRadius(UsesRaster):
