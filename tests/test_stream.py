@@ -205,6 +205,8 @@ class TestLinks(CheckAllFires):
 
 
 class TestSplit(CheckAllFires):
+
+    # Standard splitting
     def test_standard(_, fire):
         outputs = [split_points, split_links]
         delete(outputs)
@@ -218,6 +220,8 @@ class TestSplit(CheckAllFires):
         assert out is None
         validate_outputs(fire, outputs)
 
+    # Test when all stream segments are shorter than the max length. (So
+    # splitting is enabled, but there isn't anything to split).
     def test_all_shorter(_, fire):
         delete([split_points, stream_links])
         out = stream.split(
