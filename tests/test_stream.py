@@ -246,26 +246,36 @@ class TestNetwork(CheckAllFires):
     israster = [False, True]
 
     # Validate the output dict of final stream paths
-    def check_dict(output: Any, feature: str, raster: str) -> None:
+    def check_dict(out: Any, feature: str, raster: str) -> None:
         """
         check_dict  Validates the output dict of stream paths
         ----------
-        check_dict(output, feature, raster)
+        check_dict(out, feature, raster)
         Checks that an output value is a dict with exactly two keys: 'feature'
         and 'raster'. Checks that the values of the keys are the expected final
+        paths. Raises an AssertionError if these conditions are not met.
+        ----------
+        Inputs:
+            out (Any): The output value being tested.
+            feature (str): The expected final feature file
+            raster (str): The expected final raster file
 
+        Raises:
+            AssertionError if the output dict is not valid.
+
+        Returns: None
         """
-        assert isinstance(output, dict), "output is not a dict"
-        keys = output.keys
+        assert isinstance(out, dict), "output is not a dict"
+        keys = out.keys
         assert len(keys) == 2, "output must have exactly 2 keys"
         assert "feature" in keys, "'feature' must be a key in the output dict"
         assert "raster" in keys, "'raster' must be a key in the output dict"
         assert (
-            output["feature"] == feature
-        ), f"The output feature path is incorrect\nExpected: {feature}\nReturned: {output['feature']}"
+            out["feature"] == output[feature]
+        ), f"The output feature path is incorrect\nExpected: {output[feature]}\nReturned: {out['feature']}"
         assert (
-            output["raster"] == raster
-        ), f"The output raster path is incorrect\nExpected: {raster}\nReturned: {output['raster']}"
+            out["raster"] == output[raster]
+        ), f"The output raster path is incorrect\nExpected: {output[raster]}\nReturned: {out['raster']}"
 
     # Standard run without segment splitting
     def test_no_split(self, fire):
