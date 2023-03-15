@@ -23,8 +23,8 @@ To run the tests, you will need to:
 
 import sys, pytest
 from pathlib import Path
-from typing import List, Union, Optional
-import arcpy
+from typing import List, Union, Optional, Any
+import arcpy, numpy
 
 # Add parent folder to path and import stream module
 here = Path(__file__)
@@ -46,7 +46,7 @@ split_points = "split_points"
 split_links = "split_links"
 raster_split = "stream_raster_split"
 
-# Organize test fires as a list of dicts mapping layer names to full paths
+# Organize test fires and output as dicts that map file names to full paths
 files = [
     total_area,
     burned_area,
@@ -57,9 +57,11 @@ files = [
     split_links,
     raster_split,
 ]
+fires.append(output)
 for f, gdb in enumerate(fires):
     fire = {file: str(gdb / file) for file in files}
     fires[f] = fire
+output = fires.pop()
 
 # Set arcpy to overwrite testing outputs
 arcpy.env.overwriteOutput = True
@@ -124,7 +126,7 @@ def validate_outputs(fire: dict, files: strs, raster: Optional[int] = None) -> N
 
 
 # Utility to delete output files
-def delete(files: str) -> None:
+def delete(files: strs) -> None:
     """
     delete  Deletes files from the testing output geodatabase
     ----------
@@ -244,7 +246,15 @@ class TestNetwork(CheckAllFires):
     israster = [False, True]
 
     # Validate the output dict of final stream paths
-    def check_dict(output, feature, raster):
+    def check_dict(output: Any, feature: str, raster: str) -> None:
+        """
+        check_dict  Validates the output dict of stream paths
+        ----------
+        check_dict(output, feature, raster)
+        Checks that an output value is a dict with exactly two keys: 'feature'
+        and 'raster'. Checks that the values of the keys are the expected final
+
+        """
         assert isinstance(output, dict), "output is not a dict"
         keys = output.keys
         assert len(keys) == 2, "output must have exactly 2 keys"
