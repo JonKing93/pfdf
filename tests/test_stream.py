@@ -21,14 +21,15 @@ To run the tests, you will need to:
     * Run `pytest test_stream.py`
 """
 
-import sys, pytest
+import sys, pytest, os
 from pathlib import Path
 from typing import List, Union, Optional, Any
 import arcpy, numpy
 
-# Add parent folder to path and import stream module
-here = Path(__file__)
-sys.path.append(here.parent)
+# Add code folder to path and import stream module
+here = Path(__file__).absolute().parent
+code = here.parent
+sys.path.insert(0, str(code))
 import stream
 
 # Locate test geodatabases
@@ -70,10 +71,11 @@ arcpy.env.overwriteOutput = True
 min_basin_area = 250
 min_burned_area = 100
 max_segment_length = 500
+long_segment_length = 1000000
 search_radius = 2
 
 # Type alias
-strs: Union[str, List[str]]
+strs = Union[str, List[str]]
 
 # Utility to validate output files
 def validate_outputs(fire: dict, files: strs, raster: Optional[int] = None) -> None:
@@ -112,11 +114,11 @@ def validate_outputs(fire: dict, files: strs, raster: Optional[int] = None) -> N
     # Check each output file exists and that the file's values are identical to
     # the validated outputs
     for file, israster in zip(files, israster):
-        assert arcpy.Exists(file), f"Output file does not exist: {file}"
+        assert arcpy.Exists(output[file]), f"Output file does not exist: {file}"
 
         if israster:
-            expected = arcpy.RasterToNumpyArray(fire[file])
-            produced = arcpy.RasterToNumpyArray(output[file])
+            expected = arcpy.RasterToNumPyArray(fire[file])
+            produced = arcpy.RasterToNumPyArray(output[file])
             ismatch = numpy.array_equal(expected, produced, equal_nan=True)
         else:
             expected = arcpy.da.FeatureClassToNumPyArray(fire[file], "SHAPE@WKT")
@@ -160,8 +162,7 @@ class UsesRaster:
 ###
 class TestCheckSplitPaths:
     @pytest.mark.parametrize(
-        "split_points",
-        "split_links",
+        "split_points, split_links",
         [(None, "a/path"), ("a/path", None), (None, None)],
     )
     def test_missing_paths(_, split_points, split_links):
@@ -204,18 +205,29 @@ class TestLinks(CheckAllFires):
 
 
 class TestSplit(CheckAllFires):
-    def test(_, fire):
+
+    # Runs a splitting test
+    @staticmethod
+    def validate_splitting(fire, max_length):
         outputs = [split_points, split_links]
         delete(outputs)
         out = stream.split(
             fire[stream_links],
-            max_segment_length,
+            max_length,
             search_radius,
             output[split_points],
             output[split_links],
         )
         assert out is None
         validate_outputs(fire, outputs)
+
+    # Standard splitting case
+    def test_standard(self, fire):
+        self.validate_splitting(fire, max_segment_length)
+
+    # Splitting when all stream links are shorter than the maximum length
+    def test_all_shorter(self, fire):
+        self.validate_splitting(fire, long_segment_length)
 
 
 class TestSearchRadius(UsesRaster):
@@ -246,6 +258,7 @@ class TestNetwork(CheckAllFires):
     israster = [False, True]
 
     # Validate the output dict of final stream paths
+    @staticmethod
     def check_dict(out: Any, feature: str, raster: str) -> None:
         """
         check_dict  Validates the output dict of stream paths
@@ -266,7 +279,7 @@ class TestNetwork(CheckAllFires):
         Returns: None
         """
         assert isinstance(out, dict), "output is not a dict"
-        keys = out.keys
+        keys = out.keys()
         assert len(keys) == 2, "output must have exactly 2 keys"
         assert "feature" in keys, "'feature' must be a key in the output dict"
         assert "raster" in keys, "'raster' must be a key in the output dict"
@@ -333,7 +346,7 @@ class TestNetwork(CheckAllFires):
 
     # ValueError if maxlength is set, but splitting paths are missing
     def test_missing_path(_, fire):
-        with pytest.rases(ValueError):
+        with pytest.raises(ValueError):
             out = stream.network(
                 fire[total_area],
                 min_basin_area,
