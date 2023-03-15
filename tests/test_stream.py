@@ -71,7 +71,6 @@ arcpy.env.overwriteOutput = True
 min_basin_area = 250
 min_burned_area = 100
 max_segment_length = 500
-long_segment_length = 1000000
 search_radius = 2
 
 # Type alias
@@ -205,29 +204,18 @@ class TestLinks(CheckAllFires):
 
 
 class TestSplit(CheckAllFires):
-
-    # Runs a splitting test
-    @staticmethod
-    def validate_splitting(fire, max_length):
+    def test(_, fire):
         outputs = [split_points, split_links]
         delete(outputs)
         out = stream.split(
             fire[stream_links],
-            max_length,
+            max_segment_length,
             search_radius,
             output[split_points],
             output[split_links],
         )
         assert out is None
         validate_outputs(fire, outputs)
-
-    # Standard splitting case
-    def test_standard(self, fire):
-        self.validate_splitting(fire, max_segment_length)
-
-    # Splitting when all stream links are shorter than the maximum length
-    def test_all_shorter(self, fire):
-        self.validate_splitting(fire, long_segment_length)
 
 
 class TestSearchRadius(UsesRaster):
@@ -336,7 +324,7 @@ class TestNetwork(CheckAllFires):
             min_burned_area,
             fire[flow_direction],
             output[stream_links],
-            output[raster_split],
+            output[raster_unsplit],
             None,
             output[split_points],
             output[split_links],

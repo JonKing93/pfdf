@@ -36,8 +36,8 @@ User functions:
 Low-level functions:
     links               - Creates a feature layer holding links of a stream network
     split               - Split stream links longer than a maximum length
-    raster              - Converts stream link polylines into a raster
     search_radius       - Return a recommended search radius for splitting stream links
+    raster              - Converts stream link polylines into a raster
 
 Utilities:
     raster_size         - Returns the resolution of a raster as a float
@@ -109,11 +109,11 @@ def network(
         max_segment_length (float): The maximum allowed stream link length
             (units are meters). If specified, the split_points and split_streams
             inputs must also be set.
-        split_points (str): The absolute path to the arcpy feature layer holding
-            the output points used to split the stream segments. Must be set
-            when providing a max_segment_length.
-        split_links (str): The absolute path to the arcpy feature layer holding
-            the split stream link polylines. Must be set when providing a max_segment_length.
+        split_points (str): The path to the arcpy feature layer holding the
+            output points used to split the stream segments. Must be set when
+            providing a max_segment_length.
+        split_links (str): The path to the arcpy feature layer holding the split
+            stream link polylines. Must be set when providing a max_segment_length.
 
     Outputs:
         A dict mapping str keys to the paths of the final feature and raster layers
