@@ -49,6 +49,64 @@ import arcpy
 from os import path
 
 
+def links(
+    total_area: str,
+    min_basin_area: float,
+    burned_area: str,
+    min_burned_area: float,
+    flow_direction: str,
+    links: str,
+) -> None:
+    """
+    links  Creates a feature layer holding links of the stream network
+    ----------
+    links(total_area, min_basin_area, burned_area, min_burned_area, flow_direction, links)
+    Uses upslope area, upslope burned area, and flow direction rasters to
+    delineate the links of a stream network. Saves the stream links as a feature
+    layer of polylines. (Each link is a separate polyline).
+
+    Drainage streams are defined as raster pixels that exceed both (1) a minimum
+    upslope area threshold, and (2) a minimum burned upslope area threshold.
+    These drainage streams are then classified into individual stream links
+    using a flow direction raster.
+    ----------
+    Inputs:
+        total_area (str): The path to an arcpy raster layer holding the total
+            upslope area of each pixel in the extent box, as computed using a
+            D8 flow model.
+        min_basin_area (float): The minimum upslope area required to qualify
+            as a drainage stream. Units are meters^2
+        burned_area (str): The path to an arcpy raster layer holding the total
+            burned upslope area of each pixel in the extent box, as computed
+            using a D8 flow model. The raster grid and projection should match
+            that of the total_area raster.
+        min_burned_area (float): The minimum burned upslope area required to
+            qualify as a drainage stream. Units are meters^2.
+        flow_direction (str): The path to an arcpy raster layer holding the flow
+            direction of each pixel in the extent box, as computed using a D8
+            flow model. Flow direction integers should follow the arcpy
+            convention. The raster grid and projection should match that of the
+            total_area raster.
+        links (str): The path to the arcpy feature layer that should hold the
+            computed stream link polylines.
+
+    Saves:
+        An arcpy feature layer holding the stream link polylines. The name of
+        the layer will match the "links" input.
+
+    Outputs: None
+    """
+
+    # Locate drainage streams
+    total_area = arcpy.Raster(total_area)
+    burned_area = arcpy.Raster(burned_area)
+    streams = (total_area >= min_basin_area) & (burned_area >= min_burned_area)
+    streams = arcpy.sa.Con(streams, 1)
+
+    # Convert streams to polyline features
+    arcpy.sa.StreamToFeature(streams, flow_direction, links, "NO_SIMPLIFY")
+
+
 def network(
     total_area: str,
     min_basin_area: float,
@@ -161,113 +219,6 @@ def network(
     return output
 
 
-def links(
-    total_area: str,
-    min_basin_area: float,
-    burned_area: str,
-    min_burned_area: float,
-    flow_direction: str,
-    links: str,
-) -> None:
-    """
-    links  Creates a feature layer holding links of the stream network
-    ----------
-    links(total_area, min_basin_area, burned_area, min_burned_area, flow_direction, links)
-    Uses upslope area, upslope burned area, and flow direction rasters to
-    delineate the links of a stream network. Saves the stream links as a feature
-    layer of polylines. (Each link is a separate polyline).
-
-    Drainage streams are defined as raster pixels that exceed both (1) a minimum
-    upslope area threshold, and (2) a minimum burned upslope area threshold.
-    These drainage streams are then classified into individual stream links
-    using a flow direction raster.
-    ----------
-    Inputs:
-        total_area (str): The path to an arcpy raster layer holding the total
-            upslope area of each pixel in the extent box, as computed using a
-            D8 flow model.
-        min_basin_area (float): The minimum upslope area required to qualify
-            as a drainage stream. Units are meters^2
-        burned_area (str): The path to an arcpy raster layer holding the total
-            burned upslope area of each pixel in the extent box, as computed
-            using a D8 flow model. The raster grid and projection should match
-            that of the total_area raster.
-        min_burned_area (float): The minimum burned upslope area required to
-            qualify as a drainage stream. Units are meters^2.
-        flow_direction (str): The path to an arcpy raster layer holding the flow
-            direction of each pixel in the extent box, as computed using a D8
-            flow model. Flow direction integers should follow the arcpy
-            convention. The raster grid and projection should match that of the
-            total_area raster.
-        links (str): The path to the arcpy feature layer that should hold the
-            computed stream link polylines.
-
-    Saves:
-        An arcpy feature layer holding the stream link polylines. The name of
-        the layer will match the "links" input.
-
-    Outputs: None
-    """
-
-    # Locate drainage streams
-    total_area = arcpy.Raster(total_area)
-    burned_area = arcpy.Raster(burned_area)
-    streams = (total_area >= min_basin_area) & (burned_area >= min_burned_area)
-    streams = arcpy.sa.Con(streams, 1)
-
-    # Convert streams to polyline features
-    arcpy.sa.StreamToFeature(streams, flow_direction, links, "NO_SIMPLIFY")
-
-
-def split(
-    links: str,
-    max_segment_length: float,
-    search_radius: float,
-    split_points: str,
-    split_links: str,
-) -> None:
-    """
-    split  Splits stream links longer than a maximum length
-    ----------
-    split(links, max_segment_length, search_radius, split_points, split_streams)
-    Splits stream links longer than a maximum allowed length into segments that
-    do not exceed this length. Stream links less than the maximum length are not
-    affected. Note that a single stream link may be split into multiple
-    segments, depending on its length.
-
-    This method proceeds by determining a set of splitting points for the
-    stream links. The split points for each stream link are the points along the
-    link whose distance from the start of the link is a multiple of the maximum
-    allowed length. The links are then split into segments at these points.
-    ----------
-    Inputs:
-        links (str): The path to the arcpy feature layer holding the initial
-            stream link polylines.
-        max_segment_length (float): The maximum allowed length (in meters)
-        search_radius (float): The search radius used to enable multiple
-            splitting for the stream links (in meters). Must be greater than 0.
-            We recommend using a value smaller than the minimum resolution of
-            the raster used to derive the stream links, as this reduces the
-            likelihood of incorrectly applying a split point to multiple links.
-        split_points (str): The path to the output arcpy feature layer holding
-            the points used to split the stream links.
-        split_links (str): The path to the output arcpy feature layer holding
-            the split stream link polylines.
-
-    Saves:
-        Arcpy feature layers whose names match the "split_points" and
-        "split_links" inputs.
-
-    Outputs: None
-    """
-
-    max_length = f"{max_segment_length} meters"
-    arcpy.management.GeneratePointsAlongLines(
-        links, split_points, "DISTANCE", max_length
-    )
-    arcpy.management.SplitLineAtPoint(links, split_points, split_links, search_radius)
-
-
 def raster(link_features: str, raster: str) -> None:
     """
     raster  Converts a stream link feature layer to raster
@@ -327,6 +278,55 @@ def search_radius(raster: str, divisor=5) -> float:
 
     # Return scaled resolution
     return resolution / divisor
+
+
+def split(
+    links: str,
+    max_segment_length: float,
+    search_radius: float,
+    split_points: str,
+    split_links: str,
+) -> None:
+    """
+    split  Splits stream links longer than a maximum length
+    ----------
+    split(links, max_segment_length, search_radius, split_points, split_streams)
+    Splits stream links longer than a maximum allowed length into segments that
+    do not exceed this length. Stream links less than the maximum length are not
+    affected. Note that a single stream link may be split into multiple
+    segments, depending on its length.
+
+    This method proceeds by determining a set of splitting points for the
+    stream links. The split points for each stream link are the points along the
+    link whose distance from the start of the link is a multiple of the maximum
+    allowed length. The links are then split into segments at these points.
+    ----------
+    Inputs:
+        links (str): The path to the arcpy feature layer holding the initial
+            stream link polylines.
+        max_segment_length (float): The maximum allowed length (in meters)
+        search_radius (float): The search radius used to enable multiple
+            splitting for the stream links (in meters). Must be greater than 0.
+            We recommend using a value smaller than the minimum resolution of
+            the raster used to derive the stream links, as this reduces the
+            likelihood of incorrectly applying a split point to multiple links.
+        split_points (str): The path to the output arcpy feature layer holding
+            the points used to split the stream links.
+        split_links (str): The path to the output arcpy feature layer holding
+            the split stream link polylines.
+
+    Saves:
+        Arcpy feature layers whose names match the "split_points" and
+        "split_links" inputs.
+
+    Outputs: None
+    """
+
+    max_length = f"{max_segment_length} meters"
+    arcpy.management.GeneratePointsAlongLines(
+        links, split_points, "DISTANCE", max_length
+    )
+    arcpy.management.SplitLineAtPoint(links, split_points, split_links, search_radius)
 
 
 def raster_size(raster: str, field: Literal["CELLSIZEX", "CELLSIZEY"]) -> float:
