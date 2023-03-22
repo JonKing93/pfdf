@@ -40,8 +40,8 @@ Low-level functions:
     raster              - Converts stream link polylines into a raster
 
 Utilities:
-    raster_size         - Returns the resolution of a raster as a float
-    check_split_paths   - Error checking for optional splitting inputs
+    _raster_size         - Returns the resolution of a raster as a float
+    _check_split_paths   - Error checking for optional splitting inputs
 """
 
 from typing import Dict, Optional, Literal, Any
@@ -193,7 +193,7 @@ def network(
     else:
         splitting = True
         final_features = split_links
-        check_split_paths(split_points, split_links)
+        _check_split_paths(split_points, split_links)
 
     # Create dict of final stream paths
     output = {
@@ -272,8 +272,8 @@ def search_radius(raster: str, divisor=5) -> float:
     """
 
     # Get the minimum raster resolution
-    height = raster_size(raster, "CELLSIZEX")
-    width = raster_size(raster, "CELLSIZEY")
+    height = _raster_size(raster, "CELLSIZEX")
+    width = _raster_size(raster, "CELLSIZEY")
     resolution = min(height, width)
 
     # Return scaled resolution
@@ -329,31 +329,11 @@ def split(
     arcpy.management.SplitLineAtPoint(links, split_points, split_links, search_radius)
 
 
-def raster_size(raster: str, field: Literal["CELLSIZEX", "CELLSIZEY"]) -> float:
+def _check_split_paths(split_points: Any, split_links: Any) -> None:
     """
-    raster_size  Returns a raster resolution as a float
+    _check_split_paths  Informative error checking for optional splitting inputs
     ----------
-    raster_size(raster, field)
-    Returns the X or Y resolution of an arcpy raster layer as a float.
-    ----------
-    Inputs:
-        raster (str): The path to the arcpy raster layer being queried
-        field ("CELLSIZEX" | "CELLSIZEY"): The resolution field to query
-
-    Outputs:
-        float: The queried resolution
-    """
-
-    resolution = arcpy.management.GetRasterProperties(raster, field)
-    resolution = resolution.getOutput(0)
-    return float(resolution)
-
-
-def check_split_paths(split_points: Any, split_links: Any) -> None:
-    """
-    check_split_paths  Informative error checking for optional splitting inputs
-    ----------
-    check_split_paths(split_points, split_links)
+    _check_split_paths(split_points, split_links)
     Raises an informative error if either split_points or split_links is None.
     ----------
     Inputs:
@@ -379,3 +359,23 @@ def check_split_paths(split_points: Any, split_links: Any) -> None:
         message = f"You must provide the {missing} input when enforcing a maximum stream segment length."
         MissingPathError = ValueError(message)
         raise MissingPathError
+
+
+def _raster_size(raster: str, field: Literal["CELLSIZEX", "CELLSIZEY"]) -> float:
+    """
+    _raster_size  Returns a raster resolution as a float
+    ----------
+    _raster_size(raster, field)
+    Returns the X or Y resolution of an arcpy raster layer as a float.
+    ----------
+    Inputs:
+        raster (str): The path to the arcpy raster layer being queried
+        field ("CELLSIZEX" | "CELLSIZEY"): The resolution field to query
+
+    Outputs:
+        float: The queried resolution
+    """
+
+    resolution = arcpy.management.GetRasterProperties(raster, field)
+    resolution = resolution.getOutput(0)
+    return float(resolution)
