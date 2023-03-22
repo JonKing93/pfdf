@@ -12,7 +12,7 @@ We recommend that most users start with the "network" function, which conducts
 the stream network delineation from start to finish. See its documentation for
 usage details.
 
-Advanced users may also be interested in the low-level "links", "split",
+Advanced users may also be interested in the lower level "links", "split",
 "raster", and "search_radius" functions, which can be used to implement custom
 stream network delineation routines.
 
@@ -21,19 +21,19 @@ rasters computed from a DEM. Users may wish to see the "taudem" module for
 functions that compute these raster. The following is a suggested workflow 
 outline for hazard assessment users:
     * Acquire DEM Data
-    * Use "taudem" module to compute upslope areas and flow directions
+    * Use dem module to compute upslope areas and flow directions
     *** Use this module to delineate a stream network
     * Screen the stream network to a final set of drainage basins
 
 REQUIREMENTS:
 Running this module requires:
     * The ArcPy package and base Python environment shipped with ArcGIS Pro 3.0
-      (Build Number 36056))
+      (Build Number 36056)
 ----------
 User functions:
     network             - Delineates a stream network
 
-Low-level functions:
+Advanced user functions:
     links               - Creates a feature layer holding links of a stream network
     split               - Split stream links longer than a maximum length
     search_radius       - Return a recommended search radius for splitting stream links
