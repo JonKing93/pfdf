@@ -21,18 +21,14 @@ To run the tests, you will need to:
     * Run `pytest test_stream.py`
 """
 
-import sys, pytest, os
+import pytest
 from pathlib import Path
 from typing import List, Union, Optional, Any
 import arcpy, numpy
-
-# Add code folder to path and import stream module
-here = Path(__file__).absolute().parent
-code = here.parent
-sys.path.insert(0, str(code))
-import stream
+from dfha import stream
 
 # Locate test geodatabases
+here = Path(__file__).absolute().parent
 data = here / "data"
 fires = [data / "col2022.gdb"]
 output = data / "test-outputs.gdb"
