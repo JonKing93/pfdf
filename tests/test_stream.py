@@ -31,7 +31,13 @@ from dfha import stream
 here = Path(__file__).absolute().parent
 data = here / "data"
 fires = [data / "col2022.gdb"]
-output = data / "test-outputs.gdb"
+
+# Testing parameters
+min_basin_area = 250
+min_burned_area = 100
+max_segment_length = 500
+long_segment_length = 1000000
+search_radius = 2
 
 # Naming scheme for geodatabase files
 total_area = "total_area"
@@ -43,7 +49,7 @@ split_points = "split_points"
 split_links = "split_links"
 raster_split = "stream_raster_split"
 
-# Organize test fires and output as dicts that map file names to full paths
+# Get list of geodatabase files
 files = [
     total_area,
     burned_area,
@@ -54,42 +60,49 @@ files = [
     split_links,
     raster_split,
 ]
-fires.append(output)
+
+# Utility to return a dict mapping file names to full geodatabase paths
+def path_dict(gdb):
+    return {file: str(gdb / file) for file in files}
+
+
+# Organize test fires as a list of dicts
 for f, gdb in enumerate(fires):
-    fire = {file: str(gdb / file) for file in files}
-    fires[f] = fire
-output = fires.pop()
+    fires[f] = path_dict(gdb)
 
-# Set arcpy to overwrite testing outputs
-arcpy.env.overwriteOutput = True
+# Fixture to create temporary geodatabase for test outputs. Returns a path
+# dict for files in the output
+@pytest.fixture
+def output(tmp_path):
+    gdb = "output"
+    arcpy.management.CreateFileGDB(str(tmp_path), gdb)
+    gdb = tmp_path / gdb
+    return path_dict(gdb)
 
-# Testing parameters
-min_basin_area = 250
-min_burned_area = 100
-max_segment_length = 500
-long_segment_length = 1000000
-search_radius = 2
 
 # Type alias
 strs = Union[str, List[str]]
 
 # Utility to validate output files
-def validate_outputs(fire: dict, files: strs, raster: Optional[int] = None) -> None:
+def validate_outputs(
+    fire: dict, output: dict, files: strs, raster: Optional[int] = None
+) -> None:
     """
     validate_outputs  Check that output file values match validated outputs
     ----------
-    validate_outputs(fire, files)
+    validate_outputs(fire, output, files)
     Validates each of the listed files in the testing output geodatabase. First
     checks that each file exists in the testing output. Then, checks that the
     values in each output file match the validated output values for the fire.
     Raises an AssertionError if these conditions are not met. This syntax treats
     all listed files as feature layers.
 
-    validate_output(fire, files, raster)
+    validate_output(fire, output, files, raster)
     Indicate that one of the listed files is a raster layer.
     ----------
     Inputs:
-        fire (dict): The dict for the test fire being validated
+        fire (dict): The path dict for the test fire being validated
+        output (dict): The path dict for the testing outputs
         files (str | List[str]): The list of output files to validate
         raster (int): The index of the raster layer in the list of files
 
@@ -121,25 +134,6 @@ def validate_outputs(fire: dict, files: strs, raster: Optional[int] = None) -> N
             produced = arcpy.da.FeatureClassToNumPyArray(output[file], "SHAPE@WKT")
             ismatch = numpy.array_equal(expected, produced)
         assert ismatch, f"Output file values do not match expected values\nFile: {file}"
-
-
-# Utility to delete output files
-def delete(files: strs) -> None:
-    """
-    delete  Deletes files from the testing output geodatabase
-    ----------
-    delete(*files)
-    Deletes the listed files from the testing geodatabase.
-    ----------
-    Inputs:
-        files (str): Each file to delete from the testing geodatabase
-
-    Returns: None
-    """
-    if isinstance(files, str):
-        files = [files]
-    for file in files:
-        arcpy.management.Delete(output[file])
 
 
 # Base class for tests that check multiple fires
@@ -186,8 +180,7 @@ class TestRasterSize(UsesRaster):
 # Tests of Low-level Functions
 ###
 class TestLinks(CheckAllFires):
-    def test(_, fire):
-        delete(stream_links)
+    def test(_, fire, output):
         out = stream.links(
             fire[total_area],
             min_basin_area,
@@ -197,15 +190,13 @@ class TestLinks(CheckAllFires):
             output[stream_links],
         )
         assert out is None
-        validate_outputs(fire, stream_links)
+        validate_outputs(fire, output, stream_links)
 
 
 class TestSplit(CheckAllFires):
 
     # Standard splitting
-    def test_standard(_, fire):
-        outputs = [split_points, split_links]
-        delete(outputs)
+    def test_standard(_, fire, output):
         out = stream.split(
             fire[stream_links],
             max_segment_length,
@@ -214,12 +205,11 @@ class TestSplit(CheckAllFires):
             output[split_links],
         )
         assert out is None
-        validate_outputs(fire, outputs)
+        validate_outputs(fire, output, [split_points, split_links])
 
     # Test when all stream segments are shorter than the max length. (So
     # splitting is enabled, but there isn't anything to split).
-    def test_all_shorter(_, fire):
-        delete([split_points, stream_links])
+    def test_all_shorter(_, fire, output):
         out = stream.split(
             fire[stream_links],
             long_segment_length,
@@ -228,7 +218,7 @@ class TestSplit(CheckAllFires):
             output[stream_links],
         )
         assert out is None
-        validate_outputs(fire, stream_links)
+        validate_outputs(fire, output, stream_links)
 
 
 class TestSearchRadius(UsesRaster):
@@ -245,26 +235,24 @@ class TestSearchRadius(UsesRaster):
 
 
 class TestRaster(CheckAllFires):
-    def test(_, fire):
-        delete(raster_unsplit)
+    def test(_, fire, output):
         out = stream.raster(fire[stream_links], output[raster_unsplit])
         assert out is None
-        validate_outputs(fire, raster_unsplit, raster=0)
+        validate_outputs(fire, output, raster_unsplit, raster=0)
 
 
 ###
 # Test of High-level user-facing functions
 ###
 class TestNetwork(CheckAllFires):
-    israster = [False, True]
 
     # Validate the output dict of final stream paths
     @staticmethod
-    def check_dict(out: Any, feature: str, raster: str) -> None:
+    def check_dict(out: Any, gdb: dict, feature: str, raster: str) -> None:
         """
         check_dict  Validates the output dict of stream paths
         ----------
-        check_dict(out, feature, raster)
+        check_dict(out, gdb, feature, raster)
         Checks that an output value is a dict with exactly two keys: 'feature'
         and 'raster'. Checks that the values of the keys are the expected final
         paths. Raises an AssertionError if these conditions are not met.
@@ -279,22 +267,26 @@ class TestNetwork(CheckAllFires):
 
         Returns: None
         """
+
+        # Check the dict structure
         assert isinstance(out, dict), "output is not a dict"
         keys = out.keys()
         assert len(keys) == 2, "output must have exactly 2 keys"
         assert "feature" in keys, "'feature' must be a key in the output dict"
         assert "raster" in keys, "'raster' must be a key in the output dict"
+
+        # Check the keys
+        feature = Path(gdb[feature])
+        raster = Path(gdb[raster])
         assert (
-            out["feature"] == output[feature]
-        ), f"The output feature path is incorrect\nExpected: {output[feature]}\nReturned: {out['feature']}"
+            out["feature"] == feature
+        ), f"The output feature path is incorrect\nExpected: {feature}\nReturned: {out['feature']}"
         assert (
-            out["raster"] == output[raster]
-        ), f"The output raster path is incorrect\nExpected: {output[raster]}\nReturned: {out['raster']}"
+            out["raster"] == raster
+        ), f"The output raster path is incorrect\nExpected: {raster}\nReturned: {out['raster']}"
 
     # Standard run without segment splitting
-    def test_no_split(self, fire):
-        outputs = [stream_links, raster_unsplit]
-        delete(outputs)
+    def test_no_split(self, fire, output):
         out = stream.network(
             fire[total_area],
             min_basin_area,
@@ -305,12 +297,11 @@ class TestNetwork(CheckAllFires):
             output[raster_unsplit],
         )
         self.check_dict(out, stream_links, raster_unsplit)
-        validate_outputs(fire, outputs, raster=1)
+        check = [stream_links, raster_unsplit]
+        validate_outputs(fire, output, check, raster=1)
 
     # Standard run with segment splitting
-    def test_split(self, fire):
-        outputs = [stream_links, split_points, split_links, raster_split]
-        delete(outputs)
+    def test_split(self, fire, output):
         out = stream.network(
             fire[total_area],
             min_basin_area,
@@ -324,12 +315,11 @@ class TestNetwork(CheckAllFires):
             output[split_links],
         )
         self.check_dict(out, split_links, raster_split)
-        validate_outputs(fire, outputs, raster=3)
+        check = [stream_links, split_points, split_links, raster_split]
+        validate_outputs(fire, output, check, raster=3)
 
     # Ignore splitting paths when there is no maxlength
-    def test_ignore_splitting_paths(self, fire):
-        outputs = [stream_links, raster_unsplit]
-        delete(outputs)
+    def test_ignore_splitting_paths(self, fire, output):
         out = stream.network(
             fire[total_area],
             min_basin_area,
@@ -343,10 +333,11 @@ class TestNetwork(CheckAllFires):
             output[split_links],
         )
         self.check_dict(out, stream_links, raster_unsplit)
-        validate_outputs(fire, outputs, raster=1)
+        check = [stream_links, raster_unsplit]
+        validate_outputs(fire, output, check, raster=1)
 
     # ValueError if maxlength is set, but splitting paths are missing
-    def test_missing_path(_, fire):
+    def test_missing_path(_, fire, output):
         with pytest.raises(ValueError):
             out = stream.network(
                 fire[total_area],
