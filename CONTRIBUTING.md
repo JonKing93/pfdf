@@ -11,6 +11,6 @@ If you have direct contributions you would like considered for incorporation
 into the project you can [fork this repository][2] and
 [submit a merge request][3] for review.
 
-[1]: https://code.usgs.gov/GROUP_NAME/REPOSITORY_NAME/issues
+[1]: https://code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment/issues
 [2]: https://docs.gitlab.com/ee/user/project/repository/forking_workflow.html#creating-a-fork
 [3]: https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html
