@@ -222,7 +222,7 @@ def network(
         )
 
     # Convert final links to raster and return dict of output layer paths
-    raster(output["feature"], stream_raster_path)
+    raster(str(output["feature"]), stream_raster_path)
     return output
 
 

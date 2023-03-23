@@ -28,8 +28,7 @@ import arcpy, numpy
 from dfha import stream
 
 # Locate test geodatabases
-here = Path(__file__).absolute().parent
-data = here / "data"
+data = Path(__file__).parent / "tests" / "data"
 fires = [data / "col2022.gdb"]
 
 # Testing parameters
@@ -74,7 +73,7 @@ for f, gdb in enumerate(fires):
 # dict for files in the output
 @pytest.fixture
 def output(tmp_path):
-    gdb = "output"
+    gdb = "output.gdb"
     arcpy.management.CreateFileGDB(str(tmp_path), gdb)
     gdb = tmp_path / gdb
     return path_dict(gdb)
@@ -157,22 +156,22 @@ class TestCheckSplitPaths:
     )
     def test_missing_paths(_, split_points, split_links):
         with pytest.raises(ValueError):
-            stream.check_split_paths(split_points, split_links)
+            stream._check_split_paths(split_points, split_links)
 
     def test_have_both(_):
         split_points = "a/path"
         split_links = "another/path"
-        output = stream.check_split_paths(split_points, split_links)
+        output = stream._check_split_paths(split_points, split_links)
         assert output is None
 
 
 class TestRasterSize(UsesRaster):
     def test_height(self):
-        resolution = stream.raster_size(self.raster, "CELLSIZEX")
+        resolution = stream._raster_size(self.raster, "CELLSIZEX")
         assert resolution == 10
 
     def test_width(self):
-        resolution = stream.raster_size(self.raster, "CELLSIZEY")
+        resolution = stream._raster_size(self.raster, "CELLSIZEY")
         assert resolution == 10
 
 
@@ -296,7 +295,7 @@ class TestNetwork(CheckAllFires):
             output[stream_links],
             output[raster_unsplit],
         )
-        self.check_dict(out, stream_links, raster_unsplit)
+        self.check_dict(out, output, stream_links, raster_unsplit)
         check = [stream_links, raster_unsplit]
         validate_outputs(fire, output, check, raster=1)
 
@@ -314,7 +313,7 @@ class TestNetwork(CheckAllFires):
             output[split_points],
             output[split_links],
         )
-        self.check_dict(out, split_links, raster_split)
+        self.check_dict(out, output, split_links, raster_split)
         check = [stream_links, split_points, split_links, raster_split]
         validate_outputs(fire, output, check, raster=3)
 
@@ -332,7 +331,7 @@ class TestNetwork(CheckAllFires):
             output[split_points],
             output[split_links],
         )
-        self.check_dict(out, stream_links, raster_unsplit)
+        self.check_dict(out, output, stream_links, raster_unsplit)
         check = [stream_links, raster_unsplit]
         validate_outputs(fire, output, check, raster=1)
 
