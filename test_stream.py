@@ -18,7 +18,7 @@ RUNNING THE TESTS:
 To run the tests, you will need to:
     * Fulfill any requirements needed to run the stream module
     * Move to the directory holding this file, and
-    * Run `pytest test_stream.py`
+    * Run `pytest test_stream.py --cov=. --cov-fail-under=80`
 """
 
 import pytest
