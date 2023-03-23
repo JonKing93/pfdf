@@ -3,7 +3,7 @@ test_stream  Unit tests for the stream module
 ----------
 The tests for the stream module are grouped into classes. Each class holds the
 tests for one function in the stream module. Tests progress from module 
-utilities, to low-level functions, to high-level user-facing functions.
+utilities, to low-level user functions, to high-level user-facing functions.
 
 The tests rely on scientifically validated outputs from several test fires. 
 Each test fire has an associated geodatabases whose name matches the fire code.

@@ -46,21 +46,22 @@ Utilities:
 
 from typing import Dict, Optional, Literal, Any
 import arcpy
-from os import path
+from pathlib import Path
 
 
 def links(
-    total_area: str,
+    total_area_path: str,
     min_basin_area: float,
-    burned_area: str,
+    burned_area_path: str,
     min_burned_area: float,
-    flow_direction: str,
-    links: str,
+    flow_direction_path: str,
+    links_path: str,
 ) -> None:
     """
     links  Creates a feature layer holding links of the stream network
     ----------
-    links(total_area, min_basin_area, burned_area, min_burned_area, flow_direction, links)
+    links(total_area_path, min_basin_area, burned_area_path, min_burned_area,
+          flow_direction_path, links_path)
     Uses upslope area, upslope burned area, and flow direction rasters to
     delineate the links of a stream network. Saves the stream links as a feature
     layer of polylines. (Each link is a separate polyline).
@@ -71,63 +72,63 @@ def links(
     using a flow direction raster.
     ----------
     Inputs:
-        total_area (str): The path to an arcpy raster layer holding the total
+        total_area_path (str): The path to an arcpy raster layer holding the total
             upslope area of each pixel in the extent box, as computed using a
             D8 flow model.
         min_basin_area (float): The minimum upslope area required to qualify
             as a drainage stream. Units are meters^2
-        burned_area (str): The path to an arcpy raster layer holding the total
+        burned_area_path (str): The path to an arcpy raster layer holding the total
             burned upslope area of each pixel in the extent box, as computed
             using a D8 flow model. The raster grid and projection should match
             that of the total_area raster.
         min_burned_area (float): The minimum burned upslope area required to
             qualify as a drainage stream. Units are meters^2.
-        flow_direction (str): The path to an arcpy raster layer holding the flow
+        flow_direction_path (str): The path to an arcpy raster layer holding the flow
             direction of each pixel in the extent box, as computed using a D8
             flow model. Flow direction integers should follow the arcpy
             convention. The raster grid and projection should match that of the
             total_area raster.
-        links (str): The path to the arcpy feature layer that should hold the
+        links_path (str): The path to the arcpy feature layer that should hold the
             computed stream link polylines.
 
     Saves:
         An arcpy feature layer holding the stream link polylines. The name of
-        the layer will match the "links" input.
+        the layer will match the "links_path" input.
 
     Outputs: None
     """
 
     # Locate drainage streams
-    total_area = arcpy.Raster(total_area)
-    burned_area = arcpy.Raster(burned_area)
+    total_area = arcpy.Raster(total_area_path)
+    burned_area = arcpy.Raster(burned_area_path)
     streams = (total_area >= min_basin_area) & (burned_area >= min_burned_area)
     streams = arcpy.sa.Con(streams, 1)
 
     # Convert streams to polyline features
-    arcpy.sa.StreamToFeature(streams, flow_direction, links, "NO_SIMPLIFY")
+    arcpy.sa.StreamToFeature(streams, flow_direction_path, links_path, "NO_SIMPLIFY")
 
 
 def network(
-    total_area: str,
+    total_area_path: str,
     min_basin_area: float,
-    burned_area: str,
+    burned_area_path: str,
     min_burned_area: float,
-    flow_direction: str,
-    stream_links: str,
-    stream_raster: str,
+    flow_direction_path: str,
+    stream_links_path: str,
+    stream_raster_path: str,
     max_segment_length: Optional[float] = None,
-    split_points: Optional[str] = None,
-    split_links: Optional[str] = None,
-) -> Dict[str, str]:
+    split_points_path: Optional[str] = None,
+    split_links_path: Optional[str] = None,
+) -> Dict[Path, Path]:
     """
     network  Delineates the stream network
     ----------
-    network(total_area, min_basin_area, burned_area, min_burned_area,
-            flow_direction, stream_links, stream_raster)
+    network(total_area_path, min_basin_area, burned_area_path, min_burned_area,
+            flow_direction_path, stream_links_path, stream_raster_path)
     Uses input rasters to delineate the links of the stream network. Saves the
     network as both a raster and feature layer. Returns a dict with the absolute
     paths to the final feature and raster layers. (In this case, the
-    stream_raster and stream_links layers).
+    stream_raster_path and stream_links_path).
 
     Drainage streams are defined as raster pixels that exceed both (1) a minimum
     upslope area threshold, and (2) a minimum burned upslope area threshold.
@@ -136,50 +137,50 @@ def network(
     the output raster layer, the values of stream link pixels are set as the
     OBJECTID of the coresponding polyline.
 
-    network(..., max_segment_length, split_points, split_links)
+    network(..., max_segment_length, split_points_path, split_links_path)
     Also restricts the stream links to a maximum length. Stream links exceeding
     this length will be split into multiple segments that respect the maximum
     allowed length. In this case, the value of the "feature" key in the output
-    dict will be the path to the "split_links" layer. When using this option,
-    arcpy should be set to return raster resolutions in units of meters.
+    dict will be the split_links_path. When using this option, arcpy should be
+    set to return raster resolutions in units of meters.
     ----------
     Inputs:
-        total_area (str): The path to an arcpy raster layer holding the total
+        total_area_path (str): The path to an arcpy raster layer holding the total
             upslope area of each pixel in the extent box, as computed using a
             D8 flow model.
         min_basin_area (float): The minimum upslope area required to qualify
             as a drainage stream. Units are meters^2
-        burned_area (str): The path to an arcpy raster layer holding the total
+        burned_area_path (str): The path to an arcpy raster layer holding the total
             burned upslope area of each pixel in the extent box, as computed
             using a D8 flow model. The raster grid and projection should match
             that of the total_area raster.
         min_burned_area (float): The minimum burned upslope area required to
             qualify as a drainage stream. Units are meters^2.
-        flow_direction (str): The path to an arcpy raster layer holding the flow
+        flow_direction_path (str): The path to an arcpy raster layer holding the flow
             direction of each pixel in the extent box, as computed using a D8
             flow model. Flow direction integers should follow the arcpy
             convention. The raster grid and projection should match that of the
             total_area raster.
-        stream_links (str): The path to the arcpy feature layer that should
+        stream_links_path (str): The path to the arcpy feature layer that should
             hold the initial (unsplit) stream link polylines.
-        stream_raster (str): The path to the arcpy feature layer that should
+        stream_raster_path (str): The path to the arcpy feature layer that should
             hold the stream link raster.
         max_segment_length (float): The maximum allowed stream link length
             (units are meters). If specified, the split_points and split_streams
             inputs must also be set.
-        split_points (str): The path to the arcpy feature layer holding the
+        split_points_path (str): The path to the arcpy feature layer holding the
             output points used to split the stream segments. Must be set when
             providing a max_segment_length.
-        split_links (str): The path to the arcpy feature layer holding the split
+        split_links_path (str): The path to the arcpy feature layer holding the split
             stream link polylines. Must be set when providing a max_segment_length.
 
     Outputs:
         A dict mapping str keys to the paths of the final feature and raster layers
         for the stream network.
 
-        feature (str): The absolute path to the final arcpy feature layer
+        feature (pathlib.Path): The absolute path to the final arcpy feature layer
             representing the stream links as a set of polylines.
-        raster (str): The absolute path to the final arcpy layer representing
+        raster (pathlib.Path): The absolute path to the final arcpy layer representing
             the stream links as a raster. The value of stream link pixels will
             match the OBJECTID of the associated polyline in the feature layer.
             All other pixels are set as NoData.
@@ -189,41 +190,47 @@ def network(
     # if required
     if max_segment_length is None:
         splitting = False
-        final_features = stream_links
+        final_features = stream_links_path
     else:
         splitting = True
-        final_features = split_links
-        _check_split_paths(split_points, split_links)
+        _check_split_paths(split_points_path, split_links_path)
+        final_features = split_links_path
 
     # Create dict of final stream paths
     output = {
-        "feature": path.abspath(final_features),
-        "raster": path.abspath(stream_raster),
+        "feature": Path(final_features).absolute(),
+        "raster": Path(stream_raster_path).absolute(),
     }
 
     # Get stream link polylines. Optionally split by length
     links(
-        total_area,
+        total_area_path,
         min_basin_area,
-        burned_area,
+        burned_area_path,
         min_burned_area,
-        flow_direction,
-        stream_links,
+        flow_direction_path,
+        stream_links_path,
     )
     if splitting:
-        radius = search_radius(total_area)
-        split(stream_links, max_segment_length, radius, split_points, split_links)
+        radius = search_radius(total_area_path)
+        split(
+            stream_links_path,
+            max_segment_length,
+            radius,
+            split_points_path,
+            split_links_path,
+        )
 
     # Convert final links to raster and return dict of output layer paths
-    raster(output["feature"], stream_raster)
+    raster(output["feature"], stream_raster_path)
     return output
 
 
-def raster(link_features: str, raster: str) -> None:
+def raster(link_features_path: str, raster_path: str) -> None:
     """
     raster  Converts a stream link feature layer to raster
     ----------
-    raster(link_features, raster)
+    raster(link_features_path, raster_path)
     Converts a feature layer of stream links to a raster. The feature layer
     should consist of a set of polylines, each denoting a link in the stream
     network. The value of stream link pixels in the output raster will match the
@@ -231,25 +238,25 @@ def raster(link_features: str, raster: str) -> None:
     to NoData.
     ----------
     Inputs:
-        link_features (str): The path to the arcpy feature layer holding the
+        link_features_path (str): The path to the arcpy feature layer holding the
             stream link polylines.
-        raster (str): The path to the arcpy layer that should hold the output
+        raster_path (str): The path to the arcpy layer that should hold the output
             stream link raster.
 
     Saves:
-        Saves an arcpy raster layer matching the name of the "raster" input.
+        Saves an arcpy raster layer matching the raster_path input.
 
     Outputs: None
     """
 
-    arcpy.conversion.PolylineToRaster(link_features, "OBJECTID", raster)
+    arcpy.conversion.PolylineToRaster(link_features_path, "OBJECTID", raster_path)
 
 
-def search_radius(raster: str, divisor=5) -> float:
+def search_radius(raster_path: str, divisor=5) -> float:
     """
     search_radius  Returns a search radius for splitting stream links
     ----------
-    search_radius(raster)
+    search_radius(raster_path)
     Returns a recommended search radius to use when splitting stream link
     polylines derived from the input raster. The returned radius will be the
     minimum XY resolution of the input raster, divided by 5. The use of 5 as
@@ -257,11 +264,11 @@ def search_radius(raster: str, divisor=5) -> float:
     we use 5 as a default to conform with the original codebase, which used a
     2 meter search radius for stream links derived from a 10 meter DEM.
 
-    search_radius(raster, divisor)
+    search_radius(raster_path, divisor)
     Also specifies the divisor to apply to the minimum XY resolution.
     ----------
     Inputs:
-        raster (str): The path to an arcpy raster layer used to derive the links
+        raster_path (str): The path to an arcpy raster layer used to derive the links
             in a stream network.
         divisor (float): The divisor to apply to the minimum XY resolution of
             the input raster. Should be a value >= 1.
@@ -272,8 +279,8 @@ def search_radius(raster: str, divisor=5) -> float:
     """
 
     # Get the minimum raster resolution
-    height = _raster_size(raster, "CELLSIZEX")
-    width = _raster_size(raster, "CELLSIZEY")
+    height = _raster_size(raster_path, "CELLSIZEX")
+    width = _raster_size(raster_path, "CELLSIZEY")
     resolution = min(height, width)
 
     # Return scaled resolution
@@ -281,16 +288,16 @@ def search_radius(raster: str, divisor=5) -> float:
 
 
 def split(
-    links: str,
+    links_path: str,
     max_segment_length: float,
     search_radius: float,
-    split_points: str,
-    split_links: str,
+    split_points_path: str,
+    split_links_path: str,
 ) -> None:
     """
     split  Splits stream links longer than a maximum length
     ----------
-    split(links, max_segment_length, search_radius, split_points, split_streams)
+    split(links_path, max_segment_length, search_radius, split_points_path, split_streams_path)
     Splits stream links longer than a maximum allowed length into segments that
     do not exceed this length. Stream links less than the maximum length are not
     affected. Note that a single stream link may be split into multiple
@@ -302,7 +309,7 @@ def split(
     allowed length. The links are then split into segments at these points.
     ----------
     Inputs:
-        links (str): The path to the arcpy feature layer holding the initial
+        links_path (str): The path to the arcpy feature layer holding the initial
             stream link polylines.
         max_segment_length (float): The maximum allowed length (in meters)
         search_radius (float): The search radius used to enable multiple
@@ -310,47 +317,50 @@ def split(
             We recommend using a value smaller than the minimum resolution of
             the raster used to derive the stream links, as this reduces the
             likelihood of incorrectly applying a split point to multiple links.
-        split_points (str): The path to the output arcpy feature layer holding
+        split_points_path (str): The path to the output arcpy feature layer holding
             the points used to split the stream links.
-        split_links (str): The path to the output arcpy feature layer holding
+        split_links_path (str): The path to the output arcpy feature layer holding
             the split stream link polylines.
 
     Saves:
-        Arcpy feature layers whose names match the "split_points" and
-        "split_links" inputs.
+        Arcpy feature layers whose names match the split_points_path and
+        split_links_path inputs.
 
     Outputs: None
     """
 
     max_length = f"{max_segment_length} meters"
     arcpy.management.GeneratePointsAlongLines(
-        links, split_points, "DISTANCE", max_length
+        links_path, split_points_path, "DISTANCE", max_length
     )
-    arcpy.management.SplitLineAtPoint(links, split_points, split_links, search_radius)
+    arcpy.management.SplitLineAtPoint(
+        links_path, split_points_path, split_links_path, search_radius
+    )
 
 
-def _check_split_paths(split_points: Any, split_links: Any) -> None:
+def _check_split_paths(split_points_path: Any, split_links_path: Any) -> None:
     """
     _check_split_paths  Informative error checking for optional splitting inputs
     ----------
-    _check_split_paths(split_points, split_links)
-    Raises an informative error if either split_points or split_links is None.
+    _check_split_paths(split_points_path, split_links_path)
+    Raises an informative error if either split_points_path or split_links_path
+    is None.
     ----------
     Inputs:
-        split_points (Any): The split_points input
-        split_links (Any): The split_links input
+        split_points_path (Any): The split_points_path input
+        split_links_path (Any): The split_links_path input
 
     Outputs: None
 
     Raises:
-        ValueError if either split_points or split_links is None.
+        ValueError if either split_points_path or split_links_path is None.
     """
 
     # Check for missing inputs
-    if split_points is None:
-        missing = "split_points"
-    elif split_links is None:
-        missing = "split_links"
+    if split_points_path is None:
+        missing = "split_points_path"
+    elif split_links_path is None:
+        missing = "split_links_path"
     else:
         missing = None
 
@@ -361,21 +371,21 @@ def _check_split_paths(split_points: Any, split_links: Any) -> None:
         raise MissingPathError
 
 
-def _raster_size(raster: str, field: Literal["CELLSIZEX", "CELLSIZEY"]) -> float:
+def _raster_size(raster_path: str, field: Literal["CELLSIZEX", "CELLSIZEY"]) -> float:
     """
     _raster_size  Returns a raster resolution as a float
     ----------
-    _raster_size(raster, field)
+    _raster_size(raster_path, field)
     Returns the X or Y resolution of an arcpy raster layer as a float.
     ----------
     Inputs:
-        raster (str): The path to the arcpy raster layer being queried
+        raster_path (str): The path to the arcpy raster layer being queried
         field ("CELLSIZEX" | "CELLSIZEY"): The resolution field to query
 
     Outputs:
         float: The queried resolution
     """
 
-    resolution = arcpy.management.GetRasterProperties(raster, field)
+    resolution = arcpy.management.GetRasterProperties(raster_path, field)
     resolution = resolution.getOutput(0)
     return float(resolution)
