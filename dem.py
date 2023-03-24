@@ -62,7 +62,96 @@ input_path = Union[Pathlike, None]
 # High-level
 ###
 def analyze(paths: Dict[str, Pathlike], *, verbose: Optional[bool] = None):
-    """ """
+    """
+    analyze  Conducts all DEM analyses for a standard hazard assessment
+    ----------
+    analyze(paths)
+    analyze(paths, *, outputs="default")
+    Conducts all DEM analyses required for a standard hazard assessment. Uses
+    various routines from the TauDEM package. Begins by pitfilling a DEM and
+    then computes flow directions and slopes. Uses the results of these initial
+    analyses to compute total upslope area, total burned upslope area, and the
+    vertical relief of the longest flow path. Returns a dict with the absolute
+    Paths to the D8 flow directions, total upslope area, total burned upslope
+    area, and vertical relief.
+
+    The "paths" input is a dict mapping analysis files to their paths. It must
+    contain the keys: 'dem', 'isburned', 'flow_directions', 'total_area',
+    'burned_area', and 'relief'. (and see below for a description of these values)
+
+    By default, the function will delete intermediate output files used in the
+    analysis. These consist of the pitfilled DEM, and the D-infinity flow
+    directions and slopes. You can save an intermediate file by including its
+    key in the "paths" input, along with a path. The keys for these optional
+    files are 'pitfilled', 'flow_directions_dinf', and 'slopes_dinf'. If one of
+    these keys is included in "paths", but its value is None, the file will be
+    deleted as usual.
+
+    By default, the function will return a dict with the absolute Paths for the
+    computed D8 flow directions, total upslope area, total burned upslope area,
+    and vertical relief. (These are the computed DEM fields used for a standard
+    hazard assessment). The keys for these outputs will match the corresponding
+    keys in the "paths" input.
+
+    analyze(..., *, outputs="saved")
+    Returns a dict with the absolute Paths to all saved output files. The dict
+    will include keys for the default 4 output files, as well as any saved
+    intermediate output files.
+
+    analyze(..., *, outputs="all")
+    Returns a dict with the absolute Paths to all output files. The dict will
+    include keys for all default and intermediate output files. If an
+    intermediate output file was not saved, the value for its key will be None.
+
+    analyze(..., *, verbose)
+    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+    the console. If verbose=False, suppresses the messages. If unspecified, uses
+    the default verbosity setting for the module (initially set as False).
+    ----------
+    Inputs:
+        paths: A dict mapping analysis files to their paths. Must include
+
+            * dem: The path to the DEM being analyzed
+            * isburned: The path to the raster indicating which DEM pixels are burned
+            * flow_directions: The path for output D8 flow directions
+            * total_area: The path for output total upslope area
+            * burned_area: The path for output total burned upslope area
+            * relief: The path for output vertical relief (of the longest flow path)
+
+            The dict may optionally include any of the following keys for
+            intermediate output files. If you provide one of these keys, the
+            associated file will not be deleted. (Default behavior is to delete
+            these files at the end of the function)
+
+            * pitfilled: A path for the pitfilled DEM
+            * flow_directions_dinf: A path for D-infinity flow directions
+            * slopes_dinf: A path for D-infinity slopes
+
+        outputs: Options are as follows
+            "default": Return the paths of output files needed for standard hazard assessment
+            "saved": Return the paths of all saved output files
+            "all": Return the paths of all output files (including deleted
+                intermediate outputs). Deleted files will have an value of None.
+        verbose: Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+            the console. If verbose=False, suppresses the messages. If unspecified, uses
+            the default verbosity setting for the module (initially set as False).
+
+    Outputs:
+        dict: Maps output files to their absolute Paths. Always includes
+
+            * flow_directions: The path to the D8 flow directions
+            * total_area: The path to the total upslope area
+            * burned_area: The path to the total burned upslope area
+            * relief: The path to the vertical relief of the longest flow path
+
+            May optionally include the following keys if outputs="saved".
+            Will always include these keys if outputs="all". If using "all",
+            files that were not saved will have a value of None.
+
+            * pitfilled: The path to the pitfilled DEM
+            * flow_directions_dinf: The path to the D-Infinity flow directions
+            * slopes_dinf: The path to the D-Infinity slopes
+    """
 
     # Parse verbosity. Process input paths and flow direction path. Get folder
     # for temporary files
