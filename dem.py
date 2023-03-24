@@ -22,7 +22,7 @@ Running this module requires:
       (Build Number 36056)
 ----------
 User functions:
-    analyze             - Implements all DEM analyses required for hazard assessment
+    analyze             - Implements all DEM analyses required for standard hazard assessment
     pitfill             - Fills pits in a DEM
     flow_directions     - Computes D8 and D-Infinity flow directions and slopes
     upslope_area        - Computes contributing (upslope) area
@@ -42,6 +42,7 @@ Utilities:
     _output_path         - Returns the absolute Path for an output file
     _temporary           - Returns an absolute Path for a temporary file
     _run_taudem          - Runs a TauDEM routine as a subprocess
+    _compute_longest     - Parses user inputs and runs the longest flow path routine
 """
 
 import subprocess, random, string
@@ -63,13 +64,17 @@ input_path = Union[Pathlike, None]
 ###
 def analyze(paths: Dict[str, Pathlike], *, verbose: Optional[bool] = None):
 
-    # Fill pits
+    # Parse verbosity. Initialize output dict of paths
+    verbose = _verbosity(verbose)
+    output = ["total_area", "burned_area", "flow_directions", "relief", "length"]
+    output = {key: None for key in outputs}
+
+    # Fill pits in DEM
     pitfill(paths["dem"], paths["pitfilled"], verbose=verbose)
 
     # Compute both D8 and D-infinity flow directions. (D8 is required for
-    # upslope areas, D-infinity is required for relief and length of longest
-    # flow path)
-    flow_directions(
+    # upslope areas, D-infinity is required for longest flow paths)
+    output["flow_directions"] = flow_directions(
         "D8", paths["pitfilled"], paths["flow_directions_D8"], verbose=verbose
     )
     flow_directions(
