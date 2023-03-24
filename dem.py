@@ -27,14 +27,13 @@ User functions:
     flow_directions     - Computes D8 and D-Infinity flow directions and slopes
     upslope_area        - Computes contributing (upslope) area
     relief              - Computes the vertical component of the longest flow path
-    length              - Computes the horizontal component of the longest flow path
 
 Low-level functions:
     pit_remove          - Fills pits in a DEM
     flow_d8             - Computes D8 flow directions and slopes
     flow_di             - Computes D-infinity flow directions and slopes
     area                - Computes D8 upslope area
-    longest             - Computes vertical and horizontal components of the longest flow path
+    longest             - Computes vertical components of the longest flow path
 
 Utilities:
     _verbosity           - Determines the verbosity setting for a routine
@@ -63,47 +62,66 @@ input_path = Union[Pathlike, None]
 # High-level
 ###
 def analyze(paths: Dict[str, Pathlike], *, verbose: Optional[bool] = None):
+    """ """
 
-    # Parse verbosity. Initialize output dict of paths
+    # Parse verbosity. Process input paths and flow direction path. Get folder
+    # for temporary files
     verbose = _verbosity(verbose)
-    output = ["total_area", "burned_area", "flow_directions", "relief", "length"]
-    output = {key: None for key in outputs}
+    [dem, isburned] = _input_paths(paths["dem"], paths["isburned"])
+    paths["flow_d8"] = _output_path(paths["flow_directions"])
+    folder = paths["flow_d8"].parent
 
-    # Fill pits in DEM
-    pitfill(paths["dem"], paths["pitfilled"], verbose=verbose)
+    # Add output file paths to the path dict. Use temporary paths for intermediate
+    # output files. Process user provided paths to final output files
+    output_names = [
+        "pitfilled",
+        "flow_d8",
+        "flow_dinf",
+        "slopes_dinf",
+        "total_area",
+        "burned_area",
+        "relief",
+    ]
+    final = ["flow_d8", "total_area", "burned_area", "relief"]
+    for name in output_names:
+        if name in final:
+            filepath = _output_path(paths[name])
+        else:
+            filepath = _temporary(name, folder)
+        paths[name] = filepath
 
-    # Compute both D8 and D-infinity flow directions. (D8 is required for
-    # upslope areas, D-infinity is required for longest flow paths)
-    output["flow_directions"] = flow_directions(
-        "D8", paths["pitfilled"], paths["flow_directions_D8"], verbose=verbose
-    )
-    flow_directions(
-        "DInf",
-        paths["pitfilled"],
-        paths["flow_directions_DInf"],
-        slopes=paths["slopes_DInf"],
-        verbose=verbose,
-    )
+    # Fill pits in the DEM
+    try:
+        pitremove(dem, paths["pitfilled"], verbose)
 
-    # Get total area and total upslope burned area
-    upslope_area(paths["flow_directions_d8"], paths["total_area"], verbose=verbose)
-    upslope_area(paths["flow_directions_d8"], paths["burned_area"], verbose=verbose)
+        # Compute D8 and D-infinity flow directions. (D8 is needed for upslope
+        # areas, D-infinity for relief)
+        flow_d8(paths["pitfilled"], paths["flow_d8"], None, verbose)
+        flow_dinf(paths["pitfilled"], paths["flow_dinf"], paths["slopes_dinf"], verbose)
 
-    # Get the relief and horizontal length of the longest flow path
-    relief(
-        paths["pitfilled"],
-        paths["flow_directions_DInf"],
-        paths["slopes_DInf"],
-        paths["relief"],
-        verbose=verbose,
-    )
-    length(
-        paths["pitfilled"],
-        paths["flow_directions_DInf"],
-        paths["slopes_DInf"],
-        paths["length"],
-        verbose=verbose,
-    )
+        # Compute upslope area and burned upslope area
+        area_d8(paths["flow_d8"], None, paths["total_area"], verbose)
+        area_d8(paths["flow_d8"], paths["isburned"], paths["burned_area"], verbose)
+
+        # Compute vertical relief of longest flow path
+        relief_dinf(
+            paths["pitfilled"],
+            paths["flow_dinf"],
+            paths["slopes_dinf"],
+            paths["relief"],
+            verbose,
+        )
+
+    # Remove temporary output files
+    finally:
+        for name in output_names:
+            if name not in final:
+                paths[name].unlink(missing_ok=True)
+
+    # Return dict of final output file paths
+    final = {name: paths[name] for name in final}
+    final["flow_directions"] = final.pop("flow_d8")
+    return final
 
 
 def pitfill(
@@ -314,58 +332,13 @@ def relief(
         pathlib.Path: The absolute Path to the output vertical relief
     """
 
-    return _compute_longest(
-        "vertical",
-        pitfilled_path,
-        flow_directions_path,
-        slopes_path,
-        relief_path,
-        verbose,
+    verbose = _verbosity(verbose)
+    [pitfilled_path, flow_directions_path, slopes_path] = _input_paths(
+        pitfilled_path, flow_directions_path, slopes_path
     )
-
-
-def length(
-    pitfilled_path: Pathlike,
-    flow_directions_path: Pathlike,
-    slopes_path: Pathlike,
-    length_path: Pathlike,
-    *,
-    verbose: Optional[bool] = None,
-) -> Path:
-    """
-    length  Computes the horizontal length of the longest flow path
-    ----------
-    length(pitfilled_path, flow_directions_path, slopes_path, length_path)
-    Computes the horizontal length of the longest flow path using a pitfilled DEM,
-    and D-infinity flow directions and slopes. Saves the output length to the
-    indicated path.
-
-    length(..., *, verbose)
-    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
-    the console. If verbose=False, suppresses the messages. If unspecified, uses
-    the default verbosity setting for the module (initially set as False).
-    ----------
-    Inputs:
-        pitfilled_path: The path to the input pitfilled DEM
-        flow_directions_path: The path to the input D-infinity flow directions
-        slopes_path: The path to the input D-infinity slopes
-        length_path: The path to the output horizontal length
-        verbose: Set to True to print TauDEM messages to the console. False to
-            suppress these messages. If unset, uses the default verbosity for
-            the module (initially set as False).
-
-    Outputs:
-        pathlib.Path: The absolute Path to the output vertical relief
-    """
-
-    return _compute_longest(
-        "horizontal",
-        pitfilled_path,
-        flow_directions_path,
-        slopes_path,
-        length_path,
-        verbose,
-    )
+    relief_path = _output_path(relief_path)
+    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
+    return relief_path
 
 
 #####
@@ -493,57 +466,46 @@ def area_d8(
     _run_taudem(area_d8, verbose)
 
 
-def longest(
-    direction: Literal["horizontal", "vertical"],
+def relief_dinf(
     pitfilled_path: Path,
     flow_directions_path: Path,
     slopes_path: Path,
-    length_path: Path,
+    relief_path: Path,
     verbose: bool,
 ) -> None:
     """
-    longest  Computes the horizontal or vertical component of the longest flow path
+    relief_dinf  Computes the vertical component of the longest flow path
     ----------
-    longest(direction, pitfilled_path, flow_directions_path, slopes_path,
-            length_path, verbose)
-    Computes the horizontal or vertical component of the longest flow path. This
-    analysis requires an input pitfilled DEM, and D-Infinity flow directions and
-    slopes. The routine is set to account for edge contamination. Uses a
-    threshold of 0.49 so that computed lengths mimic the results for a D8 flow
-    model. Saves the computed length to the indicated path. Optionally prints
-    TauDEM messages to the console.
+    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
+    Computes the vertical component of the longest flow path. This analysis
+    requires an input pitfilled DEM, and D-Infinity flow directions and slopes.
+    The routine is set to account for edge contamination. Uses a threshold of
+    0.49 so that computed relief mimics the results for a D8 flow model. Saves
+    the computed length to the indicated path. Optionally prints TauDEM messages
+    to the console.
     ----------
     Inputs:
-        direction ('horiztonal | 'vertical'): Indicates whether the method should
-            compute the horizontal or vertical component of the longest flow path.
         pitfilled_path: The absolute Path to the input pitfilled DEM
         flow_directions_path: The absolute Path to the input D-infinity flow directions
         slopes_path: The absolute Path to the input D-infinity slopes
-        length_path: The absolute Path to the output D8 lengths
-        verbose (bool): True to print TauDEM messages to the console. False to
+        relief_path: The absolute Path to the output D8 relief
+        verbose: True to print TauDEM messages to the console. False to
             suppress these messages.
 
     Outputs: None
 
     Saves:
-        A file matching the "length" path.
+        A file matching the "relief" path.
     """
 
-    # Get the key for vertical/horizontal
-    if direction == "vertical":
-        direction = "v"
-    else:
-        direction = "h"
-
-    # Run the command. The "thresh 0.49" option mimics results for a D8 flow model. The
-    # "nc" flag causes the routine to account for edge contamination.
-    # The "-m max" computes values for the longest flow path. The "h" and "v"
-    # direction keys indicate the horiztonal or vertical component of the length
-    length = (
-        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path} -slp {slopes_path}"
-        + f" -du {length_path} -m max {direction} -thresh 0.49 -nc"
+    # Run the command. The "-m max v" computes the (v)ertical component of the
+    # longest (max)imum flow path. The "thresh 0.49" option mimics results for a
+    #  D8 flow model. The "nc" flag causes the routine to account for edge contamination.
+    relief = (
+        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
+        + f"-slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
     )
-    _run_taudem(length, verbose)
+    _run_taudem(relief, verbose)
 
 
 ###
@@ -673,52 +635,3 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     """
 
     subprocess.run(command, capture_output=not verbose, check=True)
-
-
-def _compute_longest(
-    direction: Literal["vertical", "horizontal"],
-    pitfilled_path: Pathlike,
-    flow_directions_path: Pathlike,
-    slopes_path: Pathlike,
-    length_path: Pathlike,
-    verbose: Union[bool, None],
-):
-    """
-    _compute_longest  Parses user inputs and implements a longest flow path routine
-    ----------
-    _compute_longest(direction, pitfilled_path, flow_directions_path, slopes_path
-                     length_path, verbose)
-    Parses the verbosity setting and processes user provided file paths prior to
-    computing a component of the longest flow path. Computes either the
-    horizontal or vertical component of the longest flow path, as specified.
-    ----------
-    Inputs:
-        direction: Indicates whether to compute the vertical or horizontal
-            component of the longest flow path
-        pitfilled_path: The user provided path to the pitfilled DEM
-        flow_directions_path: The user provided path to the D-infinity flow directions
-        slopes_path: The user provided path to the D-infinity flow slopes
-        length_path: The user provided path to the output length
-        verbose: The user provided verbosity setting
-
-    Outputs:
-        pathlib.Path: The path to the output length
-
-    Saves:
-        A file matching the "length" path
-    """
-
-    verbose = _verbosity(verbose)
-    [pitfilled_path, flow_directions_path, slopes_path] = _input_paths(
-        pitfilled_path, flow_directions_path, slopes_path
-    )
-    length_path = _output_path(length_path)
-    longest(
-        direction,
-        pitfilled_path,
-        flow_directions_path,
-        slopes_path,
-        length_path,
-        verbose,
-    )
-    return length_path
