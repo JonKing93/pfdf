@@ -26,7 +26,7 @@ User functions:
     pitfill             - Fills pits in a DEM
     flow_directions     - Computes D8 and D-Infinity flow directions and slopes
     upslope_area        - Computes contributing (upslope) area
-    relief              - Computes the vertical componenet of the longest flow path
+    relief              - Computes the vertical component of the longest flow path
     length              - Computes the horizontal component of the longest flow path
 
 Low-level functions:
@@ -37,26 +37,29 @@ Low-level functions:
     longest             - Computes vertical and horizontal components of the longest flow path
 
 Utilities:
-    parse_options       - Determines the verbosity setting for a routine
-    input_paths         - Returns absolute Paths for input files
-    output_path         - Returns the absolute Path for an output file
-    compute_longest     - Processes inputs and analyzes the longest flow path
-    run_taudem          - Runs a TauDEM routine as a subprocess
+    _parse_options       - Determines the verbosity setting for a routine
+    _input_paths         - Returns absolute Paths for input files
+    _output_path         - Returns the absolute Path for an output file
+    _compute_longest     - Processes inputs and analyzes the longest flow path
+    _run_taudem          - Runs a TauDEM routine as a subprocess
 """
 
 import subprocess, random, string
 from pathlib import Path
 from typing import Union, Optional, List, Literal, Tuple, Dict
 
-# Default configuration (public)
+# Configuration 
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
-
-# Non-public configuration
-_tmp_string_length = 10
+_tmp_string_length = 10 
 
 # Type aliases
 Pathlike = Union[Path, str]
+strs = Union[str, List[str]]
 
+
+###
+# High-level
+###
 def analyze(paths: Dict[str, Pathlike], *, verbose: Optional[bool]=None):
 
     # Fill pits
@@ -221,16 +224,6 @@ def upslope_area(
     return area
 
 
-    
-
-    
-
-
-
-
-
-
-
 def relief(pitfilled, flow_directions, slopes, relief, *, verbose):
 
     compute_longest("vertical", pitfilled, flow_directions, slopes, relief, verbose)
@@ -239,12 +232,6 @@ def relief(pitfilled, flow_directions, slopes, relief, *, verbose):
 def length(pitfilled, flow_directions, slopes, length, *, verbose):
 
     compute_longest("horizontal", pitfilled, flow_directions, slopes, length, verbose)
-
-
-
-
-
-
 
 
 #####
@@ -468,6 +455,7 @@ def temporary(name, folder):
     name = name + "_" + tail + ".tif"
     return folder / name
 
+
 def output_path(output):
     """
     output_path  Returns the path for an output file
@@ -514,7 +502,7 @@ def compute_longest(direction, pitfilled, flow_directions, slopes, length, verbo
     longest("horiztonal", pitfilled, flow_directions, slopes, length, verbose)
 
 
-def run_taudem(command: List[str], verbose: bool) -> None:
+def run_taudem(command: strs, verbose: bool) -> None:
     """
     run_taudem  Runs a TauDEM command as a subprocess
     ----------
@@ -525,8 +513,8 @@ def run_taudem(command: List[str], verbose: bool) -> None:
     (i.e. the process returns an exit code not equal to 0).
     ----------
     Inputs:
-        command (str List): The arguments used to run a TauDEM command
-        verbose (bool): True if TauDEM messages should be printed to the
+        command: The arguments used to run a TauDEM command
+        verbose: True if TauDEM messages should be printed to the
             console. False if these messages should be suppressed.
 
     Outputs: None
