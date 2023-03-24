@@ -1,2 +1,4 @@
-__all__ = ["stream"]
+__all__ = ["dem", "stream"]
+
+import dfha.dem
 import dfha.stream
