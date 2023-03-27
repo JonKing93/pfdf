@@ -613,12 +613,15 @@ def _input_paths(*files: input_path) -> List[input_path]:
     Outputs:
         List of pathlib.Path and None: The absolute Paths to the input files.
             Files that were None remain None in this list.
+
+    Raises:
+        FileNotFoundError if the file does not exist
     """
 
     files = list(files)
     for f, file in enumerate(files):
         if file is not None:
-            files[f] = Path(file).absolute()
+            files[f] = Path(file).resolve(strict=True)
     return files
 
 
@@ -692,7 +695,7 @@ def _output_path(output: Pathlike) -> Path:
     """
 
     # Get an absolute path object
-    output = Path(output).absolute()
+    output = Path(output).resolve()
 
     # Ensure a .tif extension
     extension = output.suffix()
