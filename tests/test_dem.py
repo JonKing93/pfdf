@@ -162,7 +162,7 @@ class TestFlowDInf(TaudemFlow):
 class TestAreaD8(WrapsTaudem):
     def run(self, tempdir, capfd, verbose, weights, area):
         flow = self.fire / self.flow_d8
-        output = self.fire / "test.tif"
+        output = tempdir / area
         expected = self.fire / area
 
         dem.area_d8(flow, weights, output, verbose)
