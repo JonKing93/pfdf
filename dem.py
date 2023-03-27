@@ -1,16 +1,35 @@
 """
-dem  Functions that implement DEM analysis
+dem  Functions that implement DEM analyses
 ----------
 The dem module provide functions that implement basic analyses on a Digital
-Elevation Model (DEM). These include pitfilling, analysis of flow directions, 
-and the calculation of upslope areas.
+Elevation Model (DEM). These include pitfilling, and the calculation of flow
+directions, upslope areas, and vertical relief.
 
-Currently, this module relies on the command-line tools of the TauDEM package.
-Documentation of TauDEM is available here:
+This module implements DEM analyses using the TauDEM package (specifically, the
+TauDEM command-line interface). Documentation of TauDEM is available here:
 https://hydrology.usu.edu/taudem/taudem5/documentation.html
 
-Many of the outputs of this module are required to delineate a stream network.
-A suggested workflow for hazard assessment users is as follows:
+We recommend most users begin with the "analyze" function, which implements all
+the DEM analyses required for a basic hazard assessment. Users may also be
+interested in the "pitfill", "flow_directions", "upslope_area", and "relief"
+functions, which implement individual pieces of this overall analysis.
+
+In general, the functions in this module require various input rasters and
+compute rasters as outputs. The module follows the raster file format
+conventions of TauDEM: input rasters may use nearly any raster file format, but
+outputs will always use a TIF format. For a complete list of supported input
+raster formats, see:
+https://gdal.org/drivers/raster/index.html
+
+In addition to the user functions, this module includes the low-level 
+"pitremove", "flow_d8", "flow_dinf", "area_d8", and "relief_dinf" functions, 
+which provide wrappers to the TauDEM commands used to implement the analyses. 
+These functions are primarily intended for developers, and we recommend that
+most users instead use the aforementioned high-level functions.
+
+The upslope areas output by this module are often used to help delineate a
+stream network. As such, a suggested workflow for hazard assessment users is as
+follows:
     * Acquire DEM data
     *** Run this module
     * Delineate a stream network
@@ -20,6 +39,7 @@ REQUIREMENTS:
 Running this module requires:
     * The ArcPy package and base Python environment shipped with ArcGIS Pro 3.0
       (Build Number 36056)
+    * Installing TauDEM 5.3
 ----------
 User functions:
     analyze             - Implements all DEM analyses required for standard hazard assessment
@@ -32,16 +52,17 @@ Low-level functions:
     pit_remove          - Fills pits in a DEM
     flow_d8             - Computes D8 flow directions and slopes
     flow_di             - Computes D-infinity flow directions and slopes
-    area                - Computes D8 upslope area
-    longest             - Computes vertical components of the longest flow path
+    area_d8             - Computes D8 upslope area
+    relief_dinf         - Computes vertical components of the longest flow path
 
 Utilities:
-    _verbosity           - Determines the verbosity setting for a routine
-    _input_paths         - Returns absolute Paths for input files
-    _output_path         - Returns the absolute Path for an output file
-    _temporary           - Returns an absolute Path for a temporary file
-    _run_taudem          - Runs a TauDEM routine as a subprocess
-    _compute_longest     - Parses user inputs and runs the longest flow path routine
+    _verbosity          - Determines the verbosity setting for a routine
+    _input_paths        - Returns absolute Paths for input files
+    _output_path        - Returns the absolute Path for an output file
+    _temporary          - Returns an absolute Path for a temporary file
+    _run_taudem         - Runs a TauDEM routine as a subprocess
+    _setup_dict         - Prepares the Path dict for a DEM analysis
+    _output_dict        - Builds the output Path dict for a DEM analysis
 """
 
 import subprocess, random, string
@@ -121,7 +142,8 @@ def analyze(
     the default verbosity setting for the module (initially set as False).
     ----------
     Inputs:
-        paths: A dict mapping analysis files to their paths. Must include
+        paths: A dict mapping analysis files to their paths. Keys are strings
+            and values may be strings or pathlib.Path objects. Must include the keys:
 
             * dem: The path to the DEM being analyzed
             * isburned: The path to the raster indicating which DEM pixels are burned
@@ -149,7 +171,7 @@ def analyze(
             the default verbosity setting for the module (initially set as False).
 
     Outputs:
-        dict: Maps output files to their absolute Paths. Always includes
+        dict: A dict mapping output files to their absolute Paths. Always includes keys:
 
             * flow_directions: The path to the D8 flow directions
             * total_area: The path to the total upslope area
@@ -171,7 +193,7 @@ def analyze(
 
     # Fill pits in the DEM
     try:
-        pitremove(dem, paths["pitfilled"], verbose)
+        pitremove(paths["dem"], paths["pitfilled"], verbose)
 
         # Compute D8 and D-infinity flow directions. (D8 is needed for upslope
         # areas, D-infinity for relief)
