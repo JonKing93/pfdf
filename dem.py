@@ -86,20 +86,16 @@ output_option = Literal["default", "saved", "all"]
 pathdict = Dict[str, Path]
 
 
-###
-# High-level
-###
 def analyze(
     paths: Dict[str, Pathlike],
     *,
-    outputs: output_option,
+    outputs: output_option = "default",
     verbose: Optional[bool] = None,
 ) -> pathdict:
     """
     analyze  Conducts all DEM analyses for a standard hazard assessment
     ----------
     analyze(paths)
-    analyze(paths, *, outputs="default")
     Conducts all DEM analyses required for a standard hazard assessment. Uses
     various routines from the TauDEM package. Begins by pitfilling a DEM and
     then computes flow directions and slopes. Uses the results of these initial
@@ -126,15 +122,14 @@ def analyze(
     hazard assessment). The keys for these outputs will match the corresponding
     keys in the "paths" input.
 
-    analyze(..., *, outputs="saved")
-    Returns a dict with the absolute Paths to all saved output files. The dict
-    will include keys for the default 4 output files, as well as any saved
-    intermediate output files.
-
-    analyze(..., *, outputs="all")
-    Returns a dict with the absolute Paths to all output files. The dict will
-    include keys for all default and intermediate output files. If an
-    intermediate output file was not saved, the value for its key will be None.
+    analyze(..., *, outputs= "default" | "saved" | "all")
+    Indicates the Paths that should be included in the output dict.
+    If outputs="default", the dict includes the Paths of the D8 flow directions,
+    total upslope area, total burned upslope area, and vertical relief.
+    If outputs="saved", includes the keys for all saved output files. This includes
+    the default 4 outputs, as well as any saved intermediate output files.
+    If outputs="all", includes keys for all default and intermediate output files.
+    If an intermediate output file was not saved, the value of its key will be None.
 
     analyze(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -222,44 +217,100 @@ def analyze(
     return _output_dict(paths, outputs, temporary)
 
 
-def pitfill(
-    dem_path: Pathlike,
-    pitfilled_path: Pathlike,
-    *,
-    verbose: Optional[bool] = None,
-) -> Path:
+def area_d8(
+    flow_directions_path: Path,
+    weights_path: Union[Path, None],
+    area_path: Path,
+    verbose: bool,
+) -> None:
     """
-    pitfill  Fills pits (depressions) in a DEM
+    area_d8  Runs the TauDEM D8 upslope area routine
     ----------
-    pitfill(dem_path, pitfilled_path)
-    Runs the TauDEM pitfilling routine on the input DEM. Saves the pitfilled
-    DEM to the indicated path. Returns an absolute Path object to the output
-    pitfilled DEM.
+    area_d8(flow_directions_path, weights_path=None, area_path, verbose)
+    Computes upslope area (also known as contributing area) using a D8 flow model.
+    All raster pixels are given an equal area of 1. Saves the output upslope
+    area to the indicated path. Optionally prints TauDEM messages to the console.
 
-    pitfill(dem_path, pitfilled_path, *, verbose)
-    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
-    the console. If verbose=False, suppresses the messages. If unspecified, uses
-    the default verbosity setting for the module (initially set as False).
+    area_d8(flow_directions_path, weights_path, area_path, verbose)
+    Computes weighted upslope area. The area of each raster pixel is set to the
+    corresponding value in the weights raster.
     ----------
     Inputs:
-        dem: The path to the input DEM being pitfilled
-        pitfilled: The path to the output pitfilled DEM
-        verbose: Set to True to print TauDEM messages to the console. False to
-            suppress these messages. If unset, uses the default verbosity for
-            the module (initially set as False).
+        flow_directions_path: The absolute Path for the input D8 flow directions.
+        weights_path: The absolute Path to the input raster holding area weights
+            for each pixel. If None, computes unweighted upslope area.
+        area: The absolute Path to the output upslope area
+        verbose: True if TauDEM messages should be printed to the console.
+            False to suppress these messages.
 
-    Outputs:
-        pathlib.Path: The absolute Path to the output pitfilled DEM
+    Outputs: None
 
     Saves:
-        A file matching the "pitfilled" input.
+        A file matching the "area" path.
     """
 
-    verbose = _verbosity(verbose)
-    [dem_path] = _input_paths(dem_path)
-    pitfilled_path = _output_path(pitfilled_path)
-    pitremove(dem_path, pitfilled_path, verbose)
-    return pitfilled_path
+    area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path}"
+    if weights_path is not None:
+        area_d8 += f" -wg {weights_path}"
+    _run_taudem(area_d8, verbose)
+
+
+def flow_d8(
+    pitfilled_path: Path, flow_directions_path: Path, slopes_path: Path, verbose: bool
+) -> None:
+    """
+    flow_d8  Runs the TauDEM D8 flow direction routine
+    ----------
+    flow_d8(pitfilled_path, flow_directions_path, slopes_path, verbose)
+    Calculates flow directions and slopes from a pitfilled DEM using a D8 flow
+    model. Saves the output flow directions and slopes to the indicated paths.
+    Optionally prints TauDEM messages to the console.
+    ----------
+    Inputs:
+        pitfilled_path: The absolute Path to the pitfilled DEM being analyzed.
+        flow_directions_path: The absolute Path for the output flow directions
+        slopes_path: The absolute Path for the output slopes
+        verbose: True if TauDEM messages should be printed to console.
+            False if these messages should be suppressed.
+
+    Outputs: None
+
+    Saves:
+        Files matching the "flow_directions" and "slopes" paths.
+    """
+
+    flow_d8 = (
+        f"D8FlowDir -fel {pitfilled_path} -p {flow_directions_path} -sd8 {slopes_path}"
+    )
+    _run_taudem(flow_d8, verbose)
+
+
+def flow_dinf(
+    pitfilled_path: Path, flow_directions_path: Path, slopes_path: Path, verbose: bool
+) -> None:
+    """
+    flow_dinf  Runs the TauDEM D-Infinity flow direction routine
+    ----------
+    flow_dinf(pitfilled_path, flow_directions_path, slopes_path, verbose)
+    Calculates flow directions and slopes from a pitfilled DEM using a
+    D-infinity flow model. Saves the output flow directions and slopes to the
+    indicated paths. Optionally prints TauDEM messages to the console.
+    ----------
+    Inputs:
+        pitfilled_path: The absolute Path to the pitfilled DEM being analyzed.
+        flow_directions_path: The absolute Path for the output flow directions
+        slopes_path: The absolute Path for the output slopes
+        verbose: True if TauDEM messages should be printed to console.
+            False if these messages should be suppressed.
+
+    Outputs: None
+
+    Saves:
+        Files matching the "flow_directions" and "slopes" paths.
+    """
+
+    flow_dinf = f"DInfFlowDir -fel {pitfilled_path} -ang {flow_directions_path} -slp {slopes_path}"
+    _run_taudem(flow_dinf, verbose)
 
 
 def flow_directions(
@@ -347,6 +398,157 @@ def flow_directions(
         return (flow_directions_path, slopes_path)
 
 
+def pitfill(
+    dem_path: Pathlike,
+    pitfilled_path: Pathlike,
+    *,
+    verbose: Optional[bool] = None,
+) -> Path:
+    """
+    pitfill  Fills pits (depressions) in a DEM
+    ----------
+    pitfill(dem_path, pitfilled_path)
+    Runs the TauDEM pitfilling routine on the input DEM. Saves the pitfilled
+    DEM to the indicated path. Returns an absolute Path object to the output
+    pitfilled DEM.
+
+    pitfill(dem_path, pitfilled_path, *, verbose)
+    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+    the console. If verbose=False, suppresses the messages. If unspecified, uses
+    the default verbosity setting for the module (initially set as False).
+    ----------
+    Inputs:
+        dem: The path to the input DEM being pitfilled
+        pitfilled: The path to the output pitfilled DEM
+        verbose: Set to True to print TauDEM messages to the console. False to
+            suppress these messages. If unset, uses the default verbosity for
+            the module (initially set as False).
+
+    Outputs:
+        pathlib.Path: The absolute Path to the output pitfilled DEM
+
+    Saves:
+        A file matching the "pitfilled" input.
+    """
+
+    verbose = _verbosity(verbose)
+    [dem_path] = _input_paths(dem_path)
+    pitfilled_path = _output_path(pitfilled_path)
+    pitremove(dem_path, pitfilled_path, verbose)
+    return pitfilled_path
+
+
+def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
+    """
+    pitremove  Runs the TauDEM PitRemove routine
+    ----------
+    pitremove(dem_path, pitfilled_path, verbose)
+    Runs the TauDEM pit filling routine on a input DEM. Saves the output
+    pitfilled DEM to the indicated path. Optionally prints TauDEM messages to
+    the console.
+    ----------
+    Inputs:
+        dem_path: The absolute Path object for the input DEM
+        pitfilled_path: The absolute Path object for the output
+            pitfilled DEM.
+        verbose: True if TauDEM messages should be printed to the console.
+            False if the messages should be suppressed.
+
+    Outputs: None
+
+    Saves:
+        A file matching the "pitfilled" path
+    """
+
+    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
+    _run_taudem(pitremove, verbose)
+
+
+def relief(
+    pitfilled_path: Pathlike,
+    flow_directions_path: Pathlike,
+    slopes_path: Pathlike,
+    relief_path: Pathlike,
+    *,
+    verbose: Optional[bool] = None,
+) -> Path:
+    """
+    relief  Computes the vertical relief of the longest flow path
+    ----------
+    relief(pitfilled_path, flow_directions_path, slopes_path, relief_path)
+    Computes the vertical relief of the longest flow path using a pitfilled DEM,
+    and D-infinity flow directions and slopes. Saves the output relief to the
+    indicated path.
+
+    relief(..., *, verbose)
+    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+    the console. If verbose=False, suppresses the messages. If unspecified, uses
+    the default verbosity setting for the module (initially set as False).
+    ----------
+    Inputs:
+        pitfilled_path: The path to the input pitfilled DEM
+        flow_directions_path: The path to the input D-infinity flow directions
+        slopes_path: The path to the input D-infinity slopes
+        relief_path: The path to the output vertical relief
+        verbose: Set to True to print TauDEM messages to the console. False to
+            suppress these messages. If unset, uses the default verbosity for
+            the module (initially set as False).
+
+    Outputs:
+        pathlib.Path: The absolute Path to the output vertical relief
+    """
+
+    verbose = _verbosity(verbose)
+    [pitfilled_path, flow_directions_path, slopes_path] = _input_paths(
+        pitfilled_path, flow_directions_path, slopes_path
+    )
+    relief_path = _output_path(relief_path)
+    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
+    return relief_path
+
+
+def relief_dinf(
+    pitfilled_path: Path,
+    flow_directions_path: Path,
+    slopes_path: Path,
+    relief_path: Path,
+    verbose: bool,
+) -> None:
+    """
+    relief_dinf  Computes the vertical component of the longest flow path
+    ----------
+    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
+    Computes the vertical component of the longest flow path. This analysis
+    requires an input pitfilled DEM, and D-Infinity flow directions and slopes.
+    The routine is set to account for edge contamination. Uses a threshold of
+    0.49 so that computed relief mimics the results for a D8 flow model. Saves
+    the computed length to the indicated path. Optionally prints TauDEM messages
+    to the console.
+    ----------
+    Inputs:
+        pitfilled_path: The absolute Path to the input pitfilled DEM
+        flow_directions_path: The absolute Path to the input D-infinity flow directions
+        slopes_path: The absolute Path to the input D-infinity slopes
+        relief_path: The absolute Path to the output D8 relief
+        verbose: True to print TauDEM messages to the console. False to
+            suppress these messages.
+
+    Outputs: None
+
+    Saves:
+        A file matching the "relief" path.
+    """
+
+    # Run the command. The "-m max v" computes the (v)ertical component of the
+    # longest (max)imum flow path. The "thresh 0.49" option mimics results for a
+    #  D8 flow model. The "nc" flag causes the routine to account for edge contamination.
+    relief = (
+        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
+        + f"-slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
+    )
+    _run_taudem(relief, verbose)
+
+
 def upslope_area(
     flow_directions_path: Pathlike,
     area_path: Pathlike,
@@ -396,241 +598,6 @@ def upslope_area(
     return area_path
 
 
-def relief(
-    pitfilled_path: Pathlike,
-    flow_directions_path: Pathlike,
-    slopes_path: Pathlike,
-    relief_path: Pathlike,
-    *,
-    verbose: Optional[bool] = None,
-) -> Path:
-    """
-    relief  Computes the vertical relief of the longest flow path
-    ----------
-    relief(pitfilled_path, flow_directions_path, slopes_path, relief_path)
-    Computes the vertical relief of the longest flow path using a pitfilled DEM,
-    and D-infinity flow directions and slopes. Saves the output relief to the
-    indicated path.
-
-    relief(..., *, verbose)
-    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
-    the console. If verbose=False, suppresses the messages. If unspecified, uses
-    the default verbosity setting for the module (initially set as False).
-    ----------
-    Inputs:
-        pitfilled_path: The path to the input pitfilled DEM
-        flow_directions_path: The path to the input D-infinity flow directions
-        slopes_path: The path to the input D-infinity slopes
-        relief_path: The path to the output vertical relief
-        verbose: Set to True to print TauDEM messages to the console. False to
-            suppress these messages. If unset, uses the default verbosity for
-            the module (initially set as False).
-
-    Outputs:
-        pathlib.Path: The absolute Path to the output vertical relief
-    """
-
-    verbose = _verbosity(verbose)
-    [pitfilled_path, flow_directions_path, slopes_path] = _input_paths(
-        pitfilled_path, flow_directions_path, slopes_path
-    )
-    relief_path = _output_path(relief_path)
-    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
-    return relief_path
-
-
-#####
-# LOW LEVEL
-#####
-def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
-    """
-    pitremove  Runs the TauDEM PitRemove routine
-    ----------
-    pitremove(dem_path, pitfilled_path, verbose)
-    Runs the TauDEM pit filling routine on a input DEM. Saves the output
-    pitfilled DEM to the indicated path. Optionally prints TauDEM messages to
-    the console.
-    ----------
-    Inputs:
-        dem_path: The absolute Path object for the input DEM
-        pitfilled_path: The absolute Path object for the output
-            pitfilled DEM.
-        verbose: True if TauDEM messages should be printed to the console.
-            False if the messages should be suppressed.
-
-    Outputs: None
-
-    Saves:
-        A file matching the "pitfilled" path
-    """
-
-    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
-    _run_taudem(pitremove, verbose)
-
-
-def flow_d8(
-    pitfilled_path: Path, flow_directions_path: Path, slopes_path: Path, verbose: bool
-) -> None:
-    """
-    flow_d8  Runs the TauDEM D8 flow direction routine
-    ----------
-    flow_d8(pitfilled_path, flow_directions_path, slopes_path, verbose)
-    Calculates flow directions and slopes from a pitfilled DEM using a D8 flow
-    model. Saves the output flow directions and slopes to the indicated paths.
-    Optionally prints TauDEM messages to the console.
-    ----------
-    Inputs:
-        pitfilled_path: The absolute Path to the pitfilled DEM being analyzed.
-        flow_directions_path: The absolute Path for the output flow directions
-        slopes_path: The absolute Path for the output slopes
-        verbose: True if TauDEM messages should be printed to console.
-            False if these messages should be suppressed.
-
-    Outputs: None
-
-    Saves:
-        Files matching the "flow_directions" and "slopes" paths.
-    """
-
-    flow_d8 = (
-        f"D8FlowDir -fel {pitfilled_path} -p {flow_directions_path} -sd8 {slopes_path}"
-    )
-    _run_taudem(flow_d8, verbose)
-
-
-def flow_dinf(
-    pitfilled_path: Path, flow_directions_path: Path, slopes_path: Path, verbose: bool
-) -> None:
-    """
-    flow_dinf  Runs the TauDEM D-Infinity flow direction routine
-    ----------
-    flow_dinf(pitfilled_path, flow_directions_path, slopes_path, verbose)
-    Calculates flow directions and slopes from a pitfilled DEM using a
-    D-infinity flow model. Saves the output flow directions and slopes to the
-    indicated paths. Optionally prints TauDEM messages to the console.
-    ----------
-    Inputs:
-        pitfilled_path: The absolute Path to the pitfilled DEM being analyzed.
-        flow_directions_path: The absolute Path for the output flow directions
-        slopes_path: The absolute Path for the output slopes
-        verbose: True if TauDEM messages should be printed to console.
-            False if these messages should be suppressed.
-
-    Outputs: None
-
-    Saves:
-        Files matching the "flow_directions" and "slopes" paths.
-    """
-
-    flow_dinf = f"DInfFlowDir -fel {pitfilled_path} -ang {flow_directions_path} -slp {slopes_path}"
-    _run_taudem(flow_dinf, verbose)
-
-
-def area_d8(
-    flow_directions_path: Path,
-    weights_path: Union[Path, None],
-    area_path: Path,
-    verbose: bool,
-) -> None:
-    """
-    area_d8  Runs the TauDEM D8 upslope area routine
-    ----------
-    area_d8(flow_directions_path, weights_path=None, area_path, verbose)
-    Computes upslope area (also known as contributing area) using a D8 flow model.
-    All raster pixels are given an equal area of 1. Saves the output upslope
-    area to the indicated path. Optionally prints TauDEM messages to the console.
-
-    area_d8(flow_directions_path, weights_path, area_path, verbose)
-    Computes weighted upslope area. The area of each raster pixel is set to the
-    corresponding value in the weights raster.
-    ----------
-    Inputs:
-        flow_directions_path: The absolute Path for the input D8 flow directions.
-        weights_path: The absolute Path to the input raster holding area weights
-            for each pixel. If None, computes unweighted upslope area.
-        area: The absolute Path to the output upslope area
-        verbose: True if TauDEM messages should be printed to the console.
-            False to suppress these messages.
-
-    Outputs: None
-
-    Saves:
-        A file matching the "area" path.
-    """
-
-    area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path}"
-    if weights_path is not None:
-        area_d8 += f" -wg {weights_path}"
-    _run_taudem(area_d8, verbose)
-
-
-def relief_dinf(
-    pitfilled_path: Path,
-    flow_directions_path: Path,
-    slopes_path: Path,
-    relief_path: Path,
-    verbose: bool,
-) -> None:
-    """
-    relief_dinf  Computes the vertical component of the longest flow path
-    ----------
-    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
-    Computes the vertical component of the longest flow path. This analysis
-    requires an input pitfilled DEM, and D-Infinity flow directions and slopes.
-    The routine is set to account for edge contamination. Uses a threshold of
-    0.49 so that computed relief mimics the results for a D8 flow model. Saves
-    the computed length to the indicated path. Optionally prints TauDEM messages
-    to the console.
-    ----------
-    Inputs:
-        pitfilled_path: The absolute Path to the input pitfilled DEM
-        flow_directions_path: The absolute Path to the input D-infinity flow directions
-        slopes_path: The absolute Path to the input D-infinity slopes
-        relief_path: The absolute Path to the output D8 relief
-        verbose: True to print TauDEM messages to the console. False to
-            suppress these messages.
-
-    Outputs: None
-
-    Saves:
-        A file matching the "relief" path.
-    """
-
-    # Run the command. The "-m max v" computes the (v)ertical component of the
-    # longest (max)imum flow path. The "thresh 0.49" option mimics results for a
-    #  D8 flow model. The "nc" flag causes the routine to account for edge contamination.
-    relief = (
-        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
-        + f"-slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
-    )
-    _run_taudem(relief, verbose)
-
-
-###
-# Utilities
-###
-def _verbosity(verbose: Union[bool, None]) -> bool:
-    """
-    _verbosity  Parses the verbosity setting for a function
-    ----------
-    _verbosity(verbose)
-    Parses the "verbose" option for a function. The option is not altered if it
-    is a bool. If the option is None (i.e. not set by the user), sets the option
-    to the default value for the module. Returns a bool indicating the verbosity
-    setting to use for the function.
-    ----------
-    Inputs:
-        verbose (bool | None): The initial state of the verbose option
-
-    Outputs:
-        bool: The verbosity setting for the function.
-    """
-
-    if verbose is None:
-        verbose = verbose_by_default
-    return verbose
-
-
 def _input_paths(*files: input_path) -> List[input_path]:
     """
     _input_paths  Returns the absolute Paths to TauDEM input files
@@ -655,6 +622,57 @@ def _input_paths(*files: input_path) -> List[input_path]:
     return files
 
 
+def _output_dict(
+    paths: pathdict,
+    option: Literal["default", "saved", "all"],
+    temporary: List[str],
+) -> pathdict:
+    """
+    _output_dict  Returns the final dict of paths for a DEM analysis
+    ----------
+    _output_dict(paths, "default", temporary)
+    Returns a dict with the paths of the D8 flow directions, total upslope area,
+    total burned upslope area, and vertical relief.
+
+    _output_dict(paths, "saved", temporary)
+    Returns a dict with the Paths of all saved output files.
+
+    _output_dict(paths, "all", temporary)
+    Returns a dict with the Paths of all output files. Output files that were
+    not saved have a value of None.
+    ----------
+    Inputs:
+        paths: The dict of Paths for the analysis
+        option: Indicates the keys that should be in the final dict. "default"
+            includes all final output files. "saved" includes all saved output
+            files. "all" includes all output files, but temporary files will have
+            a value of None.
+        temporary: The list of temporary files
+
+    Outputs:
+        Dict[str, Path]: A dict of output file Paths
+    """
+
+    # Determine the paths to include in the output
+    if option == "default":
+        include = _final
+    else:
+        outputs = _intermediate + _final
+        include = [file for file in outputs if file not in temporary]
+
+    # Add all paths to the dict
+    output = dict()
+    for file in include:
+        output[file] = paths[file]
+
+    # Optionally include temporary outputs as None
+    if option == "all":
+        for file in temporary:
+            output[file] = None
+
+    return output
+
+
 def _output_path(output: Pathlike) -> Path:
     """
     _output_path  Returns the path for an output file
@@ -666,7 +684,7 @@ def _output_path(output: Pathlike) -> Path:
     lowercase ".tif". Otherwise, append, ".tif" to the end of the path.
     ----------
     Inputs:
-        output (str | Path): A user-provided path for an output file
+        output: A user-provided path for an output file
 
     Outputs:
         pathlib.Path: The absolute Path for the output file. Will always end
@@ -683,28 +701,6 @@ def _output_path(output: Pathlike) -> Path:
     else:
         name = output.name() + ".tif"
         output = output.with_name(name)
-
-
-def _temporary(prefix: str, folder: Path) -> Path:
-    """
-    _temporary  Returns a path for a temporary file
-    ----------
-    _temporary(prefix, folder)
-    Returns an absolute Path for a temporary file. The file name will follow the
-    format <prefix>_<random ASCII letters>.tif. Places the file in the indicated
-    folder.
-    ----------
-    Inputs:
-        prefix: A prefix for the file name
-        folder: The folder that should contain the temporary file
-
-    Outputs:
-        pathlib.Path: The absolute Path for the temporary file.
-    """
-
-    tail = random.choices(string.ascii_letters, k=_tmp_string_length)
-    name = f"{prefix}_{tail}.tif"
-    return folder / name
 
 
 def _run_taudem(command: strs, verbose: bool) -> None:
@@ -775,52 +771,45 @@ def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[pathdict, List[str]]:
     return (paths, temporary)
 
 
-def _output_dict(
-    paths: pathdict,
-    option: Literal["default", "saved", "all"],
-    temporary: List[str],
-) -> pathdict:
+def _temporary(prefix: str, folder: Path) -> Path:
     """
-    _output_dict  Returns the final dict of paths for a DEM analysis
+    _temporary  Returns a path for a temporary file
     ----------
-    _output_dict(paths, "default", temporary)
-    Returns a dict with the paths of the D8 flow directions, total upslope area,
-    total burned upslope area, and vertical relief.
-
-    _output_dict(paths, "saved", temporary)
-    Returns a dict with the Paths of all saved output files.
-
-    _output_dict(paths, "all", temporary)
-    Returns a dict with the Paths of all output files. Output files that were
-    not saved have a value of None.
+    _temporary(prefix, folder)
+    Returns an absolute Path for a temporary file. The file name will follow the
+    format <prefix>_<random ASCII letters>.tif. Places the file in the indicated
+    folder.
     ----------
     Inputs:
-        paths: The dict of Paths for the analysis
-        option: Indicates the keys that should be in the final dict. "default"
-            includes all final output files. "saved" includes all saved output
-            files. "all" includes all output files, but temporary files will have
-            a value of None.
-        temporary: The list of temporary files
+        prefix: A prefix for the file name
+        folder: The folder that should contain the temporary file
 
     Outputs:
-        Dict[str, Path]: A dict of output file Paths
+        pathlib.Path: The absolute Path for the temporary file.
     """
 
-    # Determine the paths to include in the output
-    if option == "default":
-        include = _final
-    else:
-        outputs = _intermediate + _final
-        include = [file for file in outputs if file not in temporary]
+    tail = random.choices(string.ascii_letters, k=_tmp_string_length)
+    name = f"{prefix}_{tail}.tif"
+    return folder / name
 
-    # Add all paths to the dict
-    output = dict()
-    for file in include:
-        output[file] = paths[file]
 
-    # Optionally include temporary outputs as None
-    if option == "all":
-        for file in temporary:
-            output[file] = None
+def _verbosity(verbose: Union[bool, None]) -> bool:
+    """
+    _verbosity  Parses the verbosity setting for a function
+    ----------
+    _verbosity(verbose)
+    Parses the "verbose" option for a function. The option is not altered if it
+    is a bool. If the option is None (i.e. not set by the user), sets the option
+    to the default value for the module. Returns a bool indicating the verbosity
+    setting to use for the function.
+    ----------
+    Inputs:
+        verbose (bool | None): The initial state of the verbose option
 
-    return output
+    Outputs:
+        bool: The verbosity setting for the function.
+    """
+
+    if verbose is None:
+        verbose = verbose_by_default
+    return verbose
