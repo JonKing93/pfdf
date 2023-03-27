@@ -28,8 +28,9 @@ import arcpy, numpy
 from dfha import stream
 
 # Locate test geodatabases
-data = Path(__file__).parent / "tests" / "data"
-fires = [data / "col2022.gdb"]
+data = Path(__file__).parent / "data"
+fires = ["col2022"]
+fires = [data / fire / (fire + ".gdb") for fire in fires]
 
 # Testing parameters
 min_basin_area = 250
