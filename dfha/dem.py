@@ -698,12 +698,13 @@ def _output_path(output: Pathlike) -> Path:
     output = Path(output).resolve()
 
     # Ensure a .tif extension
-    extension = output.suffix()
+    extension = output.suffix
     if extension.lower() in [".tiff", ".tif"]:
         output = output.with_suffix(".tif")
     else:
-        name = output.name() + ".tif"
+        name = output.name + ".tif"
         output = output.with_name(name)
+    return output
 
 
 def _run_taudem(command: strs, verbose: bool) -> None:

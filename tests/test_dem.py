@@ -13,12 +13,23 @@ fire = data / "col2022.gdb"
 
 
 
-class TestVerbosity:
+class TestRunTaudem:
+    command = f"PitRemove -z {fire/dem}"
 
+    def test_standard:
+
+    def test_verbose:
+
+    def test_failed:
+
+
+
+
+class TestVerbosity:
     @pytest.mark.parametrize("tf", [True, False])
     def test_bool(_, tf):
         verbose = dem._verbosity(tf)
-        assert verbose==tf
+        assert verbose == tf
 
     def test_none(_):
         verbose = dem._verbosity(None)
@@ -33,7 +44,7 @@ class TestVerbosity:
 class TestOutputPath:
     file = "dem"
     path = str(fire / file)
-    expected = Path(fire / file+".tif").resolve()
+    expected = Path(fire / (file + ".tif")).resolve()
     tif_extensions = (".tif", ".tiff", ".TIF", ".TIFF", ".tIf", ".TiFf")
     other_extensions = ("", ".other")
 
@@ -42,16 +53,17 @@ class TestOutputPath:
         if use_path:
             path = Path(path)
         output = dem._output_path(path)
+        expected = self.expected
         if change_stem:
-            expected = self.expected.with_stem(self.file+tail)
+            expected = self.expected.with_stem(self.file + tail)
         assert output == expected
 
-    @pytest.mark.parameterize("ext", tif_extensions)
+    @pytest.mark.parametrize("ext", tif_extensions)
     def test_str_tif(self, ext):
         self.check_path(ext, use_path=False, change_stem=False)
 
     @pytest.mark.parametrize("ext", tif_extensions)
-    def test_Path_tif(self, ext)
+    def test_Path_tif(self, ext):
         self.check_path(ext, use_path=True, change_stem=False)
 
     @pytest.mark.parametrize("tail", other_extensions)
@@ -61,9 +73,6 @@ class TestOutputPath:
     @pytest.mark.parametrize("tail", other_extensions)
     def test_Path_other(self, tail):
         self.check_path(tail, use_path=True, change_stem=True)
-
-
-
 
 
 
