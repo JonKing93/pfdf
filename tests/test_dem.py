@@ -3,10 +3,8 @@ test_dem  Unit tests for the dem module
 """
 
 import pytest
-import subprocess
+import numpy, subprocess, rasterio
 from pathlib import Path
-from io import StringIO
-from contextlib import redirect_stdout
 from dfha import dem
 
 # Locate testing data
@@ -20,26 +18,86 @@ def tempdir(tmp_path):
     folder.mkdir()
     return folder
 
-class TestRunTaudem:
-    dem = "dem.tif"
-    pitfilled = "pitfilled.tif"
+# Utility to read raster data
+def read(raster):
+    return rasterio.open(raster).read(1)
 
-    def command(self, input_folder, output_folder):
-        input = input_folder / self.dem
-        output = output_folder / self.pitfilled
-        return f"PitRemove -z {input} -fel {output}"
+# Utility to validate output raster values
+def validate(output, expected):
+    assert output.is_file()
+    output = read(output)
+    expected = read(expected)
+    assert numpy.array_equal(output, expected, equal_nan=True)
+
+# Utility to check verbosity
+def check_verbosity(capsys, verbose):
+    stdout = capsys.readouterr().out
+    if verbose:
+        assert stdout != ''
+    else:
+        assert stdout == ''
+
+# Base class for TauDEM file names
+class UsesTaudem:
+    dem = "dem.tif"
+    isburned = "isburned.tif"
+    pitfilled = "pitfilled.tif"
+    flow_d8 = "flow_d8.tif"
+    slopes_d8 = "slopes_d8.tif"
+    flow_dinf = "flow_dinf.tif"
+    slopes_dinf = "slopes_dinf.tif"
+    total_area = "total_area.tif"
+    burned_area = "burned_area.tif"
+    relief = "relief.tif"
+
+# Base class for low-level TauDEM wrappers
+class WrapsTaudem(UsesTaudem):
+
+
+
+
+###
+# Low-level Taudem wrappers
+###
+
+class TestPitRemove(UsesTaudem):
 
     def test_quiet(self, fire, tempdir, capsys):
-        command = self.command(fire, tempdir)
-        dem._run_taudem(self.command, verbose=False)
-        stdout = capsys.readouterr().out
-        assert stdout == ""
+        input = fire / "dem.tif"
+        output = tempdir / "pitfilled.tif"
+        expected = fire / "pitfilled.tif"
 
-    def test_verbose(self, capsys):
+        command = f"PitRemove -z {input} -fel {output}"
+        dem._run_taudem(command, verbose=False)
+        validate(output, expected)
+
+        stdout = 
+
+
+
+
+
+
+
+
+
+
+
+###
+# Utilities
+###
+class TestRunTaudem(UsesTaudem):
+
+    def command(self, fire, tempdir):
+        input = fire / self.dem
+        output = tempdir / self.pitfilled
+        return f"PitRemove -z {input} -fel {output}"
+
+    @pytest.mark.parametrize("verbose", (True, False))
+    def test_success(self, fire, tempdir, capsys, verbose):
         command = self.command(fire, tempdir)
-        dem._run_taudem(self.command, verbose=True)
-        stdout = capsys.readouterr().out
-        assert stdout == ""
+        dem._run_taudem(command, verbose)
+        check_verbosity(capsys, verbose)
 
     def test_failed(self):
         command = self.command(fire, tempdir).replace(self.dem, "not-a-real-file.tif")
