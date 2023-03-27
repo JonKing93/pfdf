@@ -52,16 +52,28 @@ from typing import Union, Optional, List, Literal, Tuple, Dict
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
 _tmp_string_length = 10  # The length of the random string for temporary files
 
+# Names for files in a DEM analysis
+_inputs = ["dem", "isburned"]
+_intermediate = ["pitfilled", "flow_directions_dinf", "slopes_dinf"]
+_final = ["flow_directions", "total_area", "burned_area", "relief"]
+
 # Type aliases
 Pathlike = Union[Path, str]
 strs = Union[str, List[str]]
 input_path = Union[Pathlike, None]
+output_option = Literal["default", "saved", "all"]
+pathdict = Dict[str, Path]
 
 
 ###
 # High-level
 ###
-def analyze(paths: Dict[str, Pathlike], *, verbose: Optional[bool] = None):
+def analyze(
+    paths: Dict[str, Pathlike],
+    *,
+    outputs: output_option,
+    verbose: Optional[bool] = None,
+) -> pathdict:
     """
     analyze  Conducts all DEM analyses for a standard hazard assessment
     ----------
@@ -83,8 +95,8 @@ def analyze(paths: Dict[str, Pathlike], *, verbose: Optional[bool] = None):
     analysis. These consist of the pitfilled DEM, and the D-infinity flow
     directions and slopes. You can save an intermediate file by including its
     key in the "paths" input, along with a path. The keys for these optional
-    files are 'pitfilled', 'flow_directions_dinf', and 'slopes_dinf'. If one of
-    these keys is included in "paths", but its value is None, the file will be
+    files are 'pitfilled', 'flow_directions_dinf', and 'slopes_dinf'. If you
+    include one of these keys but its value is None, then the file will be
     deleted as usual.
 
     By default, the function will return a dict with the absolute Paths for the
@@ -153,31 +165,9 @@ def analyze(paths: Dict[str, Pathlike], *, verbose: Optional[bool] = None):
             * slopes_dinf: The path to the D-Infinity slopes
     """
 
-    # Parse verbosity. Process input paths and flow direction path. Get folder
-    # for temporary files
+    # Parse verbosity and process file paths. Use temporary files when needed
     verbose = _verbosity(verbose)
-    [dem, isburned] = _input_paths(paths["dem"], paths["isburned"])
-    paths["flow_d8"] = _output_path(paths["flow_directions"])
-    folder = paths["flow_d8"].parent
-
-    # Add output file paths to the path dict. Use temporary paths for intermediate
-    # output files. Process user provided paths to final output files
-    output_names = [
-        "pitfilled",
-        "flow_d8",
-        "flow_dinf",
-        "slopes_dinf",
-        "total_area",
-        "burned_area",
-        "relief",
-    ]
-    final = ["flow_d8", "total_area", "burned_area", "relief"]
-    for name in output_names:
-        if name in final:
-            filepath = _output_path(paths[name])
-        else:
-            filepath = _temporary(name, folder)
-        paths[name] = filepath
+    (paths, temporary) = _setup_dict(paths)
 
     # Fill pits in the DEM
     try:
@@ -203,14 +193,11 @@ def analyze(paths: Dict[str, Pathlike], *, verbose: Optional[bool] = None):
 
     # Remove temporary output files
     finally:
-        for name in output_names:
-            if name not in final:
-                paths[name].unlink(missing_ok=True)
+        for name in temporary:
+            paths[name].unlink(missing_ok=True)
 
-    # Return dict of final output file paths
-    final = {name: paths[name] for name in final}
-    final["flow_directions"] = final.pop("flow_d8")
-    return final
+    # Return dict of output file paths
+    return _output_dict(paths, outputs, temporary)
 
 
 def pitfill(
@@ -724,3 +711,94 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     """
 
     subprocess.run(command, capture_output=not verbose, check=True)
+
+
+def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[pathdict, List[str]]:
+    """
+    _setup_dict  Prepares the path dict for a DEM analysis
+    ----------
+    _setup_dict(paths)
+    Processes user-provided paths. Gets temporary paths for intermediate files
+    not specified by the user. Returns a 2-tuple with the dict of Paths and the
+    list of temporary output files.
+    ----------
+    Inputs:
+        paths: The user-provided path dict
+
+    Outputs:
+        A 2-tuple with the following elements:
+
+        Dict[str, Path]: A dict with the absolute Path for each file used in the
+            analysis. May include temporary Paths for intermediate outputs.
+        List[str]: The list of temporary output files.
+    """
+
+    # Initialize list of temporary files and get folder for temp files
+    temporary = []
+    paths["flow_directions"] = _input_paths(paths["flow_directions"])
+    folder = paths["flow_directions"].parent
+
+    # Get file paths
+    all_files = _inputs + _intermediate + _final
+    for file in all_files:
+        if file in _inputs:
+            paths[file] = _input_paths(paths[file])
+        elif file in _final or (file in paths and paths[file] is not None):
+            paths[file] = _output_path(paths[file])
+        else:
+            paths[file] = _temporary(file, folder)
+            temporary += file
+
+    # Return path dict and list of temporary files
+    return (paths, temporary)
+
+
+def _output_dict(
+    paths: pathdict,
+    option: Literal["default", "saved", "all"],
+    temporary: List[str],
+) -> pathdict:
+    """
+    _output_dict  Returns the final dict of paths for a DEM analysis
+    ----------
+    _output_dict(paths, "default", temporary)
+    Returns a dict with the paths of the D8 flow directions, total upslope area,
+    total burned upslope area, and vertical relief.
+
+    _output_dict(paths, "saved", temporary)
+    Returns a dict with the Paths of all saved output files.
+
+    _output_dict(paths, "all", temporary)
+    Returns a dict with the Paths of all output files. Output files that were
+    not saved have a value of None.
+    ----------
+    Inputs:
+        paths: The dict of Paths for the analysis
+        option: Indicates the keys that should be in the final dict. "default"
+            includes all final output files. "saved" includes all saved output
+            files. "all" includes all output files, but temporary files will have
+            a value of None.
+        temporary: The list of temporary files
+
+    Outputs:
+        Dict[str, Path]: A dict of output file Paths
+    """
+
+    # Determine the paths to include in the output
+    if option == "default":
+        include = _final
+    else:
+        outputs = _intermediate + _final
+        include = [file for file in outputs if file not in temporary]
+
+    # Add all paths to the dict
+    output = dict()
+    for file in include:
+        output[file] = paths[file]
+
+    # Optionally include temporary outputs as None
+    if option == "all":
+        for file in temporary:
+            output[file] = None
+
+    return output
