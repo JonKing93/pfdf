@@ -9,51 +9,58 @@ from io import StringIO
 from contextlib import redirect_stdout
 from dfha import dem
 
-# Locate test geodatabases
+# Locate testing data
 data = Path(__file__).parent / "data"
-sandbox = data / "sandbox"
+fire = data / "col2022"
 
-# Create temporary output directories
-def output_dir(tmp_path):
+# Fixture to create temporary output directories
+@pytest.fixture
+def tempdir(tmp_path):
     folder = tmp_path / "output"
     folder.mkdir()
     return folder
 
-
 class TestRunTaudem:
-    command = f"PitRemove -z {sandbox/'dem.tif'} -fel {sandbox/'pitfilled.tif'}"
+    dem = "dem.tif"
+    pitfilled = "pitfilled.tif"
 
-    def test_quiet(self, capsys):
+    def command(self, input_folder, output_folder):
+        input = input_folder / self.dem
+        output = output_folder / self.pitfilled
+        return f"PitRemove -z {input} -fel {output}"
+
+    def test_quiet(self, fire, tempdir, capsys):
+        command = self.command(fire, tempdir)
         dem._run_taudem(self.command, verbose=False)
         stdout = capsys.readouterr().out
         assert stdout == ""
 
     def test_verbose(self, capsys):
+        command = self.command(fire, tempdir)
         dem._run_taudem(self.command, verbose=True)
-        print(capsys.readouterr())
         stdout = capsys.readouterr().out
-        assert stdout != ""
+        assert stdout == ""
 
     def test_failed(self):
+        command = self.command(fire, tempdir).replace(self.dem, "not-a-real-file.tif")
         with pytest.raises(subprocess.CalledProcessError):
-            command = self.command.replace("dem.tif", "not-a-file.tif")
             dem._run_taudem(command, verbose=False)
 
 
-# class TestVerbosity:
-#     @pytest.mark.parametrize("tf", [True, False])
-#     def test_bool(_, tf):
-#         verbose = dem._verbosity(tf)
-#         assert verbose == tf
+class TestVerbosity:
+    @pytest.mark.parametrize("tf", [True, False])
+    def test_bool(_, tf):
+        verbose = dem._verbosity(tf)
+        assert verbose == tf
 
-#     def test_none(_):
-#         verbose = dem._verbosity(None)
-#         assert verbose == False
+    def test_none(_):
+        verbose = dem._verbosity(None)
+        assert verbose == False
 
-#     def test_changed_default(_):
-#         dem.verbose_by_default = True
-#         verbose = dem._verbosity(None)
-#         assert verbose == True
+    def test_changed_default(_):
+        dem.verbose_by_default = True
+        verbose = dem._verbosity(None)
+        assert verbose == True
 
 
 # class TestOutputPath:
