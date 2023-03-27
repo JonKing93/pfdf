@@ -540,11 +540,11 @@ def relief_dinf(
     """
 
     # Run the command. The "-m max v" computes the (v)ertical component of the
-    # longest (max)imum flow path. The "thresh 0.49" option mimics results for a
-    #  D8 flow model. The "nc" flag causes the routine to account for edge contamination.
+    # longest (max)imum flow path. The "-thresh 0.49" option mimics results for a
+    #  D8 flow model. The "-nc" flag causes the routine to account for edge contamination.
     relief = (
         f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
-        + f"-slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
+        + f" -slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
     )
     _run_taudem(relief, verbose)
 
@@ -732,7 +732,7 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     Outputs: None
     """
 
-    subprocess.run(command, capture_output=not verbose, check=True)
+    return subprocess.run(command, capture_output=not verbose, check=True)
 
 
 def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[pathdict, List[str]]:

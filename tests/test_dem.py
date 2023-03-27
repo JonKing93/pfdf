@@ -2,6 +2,7 @@
 test_dem  Unit tests for the dem module
 """
 
+import os
 import pytest
 import numpy, subprocess, rasterio
 from pathlib import Path
@@ -9,7 +10,18 @@ from dfha import dem
 
 # Locate testing data
 data = Path(__file__).parent / "data"
-fire = data / "col2022"
+testfire = data / "col2022"
+
+
+###
+# Utilites for running the testes
+###
+
+# Fixture to pass in test fire data
+@pytest.fixture
+def fire():
+    return testfire
+
 
 # Fixture to create temporary output directories
 @pytest.fixture
@@ -18,9 +30,11 @@ def tempdir(tmp_path):
     folder.mkdir()
     return folder
 
+
 # Utility to read raster data
 def read(raster):
     return rasterio.open(raster).read(1)
+
 
 # Utility to validate output raster values
 def validate(output, expected):
@@ -29,13 +43,15 @@ def validate(output, expected):
     expected = read(expected)
     assert numpy.array_equal(output, expected, equal_nan=True)
 
+
 # Utility to check verbosity
-def check_verbosity(capsys, verbose):
-    stdout = capsys.readouterr().out
+def check_verbosity(capfd, verbose):
+    stdout = capfd.readouterr().out
     if verbose:
-        assert stdout != ''
+        assert stdout != ""
     else:
-        assert stdout == ''
+        assert stdout == ""
+
 
 # Base class for TauDEM file names
 class UsesTaudem:
@@ -49,58 +65,29 @@ class UsesTaudem:
     total_area = "total_area.tif"
     burned_area = "burned_area.tif"
     relief = "relief.tif"
-
-# Base class for low-level TauDEM wrappers
-class WrapsTaudem(UsesTaudem):
-
-
+    fire = testfire
 
 
 ###
-# Low-level Taudem wrappers
+# Module utilities
 ###
 
-class TestPitRemove(UsesTaudem):
 
-    def test_quiet(self, fire, tempdir, capsys):
-        input = fire / "dem.tif"
-        output = tempdir / "pitfilled.tif"
-        expected = fire / "pitfilled.tif"
-
-        command = f"PitRemove -z {input} -fel {output}"
-        dem._run_taudem(command, verbose=False)
-        validate(output, expected)
-
-        stdout = 
-
-
-
-
-
-
-
-
-
-
-
-###
-# Utilities
-###
 class TestRunTaudem(UsesTaudem):
-
-    def command(self, fire, tempdir):
-        input = fire / self.dem
+    def command(self, tempdir):
+        input = self.fire / self.dem
         output = tempdir / self.pitfilled
         return f"PitRemove -z {input} -fel {output}"
 
     @pytest.mark.parametrize("verbose", (True, False))
-    def test_success(self, fire, tempdir, capsys, verbose):
-        command = self.command(fire, tempdir)
+    def test_succeed(self, tempdir, capfd, verbose):
+        command = self.command(tempdir)
         dem._run_taudem(command, verbose)
-        check_verbosity(capsys, verbose)
+        check_verbosity(capfd, verbose)
 
-    def test_failed(self):
-        command = self.command(fire, tempdir).replace(self.dem, "not-a-real-file.tif")
+    def test_failed(self, tempdir):
+        command = self.command(tempdir)
+        command = command.replace(self.dem, "not-a-real-file.tif")
         with pytest.raises(subprocess.CalledProcessError):
             dem._run_taudem(command, verbose=False)
 
@@ -119,6 +106,96 @@ class TestVerbosity:
         dem.verbose_by_default = True
         verbose = dem._verbosity(None)
         assert verbose == True
+
+
+###
+# Low-level Taudem wrappers
+###
+
+
+@pytest.mark.parametrize("verbose", (True, False))
+class WrapsTaudem(UsesTaudem):
+    pass
+
+
+class TestPitRemove(WrapsTaudem):
+    def test(self, tempdir, capfd, verbose):
+        input = self.fire / self.dem
+        output = tempdir / self.pitfilled
+        expected = self.fire / self.pitfilled
+
+        dem.pitremove(input, output, verbose)
+        check_verbosity(capfd, verbose)
+        validate(output, expected)
+
+
+class TaudemFlow(WrapsTaudem):
+    def run(self, tempdir, capfd, verbose, function, flow, slopes):
+        pitfilled = self.fire / self.pitfilled
+        output_flow = tempdir / flow
+        output_slopes = tempdir / slopes
+        expected_flow = self.fire / flow
+        expected_slopes = self.fire / slopes
+
+        function(pitfilled, output_flow, output_slopes, verbose)
+        check_verbosity(capfd, verbose)
+        validate(output_flow, expected_flow)
+        validate(output_slopes, expected_slopes)
+
+
+class TestFlowD8(TaudemFlow):
+    def test(self, tempdir, capfd, verbose):
+        function = dem.flow_d8
+        flow = self.flow_d8
+        slopes = self.slopes_d8
+        self.run(tempdir, capfd, verbose, function, flow, slopes)
+
+
+class TestFlowDInf(TaudemFlow):
+    def test(self, tempdir, capfd, verbose):
+        function = dem.flow_dinf
+        flow = self.flow_dinf
+        slopes = self.slopes_dinf
+        self.run(tempdir, capfd, verbose, function, flow, slopes)
+
+
+class TestAreaD8(WrapsTaudem):
+    def run(self, tempdir, capfd, verbose, weights, area):
+        flow = self.fire / self.flow_d8
+        output = self.fire / "test.tif"
+        expected = self.fire / area
+
+        dem.area_d8(flow, weights, output, verbose)
+        check_verbosity(capfd, verbose)
+        validate(output, expected)
+
+    def test_weighted(self, tempdir, capfd, verbose):
+        weights = self.fire / self.isburned
+        area = self.burned_area
+        self.run(tempdir, capfd, verbose, weights, area)
+
+    def test_unweighted(self, tempdir, capfd, verbose):
+        weights = None
+        area = self.total_area
+        self.run(tempdir, capfd, verbose, weights, area)
+
+
+class TestReliefDInf(WrapsTaudem):
+    def test(self, tempdir, capfd, verbose):
+        pitfilled = self.fire / self.pitfilled
+        flow = self.fire / self.flow_dinf
+        slopes = self.fire / self.slopes_dinf
+        output = tempdir / self.relief
+        expected = self.fire / self.relief
+
+        dem.relief_dinf(pitfilled, flow, slopes, output, verbose)
+        check_verbosity(capfd, verbose)
+        validate(output, expected)
+
+
+###
+# Utilities
+###
 
 
 # class TestOutputPath:
