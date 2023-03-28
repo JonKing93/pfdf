@@ -372,7 +372,7 @@ def flow_directions(
     # Optional slopes path. Only save slopes if provided by user. Otherwise, use
     # a temporary file
     if slopes_path is None:
-        slopes_path = _temporary("slopes", flow_directions_path.parent())
+        slopes_path = _temporary("slopes", flow_directions_path.parent)
         delete_slopes = True
     else:
         slopes_path = _output_path(slopes_path)

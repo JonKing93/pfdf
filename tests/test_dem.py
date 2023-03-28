@@ -343,21 +343,20 @@ class TestPitfill(UserFunction):
         self.check_output(output, pitfilled, expected)
 
 
-class TestFlowDirections:
-    @pytest.fixture
-    def d8(self):
-        return {"type": "D8", "file": self.flow_d8, "slopes": self.slopes_d8}
-
-    @pytest.fixture
-    def dinf(self):
-        return {"type": "DInf", "file": self.flow_dinf, "slopes": self.slopes_dinf}
+class TestFlowDirections(UserFunction):
+    d8 = {"type": "D8", "file": UsesPaths.flow_d8, "slopes": UsesPaths.slopes_d8}
+    dinf = {
+        "type": "DInf",
+        "file": UsesPaths.flow_dinf,
+        "slopes": UsesPaths.slopes_dinf,
+    }
 
     def paths(self, tempdir, flow, path_type):
         pitfilled = self.fire / self.pitfilled
         output_flow = tempdir / flow["file"]
         expected_flow = self.fire / flow["file"]
-        paths = set_path_type(path_type, pitfilled, output_flow)
-        return paths + (expected_flow,)
+        (pitfilled, output_flow) = set_path_type(path_type, pitfilled, output_flow)
+        return (pitfilled, output_flow, expected_flow)
 
     def test_missing(self):
         with pytest.raises(FileNotFoundError):
@@ -384,8 +383,11 @@ class TestFlowDirections:
         slopes_path = tempdir / flow["slopes"]
         expected_slopes = self.fire / flow["slopes"]
         (output_flow, output_slopes) = dem.flow_directions(
-            flow["type"], pitfilled, output_flow, slopes=output_slopes, verbose=verbose
+            flow["type"], pitfilled, flow_path, slopes_path=slopes_path, verbose=verbose
         )
         check_verbosity(capfd, verbose)
         self.check_output(output_flow, flow_path, expected_flow)
         self.check_output(output_slopes, slopes_path, expected_slopes)
+
+
+class Test
