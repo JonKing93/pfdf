@@ -54,7 +54,7 @@ def check_verbosity(capfd, verbose):
 
 
 # Base class for TauDEM file names
-class UsesTaudem:
+class UsesPaths:
     dem = "dem.tif"
     isburned = "isburned.tif"
     pitfilled = "pitfilled.tif"
@@ -73,7 +73,7 @@ class UsesTaudem:
 ###
 
 
-class TestRunTaudem(UsesTaudem):
+class TestRunTaudem(UsesPaths):
     def command(self, tempdir):
         input = self.fire / self.dem
         output = tempdir / self.pitfilled
@@ -108,13 +108,121 @@ class TestVerbosity:
         assert verbose == True
 
 
+class TestInputPaths(UsesPaths):
+    path = UsesPaths.fire / UsesPaths.dem
+
+    # Test a string, Path, and None input
+    @pytest.mark.parametrize(
+        "input, expected", ((str(path), path), (path, path), (None, None))
+    )
+    def test_single_types(_, input, expected):
+        [output] = dem._input_paths(input)
+        assert output == expected
+
+    def test_mix(self):
+        [dem1, dem2, missing] = dem._input_paths(str(self.path), self.path, None)
+        assert dem1 == self.path
+        assert dem2 == self.path
+        assert missing is None
+
+    def test_missing(self):
+        with pytest.raises(FileNotFoundError):
+            output = dem._input_paths(self.fire / "not-a-real-file.tif")
+
+
+@pytest.mark.parametrize("use_str", (True, False))  # Both string and Path inputs
+class TestOutputPath(UsesPaths):
+    path = (UsesPaths.fire / UsesPaths.dem).with_suffix(".tif")
+
+    @staticmethod
+    def check(input, expected, use_str):
+        if use_str:
+            input = str(input)
+        output = dem._output_path(input)
+        assert output == expected
+
+    @pytest.mark.parametrize("ext", (".tif", ".tiff", ".TIF", ".TIFF", ".tIf", ".TiFf"))
+    def test_tif(self, ext, use_str):
+        input = self.path.with_suffix(ext)
+        self.check(input, self.path, use_str)
+
+    @pytest.mark.parametrize("tail", ("", ".other", ".test"))
+    def test_other(self, tail, use_str):
+        stem = self.path.stem
+        expected = self.path.with_stem(stem + tail)
+        input = expected.with_suffix("")
+        self.check(input, expected, use_str)
+
+
+class TestTemporary(UsesPaths):
+    @pytest.mark.parametrize("prefix", ("slopes", "flow_directions"))
+    def test(_, prefix, tempdir):
+        output = dem._temporary(prefix, tempdir)
+        assert output.parent == tempdir
+
+        name = output.name
+        assert len(name) == len(prefix) + 1 + dem._tmp_string_length + 4
+        assert name[0 : len(prefix) + 1] == prefix + "_"
+        assert name[-4:] == ".tif"
+
+        random = name[len(prefix) + 1 : -4]
+        assert random.isascii()
+        assert random.isalpha()
+
+
+class TestOutputDict(UsesPaths):
+    def paths(self):
+        paths = {
+            "dem": self.dem,
+            "isburned": self.isburned,
+            "pitfilled": self.pitfilled,
+            "flow_directions_dinf": self.flow_dinf,
+            "slopes_dinf": self.slopes_dinf,
+            "flow_directions": self.flow_d8,
+            "total_area": self.total_area,
+            "burned_area": self.burned_area,
+            "relief": self.relief,
+            "extra_key": "some-file.tif",
+            "another_key": "another-file.tif",
+        }
+        return {key: self.fire / value for key, value in paths.items()}
+
+    def run(self, option, required):
+        paths = self.paths()
+        temporary = ["slopes_dinf"]
+        output = dem._output_dict(paths, option, temporary)
+        assert isinstance(output, dict)
+
+        keys = output.keys()
+        assert len(keys) == len(required)
+
+        for key in required:
+            assert key in keys
+            if option == "all" and key in temporary:
+                assert output[key] is None
+            else:
+                assert output[key] == paths[key]
+
+    def test_default(self):
+        required = dem._final
+        self.run("default", required)
+
+    def test_saved(self):
+        required = dem._final + ["pitfilled", "flow_directions_dinf"]
+        self.run("saved", required)
+
+    def test_all(self):
+        required = dem._final + dem._intermediate
+        self.run("all", required)
+
+
 ###
 # Low-level Taudem wrappers
 ###
 
 
 @pytest.mark.parametrize("verbose", (True, False))
-class WrapsTaudem(UsesTaudem):
+class WrapsTaudem(UsesPaths):
     pass
 
 

@@ -49,9 +49,9 @@ User functions:
     relief              - Computes the vertical component of the longest flow path
 
 Low-level functions:
-    pit_remove          - Fills pits in a DEM
+    pitremove          - Fills pits in a DEM
     flow_d8             - Computes D8 flow directions and slopes
-    flow_di             - Computes D-infinity flow directions and slopes
+    flow_dinf           - Computes D-infinity flow directions and slopes
     area_d8             - Computes D8 upslope area
     relief_dinf         - Computes vertical components of the longest flow path
 
@@ -604,7 +604,8 @@ def _input_paths(*files: input_path) -> List[input_path]:
     ----------
     _input_paths(*files)
     Returns the absolute Paths to the indicated files as a list. If an input
-    file is None, its value in the list will remain None.
+    file is None, its value in the list will remain None. Raises a FileNotFoundError
+    if the user provides a value for a file, but the file does not exist.
     ----------
     Inputs:
         *files: The user-provided paths to TauDEM input files. Files not provided
@@ -615,7 +616,8 @@ def _input_paths(*files: input_path) -> List[input_path]:
             Files that were None remain None in this list.
 
     Raises:
-        FileNotFoundError if the file does not exist
+        FileNotFoundError: If the user provided a value for a file, but the file
+            does not exist.
     """
 
     files = list(files)
@@ -684,7 +686,7 @@ def _output_path(output: Pathlike) -> Path:
     Returns an absolute Path for an output file produced by a TauDEM command.
     Ensures that the path ends with a ".tif" extension. If the input
     path ends with a case-insensitive .tif or .tiff, converts the extension to
-    lowercase ".tif". Otherwise, append, ".tif" to the end of the path.
+    lowercase ".tif". Otherwise, appends ".tif" to the end of the path.
     ----------
     Inputs:
         output: A user-provided path for an output file
@@ -793,6 +795,7 @@ def _temporary(prefix: str, folder: Path) -> Path:
     """
 
     tail = random.choices(string.ascii_letters, k=_tmp_string_length)
+    tail = "".join(tail)
     name = f"{prefix}_{tail}.tif"
     return folder / name
 
