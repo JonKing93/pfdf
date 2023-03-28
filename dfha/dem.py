@@ -81,17 +81,17 @@ _final = ["flow_directions", "total_area", "burned_area", "relief"]
 # Type aliases
 Pathlike = Union[Path, str]
 strs = Union[str, List[str]]
-input_path = Union[Pathlike, None]
-output_option = Literal["default", "saved", "all"]
-pathdict = Dict[str, Path]
+InputPath = Union[Pathlike, None]
+OutputOption = Literal["default", "saved", "all"]
+PathDict = Dict[str, Path]
 
 
 def analyze(
     paths: Dict[str, Pathlike],
     *,
-    outputs: output_option = "default",
+    outputs: OutputOption = "default",
     verbose: Optional[bool] = None,
-) -> pathdict:
+) -> PathDict:
     """
     analyze  Conducts all DEM analyses for a standard hazard assessment
     ----------
@@ -366,7 +366,7 @@ def flow_directions(
 
     # Parse options and paths
     verbose = _verbosity(verbose)
-    [pitfilled_path] = _input_paths(pitfilled_path)
+    pitfilled_path = _input_path(pitfilled_path)
     flow_directions_path = _output_path(flow_directions_path)
 
     # Optional slopes path. Only save slopes if provided by user. Otherwise, use
@@ -432,7 +432,7 @@ def pitfill(
     """
 
     verbose = _verbosity(verbose)
-    [dem_path] = _input_paths(dem_path)
+    dem_path = _input_path(dem_path)
     pitfilled_path = _output_path(pitfilled_path)
     pitremove(dem_path, pitfilled_path, verbose)
     return pitfilled_path
@@ -499,10 +499,11 @@ def relief(
     """
 
     verbose = _verbosity(verbose)
-    [pitfilled_path, flow_directions_path, slopes_path] = _input_paths(
-        pitfilled_path, flow_directions_path, slopes_path
-    )
+    pitfilled_path = _input_path(pitfilled_path)
+    flow_directions_path = _input_path(flow_directions_path)
+    slopes_path = _input_path(slopes_path)
     relief_path = _output_path(relief_path)
+
     relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
     return relief_path
 
@@ -590,48 +591,40 @@ def upslope_area(
     """
 
     verbose = _verbosity(verbose)
-    [flow_directions_path, weights_path] = _input_paths(
-        flow_directions_path, weights_path
-    )
+    flow_directions_path = _input_path(flow_directions_path)
+    if weights_path is not None:
+        [weights_path] = _input_path(weights_path)
     area_path = _output_path(area_path)
     area_d8(flow_directions_path, weights_path, area_path, verbose)
     return area_path
 
 
-def _input_paths(*files: input_path) -> List[input_path]:
+def _input_path(input: Pathlike) -> Path:
     """
-    _input_paths  Returns the absolute Paths to TauDEM input files
+    _input_path  Returns the absolute Path to a TauDEM input file
     ----------
-    _input_paths(*files)
-    Returns the absolute Paths to the indicated files as a list. If an input
-    file is None, its value in the list will remain None. Raises a FileNotFoundError
-    if the user provides a value for a file, but the file does not exist.
+    _input_path(input)
+    Returns the absolute Paths to the indicated file. Raises a FileNotFoundError
+    if the file does not exist.
     ----------
     Inputs:
-        *files: The user-provided paths to TauDEM input files. Files not provided
-            by the user (i.e. optional inputs) should be None
+        input: The user-provided path to a TauDEM input file.
 
     Outputs:
-        List of pathlib.Path and None: The absolute Paths to the input files.
-            Files that were None remain None in this list.
+        pathlib.Path: The absolute Path to the input file
 
     Raises:
-        FileNotFoundError: If the user provided a value for a file, but the file
-            does not exist.
+        FileNotFoundError: If the file does not exist
     """
 
-    files = list(files)
-    for f, file in enumerate(files):
-        if file is not None:
-            files[f] = Path(file).resolve(strict=True)
-    return files
+    return Path(input).resolve(strict=True)
 
 
 def _output_dict(
-    paths: pathdict,
-    option: Literal["default", "saved", "all"],
+    paths: PathDict,
+    option: OutputOption,
     temporary: List[str],
-) -> pathdict:
+) -> PathDict:
     """
     _output_dict  Returns the final dict of paths for a DEM analysis
     ----------
@@ -737,7 +730,7 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     return subprocess.run(command, capture_output=not verbose, check=True)
 
 
-def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[pathdict, List[str]]:
+def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str]]:
     """
     _setup_dict  Prepares the path dict for a DEM analysis
     ----------
@@ -759,14 +752,14 @@ def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[pathdict, List[str]]:
 
     # Initialize list of temporary files and get folder for temp files
     temporary = []
-    paths["flow_directions"] = _input_paths(paths["flow_directions"])
+    paths["flow_directions"] = _input_path(paths["flow_directions"])
     folder = paths["flow_directions"].parent
 
     # Get file paths
     all_files = _inputs + _intermediate + _final
     for file in all_files:
         if file in _inputs:
-            paths[file] = _input_paths(paths[file])
+            paths[file] = _input_path(paths[file])
         elif file in _final or (file in paths and paths[file] is not None):
             paths[file] = _output_path(paths[file])
         else:
