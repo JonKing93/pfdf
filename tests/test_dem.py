@@ -6,6 +6,7 @@ import os
 import pytest
 import numpy, subprocess, rasterio
 from pathlib import Path
+from contextlib import nullcontext
 from dfha import dem
 
 # Locate testing data
@@ -51,6 +52,14 @@ def check_verbosity(capfd, verbose):
         assert stdout != ""
     else:
         assert stdout == ""
+
+
+# Return user input paths as string or Path
+def set_path_type(type, *paths):
+    if type == "string":
+        return (str(path) for path in paths)
+    else:
+        return paths
 
 
 # Base class for TauDEM file names
@@ -221,6 +230,7 @@ class TestOutputDict(UsesPaths):
 ###
 
 
+# Base class for TauDEM wrappers. Checks both verbosity settings
 @pytest.mark.parametrize("verbose", (True, False))
 class WrapsTaudem(UsesPaths):
     pass
@@ -237,6 +247,7 @@ class TestPitRemove(WrapsTaudem):
         validate(output, expected)
 
 
+# Base class for testing D8/D-infinity flow direction wrappers
 class TaudemFlow(WrapsTaudem):
     def run(self, tempdir, capfd, verbose, function, flow, slopes):
         pitfilled = self.fire / self.pitfilled
@@ -302,39 +313,30 @@ class TestReliefDInf(WrapsTaudem):
 
 
 ###
-# Utilities
+# User functions
 ###
 
+# Base class for testing user functions. Includes file names and paths
+class UserFunction(UsesPaths):
+    missing = "not-a-real-file.tif"
 
-# class TestOutputPath:
-#     file = "dem"
-#     path = str(fire / file)
-#     expected = Path(fire / (file + ".tif")).resolve()
-#     tif_extensions = (".tif", ".tiff", ".TIF", ".TIFF", ".tIf", ".TiFf")
-#     other_extensions = ("", ".other")
 
-#     def check_path(self, tail, use_path, change_stem):
-#         path = self.path + tail
-#         if use_path:
-#             path = Path(path)
-#         output = dem._output_path(path)
-#         expected = self.expected
-#         if change_stem:
-#             expected = self.expected.with_stem(self.file + tail)
-#         assert output == expected
+class TestPitfill(UserFunction):
+    def test_missing(self):
+        with pytest.raises(FileNotFoundError):
+            dem.pitfill(self.missing, self.missing, verbose=False)
 
-#     @pytest.mark.parametrize("ext", tif_extensions)
-#     def test_str_tif(self, ext):
-#         self.check_path(ext, use_path=False, change_stem=False)
+    @pytest.mark.parametrize("verbose", (True, False, None))
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_standard(self, tempdir, path_type, verbose, capfd):
 
-#     @pytest.mark.parametrize("ext", tif_extensions)
-#     def test_Path_tif(self, ext):
-#         self.check_path(ext, use_path=True, change_stem=False)
+        input = self.fire / self.dem
+        pitfilled = tempdir / self.pitfilled
+        expected = self.fire / self.pitfilled
+        (input, pitfilled) = set_path_type(path_type, input, pitfilled)
 
-#     @pytest.mark.parametrize("tail", other_extensions)
-#     def test_str_other(self, tail):
-#         self.check_path(tail, use_path=False, change_stem=True)
+        output = dem.pitfill(input, pitfilled, verbose=verbose)
 
-#     @pytest.mark.parametrize("tail", other_extensions)
-#     def test_Path_other(self, tail):
-#         self.check_path(tail, use_path=True, change_stem=True)
+        assert output == Path(pitfilled)
+        validate(output, expected)
+        check_verbosity(capfd, verbose)
