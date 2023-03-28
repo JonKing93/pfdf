@@ -390,4 +390,50 @@ class TestFlowDirections(UserFunction):
         self.check_output(output_slopes, slopes_path, expected_slopes)
 
 
-class Test
+class TestUpslopeArea(UserFunction):
+    unweighted = {"weights": None, "name": UsesPaths.total_area}
+    weighted = {
+        "weights": UsesPaths.fire / UsesPaths.isburned,
+        "name": UsesPaths.burned_area,
+    }
+
+    @pytest.mark.parametrize("area", (unweighted, weighted))
+    @pytest.mark.parametrize("verbose", (True, False, None))
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_standard(self, tempdir, path_type, verbose, capfd, area):
+        flow = self.fire / self.flow_d8
+        area_path = tempdir / area["name"]
+        expected = self.fire / area["name"]
+        (flow, area_path) = set_path_type(path_type, flow, area_path)
+
+        output = dem.upslope_area(
+            flow, area_path, weights_path=area["weights"], verbose=verbose
+        )
+        check_verbosity(capfd, verbose)
+        self.check_output(output, area_path, expected)
+
+    def test_missing(self):
+        with pytest.raises(FileNotFoundError):
+            dem.upslope_area(self.missing, self.missing)
+
+
+class TestRelief(UserFunction):
+    def test_missing(self):
+        with pytest.raises(FileNotFoundError):
+            dem.relief(self.missing, self.missing, self.missing, self.missing)
+
+    @pytest.mark.parametrize("verbose", (True, False, None))
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_standard(self, tempdir, path_type, verbose, capfd):
+        pitfilled = self.fire / self.pitfilled
+        flow = self.fire / self.flow_dinf
+        slopes = self.fire / self.slopes_dinf
+        relief = tempdir / self.relief
+        expected = self.fire / self.relief
+        (pitfilled, flow, slopes, relief) = set_path_type(
+            path_type, pitfilled, flow, slopes, relief
+        )
+
+        output = dem.relief(pitfilled, flow, slopes, relief, verbose=verbose)
+        check_verbosity(capfd, verbose)
+        self.check_output(output, relief, expected)
