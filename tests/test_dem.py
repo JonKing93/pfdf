@@ -1,9 +1,11 @@
 """
 test_dem  Unit tests for the dem module
+----------
+
 """
 
 import pytest
-import numpy, subprocess, rasterio, os
+import numpy, subprocess, os, rasterio
 from pathlib import Path
 from contextlib import nullcontext
 from dfha import dem
@@ -366,7 +368,7 @@ class TestReliefDInf(WrapsTaudem):
 # User functions
 ###
 
-# Base class for testing user functions. Includes file names and paths
+# Base class for testing user functions. Includes file names and output checker
 class UserFunction(UsesPaths):
     missing = "not-a-real-file.tif"
 
@@ -488,3 +490,71 @@ class TestRelief(UserFunction):
         output = dem.relief(pitfilled, flow, slopes, relief, verbose=verbose)
         check_verbosity(capfd, verbose)
         self.check_output(output, relief, expected)
+
+
+class TestAnalyze:
+    missing_tmps = ["flow_directions_dinf"]
+    none_tmps = ["pitfilled"]
+    saved_tmps = ["slopes_dinf"]
+
+    def setup_paths(self, paths, tmpdir):
+        outputs = dem._final + self.saved_tmps
+        for file in outputs:
+            paths[file] = tmpdir / paths[file].name
+        for file in self.missing_tmps:
+            paths.pop(file)
+        for file in self.none_tmps:
+            paths[file] = None
+        return paths
+
+    def check_outputs(self, output, required, tmpdir, input_paths, all_paths):
+        assert isinstance(output, dict)
+
+        # Get lists of tmp files, expected outputs, saved outputs
+        temporary = self.missing_tmps + self.none_tmps
+        saved = os.listdir(tmpdir)
+        expected = dem._final + self.saved_tmps
+        expected_files = [all_paths[file].name for file in expected]
+
+        # Check the dict has the expected keys/values
+        keys = output.keys()
+        assert len(keys) == len(required)
+        for key in required:
+            assert key in keys
+            if key in temporary:
+                assert output[key] is None
+            else:
+                assert output[key] == input_paths[key]
+
+        # Validate the saved files
+        assert sorted(saved) == sorted(expected_files)
+        for file in expected:
+            validate(input_paths[file], all_paths[file])
+
+        # Check that tmp files were deleted
+        for tmp in temporary:
+            stem = all_paths[tmp].stem
+            assert not any(file.startswith(stem) for file in saved)
+
+    def test_missing_required(self, user_paths):
+        user_paths.pop("dem")
+        with pytest.raises(KeyError):
+            dem.analyze(user_paths)
+
+    def test_default(self, user_paths, tmpdir):
+        paths = self.setup_paths(user_paths, tmpdir)
+        output = dem.analyze(paths)
+        required = dem._final
+        self.check_outputs(output, required, tmpdir, paths, user_paths)
+
+    def test_saved(self, user_paths, tmpdir):
+        paths = self.setup_paths(user_paths, tmpdir)
+        output = dem.analyze(paths, outputs="saved")
+        required = dem._final + self.saved_tmps
+        self.check_outputs(output, required, tmpdir, paths, user_paths)
+
+    def test_all(self, user_paths, tmpdir):
+        paths = self.setup_paths(user_paths, tmpdir)
+        output = dem.analyze(paths, outputs="all")
+        required = dem._final + dem._intermediate
+        self.check_outputs(output, required, tmpdir, paths, user_paths)

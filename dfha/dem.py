@@ -49,7 +49,7 @@ User functions:
     relief              - Computes the vertical component of the longest flow path
 
 Low-level functions:
-    pitremove          - Fills pits in a DEM
+    pitremove           - Fills pits in a DEM
     flow_d8             - Computes D8 flow directions and slopes
     flow_dinf           - Computes D-infinity flow directions and slopes
     area_d8             - Computes D8 upslope area
@@ -73,7 +73,7 @@ from typing import Union, Optional, List, Literal, Tuple, Dict
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
 _tmp_string_length = 10  # The length of the random string for temporary files
 
-# Names for files in a DEM analysis
+# Types of files in a DEM analysis
 _inputs = ["dem", "isburned"]
 _intermediate = ["pitfilled", "flow_directions_dinf", "slopes_dinf"]
 _final = ["flow_directions", "total_area", "burned_area", "relief"]
@@ -191,18 +191,28 @@ def analyze(
         pitremove(paths["dem"], paths["pitfilled"], verbose)
 
         # Compute D8 and D-infinity flow directions. (D8 is needed for upslope
-        # areas, D-infinity for relief)
-        flow_d8(paths["pitfilled"], paths["flow_d8"], None, verbose)
-        flow_dinf(paths["pitfilled"], paths["flow_dinf"], paths["slopes_dinf"], verbose)
+        # areas, D-infinity for relief). Use user function for D8 to auto-delete
+        # the flow slopes
+        flow_directions(
+            "D8", paths["pitfilled"], paths["flow_directions"], verbose=verbose
+        )
+        flow_dinf(
+            paths["pitfilled"],
+            paths["flow_directions_dinf"],
+            paths["slopes_dinf"],
+            verbose,
+        )
 
         # Compute upslope area and burned upslope area
-        area_d8(paths["flow_d8"], None, paths["total_area"], verbose)
-        area_d8(paths["flow_d8"], paths["isburned"], paths["burned_area"], verbose)
+        area_d8(paths["flow_directions"], None, paths["total_area"], verbose)
+        area_d8(
+            paths["flow_directions"], paths["isburned"], paths["burned_area"], verbose
+        )
 
         # Compute vertical relief of longest flow path
         relief_dinf(
             paths["pitfilled"],
-            paths["flow_dinf"],
+            paths["flow_directions_dinf"],
             paths["slopes_dinf"],
             paths["relief"],
             verbose,
@@ -752,7 +762,7 @@ def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str]]:
 
     # Initialize list of temporary files and get folder for temp files
     temporary = []
-    paths["flow_directions"] = _input_path(paths["flow_directions"])
+    paths["flow_directions"] = _output_path(paths["flow_directions"])
     folder = paths["flow_directions"].parent
 
     # Get file paths
