@@ -20,7 +20,6 @@ To run the tests, you will need to:
 import pytest, rasterio
 import numpy, subprocess, os
 from pathlib import Path
-from contextlib import nullcontext
 from dfha import dem
 
 # Locate testing data
