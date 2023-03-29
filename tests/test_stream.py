@@ -9,16 +9,14 @@ The tests rely on scientifically validated outputs from several test fires.
 Each test fire has an associated geodatabases whose name matches the fire code.
 Each geodatabase contains input files required to run the tests, as well as 
 validated output files. (Note that some validated output files are also used as 
-inputs to later functions). The tests also rely on the "test-outputs.gdb"
-geodatabase, which holds the output files produced by the tests. The files
-in this geodatabase are overwritten when the tests are run, and the new output
-files compared to the validated test fire outputs.
+inputs to later functions).
 
 RUNNING THE TESTS:
 To run the tests, you will need to:
     * Fulfill any requirements needed to run the stream module
-    * Move to the directory holding this file, and
-    * Run `pytest test_stream.py --cov=. --cov-fail-under=80`
+    * Install pytest
+    * Move to the root of the repository
+    * Run `pytest tests/test_stream.py --cov=. --cov-fail-under=80`
 """
 
 import pytest

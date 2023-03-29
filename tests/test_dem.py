@@ -1,11 +1,24 @@
 """
 test_dem  Unit tests for the dem module
 ----------
+The tests for the dem module are grouped into classes. Each class holds the test
+for one function in the the dem module. Tests progress from module utilities,
+to the low-level TauDEM wrappers, to the user-facing functions.
 
+The tests rely on scientifically validated outputs from a test fire. Test fire
+validation data is located in tests/data/<fire code> and consists of a number of
+validated TIF rasters produced by TauDEM.
+
+RUNNING THE TESTS:
+To run the tests, you will need to:
+    * Fulfill any requirements needed to run the dem module
+    * Install pytest and rasterio
+    * Move to the root of the repository
+    * Run `pytest tests/test_dem.py --cov=. --cov-fail-under=80`
 """
 
-import pytest
-import numpy, subprocess, os, rasterio
+import pytest, rasterio
+import numpy, subprocess, os
 from pathlib import Path
 from contextlib import nullcontext
 from dfha import dem
