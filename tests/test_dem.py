@@ -17,12 +17,6 @@ testfire = data / "col2022"
 # Utilites for running the testes
 ###
 
-# Fixture to pass in test fire data
-@pytest.fixture
-def fire():
-    return testfire
-
-
 # Fixture to create temporary output directories
 @pytest.fixture
 def tempdir(tmp_path):
@@ -31,20 +25,15 @@ def tempdir(tmp_path):
     return folder
 
 
-# Utility to read raster data
-def read(raster):
-    return rasterio.open(raster).read(1)
-
-
-# Utility to validate output raster values
+# Utility to check output raster values
 def validate(output, expected):
     assert output.is_file()
-    output = read(output)
-    expected = read(expected)
+    output = rasterio.open(output).read(1)
+    expected = rasterio.open(expected).read(1)
     assert numpy.array_equal(output, expected, equal_nan=True)
 
 
-# Utility to check verbosity
+# Utility to check TauDEM verbosity
 def check_verbosity(capfd, verbose):
     stdout = capfd.readouterr().out
     if verbose:
@@ -53,7 +42,7 @@ def check_verbosity(capfd, verbose):
         assert stdout == ""
 
 
-# Return user input paths as string or Path
+# Return user paths as string or Path
 def set_path_type(type, *paths):
     if type == "string":
         return (str(path) for path in paths)
@@ -74,6 +63,25 @@ class UsesPaths:
     burned_area = "burned_area.tif"
     relief = "relief.tif"
     fire = testfire
+
+
+# Simulates a user-provided Path dict
+@pytest.fixture
+def user_paths():
+    paths = {
+        "dem": UsesPaths.dem,
+        "isburned": UsesPaths.isburned,
+        "pitfilled": UsesPaths.pitfilled,
+        "flow_directions_dinf": UsesPaths.flow_dinf,
+        "slopes_dinf": UsesPaths.slopes_dinf,
+        "flow_directions": UsesPaths.flow_d8,
+        "total_area": UsesPaths.total_area,
+        "burned_area": UsesPaths.burned_area,
+        "relief": UsesPaths.relief,
+        "extra_key": "some-file.tif",
+        "another_key": "another-file.tif",
+    }
+    return {key: UsesPaths.fire / value for key, value in paths.items()}
 
 
 ###
@@ -111,39 +119,33 @@ class TestVerbosity:
         assert verbose == False
 
     def test_changed_default(_):
-        dem.verbose_by_default = True
-        verbose = dem._verbosity(None)
-        assert verbose == True
+        try:
+            dem.verbose_by_default = True
+            verbose = dem._verbosity(None)
+            assert verbose == True
+        finally:
+            dem.verbose_by_default = False
 
 
-class TestInputPaths(UsesPaths):
+class TestInputPath(UsesPaths):
     path = UsesPaths.fire / UsesPaths.dem
 
-    # Test a string, Path, and None input
-    @pytest.mark.parametrize(
-        "input, expected", ((str(path), path), (path, path), (None, None))
-    )
-    def test_single_types(_, input, expected):
-        [output] = dem._input_paths(input)
-        assert output == expected
-
-    def test_mix(self):
-        [dem1, dem2, missing] = dem._input_paths(str(self.path), self.path, None)
-        assert dem1 == self.path
-        assert dem2 == self.path
-        assert missing is None
+    # Test a string and path
+    @pytest.mark.parametrize("input", (str(path), path))
+    def test_standard(_, input):
+        output = dem._input_path(input)
+        assert output == Path(input)
 
     def test_missing(self):
         with pytest.raises(FileNotFoundError):
-            output = dem._input_paths(self.fire / "not-a-real-file.tif")
+            output = dem._input_path(self.fire / "not-a-real-file.tif")
 
 
 @pytest.mark.parametrize("use_str", (True, False))  # Both string and Path inputs
 class TestOutputPath(UsesPaths):
     path = (UsesPaths.fire / UsesPaths.dem).with_suffix(".tif")
 
-    @staticmethod
-    def check(input, expected, use_str):
+    def check(_, input, expected, use_str):
         if use_str:
             input = str(input)
         output = dem._output_path(input)
@@ -178,25 +180,74 @@ class TestTemporary(UsesPaths):
         assert random.isalpha()
 
 
-class TestOutputDict(UsesPaths):
-    def paths(self):
-        paths = {
-            "dem": self.dem,
-            "isburned": self.isburned,
-            "pitfilled": self.pitfilled,
-            "flow_directions_dinf": self.flow_dinf,
-            "slopes_dinf": self.slopes_dinf,
-            "flow_directions": self.flow_d8,
-            "total_area": self.total_area,
-            "burned_area": self.burned_area,
-            "relief": self.relief,
-            "extra_key": "some-file.tif",
-            "another_key": "another-file.tif",
-        }
-        return {key: self.fire / value for key, value in paths.items()}
+class TestSetupDict(UsesPaths):
+    required = dem._inputs + dem._intermediate + dem._final
 
-    def run(self, option, required):
-        paths = self.paths()
+    def set_type(self, type, paths):
+        for key in self.required:
+            if type == "string" and (key in paths) and (paths[key] is not None):
+                paths[key] = str(paths[key])
+        return paths
+
+    def validate(self, output, temporary, paths, tmp):
+        assert temporary.sort() == tmp.sort()
+        assert isinstance(output, dict)
+        tmpdir = output["flow_directions"].parent
+        for key in self.required:
+            assert key in output
+            if key in temporary:
+                assert isinstance(output[key], Path)
+                assert output[key].parent == tmpdir
+                assert output[key].name.startswith(key)
+                assert output[key].suffix == ".tif"
+            else:
+                assert output[key] == Path(paths[key])
+
+    # Parametrizes required input and output
+    @pytest.mark.parametrize("missing", ("dem", "relief"))
+    def test_required_missing(_, missing, user_paths):
+        user_paths.pop(missing)
+        with pytest.raises(KeyError):
+            dem._setup_dict(user_paths)
+
+    @pytest.mark.parametrize("missing", ("dem", "relief"))
+    def test_required_none(_, missing, user_paths):
+        user_paths[missing] = None
+        with pytest.raises(TypeError) as error:
+            dem._setup_dict(user_paths)
+        assert "expected str, bytes or os.PathLike" in str(error.value)
+
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_no_tmp(self, user_paths, path_type):
+        paths = self.set_type(path_type, user_paths)
+        (output, temporary) = dem._setup_dict(paths)
+        self.validate(output, temporary, paths, [])
+
+    @pytest.mark.parametrize(
+        "tmp", (["slopes_dinf"], ["flow_directions_dinf", "pitfilled"])
+    )
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_missing_tmp(self, user_paths, path_type, tmp):
+        paths = self.set_type(path_type, user_paths)
+        for file in tmp:
+            paths.pop(file)
+        (output, temporary) = dem._setup_dict(paths)
+        self.validate(output, temporary, paths, tmp)
+
+    @pytest.mark.parametrize(
+        "tmp", (["slopes_dinf"], ["flow_directions_dinf", "pitfilled"])
+    )
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_none_tmp(self, user_paths, path_type, tmp):
+        paths = self.set_type(path_type, user_paths)
+        for file in tmp:
+            paths[file] = None
+        (output, temporary) = dem._setup_dict(paths)
+        self.validate(output, temporary, paths, tmp)
+
+
+class TestOutputDict(UsesPaths):
+    def run(self, option, required, paths):
         temporary = ["slopes_dinf"]
         output = dem._output_dict(paths, option, temporary)
         assert isinstance(output, dict)
@@ -211,17 +262,17 @@ class TestOutputDict(UsesPaths):
             else:
                 assert output[key] == paths[key]
 
-    def test_default(self):
+    def test_default(self, user_paths):
         required = dem._final
-        self.run("default", required)
+        self.run("default", required, user_paths)
 
-    def test_saved(self):
+    def test_saved(self, user_paths):
         required = dem._final + ["pitfilled", "flow_directions_dinf"]
-        self.run("saved", required)
+        self.run("saved", required, user_paths)
 
-    def test_all(self):
+    def test_all(self, user_paths):
         required = dem._final + dem._intermediate
-        self.run("all", required)
+        self.run("all", required, user_paths)
 
 
 ###

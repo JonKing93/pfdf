@@ -593,7 +593,7 @@ def upslope_area(
     verbose = _verbosity(verbose)
     flow_directions_path = _input_path(flow_directions_path)
     if weights_path is not None:
-        [weights_path] = _input_path(weights_path)
+        weights_path = _input_path(weights_path)
     area_path = _output_path(area_path)
     area_d8(flow_directions_path, weights_path, area_path, verbose)
     return area_path
@@ -764,7 +764,7 @@ def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str]]:
             paths[file] = _output_path(paths[file])
         else:
             paths[file] = _temporary(file, folder)
-            temporary += file
+            temporary += [file]
 
     # Return path dict and list of temporary files
     return (paths, temporary)
