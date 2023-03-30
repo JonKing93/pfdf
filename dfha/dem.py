@@ -17,9 +17,9 @@ functions, which implement individual pieces of this overall analysis.
 In general, the functions in this module require various input rasters and
 compute rasters as outputs. The module follows the raster file format
 conventions of TauDEM: input rasters may use nearly any raster file format, but
-outputs will always use a TIF format. For a complete list of supported input
-raster formats, see:
-https://gdal.org/drivers/raster/index.html
+outputs will always use a TIF format. Specifically, the module supports any input
+raster format that can be read by the GDAL library. For a complete list of
+supported formats, see: https://gdal.org/drivers/raster/index.html
 
 In addition to the user functions, this module includes the low-level 
 "pitremove", "flow_d8", "flow_dinf", "area_d8", and "relief_dinf" functions, 
@@ -57,9 +57,9 @@ Low-level functions:
 
 Utilities:
     _verbosity          - Determines the verbosity setting for a routine
-    _input_paths        - Returns absolute Paths for input files
+    _input_paths        - Returns the absolute Path for an input file
     _output_path        - Returns the absolute Path for an output file
-    _temporary          - Returns an absolute Path for a temporary file
+    _temporary          - Returns an absolute Path for a temporary output file
     _run_taudem         - Runs a TauDEM routine as a subprocess
     _setup_dict         - Prepares the Path dict for a DEM analysis
     _output_dict        - Builds the output Path dict for a DEM analysis
