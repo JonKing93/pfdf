@@ -60,7 +60,7 @@ Utilities:
     _output_path        - Returns the absolute Path for an output file
     _temporary          - Returns an absolute Path for a temporary output file
     _run_taudem         - Runs a TauDEM routine as a subprocess
-    _setup_dict         - Prepares the Path dict for a DEM analysis
+    _setup              - Prepares the Path dict for a DEM analysis
     _output_dict        - Builds the output Path dict for a DEM analysis
 """
 
@@ -76,6 +76,7 @@ _tmp_string_length = 10  # The length of the random string for temporary files
 _inputs = ["dem", "isburned"]
 _intermediate = ["pitfilled", "flow_directions_dinf", "slopes_dinf"]
 _final = ["flow_directions", "total_area", "burned_area", "relief"]
+_basins = ["isbasin", "upslope_basins"]
 
 # Type aliases
 Pathlike = Union[Path, str]
@@ -100,14 +101,74 @@ def analyze(
     then computes flow directions and slopes. Uses the results of these initial
     analyses to compute total upslope area, total burned upslope area, and the
     vertical relief of the longest flow path. Optionally computes debris-basin
-    flow routing. Returns a dict with the absolute Paths to the D8 flow directions,
-    total upslope area, total burned upslope area, vertical relief, and number
-    of upslope debris basins.
+    flow routing. Returns a dict with the absolute Paths to the computed output
+    files.
 
-    The "paths" input is a dict mapping analysis files to their paths. It must
+    The "paths" input is a dict mapping analysis files to their paths. Each file
+    path may be either a pathlib.Path object or a string. The "paths" dict has
+    both mandatory and optional keys (summarized below). Mandatory keys include
+    "dem" and  "isburned" (for the input rasters), as well as "flow_directions",
+    "total_area", "burned_area", and "relief" (for the output rasters).
+
+    You can use two optional keys to include debris-basin flow routing in the
+    analysis. These are "isbasin" (input) and "upslope_basins" (output)
+
+
+
+    Mandatory keys:
+        These keys provide file paths essential for the analysis.
+
+        * dem
+        * isburned
+        * flow_directions
+        * total_area
+        * bu
+
+    Mandatory keys provide
+    file paths essential for the core analysis. They include:
+
+        Input dataset keys:
+            * dem              (digital elevation model)
+            * isburned         (indicates DEM pixels that are burned)
+
+        Output raster keys:
+            * flow_directions  (D8 flow directions)
+            * total_area       (upslope/contributing area)
+            * burned_area      (burned upslope area)
+            * relief           (vertical relief of the longest flow path)
+
+    You can use two optional keys to also compute debris-basin flow routing:
+
+        Optional debris-basin keys:
+            * debris_basins    (indicates locations of debris )
+            * upslope_basins
+
+
+
+
+
+
+
+
+
+
+    Input Rasters:
+        * 'dem'
+        * 'isburned'
+        * 'debris_basins' (Optional):
+
+
+
+
+
+    It must
     contain the keys 'dem' and 'isburned' (for the input datasets), as well as
     'flow_directions', 'total_area', 'burned_area', and 'relief' (for the standard
     analysis outputs).
+
+    To implement debris-basin
+
+    If "paths" includes the keys "debris_basins"
 
     If "paths" includes the keys 'debris_basins' and 'u
 
@@ -159,11 +220,21 @@ def analyze(
             and values may be strings or pathlib.Path objects. Must include the keys:
 
             * dem: The path to the DEM being analyzed
-            * isburned: The path to the raster indicating which DEM pixels are burned
+            * isburned: The path to the raster indicating which DEM pixels are burned.
+                Burned pixels should have a value of 1. All others should be 0 or NoData.
             * flow_directions: The path for output D8 flow directions
             * total_area: The path for output total upslope area
             * burned_area: The path for output total burned upslope area
             * relief: The path for output vertical relief (of the longest flow path)
+
+            The dict may optionally include the following two keys, which will
+            cause the method to calculate debris-basin flow routing. If
+            the value
+
+            * debris_basins: The path to the raster indicating which DEM pixels
+                contain debris basins. Basin pixels should have a value of 1.
+                All others should be 0 or NoData.
+            * upslope_basins: The path for the output number of upslope debris basins
 
             The dict may optionally include any of the following keys for
             intermediate output files. If you provide one of these keys, the
@@ -191,6 +262,11 @@ def analyze(
             * burned_area: The path to the total burned upslope area
             * relief: The path to the vertical relief of the longest flow path
 
+            Will always include the following key if debris-basin flow routing
+            was enabled:
+
+            * upslope_basins
+
             May optionally include the following keys if outputs="saved".
             Will always include these keys if outputs="all". If using "all",
             files that were not saved will have a value of None.
@@ -202,7 +278,7 @@ def analyze(
 
     # Parse verbosity and process file paths. Use temporary files when needed
     verbose = _verbosity(verbose)
-    (paths, temporary) = _setup_dict(paths)
+    (paths, temporary, hasbasins) = _setup(paths)
 
     # Fill pits in the DEM
     try:
@@ -221,11 +297,19 @@ def analyze(
             verbose,
         )
 
-        # Compute upslope area and burned upslope area
+        # Compute upslope area, burned upslope area, and optionally debris-basin
+        # flow routing
         area_d8(paths["flow_directions"], None, paths["total_area"], verbose)
         area_d8(
             paths["flow_directions"], paths["isburned"], paths["burned_area"], verbose
         )
+        if hasbasins:
+            area_d8(
+                paths["flow_directions"],
+                paths["isbasin"],
+                paths["upslope_basins"],
+                verbose,
+            )
 
         # Compute vertical relief of longest flow path
         relief_dinf(
@@ -847,24 +931,27 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     return subprocess.run(command, capture_output=not verbose, check=True)
 
 
-def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str]]:
+def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
     """
-    _setup_dict  Prepares the path dict for a DEM analysis
+    _setup  Prepares the path dict for a DEM analysis
     ----------
-    _setup_dict(paths)
+    _setup(paths)
     Processes user-provided paths. Gets temporary paths for intermediate files
-    not specified by the user. Returns a 2-tuple with the dict of Paths and the
-    list of temporary output files.
+    not specified by the user. Parses optional paths for debris basin flow
+    routing. Returns a 3-tuple with (1) the dict of Paths, (2) the list of
+    temporary output files, and (3) a bool indicating whether to enable debris
+    basin flow routing.
     ----------
     Inputs:
         paths: The user-provided path dict
 
     Outputs:
-        A 2-tuple with the following elements:
+        A 3-tuple with the following elements:
 
         Dict[str, Path]: A dict with the absolute Path for each file used in the
             analysis. May include temporary Paths for intermediate outputs.
         List[str]: The list of temporary output files.
+        bool: True if flow-routing is enabled. Otherwise False.
     """
 
     # Initialize list of temporary files and get folder for temp files
@@ -872,19 +959,29 @@ def _setup_dict(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str]]:
     paths["flow_directions"] = _output_path(paths["flow_directions"])
     folder = paths["flow_directions"].parent
 
-    # Get file paths
-    all_files = _inputs + _intermediate + _final
-    for file in all_files:
+    # Get file paths for basic analysis. Record temporary files
+    outputs = _intermediate + _final
+    core_files = _inputs + outputs
+    for file in core_files:
         if file in _inputs:
             paths[file] = _input_path(paths[file])
-        elif file in _final or (file in paths and paths[file] is not None):
+        elif file in _final or (file in outputs and paths[file] is not None):
             paths[file] = _output_path(paths[file])
         else:
             paths[file] = _temporary(file, folder)
             temporary += [file]
 
-    # Return path dict and list of temporary files
-    return (paths, temporary)
+    # Optionally get paths for debris-basin flow routing
+    [input, output] = _basins
+    if input in paths and paths[input] is not None:
+        paths[input] = _input_path(paths[input])
+        paths[output] = _output_path(paths[output])
+        hasbasins = True
+    else:
+        hasbasins = False
+
+    # Return path dict, list of temporary files, and debris-basin switch
+    return (paths, temporary, hasbasins)
 
 
 def _temporary(prefix: str, folder: Path) -> Path:
