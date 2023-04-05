@@ -11,8 +11,9 @@ https://hydrology.usu.edu/taudem/taudem5/documentation.html
 
 We recommend most users begin with the "analyze" function, which implements all
 the DEM analyses required for a basic hazard assessment. Users may also be
-interested in the "pitfill", "flow_directions", "upslope_area", and "relief"
-functions, which implement individual pieces of this overall analysis. 
+interested in the "pitfill", "flow_directions", "upslope_area", "burned_area",
+"upslope_basins", and "relief" functions, which implement individual pieces of
+this overall analysis.
 
 In general, the functions in this module require various input rasters and
 compute rasters as outputs. The module follows the raster file format
@@ -27,7 +28,7 @@ which provide wrappers to the TauDEM commands used to implement the analyses.
 These functions are primarily intended for developers, and we recommend that
 most users instead use the aforementioned high-level functions.
 
-The upslope areas output by this module are often used to help delineate a
+The rasters produced by this module are often used to help delineate a
 stream network. As such, a suggested workflow for hazard assessment users is as
 follows:
     * Acquire DEM data
@@ -37,8 +38,6 @@ follows:
 
 REQUIREMENTS:
 Running this module requires:
-    * The ArcPy package and base Python environment shipped with ArcGIS Pro 3.0
-      (Build Number 36056)
     * Installing TauDEM 5.3
 ----------
 User functions:
