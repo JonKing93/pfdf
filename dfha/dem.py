@@ -13,13 +13,15 @@ We recommend most users begin with the "analyze" function, which implements all
 the DEM analyses required for a basic hazard assessment. Users may also be
 interested in the "pitfill", "flow_directions", "upslope_area", "burned_area",
 "upslope_basins", and "relief" functions, which implement individual pieces of
-this overall analysis.
+this overall analysis. (Note that upslope_basins and burned_area are specialized
+versions of upslope_area. In general, you can use upslope_area to implement both
+weighted and unweighted upslope area routines).
 
 In general, the functions in this module require various input rasters and
 compute rasters as outputs. The module follows the raster file format
 conventions of TauDEM: input rasters may use nearly any raster file format, but
-outputs will always use a TIF format. Specifically, the module supports any input
-raster format that can be read by the GDAL library. For a complete list of
+outputs will always use a GeoTIFF format. Specifically, the module supports any
+input raster format that can be read by the GDAL library. For a complete list of
 supported formats, see: https://gdal.org/drivers/raster/index.html
 
 In addition to the user functions, this module includes the low-level 
@@ -44,7 +46,9 @@ User functions:
     analyze             - Implements all DEM analyses required for standard hazard assessment
     pitfill             - Fills pits in a DEM
     flow_directions     - Computes D8 and D-Infinity flow directions and slopes
-    upslope_area        - Computes contributing (upslope) area
+    upslope_area        - Computes upslope (contributing) area
+    burned_area         - Computes total upslope burned area
+    upslope_basins      - Computes the number of upslope debris-retention basins
     relief              - Computes the vertical component of the longest flow path
 
 Low-level functions:
@@ -106,86 +110,17 @@ def analyze(
 
     The "paths" input is a dict mapping analysis files to their paths. Each file
     path may be either a pathlib.Path object or a string. The "paths" dict has
-    both mandatory and optional keys (summarized below). Mandatory keys include
-    "dem" and  "isburned" (for the input rasters), as well as "flow_directions",
-    "total_area", "burned_area", and "relief" (for the output rasters).
+    both mandatory and optional keys (summarized below). Mandatory keys are for
+    files essential to the analysis. These include 'dem', 'isburned',
+    'flow_directions', 'total_area', 'burned_area', and 'relief'. (See below for
+    descriptions of these keys).
 
-    You can use two optional keys to include debris-basin flow routing in the
-    analysis. These are "isbasin" (input) and "upslope_basins" (output)
-
-
-
-    Mandatory keys:
-        These keys provide file paths essential for the analysis.
-
-        * dem
-        * isburned
-        * flow_directions
-        * total_area
-        * bu
-
-    Mandatory keys provide
-    file paths essential for the core analysis. They include:
-
-        Input dataset keys:
-            * dem              (digital elevation model)
-            * isburned         (indicates DEM pixels that are burned)
-
-        Output raster keys:
-            * flow_directions  (D8 flow directions)
-            * total_area       (upslope/contributing area)
-            * burned_area      (burned upslope area)
-            * relief           (vertical relief of the longest flow path)
-
-    You can use two optional keys to also compute debris-basin flow routing:
-
-        Optional debris-basin keys:
-            * debris_basins    (indicates locations of debris )
-            * upslope_basins
-
-
-
-
-
-
-
-
-
-
-    Input Rasters:
-        * 'dem'
-        * 'isburned'
-        * 'debris_basins' (Optional):
-
-
-
-
-
-    It must
-    contain the keys 'dem' and 'isburned' (for the input datasets), as well as
-    'flow_directions', 'total_area', 'burned_area', and 'relief' (for the standard
-    analysis outputs).
-
-    To implement debris-basin
-
-    If "paths" includes the keys "debris_basins"
-
-    If "paths" includes the keys 'debris_basins' and 'u
-
-
-
-    Returns a dict with the absolute
-    Paths to the D8 flow directions, total upslope area, total burned upslope
-    area, and vertical relief.
-
-    The "paths" input is a dict mapping analysis files to their paths. It must
-    contain the keys: 'dem', 'isburned', 'flow_directions', 'total_area',
-    'burned_area', and 'relief'.
-
-
-
-
-    (and see below for a description of these values)
+    If "paths" only contains the mandatory keys, then the analysis will not
+    compute debris-basin flow routing. You can enable flow routing by
+    including the two optional keys 'isbasin' and 'upslope_basins' in the paths
+    input. If you include the 'isbasin' key, but its value is None, then the
+    upslope_basins key will be ignored and the analysis will not implement
+    debris basin flow routing.
 
     By default, the function will delete intermediate output files used in the
     analysis. These consist of the pitfilled DEM, and the D-infinity flow
@@ -196,19 +131,22 @@ def analyze(
     deleted as usual.
 
     By default, the function will return a dict with the absolute Paths for the
-    computed D8 flow directions, total upslope area, total burned upslope area,
-    and vertical relief. (These are the computed DEM fields used for a standard
-    hazard assessment). The keys for these outputs will match the corresponding
-    keys in the "paths" input.
+    computed output rasters. This will always include the D8 flow directions,
+    total upslope area, total burned upslope area, vertical relief, and (if debris
+    basin flow routing is enabled) the computed number of upslope debris basins.
+    The keys for these outputs will match the corresponding keys in the "paths" input.
 
     analyze(..., *, outputs= "default" | "saved" | "all")
     Indicates the Paths that should be included in the output dict.
     If outputs="default", the dict includes the Paths of the D8 flow directions,
-    total upslope area, total burned upslope area, and vertical relief.
-    If outputs="saved", includes the keys for all saved output files. This includes
-    the default 4 outputs, as well as any saved intermediate output files.
-    If outputs="all", includes keys for all default and intermediate output files.
-    If an intermediate output file was not saved, the value of its key will be None.
+    total upslope area, total burned upslope area, vertical relief, and (if flow
+    routing was enabled) the number of upslope debris basins. If outputs="saved",
+    includes the keys for all saved output files. These include the default keys,
+    as well as any saved intermediate output files. If outputs="all", includes
+    keys for all possible output files produced by this function. This includes
+    the default outputs, intermediate outputs, and the optional debris-basin output.
+    If a file was not saved during the analysis, then the value of its key
+    will be None.
 
     analyze(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -221,19 +159,18 @@ def analyze(
 
             * dem: The path to the DEM being analyzed
             * isburned: The path to the raster indicating which DEM pixels are burned.
-                Burned pixels should have a value of 1. All others should be 0 or NoData.
+                Burned pixels should have a value of 1. All other pixels should be 0.
             * flow_directions: The path for output D8 flow directions
             * total_area: The path for output total upslope area
             * burned_area: The path for output total burned upslope area
             * relief: The path for output vertical relief (of the longest flow path)
 
             The dict may optionally include the following two keys, which will
-            cause the method to calculate debris-basin flow routing. If
-            the value
+            cause the method to calculate debris-basin flow routing:
 
             * debris_basins: The path to the raster indicating which DEM pixels
                 contain debris basins. Basin pixels should have a value of 1.
-                All others should be 0 or NoData.
+                All other pixels should be 0.
             * upslope_basins: The path for the output number of upslope debris basins
 
             The dict may optionally include any of the following keys for
@@ -326,7 +263,7 @@ def analyze(
             paths[name].unlink(missing_ok=True)
 
     # Return dict of output file paths
-    return _output_dict(paths, outputs, temporary)
+    return _output_dict(paths, outputs, temporary, hasbasins)
 
 
 def area_d8(
@@ -822,23 +759,23 @@ def _input_path(input: Pathlike) -> Path:
 
 
 def _output_dict(
-    paths: PathDict,
-    option: OutputOption,
-    temporary: List[str],
+    paths: PathDict, option: OutputOption, temporary: List[str], hasbasins: bool
 ) -> PathDict:
     """
     _output_dict  Returns the final dict of paths for a DEM analysis
     ----------
-    _output_dict(paths, "default", temporary)
+    _output_dict(paths, "default", temporary, hasbasins)
     Returns a dict with the paths of the D8 flow directions, total upslope area,
-    total burned upslope area, and vertical relief.
+    total burned upslope area, and vertical relief. If hasbasins=True, also includes
+    the path to the number of upslope debris basins
 
-    _output_dict(paths, "saved", temporary)
+    _output_dict(paths, "saved", temporary, hasbasins)
     Returns a dict with the Paths of all saved output files.
 
-    _output_dict(paths, "all", temporary)
-    Returns a dict with the Paths of all output files. Output files that were
-    not saved have a value of None.
+    _output_dict(paths, "all", temporary, hasbasins)
+    Returns a dict with the Paths of all output files possibly produced by the
+    analysis. This includes temporary output files and the optional debris-basin
+    output. Files that were not saved or produced have a value of None.
     ----------
     Inputs:
         paths: The dict of Paths for the analysis
@@ -847,6 +784,8 @@ def _output_dict(
             files. "all" includes all output files, but temporary files will have
             a value of None.
         temporary: The list of temporary files
+        hasbasins: True if the analysis implemented debris-basin flow routing.
+            Otherwise False.
 
     Outputs:
         Dict[str, Path]: A dict of output file Paths
@@ -859,16 +798,15 @@ def _output_dict(
         outputs = _intermediate + _final
         include = [file for file in outputs if file not in temporary]
 
-    # Add all paths to the dict
-    output = dict()
-    for file in include:
-        output[file] = paths[file]
+    # Optionally include the debris-basin output
+    if hasbasins:
+        include += _basins[1]
 
-    # Optionally include temporary outputs as None
+    # Add all paths to the dict. Optionally include temporary outputs as None
+    output = {file: paths[file] for file in include}
     if option == "all":
         for file in temporary:
             output[file] = None
-
     return output
 
 
