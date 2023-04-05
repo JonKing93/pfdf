@@ -12,7 +12,7 @@ https://hydrology.usu.edu/taudem/taudem5/documentation.html
 We recommend most users begin with the "analyze" function, which implements all
 the DEM analyses required for a basic hazard assessment. Users may also be
 interested in the "pitfill", "flow_directions", "upslope_area", and "relief"
-functions, which implement individual pieces of this overall analysis.
+functions, which implement individual pieces of this overall analysis. 
 
 In general, the functions in this module require various input rasters and
 compute rasters as outputs. The module follows the raster file format
@@ -100,13 +100,32 @@ def analyze(
     various routines from the TauDEM package. Begins by pitfilling a DEM and
     then computes flow directions and slopes. Uses the results of these initial
     analyses to compute total upslope area, total burned upslope area, and the
-    vertical relief of the longest flow path. Returns a dict with the absolute
+    vertical relief of the longest flow path. Optionally computes debris-basin
+    flow routing. Returns a dict with the absolute Paths to the D8 flow directions,
+    total upslope area, total burned upslope area, vertical relief, and number
+    of upslope debris basins.
+
+    The "paths" input is a dict mapping analysis files to their paths. It must
+    contain the keys 'dem' and 'isburned' (for the input datasets), as well as
+    'flow_directions', 'total_area', 'burned_area', and 'relief' (for the standard
+    analysis outputs).
+
+    If "paths" includes the keys 'debris_basins' and 'u
+
+
+
+    Returns a dict with the absolute
     Paths to the D8 flow directions, total upslope area, total burned upslope
     area, and vertical relief.
 
     The "paths" input is a dict mapping analysis files to their paths. It must
     contain the keys: 'dem', 'isburned', 'flow_directions', 'total_area',
-    'burned_area', and 'relief'. (and see below for a description of these values)
+    'burned_area', and 'relief'.
+
+
+
+
+    (and see below for a description of these values)
 
     By default, the function will delete intermediate output files used in the
     analysis. These consist of the pitfilled DEM, and the D-infinity flow
@@ -263,6 +282,45 @@ def area_d8(
     if weights_path is not None:
         area_d8 += f" -wg {weights_path}"
     _run_taudem(area_d8, verbose)
+
+
+def burned_area(
+    flow_directions_path: Pathlike,
+    isburned_path: Pathlike,
+    burned_area_path: Pathlike,
+    *,
+    verbose: Optional[bool] = None,
+) -> Path:
+    """
+    burned_area  Computes total burned upslope area
+    ----------
+    burned_area(flow_directions_path, isburned_path, burned_area_path)
+    Computes total burned upslope area using flow directions from a D8 flow model.
+    Pixels that are specified as burned are given a weight of 1. All other pixels
+    are given a weight of 0. Returns the absolute Path to the raster holding the
+    computed total burned upslope area.
+
+    burned_area(..., *, verbose)
+    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+    the console. If verbose=False, suppresses the messages. If unspecified, uses
+    the default verbosity setting for the module (initially set as False).
+    ----------
+    Inputs:
+        flow_directions_path: The path to the input D8 flow directions
+        isburned_path: The path to the input raster indicating which DEM pixels
+            are burned. Burned pixels should have a value of 1. Unburned pixels
+            should be 0.
+        burned_area_path: The path to the output burned upslope area raster
+        verbose: Set to True to print TauDEM messages to the console. False to
+            suppress these messages. If unset, uses the default verbosity for
+            the module (initially set as False).
+
+    Outputs:
+        pathlib.Path: The absolute Path to the burned upslope area raster.
+    """
+    return upslope_area(
+        flow_directions_path, burned_area_path, weights_path=isburned_path
+    )
 
 
 def flow_d8(
