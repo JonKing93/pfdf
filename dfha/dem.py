@@ -317,9 +317,15 @@ def burned_area(
 
     Outputs:
         pathlib.Path: The absolute Path to the burned upslope area raster.
+
+    Saves:
+        A file matching the "burned_area" path.
     """
     return upslope_area(
-        flow_directions_path, burned_area_path, weights_path=isburned_path
+        flow_directions_path,
+        burned_area_path,
+        weights_path=isburned_path,
+        verbose=verbose,
     )
 
 
@@ -643,8 +649,7 @@ def upslope_area(
     the default verbosity setting for the module (initially set as False).
     ----------
     Inputs:
-        flow_directions_path: The path to the input D8 flow directions used to
-            compute upslope area
+        flow_directions_path: The path to the input D8 flow directions.
         area_path: The path to the output upslope area.
         weights_path: The optional path to an area weights raster
         verbose: Set to True to print TauDEM messages to the console. False to
@@ -665,6 +670,51 @@ def upslope_area(
     area_path = _output_path(area_path)
     area_d8(flow_directions_path, weights_path, area_path, verbose)
     return area_path
+
+
+def upslope_basins(
+    flow_directions_path: Pathlike,
+    isbasin_path: Pathlike,
+    upslope_basins_path: Pathlike,
+    *,
+    verbose: Optional[bool] = None,
+) -> Path:
+    """
+    upslope_basins  Computes the number of upslope debris-retention basins
+    ----------
+    upslope_basins(flow_directions_path, isbasin_path, upslope_basins_path)
+    Computes the number of debris-retention basins upslope of each pixel. Returns
+    the absolute Path to the output upslope_basins raster.
+
+    upslope_basins(..., *, verbose)
+    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+    the console. If verbose=False, suppresses the messages. If unspecified, uses
+    the default verbosity setting for the module (initially set as False).
+    ----------
+    Inputs:
+        flow_directions_path: The path to the input D8 flow directions.
+        isbasin_path: The path to the input raster indicating the DEM pixels
+            that contain a debris-retention basin. Pixels containing a basin
+            should have a value of 1. All other pixels should be 0.
+        upslope_basins_path: The path to the output raster holding the number
+            of upslope debris-retention basins.
+        verbose: Set to True to print TauDEM messages to the console. False to
+            suppress these messages. If unset, uses the default verbosity for
+            the module (initially set as False).
+
+    Outputs:
+        pathlib.Path: The absolute Path to the output raster of total upslope
+            debris-retention basins.
+
+    Saves:
+        A file matching the "upslope_basins" path
+    """
+    upslope_area(
+        flow_directions_path,
+        upslope_basins_path,
+        weights_path=isbasin_path,
+        verbose=verbose,
+    )
 
 
 def _input_path(input: Pathlike) -> Path:
