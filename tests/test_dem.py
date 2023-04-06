@@ -9,6 +9,11 @@ The tests rely on scientifically validated outputs from a test fire. Test fire
 validation data is located in tests/data/<fire code> and consists of a number of
 validated TIF rasters produced by TauDEM.
 
+Note that many fires don't have debris-retention basins. However, the computation
+for debris-basin flow routing is identical to that of burned upslope area. As
+such, you can use copies of the "isburned" and "burned_area" rasters as stand ins
+for the debris basin flow routing rasters.
+
 RUNNING THE TESTS:
 To run the tests, you will need to:
     * Fulfill any requirements needed to run the dem module
@@ -75,15 +80,10 @@ class UsesPaths:
     slopes_dinf = "slopes_dinf.tif"
     total_area = "total_area.tif"
     burned_area = "burned_area.tif"
+    isbasin = "isbasin.tif"
+    nbasins = "upslope_basins.tif"
     relief = "relief.tif"
     fire = testfire
-
-    # Note: Most test fires don't have debris basins, so there are often no
-    # "isbasin" or "nbasins" files to test. However, the computation of debris basin
-    # flow routing is identical to the computation of burned upslope area. So here
-    # we use burned_area files as placeholders for the basin calculations.
-    isbasin = "isburned.tif"
-    nbasins = "burned_area.tif"
 
 
 # Simulates a user-provided Path dict
