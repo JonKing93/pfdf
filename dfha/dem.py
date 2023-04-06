@@ -684,7 +684,7 @@ def upslope_basins(
     Saves:
         A file matching the "upslope_basins" path
     """
-    upslope_area(
+    return upslope_area(
         flow_directions_path,
         upslope_basins_path,
         weights_path=isbasin_path,
