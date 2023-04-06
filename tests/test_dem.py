@@ -78,6 +78,13 @@ class UsesPaths:
     relief = "relief.tif"
     fire = testfire
 
+    # Note: Most test fires don't have debris basins, so there are often no
+    # "isbasin" or "nbasins" files to test. However, the computation of debris basin
+    # flow routing is identical to the computation of burned upslope area. So here
+    # we use burned_area files as placeholders for the basin calculations.
+    isbasin = "isburned.tif"
+    nbasins = "burned_area.tif"
+
 
 # Simulates a user-provided Path dict
 @pytest.fixture
@@ -480,6 +487,44 @@ class TestUpslopeArea(UserFunction):
     def test_missing(self):
         with pytest.raises(FileNotFoundError):
             dem.upslope_area(self.missing, self.missing)
+
+
+class TestUpslopeBasins(UserFunction):
+    @pytest.mark.parametrize("verbose", (True, False, None))
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_standard(self, tempdir, path_type, verbose, capfd):
+        flow = self.fire / self.flow_d8
+        isbasin = self.fire / self.isbasin
+        nbasins = tempdir / self.nbasins
+        expected = self.fire / self.nbasins
+        (flow, isbasin, nbasins) = set_path_type(path_type, flow, isbasin, nbasins)
+
+        output = dem.upslope_basins(flow, isbasin, nbasins, verbose=verbose)
+        check_verbosity(capfd, verbose)
+        self.check_output(output, nbasins, expected)
+
+    def test_missing(self):
+        with pytest.raises(FileNotFoundError):
+            dem.upslope_basins(self.missing, self.missing, self.missing)
+
+
+class TestUpslopeBurn(UserFunction):
+    @pytest.mark.parametrize("verbose", (True, False, None))
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_standard(self, tempdir, path_type, verbose, capfd):
+        flow = self.fire / self.flow_d8
+        isburned = self.fire / self.isburned
+        area = tempdir / self.burned_area
+        expected = self.fire / self.burned_area
+        (flow, isburned, area) = set_path_type(path_type, flow, isburned, area)
+
+        output = dem.upslope_burn(flow, isburned, area, verbose=verbose)
+        check_verbosity(capfd, verbose)
+        self.check_output(output, area, expected)
+
+    def test_missing(self):
+        with pytest.raises(FileNotFoundError):
+            dem.upslope_burn(self.missing, self.missing, self.missing)
 
 
 class TestRelief(UserFunction):
