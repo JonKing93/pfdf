@@ -11,9 +11,9 @@ https://hydrology.usu.edu/taudem/taudem5/documentation.html
 
 We recommend most users begin with the "analyze" function, which implements all
 the DEM analyses required for a basic hazard assessment. Users may also be
-interested in the "pitfill", "flow_directions", "upslope_area", "burned_area",
+interested in the "pitfill", "flow_directions", "upslope_area", "upslope_burn",
 "upslope_basins", and "relief" functions, which implement individual pieces of
-this overall analysis. (Note that upslope_basins and burned_area are specialized
+this overall analysis. (Note that upslope_basins and upslope_burn are specialized
 versions of upslope_area. In general, you can use upslope_area to implement both
 weighted and unweighted upslope area routines).
 
@@ -47,7 +47,7 @@ User functions:
     pitfill             - Fills pits in a DEM
     flow_directions     - Computes D8 and D-Infinity flow directions and slopes
     upslope_area        - Computes upslope (contributing) area
-    burned_area         - Computes total upslope burned area
+    upslope_burn        - Computes total upslope burned area
     upslope_basins      - Computes the number of upslope debris-retention basins
     relief              - Computes the vertical component of the longest flow path
 
@@ -302,51 +302,6 @@ def area_d8(
     if weights_path is not None:
         area_d8 += f" -wg {weights_path}"
     _run_taudem(area_d8, verbose)
-
-
-def burned_area(
-    flow_directions_path: Pathlike,
-    isburned_path: Pathlike,
-    burned_area_path: Pathlike,
-    *,
-    verbose: Optional[bool] = None,
-) -> Path:
-    """
-    burned_area  Computes total burned upslope area
-    ----------
-    burned_area(flow_directions_path, isburned_path, burned_area_path)
-    Computes total burned upslope area using flow directions from a D8 flow model.
-    Pixels that are specified as burned are given a weight of 1. All other pixels
-    are given a weight of 0. Returns the absolute Path to the raster holding the
-    computed total burned upslope area.
-
-    burned_area(..., *, verbose)
-    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
-    the console. If verbose=False, suppresses the messages. If unspecified, uses
-    the default verbosity setting for the module (initially set as False).
-    ----------
-    Inputs:
-        flow_directions_path: The path to the input D8 flow directions
-        isburned_path: The path to the input raster indicating which DEM pixels
-            are burned. Burned pixels should have a value of 1. Unburned pixels
-            should be 0.
-        burned_area_path: The path to the output burned upslope area raster
-        verbose: Set to True to print TauDEM messages to the console. False to
-            suppress these messages. If unset, uses the default verbosity for
-            the module (initially set as False).
-
-    Outputs:
-        pathlib.Path: The absolute Path to the burned upslope area raster.
-
-    Saves:
-        A file matching the "burned_area" path.
-    """
-    return upslope_area(
-        flow_directions_path,
-        burned_area_path,
-        weights_path=isburned_path,
-        verbose=verbose,
-    )
 
 
 def flow_d8(
@@ -733,6 +688,51 @@ def upslope_basins(
         flow_directions_path,
         upslope_basins_path,
         weights_path=isbasin_path,
+        verbose=verbose,
+    )
+
+
+def upslope_burn(
+    flow_directions_path: Pathlike,
+    isburned_path: Pathlike,
+    burned_area_path: Pathlike,
+    *,
+    verbose: Optional[bool] = None,
+) -> Path:
+    """
+    upslope_burn  Computes total burned upslope area
+    ----------
+    upslope_burn(flow_directions_path, isburned_path, burned_area_path)
+    Computes total burned upslope area using flow directions from a D8 flow model.
+    Pixels that are specified as burned are given a weight of 1. All other pixels
+    are given a weight of 0. Returns the absolute Path to the raster holding the
+    computed total burned upslope area.
+
+    upslope_burn(..., *, verbose)
+    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+    the console. If verbose=False, suppresses the messages. If unspecified, uses
+    the default verbosity setting for the module (initially set as False).
+    ----------
+    Inputs:
+        flow_directions_path: The path to the input D8 flow directions
+        isburned_path: The path to the input raster indicating which DEM pixels
+            are burned. Burned pixels should have a value of 1. Unburned pixels
+            should be 0.
+        burned_area_path: The path to the output burned upslope area raster
+        verbose: Set to True to print TauDEM messages to the console. False to
+            suppress these messages. If unset, uses the default verbosity for
+            the module (initially set as False).
+
+    Outputs:
+        pathlib.Path: The absolute Path to the burned upslope area raster.
+
+    Saves:
+        A file matching the "burned_area" path.
+    """
+    return upslope_area(
+        flow_directions_path,
+        burned_area_path,
+        weights_path=isburned_path,
         verbose=verbose,
     )
 
