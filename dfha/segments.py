@@ -38,8 +38,8 @@ def locate(stream_raster: np.ndarray) -> segments:
     ----------
     locate(stream_raster)
     Returns a dict that maps stream segment IDs to their associated pixels. The
-    input "segments" should be a 2D int ndarray representing the pixels of a stream
-    link raster. The values of stream segment pixels should be the ID of the
+    input "segments" should be a numpy 2D int array representing the pixels of a 
+    stream link raster. The values of stream segment pixels should be the ID of the
     associated stream segment. All other pixels should be 0. (Essentially, each
     group of non-zero pixels with the same value constitutes one stream segment).
     The output dict will have a key for each stream segment ID (the unique non-zero
@@ -80,6 +80,45 @@ def locate(stream_raster: np.ndarray) -> segments:
         pixels = (rows[segment], cols[segment])
         output[id] = np.hstack(pixels)
     return output
+
+
+def slope(segments: segments, slopes: np.ndarray) -> segments:
+    """
+    slope  Returns the mean slope (rise/run) for each stream segment
+    ----------
+    slope(segments, slopes)
+    Computes the mean slope (rise/run) for each stream segment. Returns the slopes
+    as a numpy 1D array. The order of slopes in the output array will match the
+    order of keys in the input segments dict.
+    ----------
+    Inputs:
+        segments: A dict mapping stream segment IDs to the indices of the
+            associated DEM pixels.
+        slopes: A numpy 2D array holding the slopes of the DEM pixels
+
+    Outputs:
+        numpy 1D array: The mean slope (rise/run) of each stream segment. The order
+            of values matches the order of ID keys in the input segments dict.
+    """
+
+    # Preallocate slopes
+    ids = segments.keys()
+    segment_slopes = np.empty(len(ids))
+
+    # Get the mean slope of each segment
+    for i, id in enumerate(ids):
+        pixels = segments[id]
+        segment_slopes[i] = np.mean(slopes[pixels])
+    return segment_slopes
+
+
+
+
+
+
+
+
+
 
 
 class _Kernel:
@@ -255,16 +294,7 @@ class _Kernel:
             return indices[0:N]
 
 
-def slope(segments: segments, slopes: np.ndarray, statistic) -> segments:
-    """
-    slope  Returns the mean slope (rise/run) for each stream segment
-    """
 
-    for id in segments.keys():
-        pixels = segments[id]
-        pixel_slopes = slopes[pixels]
-        segments[id] = np.mean(pixel_slopes)
-    return segments
 
 
 def basins(segments: segments, upslope_basins: np.ndarray) -> segments:
