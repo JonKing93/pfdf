@@ -82,7 +82,7 @@ def locate(stream_raster: np.ndarray) -> segments:
     return output
 
 
-def slope(segments: segments, slopes: np.ndarray) -> segments:
+def slope(segments: segments, slopes: np.ndarray) -> np.ndarray:
     """
     slope  Returns the mean slope (rise/run) for each stream segment
     ----------
@@ -103,14 +103,45 @@ def slope(segments: segments, slopes: np.ndarray) -> segments:
 
     # Preallocate slopes
     ids = segments.keys()
-    segment_slopes = np.empty(len(ids))
+    mean_slopes = np.empty(len(ids))
 
     # Get the mean slope of each segment
     for i, id in enumerate(ids):
         pixels = segments[id]
-        segment_slopes[i] = np.mean(slopes[pixels])
-    return segment_slopes
+        mean_slopes[i] = np.mean(slopes[pixels])
+    return mean_slopes
 
+
+def basins(segments: segments, upslope_basins: np.ndarray) -> np.ndarray:
+    """
+    basins  Returns the maximum number of upslope basins for each stream segment
+    ----------
+    basins(segments, upslope_basins)
+    Computes the maximum number of upslope debris retention basins for each 
+    stream segment. Returns this count as a numpy 1D array. The order of slopes
+    in the output array will match the order of IDs in the input segments dict.
+    ----------
+    Inputs:
+        segments: A dict mapping stream segment IDs to the indices of the
+            associated DEM pixels.
+        upslope_basins: A numpy 2D array holding the number of upslope debris basins
+            for the DEM pixels.
+
+    Outputs:
+        numpy 1D array: The maximum number of upslope debris basins for each
+            stream segment. The order of values matches the order of ID keys in
+            the input segments dict.
+    """
+
+    # Preallocate
+    ids = segments.keys()
+    max_basins = np.empty(len(ids))
+
+    # Get the maximum number of basins for each segment
+    for i, id in enumerate(ids):
+        pixels = segments[id]
+        max_basins[i] = np.amax(upslope_basins[pixels]) 
+    
 
 
 
