@@ -105,6 +105,13 @@ def user_paths():
     return {key: UsesPaths.fire / value for key, value in paths.items()}
 
 
+@pytest.fixture
+def user_paths_basins(user_paths):
+    user_paths["isbasin"] = UsesPaths.fire / UsesPaths.isbasin
+    user_paths["upslope_basins"] = UsesPaths.fire / UsesPaths.nbasins
+    return user_paths
+
+
 ###
 # Module utilities
 ###
@@ -201,7 +208,7 @@ class TestTemporary(UsesPaths):
         assert random.isalpha()
 
 
-class TestSetupDict(UsesPaths):
+class TestSetup(UsesPaths):
     required = dem._inputs + dem._intermediate + dem._final
 
     def set_type(self, type, paths):
@@ -229,19 +236,19 @@ class TestSetupDict(UsesPaths):
     def test_required_missing(_, missing, user_paths):
         user_paths.pop(missing)
         with pytest.raises(KeyError):
-            dem._setup_dict(user_paths)
+            dem._setup(user_paths)
 
     @pytest.mark.parametrize("missing", ("dem", "relief"))
     def test_required_none(_, missing, user_paths):
         user_paths[missing] = None
         with pytest.raises(TypeError) as error:
-            dem._setup_dict(user_paths)
+            dem._setup(user_paths)
         assert "expected str, bytes or os.PathLike" in str(error.value)
 
     @pytest.mark.parametrize("path_type", ("string", "path"))
     def test_no_tmp(self, user_paths, path_type):
         paths = self.set_type(path_type, user_paths)
-        (output, temporary) = dem._setup_dict(paths)
+        (output, temporary, _) = dem._setup(paths)
         self.validate(output, temporary, paths, [])
 
     @pytest.mark.parametrize(
@@ -252,7 +259,7 @@ class TestSetupDict(UsesPaths):
         paths = self.set_type(path_type, user_paths)
         for file in tmp:
             paths.pop(file)
-        (output, temporary) = dem._setup_dict(paths)
+        (output, temporary, _) = dem._setup(paths)
         self.validate(output, temporary, paths, tmp)
 
     @pytest.mark.parametrize(
@@ -263,8 +270,62 @@ class TestSetupDict(UsesPaths):
         paths = self.set_type(path_type, user_paths)
         for file in tmp:
             paths[file] = None
-        (output, temporary) = dem._setup_dict(paths)
+        (output, temporary, _) = dem._setup(paths)
         self.validate(output, temporary, paths, tmp)
+
+    def test_no_basins(self, user_paths):
+        (output, temporary, hasbasins) = dem._setup(user_paths)
+        self.validate(output, temporary, user_paths, tmp=[])
+        assert not hasbasins
+        for file in dem._basins:
+            assert file not in output
+
+    def test_missing_inbasins(self, user_paths):
+        user_paths[dem._basins[1]] = str(self.nbasins)
+        (output, temporary, hasbasins) = dem._setup(user_paths)
+        self.validate(output, temporary, user_paths, tmp=[])
+        assert not hasbasins
+        assert dem._basins[0] not in output
+        assert dem._basins[1] in output
+        assert not isinstance(dem._basins[1], Path)
+
+    def test_none_inbasins(self, user_paths):
+        [isbasin, nbasins] = dem._basins
+        user_paths[isbasin] = None
+        user_paths[nbasins] = str(self.nbasins)
+        (output, temporary, hasbasins) = dem._setup(user_paths)
+        self.validate(output, temporary, user_paths, tmp=[])
+        assert not hasbasins
+        assert isbasin in output
+        assert output[isbasin] is None
+        assert nbasins in output
+        assert output[nbasins] == str(self.nbasins)
+
+    def test_missing_outbasins(self, user_paths_basins):
+        user_paths_basins.pop(dem._basins[1])
+        with pytest.raises(KeyError):
+            dem._setup(user_paths_basins)
+
+    def test_none_outbasins(self, user_paths_basins):
+        user_paths_basins[dem._basins[1]] = None
+        with pytest.raises(TypeError):
+            dem._setup(user_paths_basins)
+
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_with_basins(self, user_paths_basins, path_type):
+        isbasin, nbasins = dem._basins
+        paths = user_paths_basins
+        paths[isbasin], paths[nbasins] = set_path_type(
+            path_type, paths[isbasin], paths[nbasins]
+        )
+        (output, temporary, hasbasins) = dem._setup(paths)
+
+        self.validate(output, temporary, paths, tmp=[])
+        assert hasbasins
+        assert isbasin in output
+        assert nbasins in output
+        assert output[isbasin] == user_paths_basins[isbasin]
+        assert output[nbasins] == user_paths_basins[nbasins]
 
 
 class TestOutputDict(UsesPaths):

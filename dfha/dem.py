@@ -903,7 +903,7 @@ def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
     for file in core_files:
         if file in _inputs:
             paths[file] = _input_path(paths[file])
-        elif file in _final or (file in outputs and paths[file] is not None):
+        elif file in _final or (file in paths and paths[file] is not None):
             paths[file] = _output_path(paths[file])
         else:
             paths[file] = _temporary(file, folder)
