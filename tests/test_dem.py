@@ -329,9 +329,9 @@ class TestSetup(UsesPaths):
 
 
 class TestOutputDict(UsesPaths):
-    def run(self, option, required, paths):
+    def run(self, option, required, paths, hasbasins):
         temporary = ["slopes_dinf"]
-        output = dem._output_dict(paths, option, temporary)
+        output = dem._output_dict(paths, option, temporary, hasbasins)
         assert isinstance(output, dict)
 
         keys = output.keys()
@@ -344,17 +344,34 @@ class TestOutputDict(UsesPaths):
             else:
                 assert output[key] == paths[key]
 
-    def test_default(self, user_paths):
+    def test_default_nobasin(self, user_paths):
         required = dem._final
-        self.run("default", required, user_paths)
+        print(required)
+        self.run("default", required, user_paths, False)
 
-    def test_saved(self, user_paths):
+    def test_default_basin(self, user_paths_basins):
+        required = dem._final + [dem._basins[1]]
+        self.run("default", required, user_paths_basins, True)
+
+    def test_saved_nobasin(self, user_paths):
         required = dem._final + ["pitfilled", "flow_directions_dinf"]
-        self.run("saved", required, user_paths)
+        print(required)
+        self.run("saved", required, user_paths, False)
 
-    def test_all(self, user_paths):
+    def test_saved_basin(self, user_paths_basins):
+        required = dem._final + ["pitfilled", "flow_directions_dinf"] + [dem._basins[1]]
+        print(required)
+        self.run("saved", required, user_paths_basins, True)
+
+    def test_all_nobasin(self, user_paths):
         required = dem._final + dem._intermediate
-        self.run("all", required, user_paths)
+        print(required)
+        self.run("all", required, user_paths, False)
+
+    def test_all_basin(self, user_paths_basins):
+        required = dem._final + dem._intermediate + [dem._basins[1]]
+        print(required)
+        self.run("all", required, user_paths_basins, True)
 
 
 ###

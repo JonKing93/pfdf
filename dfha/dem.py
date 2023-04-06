@@ -793,14 +793,14 @@ def _output_dict(
 
     # Determine the paths to include in the output
     if option == "default":
-        include = _final
+        include = _final.copy()
     else:
         outputs = _intermediate + _final
         include = [file for file in outputs if file not in temporary]
 
     # Optionally include the debris-basin output
     if hasbasins:
-        include += _basins[1]
+        include += [_basins[1]]
 
     # Add all paths to the dict. Optionally include temporary outputs as None
     output = {file: paths[file] for file in include}
