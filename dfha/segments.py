@@ -1,23 +1,104 @@
 """
-segments  Computes values for stream segments
+segments  Filter stream segments to model-worthy basins
 ----------
 The segments module is used to compute values for each stream segment in a
 network. These computed values can then be used to filter the stream network to
 a final set of model-worthy segments. Filtering values include
+    
     * Slope
     * Confinement Angle
     * Total upslope area
+    * Total developed upslope area
+    * Number of upslope debris-retention basins
+
+Operational users will likely be most interested in the "filter" function, which
+implements a number of filters for standard hazard assessment and returns a final
+set of stream segments.
+
+Other users may be interested in build custom filtering routines. The workflow
+for this is as follows: First, run the "locate" command on a stream link raster.
+This command returns a dict that defines a set of stream segments - the dict maps
+stream segment IDs to the locations of the segment's pixels in the DEM. You can
+then use the "slope", "area", "confinement", "basins", and/or "development" 
+functions to return the values associated with the stream segments. For example,
+the "slope" command returns the mean slope for each segment in the dict. Users can
+then use these values to implement custom filtering routines. See also the "remove"
+command to remove segments from the set.
+
+Advanced users may want to implement filters beyond the 5 filters explicitly
+provided by this module. The "summarize" function provides support for this for
+basic calculations. Given an input raster of data values, the function returns 
+a summary statistic for each segment in the dict. The summary statistic for each
+segment is computed using the raster values for the segment's pixels. Options 
+include the min, max, mean, median, and standard deviation of the pixel values.
+
+
+
+Summary statistics are calculated
+from the 
+
+
+
+
+
+    * min
+
+
+We provide limited support for other using the
+"summarize" function. This function takes an input raster and returns a summary
+
+
+
+
+    * Next, use this dict to run the "slope", "area", "confinement", "basins",
+      and "development commands
+
+Other users may be interested in designing custom filters. This can be implemented
+using the "slope", "confinement", "area", "development", and "basins" functions.
+These functions return the values associated with a set of stream segments. Users
+can then use these values to implement custom filtering routines. Before using
+these functions, you should first use the "locate" function to locate the stream
+segments within the DEM. This command returns a dict that defines a set of stream
+segments. The dict maps stream segment IDs to pixel locations in the DEM, and is
+used as input to the aforementioned functions.
+
+
+
+
+
+
+The output of this command is a used as input to the
+aforementioned functions. Users may also be interested in the "remove" command,
+which can be used to remove 
+
+
+
+
+for a set of stream segments. Users can then use 
+the returned values to implement custom filtering routines. Before using these
+
+
+Note that most users
+will want to use the "locate
+
+Other users may be interested in the "slope", "confinement", "area", "development",
+
+    * Location below debris-retention basins
     * Whether a segment is below a debris-retention basin, and
     * Whether a segment is below a developed area
 
 Note that these values are summarized
 ----------
-User functions:
-    filter      - Filters a stream network for a standard hazard assessment
-    locate      - Locates individual segments within a stream link raster
+Operational Users:
+    filter      - Filters a stream network to model-worthy segments
+
+User Functions:
+    locate      - Locates stream segments within a stream link raster
     slope       - Returns the mean slope (rise/run) of stream segments
     confinement - Returns the mean confinement angle of stream segments
-    area        - Returns 
+    area        - Returns the total upslope area of stream segments
+    development - Returns the total upslope developed area of stream segments
+    basins      - Returns the number of upslope debris basins for stream segments
 
 
 """
@@ -28,6 +109,77 @@ from math import sqrt
 
 # Type aliases
 segments = Dict[int, np.ndarray]
+
+
+
+class Segments:
+
+    @property
+    def raster_shape(self):
+        return self._raster_shape
+    
+    @property
+    def indices(self):
+        return self._indices
+
+    def __init__(self, stream_raster: np.ndarray) -> None:
+
+        # Get the indices of stream segment pixels. Organize as column vectors
+        (rows, cols) = np.nonzero(stream_raster)
+        rows = rows.reshape(-1, 1)
+        cols = cols.reshape(-1, 1)
+
+        # Reduce the stream link raster to just the segment pixels. Get the segment IDs
+        pixels = stream_raster[rows, cols].reshape(-1)
+        ids = np.unique(pixels)
+
+        # Store a dict mapping segment IDs to the indices of their pixels
+        segments = {id: None for id in ids}
+        for id in ids:
+            segment = np.nonzero(segments == id)
+            indices = (rows[segment], cols[segment])
+            segments[id] = np.hstack(indices)
+
+        # Record the segment map and the indices dict
+        self._raster_shape = stream_raster.shape
+        self._indices = segments
+
+
+    def ids(self):
+        return self._indices.keys()
+    
+    def remove(self, ids):
+        for id in ids:
+            self._indices.pop(id)
+        return self
+
+
+
+
+
+
+
+
+
+    
+    def remove(self, ids):
+
+        
+
+
+        
+        segments = stream_raster[rows, cols].reshape(-1)
+        ids = np.unique(segments)
+
+        # Return a dict mapping segment IDs to the indices of the pixels associated
+        # with each segment
+        network = {id: None for id in ids}
+        for id in network.keys():
+            segment = np.nonzero(segments == id)
+            pixels = (rows[segment], cols[segment])
+            output[id] = np.hstack(pixels)
+        return output
+
 
 
 def filter(
