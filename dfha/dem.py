@@ -12,10 +12,10 @@ https://hydrology.usu.edu/taudem/taudem5/documentation.html
 We recommend most users begin with the "analyze" function, which implements all
 the DEM analyses required for a basic hazard assessment. Users may also be
 interested in the "pitfill", "flow_directions", "upslope_area", "upslope_burn",
-"upslope_basins", and "relief" functions, which implement individual pieces of
-this overall analysis. (Note that upslope_basins and upslope_burn are specialized
-versions of upslope_area. In general, you can use upslope_area to implement both
-weighted and unweighted upslope area routines).
+"upslope_development", "upslope_basins", and "relief" functions, which implement
+the individual pieces of this overall analysis. (Note that all the "upslope" 
+functions are dervied from the upslope_area function. If needed, you can use
+upslope_area to implement generalized upslope area / flow routing routines).
 
 In general, the functions in this module require various input rasters and
 compute rasters as outputs. The module follows the raster file format
@@ -47,7 +47,8 @@ User functions:
     pitfill             - Fills pits in a DEM
     flow_directions     - Computes D8 and D-Infinity flow directions and slopes
     upslope_area        - Computes upslope (contributing) area
-    upslope_burn        - Computes total upslope burned area
+    upslope_burn        - Computes total burned upslope area
+    upslope_development - Computes total developed upslope area
     upslope_basins      - Computes the number of upslope debris-retention basins
     relief              - Computes the vertical component of the longest flow path
 
@@ -77,9 +78,9 @@ verbose_by_default: bool = False  # Whether to print TauDEM messages to console
 _tmp_string_length = 10  # The length of the random string for temporary files
 
 # Types of files in a DEM analysis
-_inputs = ["dem", "isburned"]
+_inputs = ["dem", "isburned", "isdeveloped"]
 _intermediate = ["pitfilled", "flow_directions_dinf", "slopes_dinf"]
-_final = ["flow_directions", "total_area", "burned_area", "relief"]
+_final = ["flow_directions", "total_area", "burned_area", "developed_area", "relief"]
 _basins = ["isbasin", "upslope_basins"]
 
 # Type aliases
@@ -103,17 +104,17 @@ def analyze(
     Conducts all DEM analyses required for a standard hazard assessment. Uses
     various routines from the TauDEM package. Begins by pitfilling a DEM and
     then computes flow directions and slopes. Uses the results of these initial
-    analyses to compute total upslope area, total burned upslope area, and the
-    vertical relief of the longest flow path. Optionally computes debris-basin
-    flow routing. Returns a dict with the absolute Paths to the computed output
-    files.
+    analyses to compute total upslope area, burned upslope area, developed
+    upslope area, and the vertical relief of the longest flow path. Optionally
+    computes debris-basin flow routing. Returns a dict with the absolute Paths
+    to the computed output files.
 
     The "paths" input is a dict mapping analysis files to their paths. Each file
     path may be either a pathlib.Path object or a string. The "paths" dict has
     both mandatory and optional keys (summarized below). Mandatory keys are for
-    files essential to the analysis. These include 'dem', 'isburned',
-    'flow_directions', 'total_area', 'burned_area', and 'relief'. (See below for
-    descriptions of these keys).
+    files essential to the analysis. These include 'dem', 'isburned', 'isdeveloped'
+    'flow_directions', 'total_area', 'burned_area', 'developed_area', and 'relief'.
+    (See below for descriptions of these keys).
 
     If "paths" only contains the mandatory keys, then the analysis will not
     compute debris-basin flow routing. You can enable flow routing by
@@ -132,20 +133,21 @@ def analyze(
 
     By default, the function will return a dict with the absolute Paths for the
     computed output rasters. This will always include the D8 flow directions,
-    total upslope area, total burned upslope area, vertical relief, and (if debris
-    basin flow routing is enabled) the computed number of upslope debris basins.
-    The keys for these outputs will match the corresponding keys in the "paths" input.
+    total upslope area, burned upslope area, developed upslope area, vertical
+    relief, and (if debris basin flow routing is enabled) the computed number of
+    upslope debris basins. The keys for these outputs will match the corresponding
+    keys in the "paths" input.
 
     analyze(..., *, outputs= "default" | "saved" | "all")
     Indicates the Paths that should be included in the output dict.
     If outputs="default", the dict includes the Paths of the D8 flow directions,
-    total upslope area, total burned upslope area, vertical relief, and (if flow
-    routing was enabled) the number of upslope debris basins. If outputs="saved",
-    includes the keys for all saved output files. These include the default keys,
-    as well as any saved intermediate output files. If outputs="all", includes
-    keys for all possible output files produced by this function. This includes
-    the default outputs, intermediate outputs, and the optional debris-basin output.
-    If a file was not saved during the analysis, then the value of its key
+    total upslope area, burned upslope area, developed upslope area, vertical relief,
+    and (if flow routing was enabled) the number of upslope debris basins. If
+    outputs="saved", includes the keys for all saved output files. These include
+    the default keys, as well as any saved intermediate output files. If outputs="all",
+    includes keys for all possible output files produced by this function. This
+    includes the default outputs, intermediate outputs, and the optional debris-basin
+    output. If a file was not saved during the analysis, then the value of its key
     will be None.
 
     analyze(..., *, verbose)
@@ -157,12 +159,19 @@ def analyze(
         paths: A dict mapping analysis files to their paths. Keys are strings
             and values may be strings or pathlib.Path objects. Must include the keys:
 
+            (Input Rasters)
             * dem: The path to the DEM being analyzed
             * isburned: The path to the raster indicating which DEM pixels are burned.
                 Burned pixels should have a value of 1. All other pixels should be 0.
+            * isdeveloped: The path to the raster indicating which DEM pixels
+                are developed. Developed pixels should have a value of 1. All
+                other pixels should be 0.
+
+            (Output Rasters)
             * flow_directions: The path for output D8 flow directions
             * total_area: The path for output total upslope area
             * burned_area: The path for output total burned upslope area
+            * developed_area: The path for output developed upslope area
             * relief: The path for output vertical relief (of the longest flow path)
 
             The dict may optionally include the following two keys, which will
@@ -197,12 +206,13 @@ def analyze(
             * flow_directions: The path to the D8 flow directions
             * total_area: The path to the total upslope area
             * burned_area: The path to the total burned upslope area
+            * developed_area: The path to the total developed upslope area
             * relief: The path to the vertical relief of the longest flow path
 
             Will always include the following key if debris-basin flow routing
             was enabled:
 
-            * upslope_basins
+            * upslope_basins: The path to the number of upslope debris basins
 
             May optionally include the following keys if outputs="saved".
             Will always include these keys if outputs="all". If using "all",
@@ -234,12 +244,19 @@ def analyze(
             verbose,
         )
 
-        # Compute upslope area, burned upslope area, and optionally debris-basin
-        # flow routing
+        # Compute upslope area, burned upslope area, developed upslope area
         area_d8(paths["flow_directions"], None, paths["total_area"], verbose)
         area_d8(
             paths["flow_directions"], paths["isburned"], paths["burned_area"], verbose
         )
+        area_d8(
+            paths["flow_directions"],
+            paths["isdeveloped"],
+            paths["developed_area"],
+            verbose,
+        )
+
+        # Optionally compute debris-basin flow routing
         if hasbasins:
             area_d8(
                 paths["flow_directions"],
@@ -733,6 +750,51 @@ def upslope_burn(
         flow_directions_path,
         burned_area_path,
         weights_path=isburned_path,
+        verbose=verbose,
+    )
+
+
+def upslope_development(
+    flow_directions_path: Pathlike,
+    isdeveloped_path: Pathlike,
+    upslope_development_path: Pathlike,
+    *,
+    verbose: Optional[bool] = None,
+) -> Path:
+    """
+    upslope_development  Computes total upslope development
+    ----------
+    upslope_development(flow_directions_path, isdeveloped_path, upslope_development_path)
+    Computes the number of developed pixels upslope of each DEM pixel. Returns
+    the absolute Path to the output upslope_development raster.
+
+    upslope_development(..., *, verbose)
+    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+    the console. If verbose=False, suppresses the messages. If unspecified, uses
+    the default verbosity setting for the module (initially set as False).
+    ----------
+    Inputs:
+        flow_directions_path: The path to the input D8 flow directions.
+        isdeveloped_path: The path to the input raster indicating the DEM pixels
+            that are developed. Pixels with development should have a value of 1.
+            All other pixels should be 0.
+        upslope_development_path: The path to the output raster holding the number
+            of upslope developed pixels.
+        verbose: Set to True to print TauDEM messages to the console. False to
+            suppress these messages. If unset, uses the default verbosity for
+            the module (initially set as False).
+
+    Outputs:
+        pathlib.Path: The absolute Path to the output raster of total upslope
+            developed pixels.
+
+    Saves:
+        A file matching the "upslope_development" path
+    """
+    return upslope_area(
+        flow_directions_path,
+        upslope_development_path,
+        weights_path=isdeveloped_path,
         verbose=verbose,
     )
 
