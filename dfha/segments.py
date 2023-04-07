@@ -23,12 +23,59 @@ User functions:
 """
 
 import numpy as np
-from typing import Dict, Literal
+from typing import Dict, List
 from math import sqrt
 
 # Type aliases
 segments = Dict[int, np.ndarray]
 
+
+def filter(
+        stream_raster: np.ndarray,
+        *,
+        slopes: np.ndarray,
+        minimum_slope: float,
+        upslope_area: np.ndarray,
+        maximum_area: float,
+        upslope_development: np.ndarray,
+        maximum_development: float,
+        dem: np.ndarray,
+        flow_directions: np.ndarray,
+        N: int,
+        resolution: float,
+        maximum_confinement: float,
+        upslope_basins: Optional[np.ndarray] = None,
+        maximum_basins: Optional[int] = None,
+) -> List[int]:
+    
+    # Get the segments
+    segments = locate(stream_raster)
+
+    # Remove segments below developed areas
+    if _any_args(upslope_development, maximum_development):
+        upslope_development = development(segments, upslope_development)
+        segments = _remove(segments, upslope_development, '>', maximum_development)
+
+    # Remove watch streams (area too large)
+    if _any_args(upslope_area, maximum_area):
+        upslope_area = area(segments, upslope_area)
+        segments = _remove(segments, upslope_area, '>' maximum_area)
+
+    # Remove segments below debris basins
+    if _any_args(upslope_basins, maximum_basins):
+        upslope_basins = basins(segments, upslope_basins)
+        segments = _remove(segments, upslope_basins, '>', maximum_basins)
+
+    # Remove low angle slopes (not steep enough)
+    if _any_args(slopes, minimum_slope):
+        slopes = slope(segments, slopes)
+        segments = _remove(segments, slopes, '<', minimum_slope)
+
+    # Remove high confinement
+    if _any_args(dem, flow_directions, N, resolution, maximum_confinement):
+        angles = confinement(segments, dem, flow_directions, N, resolution)
+        segments = _remove(segments, angles, '>', maximum_confinement)
+        
 
 def locate(stream_raster: np.ndarray) -> segments:
     """
@@ -146,6 +193,29 @@ def basins(segments: segments, upslope_basins: np.ndarray) -> np.ndarray:
     return _segment_summary(segments, upslope_basins, np.amax)
 
 
+def development(segments: segments, upslope_development: np.ndarray) -> np.ndarray:
+    """
+    development  Returns the mean upslope developed area for each stream segments
+    ----------
+    development(segments, upslope_development)
+    Computes the mean developed upslope area for each stream segment. Returns
+    these areas as a numpy 1D array. The order of slopes in the output array will
+    match the order of IDs in the input segments dict.
+    ----------
+    Inputs:
+        segments: A dict mapping stream segment IDs to the indices of the
+            associated DEM pixels.
+        upslope_development: A numpy 2D array holding the developed upslope area
+            fot the DEM pixels.
+
+    Outputs:
+        numpy 1D array: The mean developed upslope area of each stream segment.
+            The order of values matches the order of ID keys in the input
+            segments dict.
+    """
+    return _segment_summary(segments, upslope_development, np.amean)
+
+
 def _segment_summary(segments, raster, statistic):
 
     # Preallocate
@@ -226,15 +296,12 @@ def confinement(
         for p, [row, col] in enumerate(pixels):
             kernel.update(row, col)
 
-            # Get the flow direction and length
+            # Get flow direction and length. Use to compute orthogonal slopes
             flow = flow_directions[row, col]
-            if flow % 2 == 0:
-                length = diagonal_length
-            else:
-                length = lateral_length
+            length = _flow_length(flow, lateral_length, diagonal_length)
+            slopes[p, :] = _orthogonal_slopes(flow, dem, kernel, length)
 
-            # Calculate orthogonal slopes and mean confinement angle
-            slopes[p,:] = _orthogonal_slopes(flow, dem, kernel, length)
+        # Compute and return mean confinement angles
         theta[i] = _confinement_angle(slopes)
     return theta
 
@@ -246,12 +313,20 @@ def _confinement_angle(slopes):
 
 
 def _orthogonal_slopes(flow, dem, kernel, length):
-    slopes = np.empty((1,2))
-    slopes[0] = _max_height(flow-7, dem, kernel)
-    slopes[1] = _max_height(flow-3, dem, kernel)
+    slopes = np.empty((1, 2))
+    slopes[0] = _max_height(flow - 7, dem, kernel)
+    slopes[1] = _max_height(flow - 3, dem, kernel)
     slopes = slopes - dem[kernel.row, kernel.col]
     slopes = slopes / length
     return slopes
+
+
+def _flow_length(flow_direction, lateral_length, diagonal_length):
+    if flow_direction % 2 == 0:
+        length = diagonal_length
+    else:
+        length = lateral_length
+    return length
 
 
 class _Kernel:
@@ -431,6 +506,3 @@ def _max_height(flow_index, dem, kernel):
     direction = _Kernel.directions(flow_index)
     heights = dem[direction(kernel)]
     return np.amax(heights)
-
-
-
