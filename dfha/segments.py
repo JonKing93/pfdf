@@ -17,11 +17,12 @@ set of stream segments.
 
 Other users may be interested in build custom filtering routines. The workflow
 for this is as follows: First, run the "locate" command on a stream link raster.
-This command returns a dict that defines a set of stream segments - the dict maps
-stream segment IDs to the locations of the segment's pixels in the DEM. You can
-then use the "slope", "area", "confinement", "basins", and/or "development" 
-functions to return the values associated with the stream segments. For example,
-the "slope" command returns the mean slope for each segment in the dict. Users can
+This command returns a Segments object, which defines a set of stream segments
+for a DEM - the object's "indices" property maps segment IDs to the locations of
+the segment's pixels in the DEM. You can then use the "slope", "area", 
+"confinement", "basins", and/or "development" functions to return the values
+associated with the stream segments. For example, the "slope" command returns
+the mean slope for each segment in the dict. 
 then use these values to implement custom filtering routines. See also the "remove"
 command to remove segments from the set.
 
@@ -104,23 +105,29 @@ User Functions:
 """
 
 import numpy as np
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from math import sqrt
 
 # Type aliases
 segments = Dict[int, np.ndarray]
 
 
-
 class Segments:
+    @property
+    def raster_shape(self) -> Tuple[int, int]:
+        return self._raster_shape
 
     @property
-    def raster_shape(self):
-        return self._raster_shape
-    
-    @property
-    def indices(self):
+    def indices(self) -> Dict[str, np.ndarray]:
         return self._indices
+
+    def __len__(self) -> int:
+        return len(self._indices)
+
+    def __str__(self) -> str:
+        ids = self._indices.keys()
+        ids = [str(id) for id in ids]
+        return ", ".join(ids)
 
     def __init__(self, stream_raster: np.ndarray) -> None:
 
@@ -144,42 +151,54 @@ class Segments:
         self._raster_shape = stream_raster.shape
         self._indices = segments
 
-
     def ids(self):
         return self._indices.keys()
-    
+
     def remove(self, ids):
         for id in ids:
             self._indices.pop(id)
         return self
 
+    def basins(self, upslope_basins: np.ndarray) -> np.ndarray:
+        """
+        Segments.basins  Returns the maximum number of upslope basins for each stream segment
+        ----------
+        self.basins(upslope_basins)
+        Computes the maximum number of upslope debris retention basins for each
+        stream segment. Returns this count as a numpy 1D array. The order of slopes
+        in the output array will match the order of IDs in the Segments object.
+        ----------
+        Inputs:
+            segments: A dict mapping stream segment IDs to the indices of the
+                associated DEM pixels.
+            upslope_basins: A numpy 2D array holding the number of upslope debris basins
+                for the DEM pixels.
 
+        Outputs:
+            numpy 1D array: The maximum number of upslope debris basins for each
+                stream segment. The order of values matches the order of ID keys in
+                the input segments dict.
+        """
+        self.validate_raster(upslope_basins, "upslope_basins")
+        return self._summary(upslope_basins, np.amax)
 
+    def validate_raster(self, raster: np.ndarray, name: Optional[str] = None) -> None:
 
+        # Default name
+        if name is None:
+            name = "input raster"
 
-
-
-
-
-    
-    def remove(self, ids):
-
-        
-
-
-        
-        segments = stream_raster[rows, cols].reshape(-1)
-        ids = np.unique(segments)
-
-        # Return a dict mapping segment IDs to the indices of the pixels associated
-        # with each segment
-        network = {id: None for id in ids}
-        for id in network.keys():
-            segment = np.nonzero(segments == id)
-            pixels = (rows[segment], cols[segment])
-            output[id] = np.hstack(pixels)
-        return output
-
+        # Require 2D numpy array matching the stream raster shape
+        if not isinstance(raster, np.ndarray):
+            raise TypeError(f"{name} must be a numpy.ndarray")
+        elif raster.ndim != 2:
+            raise ValueError(f"{name} must have 2 dimensions")
+        elif raster.shape != self._raster_shape:
+            raise ValueError(
+                f"The shape of the {name} raster {raster.shape} does "
+                f"not match the shape of the stream link raster used "
+                f"to define the stream segments {self._raster_shape}."
+            )
 
 
 def filter(
@@ -203,7 +222,7 @@ def filter(
     filter  Filters an initial stream network to a set of model-worthy stream segments
     ----------
     filter(stream_raster, *, ...)
-    Filters the stream segments in a network to a set of segments worthy of 
+    Filters the stream segments in a network to a set of segments worthy of
     hazard-assessment modeling. Searches a stream network raster for non-zero
     pixels. The unique set of non-zero pixels are taken as the IDs of the stream
     segments. Each segment is associated with the pixels matching its ID.
@@ -212,15 +231,15 @@ def filter(
     the stream segment network. Returns the IDs of the stream segments that
     passed all the filters. These are the IDs of stream segments appropriate for
     hazard assessment modeling.
-    
+
     Individual filters are described below. All filters are optional and require
     several inputs. If any of a filter's inputs are provided, then the filter
-    will attempt to run. However, the filter will raise an expection if any of 
+    will attempt to run. However, the filter will raise an expection if any of
     its inputs are missing.
 
     filter(..., *, minimum_slope, slopes, ...)
-    Removes stream segments whose mean slopes are below a minimum threshold. 
-    Slopes below the threshold should be too flat to support a debris flow. 
+    Removes stream segments whose mean slopes are below a minimum threshold.
+    Slopes below the threshold should be too flat to support a debris flow.
     Requires the slopes of the DEM pixels as input. Segment slopes are set as
     the mean slope from all associated pixels.
 
@@ -248,13 +267,13 @@ def filter(
 
     This filter also requires N, which specifies the number of pixels from the
     processing pixel to search when calculating confinement slopes (the slopes
-    in the directions perpendicular to flow). For example, for a pixel flowing 
-    east with N=4, the function will calculate confinement slopes using the 
+    in the directions perpendicular to flow). For example, for a pixel flowing
+    east with N=4, the function will calculate confinement slopes using the
     maximum DEM height from the 4 pixels north and the 4 pixels south.
 
     filter(..., *, maximum_basins, upslope_basins, ...)
     Removes stream segments whose number of upslope debris-retention basins
-    exceeds a maximum threshold. (This threshold is often set to 1). Segments 
+    exceeds a maximum threshold. (This threshold is often set to 1). Segments
     with an upslope debris basin should have debris flows contained by the
     basin. Requires the upslope basins of the DEM pixels as input. The upslope
     basins for a segment is set as the number of basins from the most downstream
@@ -437,29 +456,6 @@ def slope(segments: segments, slopes: np.ndarray) -> np.ndarray:
             of values matches the order of ID keys in the input segments dict.
     """
     return _segment_summary(segments, slopes, np.mean)
-
-
-def basins(segments: segments, upslope_basins: np.ndarray) -> np.ndarray:
-    """
-    basins  Returns the maximum number of upslope basins for each stream segment
-    ----------
-    basins(segments, upslope_basins)
-    Computes the maximum number of upslope debris retention basins for each
-    stream segment. Returns this count as a numpy 1D array. The order of slopes
-    in the output array will match the order of IDs in the input segments dict.
-    ----------
-    Inputs:
-        segments: A dict mapping stream segment IDs to the indices of the
-            associated DEM pixels.
-        upslope_basins: A numpy 2D array holding the number of upslope debris basins
-            for the DEM pixels.
-
-    Outputs:
-        numpy 1D array: The maximum number of upslope debris basins for each
-            stream segment. The order of values matches the order of ID keys in
-            the input segments dict.
-    """
-    return _segment_summary(segments, upslope_basins, np.amax)
 
 
 def development(segments: segments, upslope_development: np.ndarray) -> np.ndarray:
