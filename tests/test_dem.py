@@ -73,6 +73,7 @@ def set_path_type(type, *paths):
 class UsesPaths:
     dem = "dem.tif"
     isburned = "isburned.tif"
+    isdeveloped = "isdeveloped.tif"
     pitfilled = "pitfilled.tif"
     flow_d8 = "flow_d8.tif"
     slopes_d8 = "slopes_d8.tif"
@@ -80,6 +81,7 @@ class UsesPaths:
     slopes_dinf = "slopes_dinf.tif"
     total_area = "total_area.tif"
     burned_area = "burned_area.tif"
+    developed_area = "developed_area.tif"
     isbasin = "isbasin.tif"
     nbasins = "upslope_basins.tif"
     relief = "relief.tif"
@@ -92,12 +94,14 @@ def user_paths():
     paths = {
         "dem": UsesPaths.dem,
         "isburned": UsesPaths.isburned,
+        "isdeveloped": UsesPaths.isdeveloped,
         "pitfilled": UsesPaths.pitfilled,
         "flow_directions_dinf": UsesPaths.flow_dinf,
         "slopes_dinf": UsesPaths.slopes_dinf,
         "flow_directions": UsesPaths.flow_d8,
         "total_area": UsesPaths.total_area,
         "burned_area": UsesPaths.burned_area,
+        "developed_area": UsesPaths.developed_area,
         "relief": UsesPaths.relief,
         "extra_key": "some-file.tif",
         "another_key": "another-file.tif",
@@ -603,6 +607,25 @@ class TestUpslopeBurn(UserFunction):
     def test_missing(self):
         with pytest.raises(FileNotFoundError):
             dem.upslope_burn(self.missing, self.missing, self.missing)
+
+
+class TestUpslopeDevelopment(UserFunction):
+    @pytest.mark.parametrize("verbose", (True, False, None))
+    @pytest.mark.parametrize("path_type", ("string", "path"))
+    def test_standard(self, tempdir, path_type, verbose, capfd):
+        flow = self.fire / self.flow_d8
+        isdeveloped = self.fire / self.isdeveloped
+        area = tempdir / self.developed_area
+        expected = self.fire / self.developed_area
+        (flow, isdeveloped, area) = set_path_type(path_type, flow, isdeveloped, area)
+
+        output = dem.upslope_development(flow, isdeveloped, area, verbose=verbose)
+        check_verbosity(capfd, verbose)
+        self.check_output(output, area, expected)
+
+    def test_missing(self):
+        with pytest.raises(FileNotFoundError):
+            dem.upslope_development(self.missing, self.missing, self.missing)
 
 
 class TestRelief(UserFunction):
