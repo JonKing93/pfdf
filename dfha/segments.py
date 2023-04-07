@@ -23,7 +23,7 @@ User functions:
 """
 
 import numpy as np
-from typing import Dict, List
+from typing import Dict, List, Any, Optional
 from math import sqrt
 
 # Type aliases
@@ -31,51 +31,168 @@ segments = Dict[int, np.ndarray]
 
 
 def filter(
-        stream_raster: np.ndarray,
-        *,
-        slopes: np.ndarray,
-        minimum_slope: float,
-        upslope_area: np.ndarray,
-        maximum_area: float,
-        upslope_development: np.ndarray,
-        maximum_development: float,
-        dem: np.ndarray,
-        flow_directions: np.ndarray,
-        N: int,
-        resolution: float,
-        maximum_confinement: float,
-        upslope_basins: Optional[np.ndarray] = None,
-        maximum_basins: Optional[int] = None,
+    stream_raster: np.ndarray,
+    *,
+    slopes: Optional[np.ndarray] = None,
+    minimum_slope: Optional[float] = None,
+    upslope_area: Optional[np.ndarray] = None,
+    maximum_area: Optional[float] = None,
+    upslope_development: Optional[np.ndarray] = None,
+    maximum_development: Optional[float] = None,
+    dem: Optional[np.ndarray] = None,
+    flow_directions: Optional[np.ndarray] = None,
+    N: Optional[int] = None,
+    resolution: Optional[float] = None,
+    maximum_confinement: Optional[float] = None,
+    upslope_basins: Optional[np.ndarray] = None,
+    maximum_basins: Optional[int] = None,
 ) -> List[int]:
+    """
+    filter  Filters an initial stream network to a set of model-worthy stream segments
+    ----------
+    filter(stream_raster, *, ...)
+    Filters the stream segments in a network to a set of segments worthy of 
+    hazard-assessment modeling. Searches a stream network raster for non-zero
+    pixels. The unique set of non-zero pixels are taken as the IDs of the stream
+    segments. Each segment is associated with the pixels matching its ID.
+
+    Once the stream segments are located, applies various optional filters to
+    the stream segment network. Returns the IDs of the stream segments that
+    passed all the filters. These are the IDs of stream segments appropriate for
+    hazard assessment modeling.
     
-    # Get the segments
+    Individual filters are described below. All filters are optional and require
+    several inputs. If any of a filter's inputs are provided, then the filter
+    will attempt to run. However, the filter will raise an expection if any of 
+    its inputs are missing.
+
+    filter(..., *, minimum_slope, slopes, ...)
+    Removes stream segments whose mean slopes are below a minimum threshold. 
+    Slopes below the threshold should be too flat to support a debris flow. 
+    Requires the slopes of the DEM pixels as input. Segment slopes are set as
+    the mean slope from all associated pixels.
+
+    filter(..., *, maximum_area, upslope_area, ...)
+    Removes stream segments whose upslope area is above a maximum threshold.
+    Segments with an upslope area over the threshold should exhibit flood-like
+    behavior, and are often tagged as watchstreams. Requires the upslope areas
+    of the DEM pixels as input. Segment areas are set as the area from the most
+    downstream pixel.
+
+    filter(..., *, maximum_development, upslope_development, ...)
+    Removes stream segments whose upslope development is above a maximum threshold.
+    Segments with upslope development over the threshold should be too altered
+    by human development to support standard debris flow behavior. Requires the
+    upslope developed areas of the DEM pixels as input. Segment areas are set as
+    the upslope developed area from the most downstream pixel.
+
+    filter(..., *, maximum_confinement, dem, resolution, flow_directions, N, ...)
+    removes stream segments whose confinement angle is above a maximum threshold.
+    Segments with angles above the threshold should be too confined to support
+    the flow of debris. Segment confinement is set as the mean confinement of
+    all associated pixels. Requires the DEM, DEM resolution, and D8 flow
+    directions as input. D8 flow directions should follow the TauDEM convention,
+    wherein flow directions are numbered from 1 to 8, traveling clockwise from right.
+
+    This filter also requires N, which specifies the number of pixels from the
+    processing pixel to search when calculating confinement slopes (the slopes
+    in the directions perpendicular to flow). For example, for a pixel flowing 
+    east with N=4, the function will calculate confinement slopes using the 
+    maximum DEM height from the 4 pixels north and the 4 pixels south.
+
+    filter(..., *, maximum_basins, upslope_basins, ...)
+    Removes stream segments whose number of upslope debris-retention basins
+    exceeds a maximum threshold. (This threshold is often set to 1). Segments 
+    with an upslope debris basin should have debris flows contained by the
+    basin. Requires the upslope basins of the DEM pixels as input. The upslope
+    basins for a segment is set as the number of basins from the most downstream
+    pixel.
+    ----------
+    Inputs:
+        stream_raster (2D int numpy.ndarray): A numpy.ndarray representing the
+            pixels of a stream link raster. Should be a 2D int array. Stream
+            segment pixels should have a value matching the ID of the associated
+            stream segment. All other pixels should be 0.
+        minimum_slope: A minimum slope. Segments with slopes below this threshold
+            will be removed.
+        slopes: A numpy 2D array holding the slopes of the DEM pixels
+        maximum_area: A maximum upslope area. Segments with upslope areas above
+            this threshold will be removed.
+        upslope_area: A numpy 2D array holding the total upslope area (also known
+            as contributing area or flow accumulation) for the DEM pixels.
+        maximum_developement: A maximum amount of upslope development. Segments
+            with upslope development above this threshold will be removed.
+        upslope_development: A numpy 2D array holding the developed upslope area
+            fot the DEM pixels.
+        maximum_basins: A maximum number of upslope debris basins. Segments with
+            a number of debris basins exceeding this threshold will be removed.
+        upslope_basins: A numpy 2D array holding the number of upslope debris basins
+            for the DEM pixels.
+        maximum_confinement: A maximum confinement angle. Segments with a mean
+            confinement angle above this threshold will be removed.
+        dem: A numpy 2D array holding the DEM data
+        resolution: The resolution of the DEM
+        flow_directions: A numpy 2D array holding the flow directions for the
+            DEM pixels
+        N: The number of raster pixels to search for maximum heights when
+            calculating confinement slopes perpendicular to flow.
+
+    Outputs:
+        List[int]: The IDs of the stream segments that passed all applied
+            filters. These is often the set of stream segments worthy of hazard
+            assessment modeling.
+    """
+
+    # Find the segments
     segments = locate(stream_raster)
 
-    # Remove segments below developed areas
-    if _any_args(upslope_development, maximum_development):
-        upslope_development = development(segments, upslope_development)
-        segments = _remove(segments, upslope_development, '>', maximum_development)
+    # Filter
+    segments = _filter(
+        segments, development, ">", maximum_development, upslope_development
+    )
+    segments = _filter(segments, area, ">", maximum_area, upslope_area)
+    segments = _filter(segments, basins, ">", maximum_basins, upslope_basins)
+    segments = _filter(segments, slope, "<", minimum_slope, slopes)
+    segments = _filter(
+        segments,
+        confinement,
+        ">",
+        maximum_confinement,
+        dem,
+        flow_directions,
+        N,
+        resolution,
+    )
 
-    # Remove watch streams (area too large)
-    if _any_args(upslope_area, maximum_area):
-        upslope_area = area(segments, upslope_area)
-        segments = _remove(segments, upslope_area, '>' maximum_area)
+    # Return the IDs of model-worthy segments
+    return segments.keys()
 
-    # Remove segments below debris basins
-    if _any_args(upslope_basins, maximum_basins):
-        upslope_basins = basins(segments, upslope_basins)
-        segments = _remove(segments, upslope_basins, '>', maximum_basins)
 
-    # Remove low angle slopes (not steep enough)
-    if _any_args(slopes, minimum_slope):
-        slopes = slope(segments, slopes)
-        segments = _remove(segments, slopes, '<', minimum_slope)
+def _filter(segments, function, type, threshold, *args):
 
-    # Remove high confinement
-    if _any_args(dem, flow_directions, N, resolution, maximum_confinement):
-        angles = confinement(segments, dem, flow_directions, N, resolution)
-        segments = _remove(segments, angles, '>', maximum_confinement)
-        
+    # Only run if at least one of the filter's arguments were given
+    if _any_args(threshold, *args):
+
+        # Get segment values and find invalid segments
+        values = function(segments, *args)
+        if type == ">":
+            remove = values > threshold
+        elif type == "<":
+            remove = values < threshold
+
+        # Remove invalid segments from future filtering
+        ids = segments.keys()
+        for id in ids[remove]:
+            segments.pop(id)
+    return segments
+
+
+def _any_args(*args: Any) -> bool:
+    for arg in args:
+        if arg is not None:
+            return True
+    return False
+
 
 def locate(stream_raster: np.ndarray) -> segments:
     """
@@ -127,11 +244,11 @@ def locate(stream_raster: np.ndarray) -> segments:
     return output
 
 
-def area(segments: segments, upslope_areas: np.ndarray) -> np.ndarray:
+def area(segments: segments, upslope_area: np.ndarray) -> np.ndarray:
     """
     area  Returns the maximum upslope area for each stream segment
     ----------
-    area(segments, upslope_areas)
+    area(segments, upslope_area)
     Computes the maximum upslope area for each stream segment. Returns the areas
     as a numpy 1D array. Te order of slopes in the output array will match the
     order of keys in the input segments dict.
@@ -139,14 +256,14 @@ def area(segments: segments, upslope_areas: np.ndarray) -> np.ndarray:
     Inputs:
         segments: A dict mapping stream segment IDs to the indices of the
             associated DEM pixels.
-        upslope_areas: A numpy 2D array holding the total upslope area (also known
+        upslope_area: A numpy 2D array holding the total upslope area (also known
             as contributing area or flow accumulation) for the DEM pixels.
 
     Outputs:
         numpy 1D array: The maximum upslope area of each stream segment. The
             order of values matches the order of ID keys in the input segments dict.
     """
-    return _segment_summary(segments, upslope_areas, np.amax)
+    return _segment_summary(segments, upslope_area, np.amax)
 
 
 def slope(segments: segments, slopes: np.ndarray) -> np.ndarray:
