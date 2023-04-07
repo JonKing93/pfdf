@@ -23,13 +23,11 @@ User functions:
 """
 
 import numpy as np
-from dfha.utils import read_raster, Pathlike
 from typing import Dict, Literal
 from math import sqrt
 
 # Type aliases
 segments = Dict[int, np.ndarray]
-statistic = Literal["mean", "min", "max"]
 
 
 def locate(stream_raster: np.ndarray) -> segments:
@@ -38,7 +36,7 @@ def locate(stream_raster: np.ndarray) -> segments:
     ----------
     locate(stream_raster)
     Returns a dict that maps stream segment IDs to their associated pixels. The
-    input "segments" should be a numpy 2D int array representing the pixels of a 
+    input "segments" should be a numpy 2D int array representing the pixels of a
     stream link raster. The values of stream segment pixels should be the ID of the
     associated stream segment. All other pixels should be 0. (Essentially, each
     group of non-zero pixels with the same value constitutes one stream segment).
@@ -82,6 +80,28 @@ def locate(stream_raster: np.ndarray) -> segments:
     return output
 
 
+def area(segments: segments, upslope_areas: np.ndarray) -> np.ndarray:
+    """
+    area  Returns the maximum upslope area for each stream segment
+    ----------
+    area(segments, upslope_areas)
+    Computes the maximum upslope area for each stream segment. Returns the areas
+    as a numpy 1D array. Te order of slopes in the output array will match the
+    order of keys in the input segments dict.
+    ----------
+    Inputs:
+        segments: A dict mapping stream segment IDs to the indices of the
+            associated DEM pixels.
+        upslope_areas: A numpy 2D array holding the total upslope area (also known
+            as contributing area or flow accumulation) for the DEM pixels.
+
+    Outputs:
+        numpy 1D array: The maximum upslope area of each stream segment. The
+            order of values matches the order of ID keys in the input segments dict.
+    """
+    return _segment_summary(segments, upslope_areas, np.amax)
+
+
 def slope(segments: segments, slopes: np.ndarray) -> np.ndarray:
     """
     slope  Returns the mean slope (rise/run) for each stream segment
@@ -100,16 +120,7 @@ def slope(segments: segments, slopes: np.ndarray) -> np.ndarray:
         numpy 1D array: The mean slope (rise/run) of each stream segment. The order
             of values matches the order of ID keys in the input segments dict.
     """
-
-    # Preallocate slopes
-    ids = segments.keys()
-    mean_slopes = np.empty(len(ids))
-
-    # Get the mean slope of each segment
-    for i, id in enumerate(ids):
-        pixels = segments[id]
-        mean_slopes[i] = np.mean(slopes[pixels])
-    return mean_slopes
+    return _segment_summary(segments, slopes, np.mean)
 
 
 def basins(segments: segments, upslope_basins: np.ndarray) -> np.ndarray:
@@ -117,7 +128,7 @@ def basins(segments: segments, upslope_basins: np.ndarray) -> np.ndarray:
     basins  Returns the maximum number of upslope basins for each stream segment
     ----------
     basins(segments, upslope_basins)
-    Computes the maximum number of upslope debris retention basins for each 
+    Computes the maximum number of upslope debris retention basins for each
     stream segment. Returns this count as a numpy 1D array. The order of slopes
     in the output array will match the order of IDs in the input segments dict.
     ----------
@@ -132,24 +143,115 @@ def basins(segments: segments, upslope_basins: np.ndarray) -> np.ndarray:
             stream segment. The order of values matches the order of ID keys in
             the input segments dict.
     """
+    return _segment_summary(segments, upslope_basins, np.amax)
+
+
+def _segment_summary(segments, raster, statistic):
 
     # Preallocate
     ids = segments.keys()
-    max_basins = np.empty(len(ids))
+    summary = np.empty(len(ids))
 
-    # Get the maximum number of basins for each segment
+    # Get summary statistic for each segment
     for i, id in enumerate(ids):
         pixels = segments[id]
-        max_basins[i] = np.amax(upslope_basins[pixels]) 
-    
+        summary[i] = statistic(raster[pixels])
+    return summary
 
 
+def confinement(
+    segments: segments,
+    dem: np.ndarray,
+    flow_directions: np.ndarray,
+    N: int,
+    resolution: float,
+):
+    """
+    confinement  Returns the mean confinement angle of each stream segment
+    ----------
+    confinement(segments, dem, flow_directions, N, resolution)
+    Computes the mean confinement angle for each stream segment. Returns these
+    angles as a numpt 1D array. The order of angles matches the order of ID keys
+    in the input segments dict.
+
+    The confinement angle for a given pixel is calculated using the slopes in the
+    two directions perpendicular to stream flow. A given slope is calculated using
+    the maximum DEM height within N pixels of the processing pixel in the
+    associated direction. For example, consider a pixel flowing east with N=4.
+    Confinement angles are calculated using slopes to the north and south. The
+    north slope is determined using the maximum DEM height in the 4 pixels north
+    of the stream segment pixel via:
+
+        slope = max height / (N * DEM resolution * scale)
+
+    where scale = 1 or sqrt(2) for lateral/diagonal flow across raster cells.
+    The south slope is computed similarly. Next, confinement angles are
+    calculated using:
+
+        theta = 180 - tan^-1(slope1) - tan^-1(slope2)
+
+    and the mean confinement angle is taken over the pixels in each stream segment.
+    ----------
+    Inputs:
+        segments: A dict mapping stream segment IDs to the indices of the
+            associated DEM pixels.
+        dem: A numpy 2D array holding the DEM data
+        flow_directions: A numpy 2D array holding the flow directions for the
+            DEM pixels
+        N: The number of raster pixels to search for maximum heights
+        resolution: The resolution of the DEM
+
+    Outputs:
+        numpy 1D array: The mean confinement angle for each stream segment. The
+            order of values matches the order of keys in the input segments dict.
+    """
+
+    # Preallocate
+    ids = segments.keys()
+    theta = np.empty(len(ids))
+
+    # Initialize kernel and get flow lengths
+    (nRows, nCols) = dem.shape
+    kernel = _Kernel(N, nRows, nCols)
+    lateral_length = resolution * N
+    diagonal_length = lateral_length * sqrt(2)
+
+    # Get pixels for each stream segment. Preallocate orthogonal slopes
+    for i, id in enumerate(ids):
+        pixels = segments[id]
+        nPixels = pixels.shape[0]
+        slopes = np.empty((nPixels, 2), dem.dtype)
+
+        # Iterate through pixels as processing cells. Update kernel
+        for p, [row, col] in enumerate(pixels):
+            kernel.update(row, col)
+
+            # Get the flow direction and length
+            flow = flow_directions[row, col]
+            if flow % 2 == 0:
+                length = diagonal_length
+            else:
+                length = lateral_length
+
+            # Calculate orthogonal slopes and mean confinement angle
+            slopes[p,:] = _orthogonal_slopes(flow, dem, kernel, length)
+        theta[i] = _confinement_angle(slopes)
+    return theta
 
 
+def _confinement_angle(slopes):
+    theta = np.arctan(slopes)
+    theta = np.mean(theta, 0)
+    theta = 180 - np.sum(theta)
 
 
-
-
+def _orthogonal_slopes(flow, dem, kernel, length):
+    slopes = np.empty((1,2))
+    slopes[0] = _max_height(flow-7, dem, kernel)
+    slopes[1] = _max_height(flow-3, dem, kernel)
+    slopes = slopes - dem[kernel.row, kernel.col]
+    slopes = slopes / length
+    return slopes
 
 
 class _Kernel:
@@ -325,79 +427,10 @@ class _Kernel:
             return indices[0:N]
 
 
-
-
-
-def basins(segments: segments, upslope_basins: np.ndarray) -> segments:
-    """
-    basins  Returns the maximum number of"""
-
-    for id in segments.keys():
-        pixels = segments[id]
-        nBasins = upslope_basins(pixels)
-        segments[id] = np.any(nBasins > 0)
-    return segments
-
-
-def confinement(
-    segments: segments,
-    dem: np.ndarray,
-    flow_directions: np.ndarray,
-    N: int,
-    resolution: float,
-):
-
-    # Initialize kernel and get flow lengths
-    (nRows, nCols) = dem.shape
-    kernel = _Kernel(N, nRows, nCols)
-    lateral_length = resolution * N
-    diagonal_length = lateral_length * sqrt(2)
-
-    # Get pixels for each stream segment. Preallocate orthogonal slopes
-    for id in segments.keys():
-        pixels = segments[id]
-        nPixels = pixels.shape[0]
-        slopes = np.empty((nPixels, 2), dem.dtype)
-
-        # Iterate through pixels as processing cells. Update kernel
-        for p, [row, col] in enumerate(pixels):
-            kernel.update(row, col)
-
-            # Get the flow direction and length
-            flow = flow_directions[row, col]
-            if flow % 2 == 0:
-                length = diagonal_length
-            else:
-                length = lateral_length
-
-            # Calculate orthogonal slopes
-            slopes[p, 0] = max_height(flow - 7, dem, kernel)  # Clockwise
-            slopes[p, 1] = max_height(flow - 3, dem, kernel)  # Counterclockwise
-            slopes[p, :] = slopes[p, :] - dem[row, col]
-            slopes[p, :] = slopes[p, :] / length
-
-        # Calculate mean confinement angles
-        theta = np.arctan(slopes)
-        theta = np.mean(theta, 0)
-        theta = 180 - np.sum(theta)
-
-        # Return the confinement angle for each segment
-        segments[id] = float(theta)
-    return segments
-
-
-def max_height(flow_index, dem, kernel):
+def _max_height(flow_index, dem, kernel):
     direction = _Kernel.directions(flow_index)
     heights = dem[direction(kernel)]
     return np.amax(heights)
 
 
-def area(segments: segments, total_area: np.ndarray):
-    """
-    area  Returns the maximum upslope area for each stream segment
-    """
 
-    for id in segments.keys():
-        pixels = segments[id]
-        areas = total_area[pixels]
-        segments[id] = np.amax(areas)
