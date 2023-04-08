@@ -115,17 +115,26 @@ segments = Dict[int, np.ndarray]
 class Segments:
     @property
     def raster_shape(self) -> Tuple[int, int]:
+        'The size of the stream link raster used to define the stream segments'
         return self._raster_shape
 
     @property
     def indices(self) -> Dict[str, np.ndarray]:
+        'A dict mapping stream segment IDs to the indices of their pixels in the stream link raster'
         return self._indices
+    
+    @property
+    def ids(self) -> List[int]:
+        'The list of stream segment IDs in a Segments object'
+        return self.indices.keys()
 
     def __len__(self) -> int:
-        return len(self._indices)
+        'The number of stream segments in a Segments object'
+        return len(self.indices)
 
     def __str__(self) -> str:
-        ids = self._indices.keys()
+        'A string listing the stream segment IDs in a Segments object'
+        ids = self.ids
         ids = [str(id) for id in ids]
         return ", ".join(ids)
 
@@ -151,44 +160,112 @@ class Segments:
         self._raster_shape = stream_raster.shape
         self._indices = segments
 
-    def ids(self):
-        return self._indices.keys()
+    def area(self, upslope_area: np.ndarray) -> np.ndarray:
+        """
+        area  Returns the maximum upslope area for each stream segment
+        ----------
+        self.area(upslope_area)
+        Computes the maximum upslope area for each stream segment. Returns the areas
+        as a numpy 1D array. The order of slopes in the output array will match the
+        order of segment IDs in the object.
+        ----------
+        Inputs:
+            upslope_area: A numpy 2D array holding the total upslope area (also known
+                as contributing area or flow accumulation) for the DEM pixels.
 
-    def remove(self, ids):
-        for id in ids:
-            self._indices.pop(id)
-        return self
+        Outputs:
+            numpy 1D array: The maximum upslope area of each stream segment.
+        """
+        self.validate_raster(upslope_area, 'upslope_area')
+        return self._summary(upslope_area, np.amax)
+    
 
     def basins(self, upslope_basins: np.ndarray) -> np.ndarray:
         """
-        Segments.basins  Returns the maximum number of upslope basins for each stream segment
+        basins  Returns the maximum number of upslope basins for each stream segment
         ----------
         self.basins(upslope_basins)
         Computes the maximum number of upslope debris retention basins for each
         stream segment. Returns this count as a numpy 1D array. The order of slopes
-        in the output array will match the order of IDs in the Segments object.
+        in the output array will match the order of segment IDs for the object.
         ----------
         Inputs:
-            segments: A dict mapping stream segment IDs to the indices of the
-                associated DEM pixels.
             upslope_basins: A numpy 2D array holding the number of upslope debris basins
                 for the DEM pixels.
 
         Outputs:
             numpy 1D array: The maximum number of upslope debris basins for each
-                stream segment. The order of values matches the order of ID keys in
-                the input segments dict.
+                stream segment.
         """
         self.validate_raster(upslope_basins, "upslope_basins")
         return self._summary(upslope_basins, np.amax)
 
-    def validate_raster(self, raster: np.ndarray, name: Optional[str] = None) -> None:
+    def development(self, upslope_development: np.ndarray) -> np.ndarray:
+        """
+        development  Returns the mean upslope developed area for each stream segments
+        ----------
+        self.development(upslope_development)
+        Computes the mean developed upslope area for each stream segment. Returns
+        these areas as a numpy 1D array. The order of slopes in the output array will
+        match the order of segment IDs in the object.
+        ----------
+        Inputs:
+            upslope_development: A numpy 2D array holding the developed upslope area
+                fot the DEM pixels.
 
-        # Default name
-        if name is None:
-            name = "input raster"
+        Outputs:
+            numpy 1D array: The mean developed upslope area of each stream segment.
+        """
+        self.validate_raster(upslope_development, 'upslope_development')
+        return self._summary(upslope_development, np.amean)
 
-        # Require 2D numpy array matching the stream raster shape
+    def slope(self, slopes: np.ndarray) -> np.ndarray:
+        """
+        slope  Returns the mean slope (rise/run) for each stream segment
+        ----------
+        self.slope(slopes)
+        Computes the mean slope (rise/run) for each stream segment. Returns the slopes
+        as a numpy 1D array. The order of slopes in the output array will match the
+        order of segment IDs in the object.
+        ----------
+        Inputs:
+            slopes: A numpy 2D array holding the slopes of the DEM pixels
+
+        Outputs:
+            numpy 1D array: The mean slope (rise/run) of each stream segment.
+        """
+        self.validate_raster(slopes, 'slopes')
+        return self._summary(segments, slopes, np.mean)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def _summary(self, raster, statistic):
+
+        summary = np.empty(len(self))
+        for i, id in enumerate(self.ids):
+            pixels = self.indices[id]
+            summary[i] = statistic(raster[pixels])
+        return summary
+
+
+
+    def validate_raster(self, raster: np.ndarray, name: str) -> None:
         if not isinstance(raster, np.ndarray):
             raise TypeError(f"{name} must be a numpy.ndarray")
         elif raster.ndim != 2:
@@ -197,8 +274,52 @@ class Segments:
             raise ValueError(
                 f"The shape of the {name} raster {raster.shape} does "
                 f"not match the shape of the stream link raster used "
-                f"to define the stream segments {self._raster_shape}."
+                f"to define the stream segments {self.raster_shape}."
             )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def filter(
@@ -414,84 +535,6 @@ def locate(stream_raster: np.ndarray) -> segments:
         output[id] = np.hstack(pixels)
     return output
 
-
-def area(segments: segments, upslope_area: np.ndarray) -> np.ndarray:
-    """
-    area  Returns the maximum upslope area for each stream segment
-    ----------
-    area(segments, upslope_area)
-    Computes the maximum upslope area for each stream segment. Returns the areas
-    as a numpy 1D array. Te order of slopes in the output array will match the
-    order of keys in the input segments dict.
-    ----------
-    Inputs:
-        segments: A dict mapping stream segment IDs to the indices of the
-            associated DEM pixels.
-        upslope_area: A numpy 2D array holding the total upslope area (also known
-            as contributing area or flow accumulation) for the DEM pixels.
-
-    Outputs:
-        numpy 1D array: The maximum upslope area of each stream segment. The
-            order of values matches the order of ID keys in the input segments dict.
-    """
-    return _segment_summary(segments, upslope_area, np.amax)
-
-
-def slope(segments: segments, slopes: np.ndarray) -> np.ndarray:
-    """
-    slope  Returns the mean slope (rise/run) for each stream segment
-    ----------
-    slope(segments, slopes)
-    Computes the mean slope (rise/run) for each stream segment. Returns the slopes
-    as a numpy 1D array. The order of slopes in the output array will match the
-    order of keys in the input segments dict.
-    ----------
-    Inputs:
-        segments: A dict mapping stream segment IDs to the indices of the
-            associated DEM pixels.
-        slopes: A numpy 2D array holding the slopes of the DEM pixels
-
-    Outputs:
-        numpy 1D array: The mean slope (rise/run) of each stream segment. The order
-            of values matches the order of ID keys in the input segments dict.
-    """
-    return _segment_summary(segments, slopes, np.mean)
-
-
-def development(segments: segments, upslope_development: np.ndarray) -> np.ndarray:
-    """
-    development  Returns the mean upslope developed area for each stream segments
-    ----------
-    development(segments, upslope_development)
-    Computes the mean developed upslope area for each stream segment. Returns
-    these areas as a numpy 1D array. The order of slopes in the output array will
-    match the order of IDs in the input segments dict.
-    ----------
-    Inputs:
-        segments: A dict mapping stream segment IDs to the indices of the
-            associated DEM pixels.
-        upslope_development: A numpy 2D array holding the developed upslope area
-            fot the DEM pixels.
-
-    Outputs:
-        numpy 1D array: The mean developed upslope area of each stream segment.
-            The order of values matches the order of ID keys in the input
-            segments dict.
-    """
-    return _segment_summary(segments, upslope_development, np.amean)
-
-
-def _segment_summary(segments, raster, statistic):
-
-    # Preallocate
-    ids = segments.keys()
-    summary = np.empty(len(ids))
-
-    # Get summary statistic for each segment
-    for i, id in enumerate(ids):
-        pixels = segments[id]
-        summary[i] = statistic(raster[pixels])
-    return summary
 
 
 def confinement(
