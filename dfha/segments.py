@@ -105,14 +105,17 @@ User Functions:
 """
 
 import numpy as np
-from typing import Dict, List, Any, Optional, Tuple, Literal, Callable
+from typing import Dict, List, Any, Optional, Tuple, Literal, Callable, Union
+from nptyping import NDArray, Shape, Number
 from math import sqrt
 from copy import deepcopy
+import pathlib
 
 # Type aliases
 indices = Tuple[np.ndarray, np.ndarray]
 statistic = Literal["min", "max", "mean", "median", "std"]
-
+raster_array = NDArray[Shape['Rows, Cols'], Number]
+raster = Union[str, pathlib.Path, raster_array]
 
 class Segments:
 
@@ -207,7 +210,7 @@ class Segments:
     #####
     # User Methods
     #####
-    def area(self, upslope_area: np.ndarray) -> np.ndarray:
+    def area(self, upslope_area: raster) -> np.ndarray:
         """
         area  Returns the maximum upslope area for each stream segment
         ----------
@@ -217,8 +220,9 @@ class Segments:
         order of segment IDs in the object.
         ----------
         Inputs:
-            upslope_area: A numpy 2D array holding the total upslope area (also known
-                as contributing area or flow accumulation) for the DEM pixels.
+            upslope_area: The total upslope area (also known as contributing area
+                or flow accumulation) for the DEM pixels. May either be the path
+                to a file holding the raster, or a numpy 2D array.
 
         Outputs:
             numpy 1D array: The maximum upslope area of each stream segment.
@@ -363,13 +367,42 @@ class Segments:
         remove  Removes segments from a Segments object
         ----------
         self.remove(ids)
-        Removes segments with the listed IDs from the Segments object. Raises a
+        Removes segments with the indicated IDs from the Segments object. Raises a
         KeyError if an input ID is not in the object.
         ----------
         Inputs:
             ids: The IDs of the stream segments to remove from the object
         """
 
+        # # Validate/parse numpy arrays
+        # if isinstance(ids, np.ndarray):
+        #     if ids.ndim != 1:
+        #         ValueError(f'"ids" is a numpy array, so must have 1 dimension. However, it has {ids.ndim} dimensions instead.')
+
+        #     # bool arrays must have one element per ID. Convert to int indices            
+        #     if ids.dtype == bool:
+        #         if len(ids) != len(self):
+        #             raise ValueError(f'"ids" is a numpy bool array, so must have {len(self)} elements (one element per segment). However, it has {len(ids)} elements instead.')
+        #         ids = np.nonzero(ids)
+
+        #     # Numeric arrays must be positive integers
+        #     elif ids.dtype == np.number:
+        #         invalid = ids % 2 != 1
+        #         if np.any(invalid):
+        #             bad = np.nonzero(invalid)[0]
+        #         if not np.all(isinteger):
+        #             bad = np.nonzero
+        #             raise ValueError('ids {}')
+
+        #             bad = np.nonzero(ids %2 !=)
+        #             raise ValueError('ids {i}')
+
+
+
+        #         pass
+        #     else:
+        #         raise TypeError('"ids" is a numpy array, so must be either a bool or number dtype. However, it is a(n) {type} dtype instead.')
+            
         # Check that all IDs are in the list
         ids = set(ids)
         for i, id in enumerate(ids):
@@ -425,17 +458,19 @@ class Segments:
         statistic = stat_functions[statistic]
         return self._summary(raster, statistic)
 
-    def validate_raster(self, raster: np.ndarray, name: str) -> None:
-        if not isinstance(raster, np.ndarray):
-            raise TypeError(f"{name} must be a numpy.ndarray")
-        elif raster.ndim != 2:
-            raise ValueError(f"{name} must have 2 dimensions")
-        elif raster.shape != self._raster_shape:
-            raise ValueError(
-                f"The shape of the {name} raster {raster.shape} does "
-                f"not match the shape of the stream link raster used "
-                f"to define the stream segments {self.raster_shape}."
-            )
+    def validate_raster(self, raster, name, dtypes):
+
+        # Convert string to Path object
+        if isinstance(raster, str):
+            raster = Path(raster)
+
+        # Require the file exists. Then read into array
+        if isinstance(raster, Path):
+            raster = raster.resolve(strict=True)
+            raster = rasterio.open(raster).read(1)
+
+        # Validate 2D numpy array
+        validate.matrix(raster, name, shape=self.raster_shape, dtype=dtypes)
 
 
 def filter(
