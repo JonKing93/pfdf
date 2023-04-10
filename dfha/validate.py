@@ -3,7 +3,8 @@ validate  Functions that validate user inputs
 """
 
 import numpy as np
-from typing import Any, Union, List, Optional, Tuple, NoReturn
+from typing import Any, Union, List, Optional, Tuple
+from dfha import utils
 
 # Type aliases
 dtype = Union[np.dtype, str]
@@ -31,7 +32,8 @@ def ndarray(input, name):
 
 def _dtype(input, name, dtypes):
     if dtypes is not None:
-        if input.dtype not in list(dtypes):
+        dtypes = utils.aslist(dtypes)
+        if input.dtype not in dtypes:
             raise TypeError(f"{name} is not an allowed dtype")
 
 
@@ -39,9 +41,7 @@ def _shape(input, name, axes, required):
     if required is not None:
         for axis, required, actual in zip(axes, required, input.shape):
             if required != -1 and required != actual:
-                raise ValueError(
-                    f"{name} must have {required} {axis}, but it has {actual} {axis} instead."
-                )
+                raise WrongShapeError(name, axis, required, actual)
 
 
 def _ndim(input, name, N):
@@ -73,3 +73,11 @@ def matrix(
     _ndim(input, name, 2)
     _dtype(input, name, dtype)
     _shape(input, name, ["rows", "columns"], shape)
+
+
+class WrongShapeError(ValueError):
+    def __init__(self, name, axis, required, actual):
+        message = (
+            f"{name} must have {required} {axis}, but it has {actual} {axis} instead."
+        )
+        super().__init(message)

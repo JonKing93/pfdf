@@ -106,16 +106,18 @@ User Functions:
 
 import numpy as np
 from typing import Dict, List, Any, Optional, Tuple, Literal, Callable, Union
-from nptyping import NDArray, Shape, Number
+from nptyping import NDArray, Shape, Number, Integer
+from pathlib import Path
 from math import sqrt
 from copy import deepcopy
-import pathlib
+from dfha import validate
 
 # Type aliases
-indices = Tuple[np.ndarray, np.ndarray]
+indices = Tuple[int,  int]
 statistic = Literal["min", "max", "mean", "median", "std"]
 raster_array = NDArray[Shape['Rows, Cols'], Number]
-raster = Union[str, pathlib.Path, raster_array]
+raster = Union[str, Path, raster_array]
+values = NDArray[Shape['Values'], Number]
 
 class Segments:
 
@@ -142,7 +144,7 @@ class Segments:
     #####
     # Standard class dunders
     #####
-    def __init__(self, stream_raster: np.ndarray) -> None:
+    def __init__(self, stream_raster: raster) -> None:
 
         # Get the indices of stream segment pixels. Organize as column vectors
         (rows, cols) = np.nonzero(stream_raster)
@@ -210,7 +212,7 @@ class Segments:
     #####
     # User Methods
     #####
-    def area(self, upslope_area: raster) -> np.ndarray:
+    def area(self, upslope_area: raster) -> values:
         """
         area  Returns the maximum upslope area for each stream segment
         ----------
@@ -230,7 +232,7 @@ class Segments:
         self.validate_raster(upslope_area, "upslope_area")
         return self._summary(upslope_area, np.amax)
 
-    def basins(self, upslope_basins: np.ndarray) -> np.ndarray:
+    def basins(self, upslope_basins: raster) -> values:
         """
         basins  Returns the maximum number of upslope basins for each stream segment
         ----------
@@ -458,7 +460,7 @@ class Segments:
         statistic = stat_functions[statistic]
         return self._summary(raster, statistic)
 
-    def validate_raster(self, raster, name, dtypes):
+    def validate_raster(self, raster, name, dtypes=None):
 
         # Convert string to Path object
         if isinstance(raster, str):
@@ -470,7 +472,11 @@ class Segments:
             raster = rasterio.open(raster).read(1)
 
         # Validate 2D numpy array
-        validate.matrix(raster, name, shape=self.raster_shape, dtype=dtypes)
+        try:
+            validate.matrix(raster, name, shape=self.raster_shape, dtype=dtypes)
+        except WrongShapeError as error:
+            self.shape_note(error)
+            raise
 
 
 def filter(
