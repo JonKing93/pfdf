@@ -431,7 +431,7 @@ def flow_directions(
         matchinge the "slopes" path.
     """
 
-    # Parse options and paths
+    # Parse options and required paths
     verbose = _verbosity(verbose)
     pitfilled_path = _input_path(pitfilled_path)
     flow_directions_path = _output_path(flow_directions_path)
@@ -450,6 +450,7 @@ def flow_directions(
 
     # Otherwise, save slopes and return both outputs
     else:
+        slopes_path = _output_path(slopes_path)
         flow(pitfilled_path, flow_directions_path, slopes_path, verbose)
         return (flow_directions_path, slopes_path)
 
