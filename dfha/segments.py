@@ -113,11 +113,12 @@ from copy import deepcopy
 from dfha import validate
 
 # Type aliases
-indices = Tuple[int,  int]
+indices = Tuple[int, int]
 statistic = Literal["min", "max", "mean", "median", "std"]
-raster_array = NDArray[Shape['Rows, Cols'], Number]
+raster_array = NDArray[Shape["Rows, Cols"], Number]
 raster = Union[str, Path, raster_array]
-values = NDArray[Shape['Values'], Number]
+values = NDArray[Shape["Values"], Number]
+
 
 class Segments:
 
@@ -381,7 +382,7 @@ class Segments:
         #     if ids.ndim != 1:
         #         ValueError(f'"ids" is a numpy array, so must have 1 dimension. However, it has {ids.ndim} dimensions instead.')
 
-        #     # bool arrays must have one element per ID. Convert to int indices            
+        #     # bool arrays must have one element per ID. Convert to int indices
         #     if ids.dtype == bool:
         #         if len(ids) != len(self):
         #             raise ValueError(f'"ids" is a numpy bool array, so must have {len(self)} elements (one element per segment). However, it has {len(ids)} elements instead.')
@@ -399,12 +400,10 @@ class Segments:
         #             bad = np.nonzero(ids %2 !=)
         #             raise ValueError('ids {i}')
 
-
-
         #         pass
         #     else:
         #         raise TypeError('"ids" is a numpy array, so must be either a bool or number dtype. However, it is a(n) {type} dtype instead.')
-            
+
         # Check that all IDs are in the list
         ids = set(ids)
         for i, id in enumerate(ids):
@@ -472,11 +471,7 @@ class Segments:
             raster = rasterio.open(raster).read(1)
 
         # Validate 2D numpy array
-        try:
-            validate.matrix(raster, name, shape=self.raster_shape, dtype=dtypes)
-        except WrongShapeError as error:
-            self.shape_note(error)
-            raise
+        validate.matrix(raster, name, shape=self.raster_shape, dtypes=dtypes)
 
 
 def filter(

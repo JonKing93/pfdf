@@ -106,7 +106,7 @@ def ndarray(input: Any, name: str) -> None:
         raise TypeError(f"{name} must be a numpy ndarray")
 
 
-class NDimError(ValueError):
+class NDimError(Exception):
     "When a numpy array has the wrong number of dimensions"
 
     def __init__(self, name: str, nrequired: int, nactual: int) -> None:
@@ -116,7 +116,7 @@ class NDimError(ValueError):
         super().__init__(message)
 
 
-class ShapeError(ValueError):
+class ShapeError(Exception):
     "When a numpy axis has the wrong shape"
 
     def __init__(self, name: str, axis: str, required: int, actual: int) -> None:
