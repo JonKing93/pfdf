@@ -47,8 +47,10 @@ def tempdir(tmp_path):
 # Utility to check output raster values
 def validate(output, expected):
     assert output.is_file()
-    output = rasterio.open(output).read(1)
-    expected = rasterio.open(expected).read(1)
+    with rasterio.open(output) as raster:
+        output = raster.read(1)
+    with rasterio.open(expected) as raster:
+        expected = raster.read(1)
     assert numpy.array_equal(output, expected, equal_nan=True)
 
 
