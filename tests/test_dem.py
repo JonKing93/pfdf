@@ -218,7 +218,9 @@ class TestOutputPath(UsesPaths):
 
 
 class TestSetup(UsesPaths):
-    required = dem._INPUTS + dem._INTERMEDIATE + dem._FINAL
+    outputs = dem._INTERMEDIATE + dem._FINAL
+    required = dem._INPUTS + outputs
+    tempdir = Path("a/temp/folder")
 
     def set_type(self, type, paths):
         for key in self.required:
@@ -226,39 +228,42 @@ class TestSetup(UsesPaths):
                 paths[key] = str(paths[key])
         return paths
 
-    def validate(self, output, temporary, paths, tmp):
-        assert temporary.sort() == tmp.sort()
-        assert isinstance(output, dict)
-        tmpdir = output["flow_directions"].parent
-        for key in self.required:
-            assert key in output
-            if key in temporary:
-                assert isinstance(output[key], Path)
-                assert output[key].parent == tmpdir
-                assert output[key].name.startswith(key)
-                assert output[key].suffix == ".tif"
+    def validate(self, working, final, paths):
+        assert isinstance(working, dict)
+        for file in self.required:
+            assert file in working
+            assert isinstance(working[file], Path)
+            if file in dem._INPUTS:
+                assert working[file] == Path(paths[file])
             else:
-                assert output[key] == Path(paths[key])
+                assert working[file].parent == self.tempdir
+                assert working[file].name == (file + ".tif")
+
+        assert isinstance(final, dict)
+        saved = [file for file in paths if (file in self.outputs and paths[file] is not None)]
+        for file in saved:
+            assert file in final
+            assert final[file] == Path(paths[file])
 
     # Parametrizes required input and output
     @pytest.mark.parametrize("missing", ("dem", "relief"))
-    def test_required_missing(_, missing, user_paths):
+    def test_required_missing(self, missing, user_paths):
         user_paths.pop(missing)
         with pytest.raises(KeyError):
-            dem._setup(user_paths)
+            dem._setup(user_paths, self.tempdir)
 
     @pytest.mark.parametrize("missing", ("dem", "relief"))
-    def test_required_none(_, missing, user_paths):
+    def test_required_none(self, missing, user_paths):
         user_paths[missing] = None
         with pytest.raises(TypeError) as error:
-            dem._setup(user_paths)
+            dem._setup(user_paths, self.tempdir)
         assert "expected str, bytes or os.PathLike" in str(error.value)
 
     @pytest.mark.parametrize("path_type", ("string", "path"))
     def test_no_tmp(self, user_paths, path_type):
         paths = self.set_type(path_type, user_paths)
-        (output, temporary, _) = dem._setup(paths)
-        self.validate(output, temporary, paths, [])
+        (working, final, _) = dem._setup(paths, self.tempdir)
+        self.validate(working, final, paths)
 
     @pytest.mark.parametrize(
         "tmp", (["slopes_dinf"], ["flow_directions_dinf", "pitfilled"])
@@ -268,8 +273,8 @@ class TestSetup(UsesPaths):
         paths = self.set_type(path_type, user_paths)
         for file in tmp:
             paths.pop(file)
-        (output, temporary, _) = dem._setup(paths)
-        self.validate(output, temporary, paths, tmp)
+        (working, final, _) = dem._setup(paths, self.tempdir)
+        self.validate(working, final, paths)
 
     @pytest.mark.parametrize(
         "tmp", (["slopes_dinf"], ["flow_directions_dinf", "pitfilled"])
@@ -279,46 +284,46 @@ class TestSetup(UsesPaths):
         paths = self.set_type(path_type, user_paths)
         for file in tmp:
             paths[file] = None
-        (output, temporary, _) = dem._setup(paths)
-        self.validate(output, temporary, paths, tmp)
+        (working, final, _) = dem._setup(paths, self.tempdir)
+        self.validate(working, final, paths)
 
     def test_no_basins(self, user_paths):
-        (output, temporary, hasbasins) = dem._setup(user_paths)
-        self.validate(output, temporary, user_paths, tmp=[])
+        (working, final, hasbasins) = dem._setup(user_paths, self.tempdir)
+        self.validate(working, final, user_paths)
         assert not hasbasins
         for file in dem._BASINS:
-            assert file not in output
+            assert file not in working
+            assert file not in final
 
     def test_missing_inbasins(self, user_paths):
         user_paths[dem._BASINS[1]] = str(self.nbasins)
-        (output, temporary, hasbasins) = dem._setup(user_paths)
-        self.validate(output, temporary, user_paths, tmp=[])
+        (working, final, hasbasins) = dem._setup(user_paths, self.tempdir)
+        self.validate(working, final, user_paths)
         assert not hasbasins
-        assert dem._BASINS[0] not in output
-        assert dem._BASINS[1] in output
-        assert not isinstance(dem._BASINS[1], Path)
+        for file in dem._BASINS:
+            assert file not in working
+            assert file not in final
 
     def test_none_inbasins(self, user_paths):
         [isbasin, nbasins] = dem._BASINS
         user_paths[isbasin] = None
         user_paths[nbasins] = str(self.nbasins)
-        (output, temporary, hasbasins) = dem._setup(user_paths)
-        self.validate(output, temporary, user_paths, tmp=[])
+        (working, final, hasbasins) = dem._setup(user_paths, self.tempdir)
+        self.validate(working, final, user_paths)
         assert not hasbasins
-        assert isbasin in output
-        assert output[isbasin] is None
-        assert nbasins in output
-        assert output[nbasins] == str(self.nbasins)
+        for file in dem._BASINS:
+            assert file not in working
+            assert file not in final
 
     def test_missing_outbasins(self, user_paths_basins):
         user_paths_basins.pop(dem._BASINS[1])
         with pytest.raises(KeyError):
-            dem._setup(user_paths_basins)
+            dem._setup(user_paths_basins, self.tempdir)
 
     def test_none_outbasins(self, user_paths_basins):
         user_paths_basins[dem._BASINS[1]] = None
         with pytest.raises(TypeError):
-            dem._setup(user_paths_basins)
+            dem._setup(user_paths_basins, self.tempdir)
 
     @pytest.mark.parametrize("path_type", ("string", "path"))
     def test_with_basins(self, user_paths_basins, path_type):
@@ -327,14 +332,19 @@ class TestSetup(UsesPaths):
         paths[isbasin], paths[nbasins] = set_path_type(
             path_type, paths[isbasin], paths[nbasins]
         )
-        (output, temporary, hasbasins) = dem._setup(paths)
+        (working, final, hasbasins) = dem._setup(paths, self.tempdir)
 
-        self.validate(output, temporary, paths, tmp=[])
+        self.validate(working, final, paths)
         assert hasbasins
-        assert isbasin in output
-        assert nbasins in output
-        assert output[isbasin] == user_paths_basins[isbasin]
-        assert output[nbasins] == user_paths_basins[nbasins]
+
+        assert isbasin in working
+        assert working[isbasin] == Path(user_paths_basins[isbasin])
+        assert isbasin not in final
+
+        assert nbasins in working
+        assert working[nbasins] == self.tempdir / (nbasins + ".tif") 
+        assert nbasins in final
+        assert final[nbasins] == Path(user_paths_basins[nbasins])
 
 
 class TestOutputDict(UsesPaths):
