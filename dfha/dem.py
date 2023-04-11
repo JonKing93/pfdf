@@ -226,7 +226,7 @@ def analyze(
 
     # Store everything in a temporary directory until complete.
     # Parse verbosity and process file paths
-    with tempfile.TemporaryDirectory as folder:
+    with tempfile.TemporaryDirectory() as folder:
         verbose = _verbosity(verbose)
         tempfolder = Path(folder)
         (paths, final, hasbasins) = _setup(paths, tempfolder)
