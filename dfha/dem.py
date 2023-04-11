@@ -975,29 +975,6 @@ def _setup(
     return (working, final, hasbasins)
 
 
-def _temporary(prefix: str, folder: Path) -> Path:
-    """
-    _temporary  Returns a path for a temporary file
-    ----------
-    _temporary(prefix, folder)
-    Returns an absolute Path for a temporary file. The file name will follow the
-    format <prefix>_<random ASCII letters>.tif. Places the file in the indicated
-    folder.
-    ----------
-    Inputs:
-        prefix: A prefix for the file name
-        folder: The folder that should contain the temporary file
-
-    Outputs:
-        pathlib.Path: The absolute Path for the temporary file.
-    """
-
-    tail = random.choices(string.ascii_letters, k=_TMP_STRING_LENGTH)
-    tail = "".join(tail)
-    name = f"{prefix}_{tail}.tif"
-    return folder / name
-
-
 def _verbosity(verbose: Union[bool, None]) -> bool:
     """
     _verbosity  Parses the verbosity setting for a function
