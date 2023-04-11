@@ -672,7 +672,9 @@ class TestAnalyze:
             paths[file] = None
         return paths
 
-    def check_outputs(self, output, required, tmpdir, input_paths, all_paths, hasbasins):
+    def check_outputs(
+        self, output, required, tmpdir, input_paths, all_paths, hasbasins
+    ):
         assert isinstance(output, dict)
 
         # Get lists of tmp files, saved output files, expected output files for core analysis
@@ -711,23 +713,29 @@ class TestAnalyze:
         with pytest.raises(KeyError):
             dem.analyze(user_paths)
 
-    @pytest.mark.parametrize('hasbasins', (True, False))
+    @pytest.mark.parametrize("hasbasins", (True, False))
     def test_default(self, user_paths_basins, tmpdir, hasbasins):
         paths = self.setup_paths(user_paths_basins, tmpdir, hasbasins)
         output = dem.analyze(paths)
         required = dem._FINAL.copy()
-        self.check_outputs(output, required, tmpdir, paths, user_paths_basins, hasbasins)
+        self.check_outputs(
+            output, required, tmpdir, paths, user_paths_basins, hasbasins
+        )
 
-    @pytest.mark.parametrize('hasbasins', (True, False))
+    @pytest.mark.parametrize("hasbasins", (True, False))
     def test_saved(self, user_paths_basins, tmpdir, hasbasins):
         paths = self.setup_paths(user_paths_basins, tmpdir, hasbasins)
         output = dem.analyze(paths, outputs="saved")
         required = dem._FINAL + self.saved_tmps
-        self.check_outputs(output, required, tmpdir, paths, user_paths_basins, hasbasins)
+        self.check_outputs(
+            output, required, tmpdir, paths, user_paths_basins, hasbasins
+        )
 
-    @pytest.mark.parametrize('hasbasins', (True, False))
+    @pytest.mark.parametrize("hasbasins", (True, False))
     def test_all(self, user_paths_basins, tmpdir, hasbasins):
         paths = self.setup_paths(user_paths_basins, tmpdir, hasbasins)
         output = dem.analyze(paths, outputs="all")
         required = dem._FINAL + dem._INTERMEDIATE
-        self.check_outputs(output, required, tmpdir, paths, user_paths_basins, hasbasins)
+        self.check_outputs(
+            output, required, tmpdir, paths, user_paths_basins, hasbasins
+        )

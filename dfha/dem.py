@@ -72,6 +72,7 @@ Utilities:
 import subprocess, random, string
 from pathlib import Path
 from typing import Union, Optional, List, Literal, Tuple, Dict
+from tempfile import NamedTemporaryFile
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
@@ -435,32 +436,21 @@ def flow_directions(
     pitfilled_path = _input_path(pitfilled_path)
     flow_directions_path = _output_path(flow_directions_path)
 
-    # Optional slopes path. Only save slopes if provided by user. Otherwise, use
-    # a temporary file
-    if slopes_path is None:
-        slopes_path = _temporary("slopes", flow_directions_path.parent)
-        delete_slopes = True
-    else:
-        slopes_path = _output_path(slopes_path)
-        delete_slopes = False
-
-    # Get function for indicated flow type
+    # Get the function for the indicated flow type
     if type == "D8":
         flow = flow_d8
     elif type == "DInf":
         flow = flow_dinf
 
-    # Run. Delete slopes if using a temp file
-    try:
-        flow(pitfilled_path, flow_directions_path, slopes_path, verbose)
-    finally:
-        if delete_slopes:
-            slopes_path.unlink(missing_ok=True)
-
-    # Return flow-directions and optionally slopes
-    if delete_slopes:
+    # If slopes were not provided, use a temp file and only return flow directions
+    if slopes_path is None:
+        with NamedTemporaryFile(suffix=".tif") as slopes:
+            flow(pitfilled_path, flow_directions_path, slopes.name, verbose)
         return flow_directions_path
+
+    # Otherwise, save slopes and return both outputs
     else:
+        flow(pitfilled_path, flow_directions_path, slopes_path, verbose)
         return (flow_directions_path, slopes_path)
 
 
