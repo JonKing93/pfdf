@@ -236,7 +236,11 @@ class Segments:
         *args: Any,
     ) -> None:
         """
-        _filter"""
+        _filter  Applies a filter to a set of stream segments
+        ----------
+        _filt
+        
+        """
 
         # Only run if at least one of the filter's arguments were given
         if any_defined(threshold, *args):
