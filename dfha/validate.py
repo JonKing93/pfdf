@@ -12,7 +12,8 @@ Custom Errors:
 
 import numpy as np
 from typing import Any, Union, List, Optional, Tuple
-from dfha import utils
+from nptyping import NDArray, Number
+from dfha.utils import aslist
 
 # Type aliases
 dtype = Union[np.dtype, str, object]
@@ -20,15 +21,14 @@ dtypes = Union[dtype, List[dtype]]
 shape2d = Tuple[int, int]
 
 
-def _dtype(input: Any, name: str, dtypes: dtypes) -> None:
+def _dtype(input: Any, name: str, allowed: dtypes) -> None:
     "Check a numpy dtype is valid"
-    if dtypes is not None:
-        dtypes = utils.aslist(dtypes)
-        if input.dtype not in dtypes:
-            allowed = ", ".join([str(np.dtype(type)) for type in dtypes])
-            raise TypeError(
-                f"The dtype of {name} ({input.dtype}) is not allowed. Allowed dtypes are: {allowed}"
-            )
+    if allowed is not None:
+        allowed = aslist(dtypes)
+        actual = input.dtype
+        isvalid = [np.issubdtype(actual, type) for type in allowed]
+        if not any(isvalid):
+            raise TypeError(f"The dtype of {name} ({actual}) is not allowed.")
 
 
 def _shape(input: Any, name: str, axes: List[str], shape: shape2d) -> None:
@@ -53,7 +53,7 @@ def matrix(
     shape: Optional[shape2d] = None,
 ) -> None:
     """
-    matrix  Validates an input numpy 2D array
+    matrix  Checks an input is a numpy 2D array. Optionally checks dtype and shape
     ----------
     matrix(input, name)
     Checks that an input is a numpy ndarray with two dimensions. Raises a
@@ -103,7 +103,61 @@ def ndarray(input: Any, name: str) -> None:
         TypeError: If the input is not a numpy ndarray
     """
     if not isinstance(input, np.ndarray):
-        raise TypeError(f"{name} must be a numpy ndarray")
+        raise TypeError(f"{name} is not a numpy ndarray")
+    
+
+def non_negative(input: NDArray[Any, Number], name: str) -> None:
+    """
+    non_negative  Checks a numeric numpy array's elements are >= 0
+    ----------
+    non_negative(input, name)
+    Checks that the elements of the input numpy array are all greater than or
+    equal to zero. Raises a ValueError if not.
+    ----------
+    Inputs:
+        input: The numeric ndarray being checked.
+        name: A name for the input for use in error messages.
+
+    Raises:
+        ValueError: If the array contains negative elements
+    """
+
+    if not np.issubdtype(input.dtype, np.unsignedinteger):
+        negative = input < 0
+        if np.any(negative):
+            bad = np.argwhere(negative)[0]
+            raise ValueError(
+                f'The elements of {name} cannot be negative, but element {bad} is negative.'
+            )
+
+def integers(input: NDArray[Any, Number], name: str) -> None:
+    """
+    integers  Checks a numeric numpy array's elements are integers
+    ----------
+    integers(input, name)
+    Checks that the elements of the input numpy array are all integers. Raises a
+    ValueError if not. 
+
+    Note that this function *IS NOT* checking the dtype of the input array. Rather
+    it checks that each element is an integer. Thus, arrays of floating-point
+    integers (e.g. 1.0, 2.000, -3.0) will pass the test.
+    ----------
+    Inputs:
+        input: The numeric ndarray being checked.
+        name: A name of the input for use in error messages.
+
+    Raises:
+        ValueError: If the array contains non-integer elements    
+    """
+
+    if not np.issubdtype(input.dtype, np.integer):
+        noninteger = input % 1 != 0
+        if np.any(noninteger):
+            bad = np.argwhere(noninteger)[0]
+            raise ValueError(
+                f'The elements of {name} must be integers, but element {bad} is not an integer.'
+            )
+
 
 
 class NDimError(Exception):

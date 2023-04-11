@@ -111,12 +111,21 @@ from pathlib import Path
 from math import sqrt
 from copy import deepcopy
 from dfha import validate
+from dfha.utils import any_defined
+import rasterio
 
 # Type aliases
-indices = Tuple[int, int]
-statistic = Literal["min", "max", "mean", "median", "std"]
+pixel_values = NDArray[Shape['Pixels'], Integer]
+indices = Tuple[pixel_values, pixel_values]
+
 raster_array = NDArray[Shape["Rows, Cols"], Number]
-raster = Union[str, Path, raster_array]
+raster = Union[str, Path, rasterio.DatasetReader, raster_array]
+
+
+
+
+# indices = Tuple[int, int]
+statistic = Literal["min", "max", "mean", "median", "std"]
 values = NDArray[Shape["Values"], Number]
 
 
@@ -127,18 +136,23 @@ class Segments:
     #####
     @property
     def raster_shape(self) -> Tuple[int, int]:
-        "The size of the stream link raster used to define the stream segments"
+        'The shape of the stream link raster used to define the stream segments'
         return self._raster_shape
 
     @property
-    def indices(self) -> Dict[str, np.ndarray]:
-        "A dict mapping stream segment IDs to the indices of their pixels in the stream link raster"
+    def indices(self) -> indices:
+        """
+        A dict mapping each stream segment ID (int) to the indices of its associated
+        pixels in the stream segment raster. The value of each key is a 2-tuple
+        whose elements are numpy 1D arrays. The first array lists the rows indices
+        of the pixels, and the second array lists the column indices.
+        """
         return self._indices
 
     @property
-    def ids(self) -> np.ndarray:
-        "The list of stream segment IDs in a Segments object"
-        # (Returns a numpy array so user can apply logical indexing before calling remove)
+    def ids(self) -> pixel_values:
+        'A numpy 1D array listing the stream segment IDs for the object.'
+        # (Use a numpy array so user can apply logical indexing when filtering)
         ids = list(self.indices.keys())
         return np.array(ids)
 
@@ -146,6 +160,86 @@ class Segments:
     # Standard class dunders
     #####
     def __init__(self, stream_raster: raster) -> None:
+        """
+        Segments  Returns an object defining a set of stream segments
+        ----------
+        Segments(stream_raster)
+        Given a stream segment raster, builds and returns a Segments object defining
+        the set of stream segments in the raster. The stream segment raster should
+        consist of integers. The values of the stream segment pixels should be the ID
+        of the associated stream segment. All other pixels should be 0.
+
+        Each group of pixels with the same (non-zero) value is interpreted as one
+        stream segment. The "ids" property of the returned object lists the stream
+        segment IDs in the set. The "indices" property is a dict that maps each
+        ID to the indices of associated pixels in the stream segment raster.
+        ----------
+        Inputs:
+            stream_raster: A stream segment raster used to define the set of stream
+                segments. May be a path to a raster file, a rasterio.DatasetReader
+                or a numpy ndarray. If a raster file or rasterio.DatasetReader object,
+                then the raster will be read from the first band. If a numpy array,
+                should have 2 dimensions.
+
+                The data in the raster should consist of integers. The value of
+                each stream segment pixel should be a positive integer matching
+                the ID of the associated strea segment. All other pixels should
+                be 0. If reading data from a raster file or a rasterio.DatasetReader,
+                NoData values will be converted to 0 before processing.
+
+        Outputs:
+            Segments: A Segments object defining a set of stream segments
+        """
+
+        # Convert str to Path
+        if isinstance(stream_raster, str):
+            stream_raster = Path(stream_raster)
+
+        # Require file exists. Open with rasterio
+        if isinstance(stream_raster, Path):
+            stream_raster = stream_raster.resolve(strict=True)
+            stream_raster = rasterio.open(stream_raster)
+
+        # Read band 1. Convert NoData to 0
+        if isinstance(stream_raster, rasterio.DataReader):
+            mask = stream_raster.read_masks(1)
+            stream_raster = stream_raster.read(1)
+            stream_raster[mask==0] = 0
+
+        # Require a numpy 2D numeric array of non-negative integers
+        name = 'stream_raster'
+        validate.matrix(stream_raster, name, dtypes=np.number)
+        validate.non_negative(stream_raster, name)
+        validate.integers(stream_raster, name)
+
+
+        validate.postive(stream_raster, name)
+        validate.
+
+
+        if not np.issubdtype(stream_raster, np.unsignedinteger):
+            negative = stream_raster < 0
+            if any(negative):
+                bad = np.argwhere(negative)[0]
+                raise ValueError(
+                    f'stream_raster elements must be positive, but element {bad} is negative'
+                )
+            
+
+
+
+
+        validate.matrix(stream_raster, 'stream_raster', dtypes=np.number)
+        notinteger = stream_raster % 1 != 0
+        if np.any(notinteger):
+            bad = np.nonzero(notinteger)[0]
+            raise ValueError(
+                f'stream_raster must consist of integers, but element '
+            )
+
+
+
+
 
         # Get the indices of stream segment pixels. Organize as column vectors
         (rows, cols) = np.nonzero(stream_raster)
@@ -189,7 +283,7 @@ class Segments:
         _filter"""
 
         # Only run if at least one of the filter's arguments were given
-        if _any_defined(threshold, *args):
+        if any_defined(threshold, *args):
 
             # Get segment values and find invalid segments
             values = method(self, *args)
@@ -609,15 +703,6 @@ def filter(
 
     # Return the IDs of model-worthy segments
     return list(segments.keys())
-
-
-# Note: This should be moved into a separate "utils" module at a later date
-def _any_defined(*args: Any) -> bool:
-    "_any_defined  True if any input is not None. False if all are None"
-    for arg in args:
-        if arg is not None:
-            return True
-    return False
 
 
 # Confinement Angle Utilities
