@@ -223,7 +223,7 @@ class Segments:
         "A string listing the stream segment IDs in a Segments object"
         ids = self.ids
         ids = [str(id) for id in ids]
-        return ", ".join(ids)
+        return "Stream Segments: " + ", ".join(ids)
 
     #####
     # Private/Internal methods. (No error checking)
