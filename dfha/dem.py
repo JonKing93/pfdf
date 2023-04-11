@@ -810,21 +810,19 @@ def _input_path(input: Pathlike) -> Path:
     return Path(input).resolve(strict=True)
 
 
-def _output_dict(
-    paths: PathDict, option: OutputOption, temporary: List[str], hasbasins: bool
-) -> PathDict:
+def _output_dict(paths: PathDict, option: OutputOption, hasbasins: bool) -> PathDict:
     """
     _output_dict  Returns the final dict of paths for a DEM analysis
     ----------
-    _output_dict(paths, "default", temporary, hasbasins)
+    _output_dict(paths, "default", hasbasins)
     Returns a dict with the paths of the D8 flow directions, total upslope area,
     total burned upslope area, and vertical relief. If hasbasins=True, also includes
     the path to the number of upslope debris basins
 
-    _output_dict(paths, "saved", temporary, hasbasins)
+    _output_dict(paths, "saved", hasbasins)
     Returns a dict with the Paths of all saved output files.
 
-    _output_dict(paths, "all", temporary, hasbasins)
+    _output_dict(paths, "all", hasbasins)
     Returns a dict with the Paths of all output files possibly produced by the
     analysis. This includes temporary output files and the optional debris-basin
     output. Files that were not saved or produced have a value of None.
@@ -835,7 +833,6 @@ def _output_dict(
             includes all final output files. "saved" includes all saved output
             files. "all" includes all output files, but temporary files will have
             a value of None.
-        temporary: The list of temporary files
         hasbasins: True if the analysis implemented debris-basin flow routing.
             Otherwise False.
 
@@ -846,19 +843,21 @@ def _output_dict(
     # Determine the paths to include in the output
     if option == "default":
         include = _FINAL.copy()
-    else:
-        outputs = _INTERMEDIATE + _FINAL
-        include = [file for file in outputs if file not in temporary]
+        if hasbasins:
+            include += [_BASINS[1]]
+    elif option == "saved":
+        include = list(paths.keys())
+    elif option == "all":
+        include = _INTERMEDIATE + _FINAL + _BASINS[1]
 
-    # Optionally include the debris-basin output
-    if hasbasins:
-        include += [_BASINS[1]]
-
-    # Add all paths to the dict. Optionally include temporary outputs as None
-    output = {file: paths[file] for file in include}
-    if option == "all":
-        for file in temporary:
-            output[file] = None
+    # Add all paths to the dict. Set unsaved outputs to None
+    output = dict()
+    for file in include:
+        if file in paths:
+            value = paths[file]
+        else:
+            value = None
+        output[file] = value
     return output
 
 
