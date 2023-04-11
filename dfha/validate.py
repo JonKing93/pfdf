@@ -12,13 +12,18 @@ Custom Errors:
 
 import numpy as np
 from typing import Any, Union, List, Optional, Tuple
-from nptyping import NDArray, Number
+from nptyping import NDArray, Number, Shape
+import numbers
+from pathlib import Path
 from dfha.utils import aslist
+import rasterio
 
 # Type aliases
 dtype = Union[np.dtype, str, object]
 dtypes = Union[dtype, List[dtype]]
 shape2d = Tuple[int, int]
+raster_array = NDArray[Shape["Rows, Cols"], Number]
+Raster = Union[str, Path, rasterio.DatasetReader, raster_array]
 
 
 def _dtype(input: Any, name: str, allowed: dtypes) -> None:
@@ -104,7 +109,7 @@ def ndarray(input: Any, name: str) -> None:
     """
     if not isinstance(input, np.ndarray):
         raise TypeError(f"{name} is not a numpy ndarray")
-    
+
 
 def non_negative(input: NDArray[Any, Number], name: str) -> None:
     """
@@ -127,8 +132,9 @@ def non_negative(input: NDArray[Any, Number], name: str) -> None:
         if np.any(negative):
             bad = np.argwhere(negative)[0]
             raise ValueError(
-                f'The elements of {name} cannot be negative, but element {bad} is negative.'
+                f"The elements of {name} cannot be negative, but element {bad} is negative."
             )
+
 
 def integers(input: NDArray[Any, Number], name: str) -> None:
     """
@@ -136,7 +142,7 @@ def integers(input: NDArray[Any, Number], name: str) -> None:
     ----------
     integers(input, name)
     Checks that the elements of the input numpy array are all integers. Raises a
-    ValueError if not. 
+    ValueError if not.
 
     Note that this function *IS NOT* checking the dtype of the input array. Rather
     it checks that each element is an integer. Thus, arrays of floating-point
@@ -147,7 +153,7 @@ def integers(input: NDArray[Any, Number], name: str) -> None:
         name: A name of the input for use in error messages.
 
     Raises:
-        ValueError: If the array contains non-integer elements    
+        ValueError: If the array contains non-integer elements
     """
 
     if not np.issubdtype(input.dtype, np.integer):
@@ -155,9 +161,45 @@ def integers(input: NDArray[Any, Number], name: str) -> None:
         if np.any(noninteger):
             bad = np.argwhere(noninteger)[0]
             raise ValueError(
-                f'The elements of {name} must be integers, but element {bad} is not an integer.'
+                f"The elements of {name} must be integers, but element {bad} is not an integer."
             )
 
+
+def raster(
+    raster: Raster,
+    name: str,
+    *,
+    nodata: Optional[numbers.Number] = None,
+    dtypes: Optional[dtypes] = None,
+    shape: Optional[shape2d] = None,
+) -> raster_array:
+    """
+    raster  Check input is valid raster and return as numpy 2D array
+    ----------
+
+    """
+
+    # Convert str to Path
+    if isinstance(raster, str):
+        raster = Path(raster)
+
+    # Require file exists. Open with rasterio
+    if isinstance(raster, Path):
+        raster = raster.resolve(strict=True)
+        raster = rasterio.open(raster)
+
+    # Read band 1. Optionally convert NoData to specified value
+    if isinstance(raster, rasterio.DataReader):
+        if nodata is None:
+            raster = raster.read(1)
+        else:
+            mask = raster.read_masks(1)
+            raster = raster.read(1)
+            raster[mask == 0] = nodata
+
+    # Require numpy 2D numeric array. Return array
+    matrix(raster, name, dtypes=dtypes, shape=shape)
+    return raster
 
 
 class NDimError(Exception):

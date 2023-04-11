@@ -191,55 +191,11 @@ class Segments:
             Segments: A Segments object defining a set of stream segments
         """
 
-        # Convert str to Path
-        if isinstance(stream_raster, str):
-            stream_raster = Path(stream_raster)
-
-        # Require file exists. Open with rasterio
-        if isinstance(stream_raster, Path):
-            stream_raster = stream_raster.resolve(strict=True)
-            stream_raster = rasterio.open(stream_raster)
-
-        # Read band 1. Convert NoData to 0
-        if isinstance(stream_raster, rasterio.DataReader):
-            mask = stream_raster.read_masks(1)
-            stream_raster = stream_raster.read(1)
-            stream_raster[mask==0] = 0
-
-        # Require a numpy 2D numeric array of non-negative integers
+        # Get raster array. Check values are valid
         name = 'stream_raster'
-        validate.matrix(stream_raster, name, dtypes=np.number)
+        stream_raster = validate.raster(stream_raster, name, nodata=0, dtypes=np.number)
         validate.non_negative(stream_raster, name)
         validate.integers(stream_raster, name)
-
-
-        validate.postive(stream_raster, name)
-        validate.
-
-
-        if not np.issubdtype(stream_raster, np.unsignedinteger):
-            negative = stream_raster < 0
-            if any(negative):
-                bad = np.argwhere(negative)[0]
-                raise ValueError(
-                    f'stream_raster elements must be positive, but element {bad} is negative'
-                )
-            
-
-
-
-
-        validate.matrix(stream_raster, 'stream_raster', dtypes=np.number)
-        notinteger = stream_raster % 1 != 0
-        if np.any(notinteger):
-            bad = np.nonzero(notinteger)[0]
-            raise ValueError(
-                f'stream_raster must consist of integers, but element '
-            )
-
-
-
-
 
         # Get the indices of stream segment pixels. Organize as column vectors
         (rows, cols) = np.nonzero(stream_raster)
