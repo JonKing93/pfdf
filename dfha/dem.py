@@ -72,7 +72,7 @@ Utilities:
 import subprocess, random, string
 from pathlib import Path
 from typing import Union, Optional, List, Literal, Tuple, Dict
-from tempfile import NamedTemporaryFile
+import tempfile
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
@@ -224,20 +224,20 @@ def analyze(
             * slopes_dinf: The path to the D-Infinity slopes
     """
 
-    # Parse verbosity and process file paths. Use temporary files when needed
-    verbose = _verbosity(verbose)
-    (paths, temporary, hasbasins) = _setup(paths)
+    # Store everything in a temporary directory until complete.
+    # Parse verbosity and process file paths
+    with tempfile.TemporaryDirectory as folder:
+        verbose = _verbosity(verbose)
+        tempfolder = Path(folder)
+        (paths, final, hasbasins) = _setup(paths, tempfolder)
 
-    # Fill pits in the DEM
-    try:
+        # Fill pits in the DEM
         pitremove(paths["dem"], paths["pitfilled"], verbose)
 
-        # Compute D8 and D-infinity flow directions. (D8 is needed for upslope
-        # areas, D-infinity for relief). Use user function for D8 to auto-delete
-        # the flow slopes
-        flow_directions(
-            "D8", paths["pitfilled"], paths["flow_directions"], verbose=verbose
-        )
+        # Compute D8 flow directions (used for upslope areas) and also D-infinity
+        # (used for vertical relief). Use a temporary file for D8 flow slopes
+        slopes_d8 = tempfolder / "slopes_d8.tif"
+        flow_d8(paths["pitfilled"], paths["flow_directions"], slopes_d8, verbose)
         flow_dinf(
             paths["pitfilled"],
             paths["flow_directions_dinf"],
@@ -275,13 +275,12 @@ def analyze(
             verbose,
         )
 
-    # Remove temporary output files
-    finally:
-        for name in temporary:
-            paths[name].unlink(missing_ok=True)
+        # Once complete, move save files into the main file system
+        for file in final:
+            paths[file].replace(final[file])
 
     # Return dict of output file paths
-    return _output_dict(paths, outputs, temporary, hasbasins)
+    return _output_dict(final, outputs, hasbasins)
 
 
 def area_d8(
@@ -428,7 +427,7 @@ def flow_directions(
 
     Saves.
         A file matching the "flow_directions" path. Optionally also saves a file
-        matchinge the "slopes" path.
+        matching the "slopes" path.
     """
 
     # Parse options and required paths
@@ -444,7 +443,7 @@ def flow_directions(
 
     # If slopes were not provided, use a temp file and only return flow directions
     if slopes_path is None:
-        with NamedTemporaryFile(suffix=".tif") as slopes:
+        with tempfile.NamedTemporaryFile(suffix=".tif") as slopes:
             flow(pitfilled_path, flow_directions_path, slopes.name, verbose)
         return flow_directions_path
 
@@ -922,16 +921,18 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     return subprocess.run(command, capture_output=not verbose, check=True)
 
 
-def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
+def _setup(
+    paths: Dict[str, Pathlike], tempfolder: tempfile.TemporaryDirectory
+) -> Tuple[PathDict, List[str], bool]:
     """
     _setup  Prepares the path dict for a DEM analysis
     ----------
     _setup(paths)
     Processes user-provided paths. Gets temporary paths for intermediate files
-    not specified by the user. Parses optional paths for debris basin flow
-    routing. Returns a 3-tuple with (1) the dict of Paths, (2) the list of
-    temporary output files, and (3) a bool indicating whether to enable debris
-    basin flow routing.
+    not specified by the user and in-progress calculations. Parses optional paths
+    for debris basin flow routing. Returns a 3-tuple with (1) the dict of
+    temporary / working Paths, (2) the dict of final output Paths, and (3) a bool
+    indicating whether to enable debris basin flow routing.
     ----------
     Inputs:
         paths: The user-provided path dict
@@ -939,40 +940,39 @@ def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
     Outputs:
         A 3-tuple with the following elements:
 
-        Dict[str, Path]: A dict with the absolute Path for each file used in the
-            analysis. May include temporary Paths for intermediate outputs.
-        List[str]: The list of temporary output files.
+        Dict[str, Path]: A dict with the temporary/working Path for each file
+            used in the analysis.
+        Dict[str, Path]: A dict with the Paths to saved output files.
         bool: True if flow-routing is enabled. Otherwise False.
     """
 
-    # Initialize list of temporary files and get folder for temp files
-    temporary = []
-    paths["flow_directions"] = _output_path(paths["flow_directions"])
-    folder = paths["flow_directions"].parent
+    # Initialize working and final path dicts
+    working = dict()
+    final = dict()
 
-    # Get file paths for basic analysis. Record temporary files
+    # Get file paths for core analysis
     outputs = _INTERMEDIATE + _FINAL
-    core_files = _INPUTS + outputs
-    for file in core_files:
+    essential = _INPUTS + outputs
+    for file in essential:
         if file in _INPUTS:
-            paths[file] = _input_path(paths[file])
-        elif file in _FINAL or (file in paths and paths[file] is not None):
-            paths[file] = _output_path(paths[file])
+            working[file] = _input_path(paths[file])
         else:
-            paths[file] = _temporary(file, folder)
-            temporary += [file]
+            working[file] = tempfolder / (file + ".tif")
+            if file in _FINAL or (file in paths and paths[file] is not None):
+                final[file] = _output_path(paths[file])
 
-    # Optionally get paths for debris-basin flow routing
+    # Optionally get paths for basin flow routing
     [input, output] = _BASINS
     if input in paths and paths[input] is not None:
-        paths[input] = _input_path(paths[input])
-        paths[output] = _output_path(paths[output])
+        working[input] = _input_path(paths[input])
+        working[output] = tempfolder / (output + ".tif")
+        final[output] = _output_path(paths[output])
         hasbasins = True
     else:
         hasbasins = False
 
-    # Return path dict, list of temporary files, and debris-basin switch
-    return (paths, temporary, hasbasins)
+    # Return path dicts and basin switch
+    return (working, final, hasbasins)
 
 
 def _temporary(prefix: str, folder: Path) -> Path:
