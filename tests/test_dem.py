@@ -198,22 +198,6 @@ class TestOutputPath(UsesPaths):
         self.check(input, expected, use_str)
 
 
-class TestTemporary(UsesPaths):
-    @pytest.mark.parametrize("prefix", ("slopes", "flow_directions"))
-    def test(_, prefix, tempdir):
-        output = dem._temporary(prefix, tempdir)
-        assert output.parent == tempdir
-
-        name = output.name
-        assert len(name) == len(prefix) + 1 + dem._tmp_string_length + 4
-        assert name[0 : len(prefix) + 1] == prefix + "_"
-        assert name[-4:] == ".tif"
-
-        random = name[len(prefix) + 1 : -4]
-        assert random.isascii()
-        assert random.isalpha()
-
-
 class TestSetup(UsesPaths):
     required = dem._INPUTS + dem._INTERMEDIATE + dem._FINAL
 
