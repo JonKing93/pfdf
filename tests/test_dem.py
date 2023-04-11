@@ -213,7 +213,7 @@ class TestTemporary(UsesPaths):
 
 
 class TestSetup(UsesPaths):
-    required = dem._inputs + dem._intermediate + dem._final
+    required = dem._INPUTS + dem._INTERMEDIATE + dem._FINAL
 
     def set_type(self, type, paths):
         for key in self.required:
@@ -281,20 +281,20 @@ class TestSetup(UsesPaths):
         (output, temporary, hasbasins) = dem._setup(user_paths)
         self.validate(output, temporary, user_paths, tmp=[])
         assert not hasbasins
-        for file in dem._basins:
+        for file in dem._BASINS:
             assert file not in output
 
     def test_missing_inbasins(self, user_paths):
-        user_paths[dem._basins[1]] = str(self.nbasins)
+        user_paths[dem._BASINS[1]] = str(self.nbasins)
         (output, temporary, hasbasins) = dem._setup(user_paths)
         self.validate(output, temporary, user_paths, tmp=[])
         assert not hasbasins
-        assert dem._basins[0] not in output
-        assert dem._basins[1] in output
-        assert not isinstance(dem._basins[1], Path)
+        assert dem._BASINS[0] not in output
+        assert dem._BASINS[1] in output
+        assert not isinstance(dem._BASINS[1], Path)
 
     def test_none_inbasins(self, user_paths):
-        [isbasin, nbasins] = dem._basins
+        [isbasin, nbasins] = dem._BASINS
         user_paths[isbasin] = None
         user_paths[nbasins] = str(self.nbasins)
         (output, temporary, hasbasins) = dem._setup(user_paths)
@@ -306,18 +306,18 @@ class TestSetup(UsesPaths):
         assert output[nbasins] == str(self.nbasins)
 
     def test_missing_outbasins(self, user_paths_basins):
-        user_paths_basins.pop(dem._basins[1])
+        user_paths_basins.pop(dem._BASINS[1])
         with pytest.raises(KeyError):
             dem._setup(user_paths_basins)
 
     def test_none_outbasins(self, user_paths_basins):
-        user_paths_basins[dem._basins[1]] = None
+        user_paths_basins[dem._BASINS[1]] = None
         with pytest.raises(TypeError):
             dem._setup(user_paths_basins)
 
     @pytest.mark.parametrize("path_type", ("string", "path"))
     def test_with_basins(self, user_paths_basins, path_type):
-        isbasin, nbasins = dem._basins
+        isbasin, nbasins = dem._BASINS
         paths = user_paths_basins
         paths[isbasin], paths[nbasins] = set_path_type(
             path_type, paths[isbasin], paths[nbasins]
@@ -349,31 +349,31 @@ class TestOutputDict(UsesPaths):
                 assert output[key] == paths[key]
 
     def test_default_nobasin(self, user_paths):
-        required = dem._final
+        required = dem._FINAL
         print(required)
         self.run("default", required, user_paths, False)
 
     def test_default_basin(self, user_paths_basins):
-        required = dem._final + [dem._basins[1]]
+        required = dem._FINAL + [dem._BASINS[1]]
         self.run("default", required, user_paths_basins, True)
 
     def test_saved_nobasin(self, user_paths):
-        required = dem._final + ["pitfilled", "flow_directions_dinf"]
+        required = dem._FINAL + ["pitfilled", "flow_directions_dinf"]
         print(required)
         self.run("saved", required, user_paths, False)
 
     def test_saved_basin(self, user_paths_basins):
-        required = dem._final + ["pitfilled", "flow_directions_dinf"] + [dem._basins[1]]
+        required = dem._FINAL + ["pitfilled", "flow_directions_dinf"] + [dem._BASINS[1]]
         print(required)
         self.run("saved", required, user_paths_basins, True)
 
     def test_all_nobasin(self, user_paths):
-        required = dem._final + dem._intermediate
+        required = dem._FINAL + dem._INTERMEDIATE
         print(required)
         self.run("all", required, user_paths, False)
 
     def test_all_basin(self, user_paths_basins):
-        required = dem._final + dem._intermediate + [dem._basins[1]]
+        required = dem._FINAL + dem._INTERMEDIATE + [dem._BASINS[1]]
         print(required)
         self.run("all", required, user_paths_basins, True)
 
@@ -656,12 +656,12 @@ class TestAnalyze:
     saved_tmps = ["slopes_dinf"]
 
     def setup_paths(self, paths, tmpdir, hasbasins):
-        outputs = dem._final + self.saved_tmps
+        outputs = dem._FINAL + self.saved_tmps
         if hasbasins:
-            outputs += [dem._basins[1]]
+            outputs += [dem._BASINS[1]]
         else:
-            paths.pop(dem._basins[0])
-            paths.pop(dem._basins[1])
+            paths.pop(dem._BASINS[0])
+            paths.pop(dem._BASINS[1])
         for file in outputs:
             paths[file] = tmpdir / paths[file].name
         for file in self.missing_tmps:
@@ -676,11 +676,11 @@ class TestAnalyze:
         # Get lists of tmp files, saved output files, expected output files for core analysis
         temporary = self.missing_tmps + self.none_tmps
         saved = os.listdir(tmpdir)
-        expected = dem._final + self.saved_tmps
+        expected = dem._FINAL + self.saved_tmps
 
         # Add optional basin files and get final file list
         if hasbasins:
-            nbasins = [dem._basins[1]]
+            nbasins = [dem._BASINS[1]]
             expected += nbasins
             required += nbasins
         expected_files = [all_paths[file].name for file in expected]
@@ -713,19 +713,19 @@ class TestAnalyze:
     def test_default(self, user_paths_basins, tmpdir, hasbasins):
         paths = self.setup_paths(user_paths_basins, tmpdir, hasbasins)
         output = dem.analyze(paths)
-        required = dem._final.copy()
+        required = dem._FINAL.copy()
         self.check_outputs(output, required, tmpdir, paths, user_paths_basins, hasbasins)
 
     @pytest.mark.parametrize('hasbasins', (True, False))
     def test_saved(self, user_paths_basins, tmpdir, hasbasins):
         paths = self.setup_paths(user_paths_basins, tmpdir, hasbasins)
         output = dem.analyze(paths, outputs="saved")
-        required = dem._final + self.saved_tmps
+        required = dem._FINAL + self.saved_tmps
         self.check_outputs(output, required, tmpdir, paths, user_paths_basins, hasbasins)
 
     @pytest.mark.parametrize('hasbasins', (True, False))
     def test_all(self, user_paths_basins, tmpdir, hasbasins):
         paths = self.setup_paths(user_paths_basins, tmpdir, hasbasins)
         output = dem.analyze(paths, outputs="all")
-        required = dem._final + dem._intermediate
+        required = dem._FINAL + dem._INTERMEDIATE
         self.check_outputs(output, required, tmpdir, paths, user_paths_basins, hasbasins)

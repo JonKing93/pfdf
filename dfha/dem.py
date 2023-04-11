@@ -75,13 +75,13 @@ from typing import Union, Optional, List, Literal, Tuple, Dict
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
-_tmp_string_length = 10  # The length of the random string for temporary files
+_TMP_STRING_LENGTH = 10  # The length of the random string for temporary files
 
 # Types of files in a DEM analysis
-_inputs = ["dem", "isburned", "isdeveloped"]
-_intermediate = ["pitfilled", "flow_directions_dinf", "slopes_dinf"]
-_final = ["flow_directions", "total_area", "burned_area", "developed_area", "relief"]
-_basins = ["isbasin", "upslope_basins"]
+_INPUTS = ["dem", "isburned", "isdeveloped"]
+_INTERMEDIATE = ["pitfilled", "flow_directions_dinf", "slopes_dinf"]
+_FINAL = ["flow_directions", "total_area", "burned_area", "developed_area", "relief"]
+_BASINS = ["isbasin", "upslope_basins"]
 
 # Type aliases
 Pathlike = Union[Path, str]
@@ -855,14 +855,14 @@ def _output_dict(
 
     # Determine the paths to include in the output
     if option == "default":
-        include = _final.copy()
+        include = _FINAL.copy()
     else:
-        outputs = _intermediate + _final
+        outputs = _INTERMEDIATE + _FINAL
         include = [file for file in outputs if file not in temporary]
 
     # Optionally include the debris-basin output
     if hasbasins:
-        include += [_basins[1]]
+        include += [_BASINS[1]]
 
     # Add all paths to the dict. Optionally include temporary outputs as None
     output = {file: paths[file] for file in include}
@@ -960,19 +960,19 @@ def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
     folder = paths["flow_directions"].parent
 
     # Get file paths for basic analysis. Record temporary files
-    outputs = _intermediate + _final
-    core_files = _inputs + outputs
+    outputs = _INTERMEDIATE + _FINAL
+    core_files = _INPUTS + outputs
     for file in core_files:
-        if file in _inputs:
+        if file in _INPUTS:
             paths[file] = _input_path(paths[file])
-        elif file in _final or (file in paths and paths[file] is not None):
+        elif file in _FINAL or (file in paths and paths[file] is not None):
             paths[file] = _output_path(paths[file])
         else:
             paths[file] = _temporary(file, folder)
             temporary += [file]
 
     # Optionally get paths for debris-basin flow routing
-    [input, output] = _basins
+    [input, output] = _BASINS
     if input in paths and paths[input] is not None:
         paths[input] = _input_path(paths[input])
         paths[output] = _output_path(paths[output])
@@ -1001,7 +1001,7 @@ def _temporary(prefix: str, folder: Path) -> Path:
         pathlib.Path: The absolute Path for the temporary file.
     """
 
-    tail = random.choices(string.ascii_letters, k=_tmp_string_length)
+    tail = random.choices(string.ascii_letters, k=_TMP_STRING_LENGTH)
     tail = "".join(tail)
     name = f"{prefix}_{tail}.tif"
     return folder / name
