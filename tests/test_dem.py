@@ -90,7 +90,7 @@ class UsesPaths:
     fire = testfire
 
 
-# Simulates a user-provided Path dict
+# Fixtures that simulate Path dicts
 @pytest.fixture
 def user_paths():
     paths = {
@@ -111,11 +111,30 @@ def user_paths():
     return {key: UsesPaths.fire / value for key, value in paths.items()}
 
 
+def add_basins(paths):
+    paths["isbasin"] = UsesPaths.fire / UsesPaths.isbasin
+    paths["upslope_basins"] = UsesPaths.fire / UsesPaths.nbasins
+    return paths
+
+
 @pytest.fixture
 def user_paths_basins(user_paths):
-    user_paths["isbasin"] = UsesPaths.fire / UsesPaths.isbasin
-    user_paths["upslope_basins"] = UsesPaths.fire / UsesPaths.nbasins
+    return add_basins(user_paths)
+
+
+@pytest.fixture
+def final_paths(user_paths):
+    remove = ["dem", "isburned", "isdeveloped", "extra_key", "another_key"]
+    for key in remove:
+        user_paths.pop(key)
     return user_paths
+
+
+@pytest.fixture
+def final_paths_basins(final_paths):
+    paths = add_basins(final_paths)
+    paths.pop("isbasin")
+    return paths
 
 
 ###
@@ -321,47 +340,47 @@ class TestSetup(UsesPaths):
 class TestOutputDict(UsesPaths):
     def run(self, option, required, paths, hasbasins):
         temporary = ["slopes_dinf"]
-        output = dem._output_dict(paths, option, temporary, hasbasins)
+        for key in temporary:
+            paths.pop(key)
+
+        output = dem._output_dict(paths, option, hasbasins)
         assert isinstance(output, dict)
 
         keys = output.keys()
         assert len(keys) == len(required)
+        print(sorted(keys))
+        print(sorted(required))
 
         for key in required:
             assert key in keys
-            if option == "all" and key in temporary:
+            if key not in paths:
                 assert output[key] is None
             else:
                 assert output[key] == paths[key]
 
-    def test_default_nobasin(self, user_paths):
+    def test_default_nobasin(self, final_paths):
         required = dem._FINAL
-        print(required)
-        self.run("default", required, user_paths, False)
+        self.run("default", required, final_paths, False)
 
-    def test_default_basin(self, user_paths_basins):
+    def test_default_basin(self, final_paths_basins):
         required = dem._FINAL + [dem._BASINS[1]]
-        self.run("default", required, user_paths_basins, True)
+        self.run("default", required, final_paths_basins, True)
 
-    def test_saved_nobasin(self, user_paths):
+    def test_saved_nobasin(self, final_paths):
         required = dem._FINAL + ["pitfilled", "flow_directions_dinf"]
-        print(required)
-        self.run("saved", required, user_paths, False)
+        self.run("saved", required, final_paths, False)
 
-    def test_saved_basin(self, user_paths_basins):
+    def test_saved_basin(self, final_paths_basins):
         required = dem._FINAL + ["pitfilled", "flow_directions_dinf"] + [dem._BASINS[1]]
-        print(required)
-        self.run("saved", required, user_paths_basins, True)
+        self.run("saved", required, final_paths_basins, True)
 
-    def test_all_nobasin(self, user_paths):
-        required = dem._FINAL + dem._INTERMEDIATE
-        print(required)
-        self.run("all", required, user_paths, False)
-
-    def test_all_basin(self, user_paths_basins):
+    def test_all_nobasin(self, final_paths):
         required = dem._FINAL + dem._INTERMEDIATE + [dem._BASINS[1]]
-        print(required)
-        self.run("all", required, user_paths_basins, True)
+        self.run("all", required, final_paths, False)
+
+    def test_all_basin(self, final_paths_basins):
+        required = dem._FINAL + dem._INTERMEDIATE + [dem._BASINS[1]]
+        self.run("all", required, final_paths_basins, True)
 
 
 ###

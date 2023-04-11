@@ -848,7 +848,7 @@ def _output_dict(paths: PathDict, option: OutputOption, hasbasins: bool) -> Path
     elif option == "saved":
         include = list(paths.keys())
     elif option == "all":
-        include = _INTERMEDIATE + _FINAL + _BASINS[1]
+        include = _INTERMEDIATE + _FINAL + [_BASINS[1]]
 
     # Add all paths to the dict. Set unsaved outputs to None
     output = dict()
