@@ -36,24 +36,12 @@ Custom Errors:
     ShapeError      - Raised when an input has an incorrect shape
 """
 
-from typing import Any, Union, Optional, Tuple, Sequence
-from nptyping import NDArray, Shape, Integer, Floating
 import numpy as np
 from pathlib import Path
-import rasterio
+from rasterio import DatasetReader
 from dfha.utils import aslist, astuple
-
-# Type aliases
-strs = Union[str, Sequence[str]]
-dtypes = Union[type, Sequence[type]]
-shape = Union[int, Sequence[int]]
-shape1d = Union[int, Tuple[int]]
-shape2d = Tuple[int, int]
-raster_array = NDArray[Shape["Rows, Cols"], Real]
-Raster = Union[str, Path, rasterio.DatasetReader, raster_array]
-scalar = Union[int, float, NDArray[Shape["1"], Real]]
-Real = Union[Integer, Floating]
-
+from dfha.typing import strs, shape, shape1d, shape2d, dtypes, RealArray, RasterArray
+from typing import Any
 
 
 def _dtype(input: Any, name: str, allowed: dtypes) -> None:
@@ -83,15 +71,15 @@ def _shape(input: Any, name: str, axes: strs, shape: shape) -> None:
                 raise ShapeError(name, axis, required, actual)
 
 
-def real(input: Any, name: str) -> NDArray[Any, Real]:
+def real(input: Any, name: str) -> RealArray:
     """
     real  Validate a real-valued numpy array
     ----------
     real(input, name)
-    Checks that an input can be converted to a real-valued numpy array. If not,
-    raises a TypeError. Otherwise, returns the input as a numpy array. Valid
-    inputs may be an int, float, or real-valued numpy array. Here, real-valued
-    indicates that the array dtype is derived from numpy.integer or numpy.floating.
+    Checks that an input represents a real-valued numpy array. If not, raises a
+    TypeError. Otherwise, returns the input as a numpy array. Valid inputs may be
+    an int, float, or real-valued numpy array. Here, real-valued indicates that
+    the array dtype is derived from numpy.integer or numpy.floating.
     ----------
     Inputs:
         input: The input being checked
@@ -99,7 +87,84 @@ def real(input: Any, name: str) -> NDArray[Any, Real]:
 
     Outputs:
         np.ndarray: The input as an ndarray
+
+    Raises:
+        TypeError: If the input is neither an int, float, or real-value numpy array
     """
+
+    # Check for basic numpy array
+    if isinstance(input, int) or isinstance(input, float):
+        input = np.array(input)
+    elif not isinstance(input, np.ndarray):
+        raise TypeError(f"{name} is not a numpy.ndarray")
+
+    # Check real-valued
+    dtype = input.dtype
+    isinteger = np.issubdtype(dtype, np.integer)
+    isfloating = np.issubdtype(dtype, np.floating)
+    if not isinteger and not isfloating:
+        raise TypeError(
+            f"{name} does not have a real-valued dtype. Allowed types are numpy.integer and numpy.floating"
+        )
+
+    # Return as numpy array for internal use
+    return input
+
+
+def scalar(input: Any, name: str) -> NDArray[Shape['1'], Real]:
+    """
+    scalar  Validate an input represents a scalar, real-valued number
+    ----------
+    scalar(input, name)
+    Checks that an input represents a scalar, real-valued number. Valid inputs 
+    can be int, float, or a real-valued numpy array with a size of 1. Raises an
+    exception if these criteria are not met. Returns the input as a 1D numpy array.
+    ----------
+    Inputs:
+        input: The input being checked
+        name: A name for the input for use in error messages.
+
+    Outputs:
+        numpy 1D array: The input as a 1D numpy array.
+        
+    Raises:
+        TypeError: If the input does not represent a real-valued numpy array
+        ShapeError: If the input has more than one element
+    """
+    input = real(input, name)
+    if input.size != 1:
+        raise ShapeError(name, 'element', required=1, actual=input.size)
+    return input.reshape(1)
+
+def vector(input, name, *, length):
+    """
+    vector  Validate an input represents a 1D real-valued numpy array
+    ----------
+    vector(input, name)
+    Checks the input represents a 1D, real-valued numpy array. Valid inputs can
+    be int, float, or a 1D numpy array. Note that this method requires an input
+    numpy array to have exactly 1 dimension. An array with multiple dimension, 
+    but a single non-singleton dimension will not pass. Raises an exception if
+    any of these criteria are not met.
+
+    vector(..., *, length)
+    Also checks that the vector has the specified length. Raises a ShapeError if
+    this criteria is not met.
+    ----------
+    Input:
+        input: The input being checked
+        name: A name for the input for use in error messages.
+        length
+
+    
+    
+    """
+
+
+
+
+
+
 
 
 
