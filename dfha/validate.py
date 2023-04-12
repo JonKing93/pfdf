@@ -230,6 +230,14 @@ def matrix(input: Any, name: str, *, shape: Optional[shape2d] = None) -> MatrixA
     return input.reshape(nrows, ncols)
 
 
+def raster(input: Any, name: str, *, nodata: Optional[scalar] = None) -> RasterArray:
+
+
+
+
+
+
+
 def integers(input: NDArray[Any, Number], name: str) -> None:
     """
     integers  Checks a numeric numpy array's elements are integers
@@ -259,65 +267,7 @@ def integers(input: NDArray[Any, Number], name: str) -> None:
             )
 
 
-def matrix(
-    input: Any,
-    name: str,
-    *,
-    dtypes: Optional[dtypes] = None,
-    shape: Optional[shape2d] = None,
-) -> None:
-    """
-    matrix  Validates and returns a real-valued numpy 2D array
-    ----------
-    matrix(input, name)
-    Checks that an input is a numpy ndarray with two dimensions. Raises a
-    TypeError if not an ndarray. Raises a NDimError if the number of dimensions
-    is not 2.
 
-    matrix(..., *, dtypes, ...)
-    Also checks that the ndarray has one of the specified dtypes. Raises a
-    TypeError if not.
-
-    matrix(..., *, shape, ...)
-    Also checks that the ndarray has the specified shape. Raises a ShapeError
-    if not.
-    ----------
-    Inputs:
-        input: The input being checked
-        name: The name of the input (for use in error messages)
-        dtypes: The set of allowed dtypes. May be a single dtype, or a list. A
-            dtype may be any value accepted by the numpy.dtype constructor.
-        shape: A required shape for the matrix. Use -1 to not check the shape
-            of an axis.
-
-    Raises:
-        TypeError: If the input is not a numpy ndarray
-        NDimError: If the input does not have 2 dimensions
-        TypeError: If the input is not an allowed dtype
-        ShapeError: If the input does not have the required shape
-    """
-
-    ndarray(input, name)
-    _ndim(input, name, 2)
-    _dtype(input, name, dtypes)
-    _shape(input, name, ["row(s)", "column(s)"], shape)
-
-
-def ndarray(input: Any, name: str) -> None:
-    """
-    ndarray  Checks that an input is a numpy ndarray
-    ----------
-    ndarray(input, name)
-    Checks that the input is an numpy ndarray. Raises a TypeError if not.
-    ----------
-    Inputs:
-        input: The input being checked
-
-    Raises:
-        TypeError: If the input is not a numpy ndarray
-    """
-    if not isinstance(input, np.ndarray):
-        raise TypeError(f"{name} is not a numpy ndarray")
 
 
 def positive(
@@ -431,48 +381,6 @@ def raster(
     matrix(raster, name, dtypes=np.number)
     return raster
 
-
-def vector(
-    input: Any,
-    name: str,
-    *,
-    dtypes: Optional[dtypes] = None,
-    length: Optional[shape1d] = None,
-) -> None:
-    """
-    vector  Checks an input is a numpy 1D array. Optionally checks dtype and length
-    ----------
-    vector(input, name)
-    Checks that an input is a numpy ndarray with 1 dimension. Raises a
-    TypeError if not an ndarray. Raises a NDimError if the number of dimensions
-    is not 1.
-
-    vector(..., *, dtypes, ...)
-    Also checks that the vector has one of the specified dtypes. Raises a
-    TypeError if not.
-
-    vector(..., *, length, ...)
-    Also checks that the vector has the specified lengthe. Raises a ShapeError
-    if not.
-    ----------
-    Inputs:
-        input: The input being checked
-        name: The name of the input (for use in error messages)
-        dtypes: The set of allowed dtypes. May be a single dtype, or a list. A
-            dtype should be a numpy scalar type.
-        length: A required length for the array.
-
-    Raises:
-        TypeError: If the input is not a numpy ndarray
-        NDimError: If the input does not have 1 dimension
-        TypeError: If the input is not an allowed dtype
-        ShapeError: If the input does not have the required length
-    """
-
-    ndarray(input, name)
-    _ndim(input, name, 1)
-    _dtype(input, name, dtypes)
-    _shape(input, name, "element(s)", length)
 
 
 class DimensionError(Exception):
