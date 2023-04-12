@@ -38,14 +38,13 @@ Custom Errors:
 
 import numpy as np
 from pathlib import Path
-from rasterio import DatasetReader
+import rasterio
 from dfha.utils import aslist
 from typing import Any, Optional, List
 from dfha.typing import (
     strs,
     shape,
     shape2d,
-    dtypes,
     RealArray,
     ScalarArray,
     VectorArray,
@@ -231,14 +230,72 @@ def matrix(input: Any, name: str, *, shape: Optional[shape2d] = None) -> MatrixA
 
 
 def raster(input: Any, name: str, *, nodata: Optional[scalar] = None) -> RasterArray:
+    """
+    raster  Check input is valid raster and return as numpy 2D array
+    ----------
+    raster(raster, name)
+    Checks that the input is a valid raster. Valid rasters may be:
+        * A string with the path to a raster file path,
+        * A pathlib.Path to a raster file,
+        * An open rasterio.DatasetReader object, or
+        * A numpy 2D array with real-valued dtype
+
+    Returns the raster as a numpy 2D array. If the input was not a numpy array,
+    then the function will read the raster from file. Rasters will always be
+    read from band 1.
+
+    Raises exceptions if:
+        * a raster file does not exist
+        * a raster file cannot be opened by rasterio
+        * a DatasetReader object is closed
+        * a numpy array does not have 2 dimensions
+        * a numpy array dtype is not a numpy.integer or numpy.floating
+        * the input is some other type
+
+    raster(..., *, nodata)
+    Specify a value for NoData elements when reading a raster from file. All
+    NoData elements will be replaced with this value. This option has no effect
+    when a numpy array is provided.
+    ----------
+    Inputs:
+        raster: The input being checked
+        name: The name of the input for use in error messages
+        nodata: A fill value for NoData elements when reading from file
+
+    Outputs:
+        numpy 2D array: The raster represented as a numpy array.
+    """
+
+    # Convert str to Path
+    if isinstance(raster, str):
+        raster = Path(raster)
+
+    # Require file exists. Open with rasterio
+    if isinstance(raster, Path):
+        raster = raster.resolve(strict=True)
+        raster = rasterio.open(raster)
+
+    # Require open DatasetReader
+    if isinstance(raster, rasterio.DatasetReader):
+        if raster.closed:
+            raise ValueError(
+                f"{name} must be an open rasterio.DatasetReader, but it is closed"
+            )
+
+        # Read raster from band 1. Optionally convert NoData to fill value
+        if nodata is None:
+            raster = raster.read(1)
+        else:
+            mask = raster.read_masks(1)
+            raster = raster.read(1)
+            raster[mask == 0] = nodata
+
+    # Require numpy 2D real-valued array. Return array
+    matrix(raster, name)
+    return raster
 
 
-
-
-
-
-
-def integers(input: NDArray[Any, Number], name: str) -> None:
+def integers(input: RealArray, name: str) -> None:
     """
     integers  Checks a numeric numpy array's elements are integers
     ----------
@@ -267,12 +324,7 @@ def integers(input: NDArray[Any, Number], name: str) -> None:
             )
 
 
-
-
-
-def positive(
-    input: NDArray[Any, Number], name: str, *, allow_zero: bool = False
-) -> None:
+def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
     """
     positive  Checks a numeric numpy array's elements are positive
     ----------
@@ -309,78 +361,6 @@ def positive(
             raise ValueError(
                 f"The elements of {name} cannot be negative, but element {bad} is negative."
             )
-
-
-def raster(
-    raster: Any,
-    name: str,
-    *,
-    nodata: Optional[scalar] = None,
-) -> raster_array:
-    """
-    raster  Check input is valid raster and return as numpy 2D array
-    ----------
-    raster(raster, name)
-    Checks that the input is a valid raster. Valid rasters may be:
-        * A string with the path to a raster file path,
-        * A pathlib.Path to a raster file,
-        * An open rasterio.DatasetReader object, or
-        * A numpy 2D array with numeric dtype
-
-    Returns the raster as a numpy 2D array. If the input was not a numpy array,
-    then the function will read the raster from file. Rasters will always be
-    read from band 1.
-
-    Raises exceptions if:
-        * a raster file does not exist
-        * a raster file cannot be opened by rasterio
-        * a DatasetReader object is closed
-        * a numpy array does not have 2 dimensions
-        * a numpy array dtype is not a numpy.integer or numpy.floating
-        * the input is some other type
-
-    raster(..., *, nodata)
-    Specify a value for NoData elements when reading a raster from file. All
-    NoData elements will be replaced with this value. This option has no effect
-    when a numpy array is provided.
-    ----------
-    Inputs:
-        raster: The input being checked
-        name: The name of the input for use in error messages
-        nodata: A fill value for NoData elements when reading from file
-
-    Outputs:
-        numpy 2D array, dtype=np.number: The raster represented as a numpy array.
-    """
-
-    # Convert str to Path
-    if isinstance(raster, str):
-        raster = Path(raster)
-
-    # Require file exists. Open with rasterio
-    if isinstance(raster, Path):
-        raster = raster.resolve(strict=True)
-        raster = rasterio.open(raster)
-
-    # Require open DatasetReader
-    if isinstance(raster, rasterio.DatasetReader):
-        if raster.closed:
-            raise ValueError(
-                f"{name} must be an open rasterio.DatasetReader, but it is closed"
-            )
-
-        # Read raster from band 1. Optionally convert NoData to fill value
-        if nodata is None:
-            raster = raster.read(1)
-        else:
-            mask = raster.read_masks(1)
-            raster = raster.read(1)
-            raster[mask == 0] = nodata
-
-    # Require numpy 2D numeric array. Return array
-    matrix(raster, name, dtypes=np.number)
-    return raster
-
 
 
 class DimensionError(Exception):
