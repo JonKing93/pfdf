@@ -16,6 +16,7 @@ Pathdict = Dict[str, Path]
 
 # Numpy dtypes
 dtypes = Union[type, Sequence[type]]
+real = Union[int, float]
 Real = Union[Integer, Floating]
 Reallike = Union[int, float, Real]
 

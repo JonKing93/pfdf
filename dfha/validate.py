@@ -45,6 +45,7 @@ from dfha.typing import (
     strs,
     shape,
     shape2d,
+    real,
     RealArray,
     ScalarArray,
     VectorArray,
@@ -366,6 +367,22 @@ def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
                 f"The elements of {name} cannot be negative, but element {bad} is negative."
             )
 
+
+def inrange(input: RealArray, name: str, min: Optional[real] = None, max: Optional[real] = None) -> None:
+
+    _check_bound(input, name, min, np.less, 'less')
+    _check_bound(input, name, max, np.greater, 'greater')
+
+
+def _check_bound(input, name, threshold, operator, description):
+
+    if threshold is not None:
+        failed = operator(input, threshold)
+        if np.any(failed):
+            bad = np.argwhere(failed)[0]
+            raise ValueError(
+                f'{name} cannot have elements {description} than {threshold}, but element {bad} is {description} than {threshold}'
+            )
 
 class DimensionError(Exception):
     "When a numpy array invalid non-singleton dimensions"
