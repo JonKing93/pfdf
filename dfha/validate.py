@@ -25,7 +25,7 @@ Size and type:
     matrix          - Check an input is a 2D numpy array. Optionally check dtype and shape
 
 Numeric numpy:
-    non_negative    - Checks that all elements are >= 0
+    positive        - Checks that all elements are positive
     integers        - Checks that all elements are integers (NOT that the dtype is an int)
 
 GIS:
@@ -37,7 +37,7 @@ Custom Errors:
 """
 
 from typing import Any, Union, Optional, Tuple, Sequence
-from nptyping import NDArray, Number, Shape
+from nptyping import NDArray, Shape, Integer, Floating
 import numpy as np
 from pathlib import Path
 import rasterio
@@ -49,9 +49,11 @@ dtypes = Union[type, Sequence[type]]
 shape = Union[int, Sequence[int]]
 shape1d = Union[int, Tuple[int]]
 shape2d = Tuple[int, int]
-raster_array = NDArray[Shape["Rows, Cols"], Number]
+raster_array = NDArray[Shape["Rows, Cols"], Real]
 Raster = Union[str, Path, rasterio.DatasetReader, raster_array]
-scalar = Union[int, float, NDArray[Shape["1"], Number]]
+scalar = Union[int, float, NDArray[Shape["1"], Real]]
+Real = Union[Integer, Floating]
+
 
 
 def _dtype(input: Any, name: str, allowed: dtypes) -> None:
@@ -79,6 +81,32 @@ def _shape(input: Any, name: str, axes: strs, shape: shape) -> None:
         for axis, required, actual in zip(aslist(axes), astuple(shape), input.shape):
             if required != -1 and required != actual:
                 raise ShapeError(name, axis, required, actual)
+
+
+def real(input: Any, name: str) -> NDArray[Any, Real]:
+    """
+    real  Validate a real-valued numpy array
+    ----------
+    real(input, name)
+    Checks that an input can be converted to a real-valued numpy array. If not,
+    raises a TypeError. Otherwise, returns the input as a numpy array. Valid
+    inputs may be an int, float, or real-valued numpy array. Here, real-valued
+    indicates that the array dtype is derived from numpy.integer or numpy.floating.
+    ----------
+    Inputs:
+        input: The input being checked
+        name: A name for the input for use in error messages.
+
+    Outputs:
+        np.ndarray: The input as an ndarray
+    """
+
+
+
+
+
+
+
 
 
 def integers(input: NDArray[Any, Number], name: str) -> None:
@@ -118,7 +146,7 @@ def matrix(
     shape: Optional[shape2d] = None,
 ) -> None:
     """
-    matrix  Checks an input is a numpy 2D array. Optionally checks dtype and shape
+    matrix  Validates and returns a real-valued numpy 2D array
     ----------
     matrix(input, name)
     Checks that an input is a numpy ndarray with two dimensions. Raises a
@@ -237,7 +265,7 @@ def raster(
         * a raster file cannot be opened by rasterio
         * a DatasetReader object is closed
         * a numpy array does not have 2 dimensions
-        * a numpy array dtype is not a numpy.number
+        * a numpy array dtype is not a numpy.integer or numpy.floating
         * the input is some other type
 
     raster(..., *, nodata)
