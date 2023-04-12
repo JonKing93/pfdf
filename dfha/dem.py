@@ -63,7 +63,6 @@ Utilities:
     _verbosity          - Determines the verbosity setting for a routine
     _input_paths        - Returns the absolute Path for an input file
     _output_path        - Returns the absolute Path for an output file
-    _temporary          - Returns an absolute Path for a temporary output file
     _run_taudem         - Runs a TauDEM routine as a subprocess
     _setup              - Prepares the Path dict for a DEM analysis
     _output_dict        - Builds the output Path dict for a DEM analysis
