@@ -229,7 +229,7 @@ def matrix(input: Any, name: str, *, shape: Optional[shape2d] = None) -> MatrixA
     return input.reshape(nrows, ncols)
 
 
-def raster(input: Any, name: str, *, nodata: Optional[scalar] = None) -> RasterArray:
+def raster(raster: Any, name: str, *, nodata: Optional[scalar] = None) -> RasterArray:
     """
     raster  Check input is valid raster and return as numpy 2D array
     ----------
