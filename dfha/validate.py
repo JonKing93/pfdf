@@ -197,7 +197,7 @@ def non_negative(input: NDArray[Any, Number], name: str) -> None:
 
 
 def raster(
-    input: Any,
+    raster: Any,
     name: str,
     *,
     nodata: Optional[fill_value] = None,
@@ -205,7 +205,7 @@ def raster(
     """
     raster  Check input is valid raster and return as numpy 2D array
     ----------
-    raster(input, name)
+    raster(raster, name)
     Checks that the input is a valid raster. Valid rasters may be:
         * A string with the path to a raster file path,
         * A pathlib.Path to a raster file,
@@ -230,7 +230,7 @@ def raster(
     when a numpy array is provided.
     ----------
     Inputs:
-        input: The input being checked
+        raster: The input being checked
         name: The name of the input for use in error messages
         nodata: A fill value for NoData elements when reading from file
 
@@ -247,8 +247,14 @@ def raster(
         raster = raster.resolve(strict=True)
         raster = rasterio.open(raster)
 
-    # Read band 1. Optionally convert NoData to specified value
-    if isinstance(raster, rasterio.DataReader):
+    # Require open DatasetReader
+    if isinstance(raster, rasterio.DatasetReader):
+        if raster.closed:
+            raise ValueError(
+                f'{name} must be an open rasterio.DatasetReader, but it is closed'
+            )
+        
+        # Read raster from band 1. Optionally convert NoData to fill value      
         if nodata is None:
             raster = raster.read(1)
         else:
