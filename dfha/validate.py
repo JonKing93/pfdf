@@ -291,8 +291,12 @@ def raster(raster: Any, name: str, *, nodata: Optional[scalar] = None) -> Raster
             raster[mask == 0] = nodata
 
     # Require numpy 2D real-valued array. Return array
-    matrix(raster, name)
-    return raster
+    if not isinstance(raster, np.ndarray):
+        raise TypeError(
+            f"{name} is not a recognized raster type. Allowed types are: "
+            "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray"
+        )
+    return matrix(raster, name)
 
 
 def integers(input: RealArray, name: str) -> None:
