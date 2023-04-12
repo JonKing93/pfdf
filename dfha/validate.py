@@ -51,7 +51,7 @@ shape1d = Union[int, Tuple[int]]
 shape2d = Tuple[int, int]
 raster_array = NDArray[Shape["Rows, Cols"], Number]
 Raster = Union[str, Path, rasterio.DatasetReader, raster_array]
-fill_value = Union[int, float, NDArray[Shape["1"], Number]]
+scalar = Union[int, float, NDArray[Shape["1"], Number]]
 
 
 def _dtype(input: Any, name: str, allowed: dtypes) -> None:
@@ -171,24 +171,40 @@ def ndarray(input: Any, name: str) -> None:
         raise TypeError(f"{name} is not a numpy ndarray")
 
 
-def non_negative(input: NDArray[Any, Number], name: str) -> None:
+def positive(
+    input: NDArray[Any, Number], name: str, *, allow_zero: bool = False
+) -> None:
     """
-    non_negative  Checks a numeric numpy array's elements are >= 0
+    positive  Checks a numeric numpy array's elements are positive
     ----------
-    non_negative(input, name)
-    Checks that the elements of the input numpy array are all greater than or
-    equal to zero. Raises a ValueError if not.
+    positive(input, name)
+    Checks that the elements of the input numpy array are all greater than zero.
+    Raises a ValueError if not.
+
+    positive(..., *, allow_zero=True)
+    Checks that elements are greater than or equal to zero.
     ----------
     Inputs:
         input: The numeric ndarray being checked.
         name: A name for the input for use in error messages.
+        allow_zero: Set to True to allow elements equal to zero.
+            False (default) to only allow elements greater than zero.
 
     Raises:
         ValueError: If the array contains negative elements
     """
 
+    # Exit immediately if unsigned integers (all are positive)
     if not np.issubdtype(input.dtype, np.unsignedinteger):
-        negative = input < 0
+
+        # Search for negative values
+        if allow_zero:
+            operator = np.less
+        else:
+            operator = np.less_equal
+        negative = operator(input, 0)
+
+        # Error if any were negative
         if np.any(negative):
             bad = np.argwhere(negative)[0]
             raise ValueError(
@@ -200,7 +216,7 @@ def raster(
     raster: Any,
     name: str,
     *,
-    nodata: Optional[fill_value] = None,
+    nodata: Optional[scalar] = None,
 ) -> raster_array:
     """
     raster  Check input is valid raster and return as numpy 2D array
@@ -251,10 +267,10 @@ def raster(
     if isinstance(raster, rasterio.DatasetReader):
         if raster.closed:
             raise ValueError(
-                f'{name} must be an open rasterio.DatasetReader, but it is closed'
+                f"{name} must be an open rasterio.DatasetReader, but it is closed"
             )
-        
-        # Read raster from band 1. Optionally convert NoData to fill value      
+
+        # Read raster from band 1. Optionally convert NoData to fill value
         if nodata is None:
             raster = raster.read(1)
         else:
