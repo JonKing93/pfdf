@@ -1,17 +1,29 @@
 """
 validate  Functions that validate user inputs
 ----------
-Key functions:
-    ndarray     - Check that an input is a numpy ndarray
-    matrix      - Check an input is a 2D numpy array. Optionally check dtype and shape
+The validate module contains functions that check 
+
+
+----------
+Size and type:
+    ndarray         - Check that an input is a numpy ndarray
+    vector          - Check an input is a 1D numpy array. Optionally check dtype and length
+    matrix          - Check an input is a 2D numpy array. Optionally check dtype and shape
+
+Numeric numpy:
+    non_negative    - Checks that all elements are >= 0
+    integers        - Checks that all elements are integers
+
+GIS:
+    raster          - Check that an input is a raster and return it as a numpy 2D array
 
 Custom Errors:
-    NDimError   - Raised when an input has an incorrect number of dimensions
-    ShapeError  - Raised when an input has an incorrect shape
+    NDimError       - Raised when an input has an incorrect number of dimensions
+    ShapeError      - Raised when an input has an incorrect shape
 """
 
 import numpy as np
-from typing import Any, Union, List, Optional, Tuple
+from typing import Any, Union, List, Optional, Tuple, Sequence
 from nptyping import NDArray, Number, Shape
 import numbers
 from pathlib import Path
@@ -21,6 +33,7 @@ import rasterio
 # Type aliases
 dtype = Union[np.dtype, str, object]
 dtypes = Union[dtype, List[dtype]]
+shape1d = Tuple[int]
 shape2d = Tuple[int, int]
 raster_array = NDArray[Shape["Rows, Cols"], Number]
 Raster = Union[str, Path, rasterio.DatasetReader, raster_array]
@@ -36,7 +49,13 @@ def _dtype(input: Any, name: str, allowed: dtypes) -> None:
             raise TypeError(f"The dtype of {name} ({actual}) is not allowed.")
 
 
-def _shape(input: Any, name: str, axes: List[str], shape: shape2d) -> None:
+def _ndim(input: Any, name: str, N: int) -> None:
+    "Check that the number of dimensions are correct"
+    if input.ndim != N:
+        raise NDimError(name, N, input.ndim)
+
+
+def _shape(input: Any, name: str, axes: List[str], shape: Sequence[int]) -> None:
     "Check that the shape of each axis is correct"
     if shape is not None:
         for axis, required, actual in zip(axes, shape, input.shape):
@@ -44,10 +63,33 @@ def _shape(input: Any, name: str, axes: List[str], shape: shape2d) -> None:
                 raise ShapeError(name, axis, required, actual)
 
 
-def _ndim(input: Any, name: str, N: int) -> None:
-    "Check that the number of dimensions are correct"
-    if input.ndim != N:
-        raise NDimError(name, N, input.ndim)
+def integers(input: NDArray[Any, Number], name: str) -> None:
+    """
+    integers  Checks a numeric numpy array's elements are integers
+    ----------
+    integers(input, name)
+    Checks that the elements of the input numpy array are all integers. Raises a
+    ValueError if not.
+
+    Note that this function *IS NOT* checking the dtype of the input array. Rather
+    it checks that each element is an integer. Thus, arrays of floating-point
+    integers (e.g. 1.0, 2.000, -3.0) will pass the test.
+    ----------
+    Inputs:
+        input: The numeric ndarray being checked.
+        name: A name of the input for use in error messages.
+
+    Raises:
+        ValueError: If the array contains non-integer elements
+    """
+
+    if not np.issubdtype(input.dtype, np.integer):
+        noninteger = input % 1 != 0
+        if np.any(noninteger):
+            bad = np.argwhere(noninteger)[0]
+            raise ValueError(
+                f"The elements of {name} must be integers, but element {bad} is not an integer."
+            )
 
 
 def matrix(
@@ -136,35 +178,6 @@ def non_negative(input: NDArray[Any, Number], name: str) -> None:
             )
 
 
-def integers(input: NDArray[Any, Number], name: str) -> None:
-    """
-    integers  Checks a numeric numpy array's elements are integers
-    ----------
-    integers(input, name)
-    Checks that the elements of the input numpy array are all integers. Raises a
-    ValueError if not.
-
-    Note that this function *IS NOT* checking the dtype of the input array. Rather
-    it checks that each element is an integer. Thus, arrays of floating-point
-    integers (e.g. 1.0, 2.000, -3.0) will pass the test.
-    ----------
-    Inputs:
-        input: The numeric ndarray being checked.
-        name: A name of the input for use in error messages.
-
-    Raises:
-        ValueError: If the array contains non-integer elements
-    """
-
-    if not np.issubdtype(input.dtype, np.integer):
-        noninteger = input % 1 != 0
-        if np.any(noninteger):
-            bad = np.argwhere(noninteger)[0]
-            raise ValueError(
-                f"The elements of {name} must be integers, but element {bad} is not an integer."
-            )
-
-
 def raster(
     raster: Raster,
     name: str,
@@ -200,6 +213,49 @@ def raster(
     # Require numpy 2D numeric array. Return array
     matrix(raster, name, dtypes=dtypes, shape=shape)
     return raster
+
+
+def vector(
+    input: Any,
+    name: str,
+    *,
+    dtypes: Optional[dtypes] = None,
+    length: Optional[shape1d] = None,
+) -> None:
+    """
+    vector  Checks an input is a numpy 1D array. Optionally checks dtype and length
+    ----------
+    vector(input, name)
+    Checks that an input is a numpy ndarray with 1 dimension. Raises a
+    TypeError if not an ndarray. Raises a NDimError if the number of dimensions
+    is not 1.
+
+    vector(..., *, dtypes, ...)
+    Also checks that the vector has one of the specified dtypes. Raises a
+    TypeError if not.
+
+    vector(..., *, length, ...)
+    Also checks that the vector has the specified lengthe. Raises a ShapeError
+    if not.
+    ----------
+    Inputs:
+        input: The input being checked
+        name: The name of the input (for use in error messages)
+        dtypes: The set of allowed dtypes. May be a single dtype, or a list. A
+            dtype should be a numpy scalar type.
+        length: A required length for the array.
+
+    Raises:
+        TypeError: If the input is not a numpy ndarray
+        NDimError: If the input does not have 1 dimension
+        TypeError: If the input is not an allowed dtype
+        ShapeError: If the input does not have the required length
+    """
+
+    ndarray(input, name)
+    _ndim(input, name, 1)
+    _dtype(input, name, dtypes)
+    _shape(input, name, ["elements"], length)
 
 
 class NDimError(Exception):
