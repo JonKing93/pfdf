@@ -339,13 +339,14 @@ def raster(
     if reading:
         band = 1
         with context(raster) as data:
-
             # Check shape and dtype before reading. Disable any later shape checking
-            real(data.dtypes[band-1], name)
+            real(data.dtypes[band - 1], name)
             if shape is not None:
                 nrows = data.height
                 ncols = data.width
-                _shape(name, ["Row(s)", "Column(s)"], required=shape, actual=(nrows, ncols))
+                _shape(
+                    name, ["Row(s)", "Column(s)"], required=shape, actual=(nrows, ncols)
+                )
                 shape = None
 
             # Read raster from band 1. Optionally convert NoData to fill value
@@ -412,7 +413,6 @@ def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
 
     # Exit immediately if unsigned integers (all are positive).
     if not np.issubdtype(input.dtype, np.unsignedinteger):
-
         # Determine the comparison type
         if allow_zero:
             operator = ">="
@@ -473,7 +473,6 @@ def _check_bound(input, name, operator, bound):
 
     # Only compare if bounds were specified
     if bound is not None:
-
         # Get the operator for the comparison. Note that we are testing for failed
         # elements, so actually need the *inverse* of the input operator.
         if operator == "<":

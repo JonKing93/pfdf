@@ -519,57 +519,60 @@ class Segments:
         upslope_development = self._validate(upslope_development, "upslope_development")
         return self._summary(upslope_development, np.amean)
 
-    def remove(self, ids: List[int]) -> None:
+    def remove(self, ids: IDs) -> None:
         """
         remove  Removes segments from a Segments object
         ----------
-        self.remove(ids)
-        Removes segments with the indicated IDs from the Segments object. Raises a
-        KeyError if an input ID is not in the object.
+        self.remove(segments)
+        Removes segments with the indicated IDs from the Segments object. The
+        input may either be a numpy 1D integer array-like, or a numpy 1D integer
+        array-like with one element per stream segment in the object.
+
+        If using integers, the values indicate the IDs of the segments that should
+        be removed. Raises a KeyError if an ID is not in the segments object.
+
+        If using bools, the elements correspond to the IDs returned by the ".ids"
+        property. Removes segments corresponding to True elements of the bool array.
+        Raises a ShapeError if the bool array-like has a different number of
+        elements than the number of segments.
         ----------
         Inputs:
-            ids: The IDs of the stream segments to remove from the object
+            segments: Indicates which stream segments to remove from the object.
+                May use either an integer or boolean syntax. Integers denote
+                the IDs of the segments to remove. If booleans, removes the 
+                segments corresponding to True elements.
+
+        Raises:
+            KeyError: If an integer is not a segment ID
+            ShapeError: If a boolean array-like does not have exactly one element
+                per stream segment in the object.
         """
 
-        # # Validate/parse numpy arrays
-        # if isinstance(ids, np.ndarray):
-        #     if ids.ndim != 1:
-        #         ValueError(f'"ids" is a numpy array, so must have 1 dimension. However, it has {ids.ndim} dimensions instead.')
+        # Require numeric or bool vector
+        segments = validate.vector(segments, 'segments', dtype=[np.integer, np.floating, np.bool_])
 
-        #     # bool arrays must have one element per ID. Convert to int indices
-        #     if ids.dtype == bool:
-        #         if len(ids) != len(self):
-        #             raise ValueError(f'"ids" is a numpy bool array, so must have {len(self)} elements (one element per segment). However, it has {len(ids)} elements instead.')
-        #         ids = np.nonzero(ids)
+        # If boolean, require 1 element per segment. Convert to IDs
+        if segments.dtype == bool:
+            validate.shape_('segments', 'element(s)', required=len(self), actual=segments.shape)
+            segments = self.ids[np.argwhere(segments)].reshape(-1)
 
-        #     # Numeric arrays must be positive integers
-        #     elif ids.dtype == np.number:
-        #         invalid = ids % 2 != 1
-        #         if np.any(invalid):
-        #             bad = np.nonzero(invalid)[0]
-        #         if not np.all(isinteger):
-        #             bad = np.nonzero
-        #             raise ValueError('ids {}')
+        # If not boolean, get the unique inputs and the list of ID keys
+        else:
+            ids = self.ids
+            segments = set(segments)
 
-        #             bad = np.nonzero(ids %2 !=)
-        #             raise ValueError('ids {i}')
-
-        #         pass
-        #     else:
-        #         raise TypeError('"ids" is a numpy array, so must be either a bool or number dtype. However, it is a(n) {type} dtype instead.')
-
-        # Check that all IDs are in the list
-        ids = set(ids)
-        for i, id in enumerate(ids):
-            if id not in self.indices:
-                raise KeyError(
-                    f"Input ID {i} ({id}) is not the ID of a segment in the network. "
-                    "See self.ids for a list of current segment IDs."
-                )
-
-        # Remove segments
-        for id in ids:
+            # Check each key is in the object
+            for i, id in enumerate(segments):
+                if id not in ids:
+                    raise KeyError(
+                        f"Input ID {i} ({id}) is not the ID of a segment in the network. "
+                        "See self.ids for a list of current segment IDs."
+                    )
+                
+        # Remove the IDs
+        for id in segments:
             del self.indices[id]
+
 
     def slope(self, slopes: Raster) -> SegmentValues:
         """
