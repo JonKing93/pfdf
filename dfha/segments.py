@@ -110,17 +110,18 @@ from copy import deepcopy
 from dfha import validate
 from dfha.utils import any_defined
 from typing import Any, Dict, Tuple, Literal, Union, Callable
-from dfha.typing import Raster, RasterArray, Real, scalar, ints
-from nptyping import NDArray, Shape, Integer, Bool
+from dfha.typing import Raster, RasterArray, scalar, ints, ScalarArray, VectorShape
+from nptyping import NDArray, Shape, Integer, Number, Bool
 
 
 # Type aliases
 PixelValues = NDArray[Shape["Pixels"], Integer]
-SegmentValues = NDArray[Shape["Segments"], Real]
+SegmentValues = NDArray[Shape['Segments'], Number]
 indices = Dict[int, Tuple[PixelValues, PixelValues]]
 Statistic = Literal["min", "max", "mean", "median", "std"]
 StatFunction = Callable[[np.ndarray], np.ndarray]
-IDs = Union[ints, NDArray[..., Integer], NDArray[Shape["Segments"], Bool]]
+IDs = Union[ints, NDArray[VectorShape, Integer], NDArray[Shape["Segments"], Bool]]
+KernelIndices = Tuple[range, range]
 
 
 class Segments:
@@ -280,7 +281,7 @@ class Segments:
     #####
     def _filter(
         self,
-        method: Callable[..., values],
+        method: Callable[[Tuple('Segments', ...)], SegmentValues],
         type: Literal["<", ">"],
         threshold: scalar,
         *args: Any,
@@ -484,7 +485,7 @@ class Segments:
             theta[i] = _confinement_angle(slopes)
         return theta
 
-    def copy(self) -> Segments:
+    def copy(self) -> 'Segments':
         """
         copy  Returns a deep copy of a Segments object
         ----------
@@ -742,6 +743,15 @@ def filter(
             assessment modeling.
     """
 
+
+
+
+
+
+
+
+
+
     # Locate the stream segments. Initialize list of filters
     segments = Segments(stream_raster)
 
@@ -772,7 +782,7 @@ def _confinement_angle(slopes: np.ndarray) -> np.ndarray:
     slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise slopes
         Each row holds the values for one pixel"""
     theta = np.arctan(slopes)
-    theta = np.mean(theta, 0)
+    theta = np.mean(theta, axis=0)
     theta = 180 - np.sum(theta)
 
 
@@ -867,53 +877,53 @@ class _Kernel:
         self.col = col
 
     # Directions: Lateral
-    def up(self) -> indices:
+    def up(self) -> KernelIndices:
         return self.vertical(True)
 
-    def down(self) -> indices:
+    def down(self) -> KernelIndices:
         return self.vertical(False)
 
-    def left(self) -> indices:
+    def left(self) -> KernelIndices:
         return self.horizontal(True)
 
-    def right(self) -> indices:
+    def right(self) -> KernelIndices:
         return self.horizontal(False)
 
     # Directions: Diagonal
-    def upleft(self) -> indices:
+    def upleft(self) -> KernelIndices:
         return self.identity(True)
 
-    def downright(self) -> indices:
+    def downright(self) -> KernelIndices:
         return self.identity(False)
 
-    def upright(self) -> indices:
+    def upright(self) -> KernelIndices:
         return self.exchange(True)
 
-    def downleft(self) -> indices:
+    def downleft(self) -> KernelIndices:
         return self.exchange(False)
 
     # Direction reference
     directions = [right, downright, down, downleft, left, upleft, up, upright]
 
     # Direction types
-    def vertical(self, before: bool) -> indices:
+    def vertical(self, before: bool) -> KernelIndices:
         "before: True for up, False for down"
         return self.lateral(self.row, self.nRows, self.col, before, False)
 
-    def horizontal(self, before: bool) -> indices:
+    def horizontal(self, before: bool) -> KernelIndices:
         "before: True for left, False for right"
         return self.lateral(self.col, self.nCols, self.row, before, True)
 
-    def identity(self, before: bool) -> indices:
+    def identity(self, before: bool) -> KernelIndices:
         "before: True for upleft, False for downright"
         return self.diagonal(before, before)
 
-    def exchange(self, before_rows: bool) -> indices:
+    def exchange(self, before_rows: bool) -> KernelIndices:
         "before_rows: True for downleft, False for upright"
         return self.diagonal(before_rows, not before_rows)
 
     # Utilities
-    def diagonal(self, before_rows: bool, before_cols: bool) -> indices:
+    def diagonal(self, before_rows: bool, before_cols: bool) -> KernelIndices:
         """
         before_rows: True for left, False for right
         before_cols: True for up, False for down
@@ -927,7 +937,7 @@ class _Kernel:
 
     def lateral(
         self, changing: int, nMax: int, fixed: int, before: bool, fixed_rows: bool
-    ) -> indices:
+    ) -> KernelIndices:
         """
         changing: The processing index of the changing direction. (up/down: row, left/right: col)
         nMax: The raster size in the changing direction (up/down: nRows, left/right: nCols)
@@ -936,13 +946,13 @@ class _Kernel:
         fixed_rows: True for left/right, False for up/down
         """
         changing = self.indices(changing, nMax, before)
-        fixed = np.full(len(changing), fixed)
+        fixed = range(fixed, fixed+1)
         if fixed_rows:
             return (fixed, changing)
         else:
             return (changing, fixed)
 
-    def indices(self, index: int, nMax: int, before: bool) -> np.ndarray:
+    def indices(self, index: int, nMax: int, before: bool) -> range:
         """
         index: An index of the processing cell (row or col)
         nMax: The raster size in the index direction (nRows or nCols)
@@ -954,10 +964,10 @@ class _Kernel:
         else:
             start = index + 1
             stop = min(nMax, index + self.N + 1)
-        return np.arange(start, stop)
+        return range(start, stop)
 
     @staticmethod
-    def limit(N: int, indices: np.ndarray, before: bool) -> np.ndarray:
+    def limit(N: int, indices: range, before: bool) -> range:
         """
         N: The number of indices to keep
         indices: The current set of indices
@@ -969,24 +979,24 @@ class _Kernel:
             return indices[0:N]
 
     # Confinement angle slopes
-    def max_height(self, flow: int, dem: np.ndarray) -> np.ndarray:
+    def max_height(self, flow: int, dem: RasterArray) -> ScalarArray:
         """Returns the maximum height in a particular direction
-        flow: TauDEM D8 flow direction number
+        flow: Flow direction index
         dem: DEM raster"""
-        direction = self.directions(flow - 1)
+        direction = self.directions(flow)
         heights = dem[direction(self)]
         return np.amax(heights)
 
     def orthogonal_slopes(
-        self, flow: int, dem: np.ndarray, length: float
-    ) -> np.ndarray:
-        """Returns the slopes perpendicular to flow
+        self, flow: Literal[1,2,3,4,5,6,7,8], dem: RasterArray, length: scalar
+    ) -> NDArray[Shape['1, 2'], Number]:
+        """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
         dem: DEM raster
         length: The lateral or diagonal flow length across 1 pixel"""
-        slopes = np.empty((1, 2))
-        slopes[0] = self.max_height(flow - 6, dem)  # Clockwise
-        slopes[1] = self.max_height(flow - 2, dem)  # Counterclockwise
+        clockwise = self.max_height(flow - 7, dem)
+        counterclock = self.max_height(flow - 3, dem)
+        slopes = np.array([clockwise, counterclock]).reshape(1,2)
         slopes = slopes - dem[self.row, self.col]
         slopes = slopes / length
         return slopes
