@@ -98,63 +98,6 @@ def dtype_(name: str, allowed: dtypes, actual: type) -> None:
         )
 
 
-def real(dtype: type, name: str) -> None:
-    """
-    real  Checks a dtype is real-valued
-    ----------
-    real(dtype, name)
-    Checks that the dtype is real-valued. Here, real-valued is defined as any
-    dtype derived from numpy.integer or numpy.floating. Raises an exception
-    if this is not the case.
-    ----------
-    Inputs:
-        dtype: The dtype being checked
-        name: The name of the input being checked for use in error messages
-
-    Raises:
-        TypeError: If the dtype is not real-valued
-    """
-    isinteger = np.issubdtype(dtype, np.integer)
-    isfloating = np.issubdtype(dtype, np.floating)
-    if not isinteger and not isfloating:
-        raise TypeError(
-            f"The dtype of {name} ({dtype}) is not a real-valued dtype. "
-            "Allowed types are numpy.integer and numpy.floating"
-        )
-
-
-def array(input: Any, name: str) -> RealArray:
-    """
-    array  Validate a real-valued numpy array
-    ----------
-    real(input, name)
-    Checks that an input represents a real-valued numpy array. If not, raises a
-    TypeError. Otherwise, returns the input as a numpy array. Valid inputs may be
-    an int, float, or real-valued numpy array. Here, real-valued indicates that
-    the array dtype is derived from numpy.integer or numpy.floating.
-    ----------
-    Inputs:
-        input: The input being checked
-        name: A name for the input for use in error messages.
-
-    Outputs:
-        np.ndarray: The input as an ndarray
-
-    Raises:
-        TypeError: If the input is neither an int, float, or real-value numpy array
-    """
-
-    # Check for basic numpy array. Convert int or float to ndarray
-    if isinstance(input, int) or isinstance(input, float):
-        input = np.array(input)
-    elif not isinstance(input, np.ndarray):
-        raise TypeError(f"{name} is not a numpy.ndarray")
-
-    # Check real-valued and return array
-    real(input.dtype, name)
-    return input
-
-
 def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray:
     """
     scalar  Validate an input represents a scalar
