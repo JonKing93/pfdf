@@ -628,20 +628,6 @@ class Segments:
         statistic = stat_functions[statistic]
         return self._summary(raster, statistic)
 
-    def validate_raster(self, raster, name, dtypes=None):
-
-        # Convert string to Path object
-        if isinstance(raster, str):
-            raster = Path(raster)
-
-        # Require the file exists. Then read into array
-        if isinstance(raster, Path):
-            raster = raster.resolve(strict=True)
-            raster = rasterio.open(raster).read(1)
-
-        # Validate 2D numpy array
-        validate.matrix(raster, name, shape=self.raster_shape, dtypes=dtypes)
-
 
 def filter(
     stream_raster: np.ndarray,

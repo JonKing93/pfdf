@@ -311,7 +311,6 @@ def raster(
     if isinstance(raster, str):
         raster = Path(raster)
 
-
     # If Path, require file exists. Get context to close file after reading
     if isinstance(raster, Path):
         raster = raster.resolve(strict=True)
