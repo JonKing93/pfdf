@@ -109,17 +109,18 @@ from math import sqrt
 from copy import deepcopy
 from dfha import validate
 from dfha.utils import any_defined
-from typing import Dict, Tuple, Literal
-from dfha.typing import Raster, RasterArray, Real, scalar
-from nptyping import NDArray, Shape, Integer
+from typing import Any, Dict, Tuple, Literal, Union, Callable
+from dfha.typing import Raster, RasterArray, Real, scalar, ints
+from nptyping import NDArray, Shape, Integer, Bool
 
 
 # Type aliases
-PixelValues = NDArray[Shape['Pixels'], Integer]
-SegmentValues = NDArray[Shape['Segments'], Real]
+PixelValues = NDArray[Shape["Pixels"], Integer]
+SegmentValues = NDArray[Shape["Segments"], Real]
 indices = Dict[int, Tuple[PixelValues, PixelValues]]
-StatFunction = Literal[np.amin, np.amax, np.mean, np.median, np.std]
-StatSwitch = Literal['min','max','mean','median','std']
+Statistic = Literal["min", "max", "mean", "median", "std"]
+StatFunction = Callable[[np.ndarray], np.ndarray]
+IDs = Union[ints, NDArray[..., Integer], NDArray[Shape["Segments"], Bool]]
 
 
 class Segments:
@@ -135,11 +136,11 @@ class Segments:
     catchment area.
 
     These summary values can then be used to filter an initial stream network
-    to segments to a final set of segments for hazard assessment modeling. A 
+    to segments to a final set of segments for hazard assessment modeling. A
     typical workflow is to:
         1. Define an initial set of segments by calling Segments() on a stream
            segment raster.*
-        2. Use the "area", "basins", "confinement", "development", "slope", 
+        2. Use the "area", "basins", "confinement", "development", "slope",
            and/or "summary" methods to return summary values for the segments.
         3. Use the "remove" method to filter out segments whose value don't meet
            the criteria for hazard assessment modeling.
@@ -161,18 +162,18 @@ class Segments:
 
     METHODS:
     Python built-ins:
-        len(self)       - Returns the number of segments in the set
-        str(self)       - Returns a string listing the segment IDs
+        __len__         - Returns the number of segments in the set
+        __str__         - Returns a string listing the segment IDs
 
     Object Creation:
         __init__        - Defines a set of stream segments from a stream segment raster
         copy            - Returns a deep copy of the current object
 
-    Summary Values: 
+    Summary Values:
         area            - Returns the maximum upslope area of each segment
         basins          - Returns the maximum number of upslope debris basins of each segment
         confinement     - Returns the mean confinement angle of each segment
-        development     - Returns the maxmium upslope developed area for each segment
+        development     - Returns the mean upslope developed area for each segment
         slope           - Returns the mean slope for each segment
         summary         - Returns a generic statistical summary value for each segment
 
@@ -180,17 +181,16 @@ class Segments:
         remove          - Removes the indicated segments from the Segments object
     """
 
-
     #####
     # Properties
     #####
     @property
     def ids(self) -> PixelValues:
-        'A numpy 1D array listing the stream segment IDs for the object.'
+        "A numpy 1D array listing the stream segment IDs for the object."
         # (Use a numpy array so user can apply logical indexing when filtering)
         ids = list(self.indices.keys())
         return np.array(ids)
-    
+
     @property
     def indices(self) -> indices:
         """
@@ -203,14 +203,13 @@ class Segments:
 
     @property
     def raster_shape(self) -> Tuple[int, int]:
-        'The shape of the stream link raster used to define the stream segments'
+        "The shape of the stream link raster used to define the stream segments"
         return self._raster_shape
 
-
     #####
-    # Standard class dunders
+    # Dunders
     #####
-    def __init__(self, stream_raster: raster) -> None:
+    def __init__(self, stream_raster: Raster) -> None:
         """
         Segments  Returns an object defining a set of stream segments
         ----------
@@ -243,7 +242,7 @@ class Segments:
         """
 
         # Get raster array. Check values are valid
-        name = 'stream_raster'
+        name = "stream_raster"
         stream_raster = validate.raster(stream_raster, name, nodata=0)
         validate.positive(stream_raster, name, allow_zero=True)
         validate.integers(stream_raster, name)
@@ -276,7 +275,6 @@ class Segments:
         ids = [str(id) for id in ids]
         return "Stream Segments: " + ", ".join(ids)
 
-
     #####
     # Private/Internal methods. (No error checking)
     #####
@@ -294,7 +292,7 @@ class Segments:
         Applies a filter to a set of stream segments and removes segments that
         do not pass the filter. Uses the indicated method to return a set of
         stream segment values, and compares the values to a threshold value.
-        If a stream segment's value does not pass the comparison, then the 
+        If a stream segment's value does not pass the comparison, then the
         segment is removed from the Segments object.
         ----------
         Inputs:
@@ -320,7 +318,7 @@ class Segments:
             failed = self.ids[remove]
             self.remove(failed)
 
-    def _summary(self, raster: raster_array, statistic: statistic_function) -> values:
+    def _summary(self, raster: RasterArray, statistic: StatFunction) -> SegmentValues:
         """
         _summary  Returns a summary value for each stream segment
         ----------
@@ -333,7 +331,7 @@ class Segments:
                 raster used to derive the stream segments
             statistic: A numpy function used to compute a statistic over an array.
                 Options are amin, amax, mean, median, and std
-            
+
         Outputs:
             numpy 1D array: The summary statistic for each stream segment
         """
@@ -343,9 +341,8 @@ class Segments:
             pixels = self.indices[id]
             summary[i] = statistic(raster[pixels])
         return summary
-    
 
-    def _validate(self, raster: Any, name: str) -> raster_array:
+    def _validate(self, raster: Any, name: str) -> RasterArray:
         """
         _validate  Check input raster if compatible with stream segment pixel indices
         ----------
@@ -361,13 +358,16 @@ class Segments:
         Outputs:
             numpy 2D array: The raster as a numpy array
         """
-        return validate.raster(raster, name, shape=self.raster_shape)
-    
+
+        try:
+            return validate.raster(raster, name, shape=self.raster_shape)
+        except validate.ShapeError as error:
+            raise RasterShapeError(name, error)
 
     #####
     # User Methods
     #####
-    def area(self, upslope_area: raster) -> values:
+    def area(self, upslope_area: Raster) -> SegmentValues:
         """
         area  Returns the maximum upslope area for each stream segment
         ----------
@@ -386,7 +386,7 @@ class Segments:
         upslope_area = self._validate(upslope_area, "upslope_area")
         return self._summary(upslope_area, np.amax)
 
-    def basins(self, upslope_basins: raster) -> values:
+    def basins(self, upslope_basins: Raster) -> SegmentValues:
         """
         basins  Returns the maximum number of upslope basins for each stream segment
         ----------
@@ -449,14 +449,14 @@ class Segments:
         """
 
         # Check user inputs
-        dem = self._validate(dem, 'dem')
-        flow_directions = self._validate(flow_directions, 'flow_directions')
-        validate.inrange(flow_directions, 'flow_directions', min=1, max=8)
-        validate.integers(flow_directions, 'flow_directions')
-        N = validate.scalar(N, 'N')
-        validate.positive(N, 'N')
-        validate.integers(N, 'N')
-        resolution = validate.scalar(resolution, 'resolution')
+        dem = self._validate(dem, "dem")
+        flow_directions = self._validate(flow_directions, "flow_directions")
+        validate.inrange(flow_directions, "flow_directions", min=1, max=8)
+        validate.integers(flow_directions, "flow_directions")
+        N = validate.scalar(N, "N")
+        validate.positive(N, "N")
+        validate.integers(N, "N")
+        resolution = validate.scalar(resolution, "resolution")
         validate.positive(resolution)
 
         # Preallocate. Initialize kernel. Get flow lengths
@@ -484,7 +484,7 @@ class Segments:
             theta[i] = _confinement_angle(slopes)
         return theta
 
-    def copy(self):
+    def copy(self) -> Segments:
         """
         copy  Returns a deep copy of a Segments object
         ----------
@@ -498,7 +498,7 @@ class Segments:
         """
         return deepcopy(self)
 
-    def development(self, upslope_development: np.ndarray) -> np.ndarray:
+    def development(self, upslope_development: Raster) -> SegmentValues:
         """
         development  Returns the mean upslope developed area for each stream segments
         ----------
@@ -514,7 +514,7 @@ class Segments:
         Outputs:
             numpy 1D array: The mean developed upslope area of each stream segment.
         """
-        self.validate_raster(upslope_development, "upslope_development")
+        upslope_development = self._validate(upslope_development, "upslope_development")
         return self._summary(upslope_development, np.amean)
 
     def remove(self, ids: List[int]) -> None:
@@ -569,7 +569,7 @@ class Segments:
         for id in ids:
             del self.indices[id]
 
-    def slope(self, slopes: np.ndarray) -> np.ndarray:
+    def slope(self, slopes: Raster) -> SegmentValues:
         """
         slope  Returns the mean slope (rise/run) for each stream segment
         ----------
@@ -584,10 +584,27 @@ class Segments:
         Outputs:
             numpy 1D array: The mean slope (rise/run) of each stream segment.
         """
-        self.validate_raster(slopes, "slopes")
-        return self._summary(segments, slopes, np.mean)
+        slopes = self._validate(slopes, "slopes")
+        return self._summary(slopes, np.mean)
 
-    def summary(self, raster: np.ndarray, statistic: statistic) -> np.ndarray:
+    def summary(self, raster: Raster, statistic: Statistic) -> SegmentValues:
+        """
+        summary  Computes a summary statistic for each stream segment
+        ----------
+        self.summary(raster, statistic)
+        Given a raster of data values, computes a generic summary statistic
+        for each stream segment. This function can be used to extend filtering
+        beyond the built-in summary values. Statistic options include: mean,
+        median, std, min, and max.
+        ----------
+        Inputs:
+            raster: A raster of data values over which to compute stream segment
+                summary values
+            statistic: 'mean', 'median', 'std', 'min', or 'max'
+
+        Outputs:
+            numpy 1D array: The summary statistic for each stream segment
+        """
 
         # Supported statistics
         stat_functions = {
@@ -598,16 +615,16 @@ class Segments:
             "std": np.std,
         }
 
-        # Check user inputs
+        # Validate user statistic
         statistic = statistic.lower()
         if statistic not in stat_functions:
             supported = ", ".join(stat_functions.keys())
             raise ValueError(
                 f"Unsupported statistic ({statistic}). Allowed values are: {supported}"
             )
-        self.validate_raster(raster, "input raster")
 
         # Calculate the summary statistic
+        raster = self._validate(raster, "input raster")
         statistic = stat_functions[statistic]
         return self._summary(raster, statistic)
 
@@ -987,3 +1004,14 @@ class _Kernel:
         slopes = slopes - dem[self.row, self.col]
         slopes = slopes / length
         return slopes
+
+
+class RasterShapeError(Exception):
+    "When the shape of a values raster does not match the shape of the stream segment raster"
+
+    def __init__(self, name: str, cause: validate.ShapeError) -> None:
+        message = (
+            f"The shape of the {name} raster {cause.actual} does not match the "
+            f"shape of the stream segment raster used to derive the segments {cause.required}."
+        )
+        super().__init__(message)

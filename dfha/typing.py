@@ -9,6 +9,7 @@ from rasterio import DatasetReader
 
 # Singular / plural built-ins
 strs = Union[str, Sequence[str]]
+ints = Union[int, Sequence[int]]
 
 # Paths
 Pathlike = Union[str, Path]
