@@ -105,45 +105,87 @@ User Functions:
 """
 
 import numpy as np
-from typing import Dict, List, Any, Optional, Tuple, Literal, Callable, Union
-from nptyping import NDArray, Shape, Number, Integer
-from pathlib import Path
 from math import sqrt
 from copy import deepcopy
 from dfha import validate
 from dfha.utils import any_defined
-from rasterio import DatasetReader
+from typing import Dict, Tuple, Literal
+from dfha.typing import Raster, RasterArray, Real, scalar
+from nptyping import NDArray, Shape, Integer
+
 
 # Type aliases
-pixel_values = NDArray[Shape['Pixels'], Integer]
-indices = Dict[int, Tuple[pixel_values, pixel_values]]
-raster_array = NDArray[Shape["Rows, Cols"], Number]
-raster = Union[str, Path, DatasetReader, raster_array]
-
-statistic_function = Literal[np.amin, np.amax, np.mean, np.median, np.std]
-statistic_switch = Literal["min", "max", "mean", "median", "std"]
-
-values = NDArray[Shape["Segments"], Number]
-scalar = Union[int, float, NDArray[Shape["1"], Number]]
-
-
-
-
-
-
-
-
-
-
+PixelValues = NDArray[Shape['Pixels'], Integer]
+SegmentValues = NDArray[Shape['Segments'], Real]
+indices = Dict[int, Tuple[PixelValues, PixelValues]]
+StatFunction = Literal[np.amin, np.amax, np.mean, np.median, np.std]
+StatSwitch = Literal['min','max','mean','median','std']
 
 
 class Segments:
+    """
+    Segments  Defines and calculates summary values for set of stream segments
+    ----------
+    The Segments class is used to manage a set of stream segments derived from a
+    stream link raster. The class provides a number of functions that compute
+    a summary statistic for each stream segment in the set. For example, the
+    mean slope of each stream segment, or the segment's confinement angles.
+    Note that summary statistics are only calculated using stream segment
+    pixels (roughly, the river bed), and NOT using all the pixels in the segment's
+    catchment area.
+
+    These summary values can then be used to filter an initial stream network
+    to segments to a final set of segments for hazard assessment modeling. A 
+    typical workflow is to:
+        1. Define an initial set of segments by calling Segments() on a stream
+           segment raster.*
+        2. Use the "area", "basins", "confinement", "development", "slope", 
+           and/or "summary" methods to return summary values for the segments.
+        3. Use the "remove" method to filter out segments whose value don't meet
+           the criteria for hazard assessment modeling.
+        4. Inspect the "ids" property to get a list of final stream segments
+
+    *See the help for Segments.__init__ for instructions on creating a Segments object
+
+    It is worth noting that the various summary methods require input rasters
+    with the same shape as the stream segment raster used to derive the initial
+    set of stream segments. If not, the summary method will raise an exception.
+    Users can retrieve this shape by inspecting the 'raster_shape' property.
+    Separately, users may find the "copy" method useful for testing out different
+    filtering criteria.
+    ----------
+    PROPERTIES:
+        ids             - The list of stream segment IDs remaining in the set
+        indices         - A dict mapping each segment ID to the locations of its pixels
+        raster_shape    - The shape of the raster used to derive the stream segments.
+
+    METHODS:
+    Python built-ins:
+        len(self)       - Returns the number of segments in the set
+        str(self)       - Returns a string listing the segment IDs
+
+    Object Creation:
+        __init__        - Defines a set of stream segments from a stream segment raster
+        copy            - Returns a deep copy of the current object
+
+    Summary Values: 
+        area            - Returns the maximum upslope area of each segment
+        basins          - Returns the maximum number of upslope debris basins of each segment
+        confinement     - Returns the mean confinement angle of each segment
+        development     - Returns the maxmium upslope developed area for each segment
+        slope           - Returns the mean slope for each segment
+        summary         - Returns a generic statistical summary value for each segment
+
+    Filtering:
+        remove          - Removes the indicated segments from the Segments object
+    """
+
 
     #####
     # Properties
     #####
     @property
-    def ids(self) -> pixel_values:
+    def ids(self) -> PixelValues:
         'A numpy 1D array listing the stream segment IDs for the object.'
         # (Use a numpy array so user can apply logical indexing when filtering)
         ids = list(self.indices.keys())
