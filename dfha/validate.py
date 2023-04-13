@@ -18,12 +18,11 @@ Note on dtypes:
     example, int may alias to numpy.int32, so would not be suitable to allow
     all integer types. Instead, use numpy.integer to enable all integer types.
 ----------
-Type and Size:
-    real            - Checks that a dtype is real-valued
-    scalar          - Checks input represents a real-valued scalar
-    vector          - Checks input represents a real-valued vector
-    matrix          - Checks input represents a real-valued matrix
-    array           - Checks input represents a real-valued array
+Array shape and type:
+    array           - Validates an input numpy array-like
+    scalar          - Validates an input scalar
+    vector          - Validates an input vector
+    matrix          - Validates an input matrix
 
 Numeric arrays:
     positive        - Checks that all elements are positive
@@ -32,6 +31,11 @@ Numeric arrays:
 
 GIS:
     raster          - Check that an input is a raster and return it as a numpy 2D array
+
+Low-level:
+    shape_          - Check that array shapes are valid
+    dtype_          - Checks that array dtype is valid
+    nonsingleton    - Locate nonsingleton dimensions        
 
 Exceptions:
     NDimError       - Raised when an input has an incorrect number of dimensions
@@ -51,6 +55,7 @@ from dfha.utils import aslist
 from typing import Any, Optional, List
 from dfha.typing import (
     strs,
+    dtypes,
     shape,
     shape2d,
     real,
@@ -62,12 +67,12 @@ from dfha.typing import (
 )
 
 
-def _nonsingleton(input: np.ndarray) -> List[bool]:
+def nonsingleton(input: np.ndarray) -> List[bool]:
     "Finds the non-singleton dimensions of a numpy array"
     return [shape > 1 for shape in input.shape]
 
 
-def _shape(name: str, axes: strs, required: shape, actual: shape) -> None:
+def shape_(name: str, axes: strs, required: shape, actual: shape) -> None:
     "Checks the shape of each axis is correct"
     if shape is not None:
         for axis, required, actual in zip(
@@ -75,6 +80,22 @@ def _shape(name: str, axes: strs, required: shape, actual: shape) -> None:
         ):
             if required != 1 and required != actual:
                 raise ShapeError(name, axis, required, actual)
+
+
+def dtype_(name: str, allowed: dtypes, actual: type) -> None:
+    "Checks the dtype is allowed"
+    # Iterate through allowed types. Exit if any match
+    if allowed is not None:
+        for type in aslist(allowed):
+            if np.issubdtype(actual, type):
+                return
+
+        # TypeError if type was not allowed
+        allowed = ", ".join([str(type)[8:-2] for type in allowed])
+        raise TypeError(
+            f"The dtype of {name} ({actual}) is not a real-valued dtype. "
+            f"Allowed types are: {allowed}"
+        )
 
 
 def real(dtype: type, name: str) -> None:
@@ -134,41 +155,49 @@ def array(input: Any, name: str) -> RealArray:
     return input
 
 
-def scalar(input: Any, name: str) -> ScalarArray:
+def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray:
     """
-    scalar  Validate an input represents a scalar, real-valued number
+    scalar  Validate an input represents a scalar
     ----------
     scalar(input, name)
-    Checks that an input represents a scalar, real-valued number. Valid inputs
-    can be int, float, or a real-valued numpy array with a size of 1. Raises an
-    exception if these criteria are not met. Returns the input as a 1D numpy array.
+    Checks that an input represents a scalar. Raises an exception if not. Returns
+    the input as a 1D numpy array.
+
+    scalar(input, name, dtype)
+    Also check that the input is derived from one of the listed dtypes.
     ----------
     Inputs:
         input: The input being checked
         name: A name for the input for use in error messages.
+        dtype: A list of allowed dtypes
 
     Outputs:
         numpy 1D array: The input as a 1D numpy array.
 
     Raises:
-        TypeError: If the input does not represent a real-valued numpy array
         ShapeError: If the input has more than one element
+        TypeError: If the input does not have an allowed dtype
     """
-    input = array(input, name)
-    if input.size != 1:
-        raise ShapeError(name, "element", required=1, actual=input.size)
+
+    input = np.array(input)
+    dtype_(name, allowed=dtype, actual=input.dtype)
+    shape_(name, "element", required=1, actual=input.size)
     return input.reshape(1)
 
 
-def vector(input: Any, name: str, *, length: Optional[int] = None) -> VectorArray:
+def vector(
+    input: Any, name: str, *, dtype: Optional[dtypes] = None, length: Optional[int] = None
+) -> VectorArray:
     """
-    vector  Validate an input represents a 1D real-valued numpy array
+    vector  Validate an input represents a 1D numpy array
     ----------
     vector(input, name)
-    Checks the input represents a 1D, real-valued numpy array. Valid inputs can
-    be int, float, or a numpy array. If a numpy array, may only have a single
-    non-singleton dimension. Raises an exception if any of these criteria are
-    not met. Otherwise, returns the array as a numpy 1D array.
+    Checks the input represents a 1D numpy array. Valid inputs may only have a
+    single non-singleton dimension. Raises an exception if this criteria is not
+    met. Otherwise, returns the array as a numpy 1D array.
+
+    vector(..., *, dtype)
+    Also checks that the vector has an allowed dtype. Raises a TypeError if not.
 
     vector(..., *, length)
     Also checks that the vector has the specified length. Raises a ShapeError if
@@ -177,51 +206,55 @@ def vector(input: Any, name: str, *, length: Optional[int] = None) -> VectorArra
     Input:
         input: The input being checked
         name: A name for the input for use in error messages.
+        dtype: A list of allowed dtypes
         length: A required length for the vector
 
     Outputs:
         numpy 1D array: The input as a 1D numpy array
 
     Raises:
-        TypeError: If the input does not represent a real-valued numpy array
-        NDimError: If the input does not have exactly 1 dimension
+        TypeError: If the input does not have an allowed dtype
+        DimensionError: If the input does not have exactly 1 dimension
         ShapeError: If the input does not have the specified length
     """
 
-    # Real-valued
-    input = array(input, name)
+    # Optionally check dtype
+    input = np.array(input)
+    dtype_(name, allowed=dtype, actual=input.dtype)
 
     # Only 1 non-singleton dimension
-    nonsingletons = _nonsingleton(input)
+    nonsingletons = nonsingleton(input)
     if sum(nonsingletons) > 1:
-        message = f"{name} can only have 1 dimension with a length greater than 1."
         raise DimensionError(
             f"{name} can only have 1 dimension with a length greater than 1."
         )
+    
+    # Optionally check length
+    shape_(name, 'element(s)', required=length, actual=input.size)
+    return input.reshape(-1)
 
-    # Optionally check length. Return 1D array
-    _shape(name, "Element(s)", required=length, actual=input.shape)
-    return input.reshape(input.size)
 
-
-def matrix(input: Any, name: str, *, shape: Optional[shape2d] = None) -> MatrixArray:
+def matrix(input: Any, name: str, *, dtype: Optional[dtypes] = None, shape: Optional[shape2d] = None) -> MatrixArray:
     """
-    matrix  Validate input represents a 2D real-valued numpy array
+    matrix  Validate input represents a 2D numpy array
     ----------
     matrix(input, name)
-    Checks the input represents a 2D real-valued numpy array. Raises an exception
-    if not. Returns the output as a 2D numpy array. Valid inputs can be int,
-    float, or a numpy array. If a numpy array, may have any number of dimension,
-    but only the first two dimensions may be non-singleton. A 1D array is
-    interpreted as a 1xN array.
+    Checks the input represents a 2D numpy array. Raises an exception
+    if not. Otherwise, returns the output as a 2D numpy array. Valid inputs may 
+    have any number of dimension, but only the first two dimensions may be 
+    non-singleton. A 1D array is interpreted as a 1xN array.
+
+    matrix(..., *, dtype)
+    Also checks the array has an allowed dtype. Raises a TypeError if not.
 
     matrix(..., *, shape)
-    Also checks that the array matches the requested shape. Use -1 to disable
-    shape checking for a particular axis.
+    Also checks that the array matches the requested shape. Raises a ShapeError
+    if not. Use -1 to disable shape checking for a particular axis.
     ----------
     Inputs:
         input: The input being checked
         name: A name for the input for use in error messages.
+        dtype: A list of allowed dtypes
         shape: A requested shape for the matrix. A tuple with two elements - the
             first element is the number of rows, and the second is the number
             of columns. Setting an element to -1 disables the shape checking for
@@ -231,30 +264,31 @@ def matrix(input: Any, name: str, *, shape: Optional[shape2d] = None) -> MatrixA
         numpy 2D array: The input as a 2D numpy array
 
     Raises:
-        TypeError: If the input does not represent a 2D real-valued numpy array
+        TypeError: If the input does not have an allowed dtype
+        DimensionError: If the input has non-singleton dimensions that are not
+            the first 2 dimensions.
+        ShapeError: If the input does not have an allowed shape
     """
 
-    # Real valued array
-    input = array(input, name)
+    # Optionally check type
+    input = np.array(input)
+    dtype_(name, allowed=dtype, actual=input.dtype)
 
-    # Only first 2 dimensions can be non-singleton
+    # Only the first 2 dimensions can be non-singleton
     if input.ndim > 2:
-        nonsingletons = _nonsingleton(input)[2:]
+        nonsingletons = nonsingleton(input)[2:]
         if any(nonsingletons):
             bad = np.argwhere(nonsingletons) + 2
             raise DimensionError(
                 f"Only the first two dimension of {name} can be longer than 1. "
-                "But dimension {bad} is longer than 1."
+                f"But dimension {bad} is longer than 1."
             )
-
-    # Convert 1D to 2D. Optionally check shape
-    if input.ndim == 1:
-        input = input.reshape(1, -1)
-    _shape(name, ["Row(s)", "Column(s)"], required=shape, actual=input.shape)
-
-    # Return 2D array
+        
+    # Cast as 2D array. Optionally check shape. Return array
     nrows, ncols = input.shape[0:2]
-    return input.reshape(nrows, ncols)
+    input = input.reshape(nrows, ncols)
+    shape_(name, ['row(s)','column(s)'], required=shape, actual=input.shape)
+    return input
 
 
 def raster(

@@ -570,7 +570,6 @@ class Segments:
         for id in segments:
             del self.indices[id]
 
-
     def slope(self, slopes: Raster) -> SegmentValues:
         """
         slope  Returns the mean slope (rise/run) for each stream segment
