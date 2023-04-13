@@ -312,12 +312,9 @@ class Segments:
             # Get segment values and find invalid segments
             values = method(self, *args)
             if type == ">":
-                remove = values > threshold
+                failed = values > threshold
             elif type == "<":
-                remove = values < threshold
-
-            # Remove segments that fail the filter
-            failed = self.ids[remove]
+                failed = values < threshold
             self.remove(failed)
 
     def _summary(self, raster: RasterArray, statistic: StatFunction) -> SegmentValues:
