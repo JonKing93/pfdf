@@ -12,6 +12,14 @@ Argument Parsing:
 from typing import List, Any, Tuple
 
 
+def any_defined(*args: Any) -> bool:
+    "any_defined  True if any input is not None. Otherwise False."
+    for arg in args:
+        if arg is not None:
+            return True
+    return False
+
+
 def aslist(input: Any) -> List:
     """
     aslist  Returns an input as a list
@@ -24,7 +32,7 @@ def aslist(input: Any) -> List:
     if isinstance(input, tuple):
         input = list(input)
     elif not isinstance(input, list):
-        input = [input,]
+        input = [input]
     return input
 
 
@@ -42,11 +50,3 @@ def astuple(input: Any) -> Tuple:
     elif not isinstance(input, tuple):
         input = (input,)
     return input
-
-
-def any_defined(*args: Any) -> bool:
-    "any_defined  True if any input is not None. Otherwise False."
-    for arg in args:
-        if arg is not None:
-            return True
-    return False
