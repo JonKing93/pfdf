@@ -47,7 +47,7 @@ import numpy as np
 from pathlib import Path
 import rasterio
 from contextlib import nullcontext
-from dfha.utils import aslist, isreal
+from dfha.utils import aslist
 from typing import Any, Optional, List
 from dfha.typing import (
     strs,
