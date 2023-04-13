@@ -122,6 +122,7 @@ Statistic = Literal["min", "max", "mean", "median", "std"]
 StatFunction = Callable[[np.ndarray], np.ndarray]
 IDs = Union[ints, NDArray[VectorShape, Integer], NDArray[Shape["Segments"], Bool]]
 KernelIndices = Tuple[range, range]
+FlowNumber = Literal[1,2,3,4,5,6,7,8]
 
 
 class Segments:
@@ -408,11 +409,11 @@ class Segments:
 
     def confinement(
         self,
-        dem: raster,
-        flow_directions: raster,
+        dem: Raster,
+        flow_directions: Raster,
         N: scalar,
-        resolution: float,
-    ) -> values:
+        resolution: scalar,
+    ) -> SegmentValues:
         """
         confinement  Returns the mean confinement angle of each stream segment
         ----------
@@ -777,7 +778,7 @@ def filter(
 
 
 # Confinement Angle Utilities
-def _confinement_angle(slopes: np.ndarray) -> np.ndarray:
+def _confinement_angle(slopes: NDArray[Shape['Pixels, 2 Rotations'], Number]) -> ScalarArray:
     """Returns mean confinement angle for a set of pixels
     slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise slopes
         Each row holds the values for one pixel"""
@@ -786,7 +787,7 @@ def _confinement_angle(slopes: np.ndarray) -> np.ndarray:
     theta = 180 - np.sum(theta)
 
 
-def _flow_length(flow_direction, lateral_length, diagonal_length):
+def _flow_length(flow_direction: FlowNumber, lateral_length: scalar, diagonal_length: scalar) -> scalar:
     """Returns the flow length for a given flow direction
     flow_direction: TauDEM style D8 flow number
     lateral_length: Flow length up/down/right/left
@@ -988,8 +989,8 @@ class _Kernel:
         return np.amax(heights)
 
     def orthogonal_slopes(
-        self, flow: Literal[1,2,3,4,5,6,7,8], dem: RasterArray, length: scalar
-    ) -> NDArray[Shape['1, 2'], Number]:
+        self, flow: FlowNumber, dem: RasterArray, length: scalar
+    ) -> NDArray[Shape['1 Pixel, 2 Rotations'], Number]:
         """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
         dem: DEM raster
