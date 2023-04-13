@@ -29,6 +29,7 @@ Type and Size:
 Numeric arrays:
     positive        - Checks that all elements are positive
     integers        - Checks that all elements are integers (NOT that the dtype is an int)
+    inrange         - Checks that all elements are within a given range (inclusive)
 
 GIS:
     raster          - Check that an input is a raster and return it as a numpy 2D array
@@ -36,6 +37,11 @@ GIS:
 Custom Errors:
     NDimError       - Raised when an input has an incorrect number of dimensions
     ShapeError      - Raised when an input has an incorrect shape
+
+Internal Utilities:
+    _nonsingleton   - Locates the nonsingleton dimensions of a numpy array
+    _shape          - Checks an input shape matches the requested shape
+    _check_bound    - Compares the elements of an ndarray to a bound
 """
 
 import numpy as np
@@ -309,15 +315,16 @@ def raster(
         raster = raster.resolve(strict=True)
         raster = rasterio.open(raster)
 
-    # Require open DatasetReader
+    # Require open DatasetReader. Check the first band
     if isinstance(raster, rasterio.DatasetReader):
+        band = 1
         if raster.closed:
             raise ValueError(
                 f"{name} must be an open rasterio.DatasetReader, but it is closed"
             )
         
-        # Check shape and dtype before reading. Disable later shape checking
-        real(raster.dtypes[0], name)
+        # Check shape and dtype before reading. Disable any later shape checking
+        real(raster.dtypes[band-1], name)
         if shape is not None:
             nrows = raster.height
             ncols = raster.width
@@ -326,13 +333,13 @@ def raster(
 
         # Read raster from band 1. Optionally convert NoData to fill value
         if nodata is None:
-            raster = raster.read(1)
+            raster = raster.read(band)
         else:
-            mask = raster.read_masks(1)
-            raster = raster.read(1)
+            mask = raster.read_masks(band)
+            raster = raster.read(band)
             raster[mask == 0] = nodata
 
-    # Informative TypeError if not a supported input
+    # Explicit TypeError if not a supported input
     if not isinstance(raster, np.ndarray):
         raise TypeError(
             f"{name} is not a recognized raster type. Allowed types are: "
@@ -345,7 +352,7 @@ def raster(
 
 def integers(input: RealArray, name: str) -> None:
     """
-    integers  Checks a numeric numpy array's elements are integers
+    integers  Checks the elements of a numpy array are all integers
     ----------
     integers(input, name)
     Checks that the elements of the input numpy array are all integers. Raises a
@@ -374,7 +381,7 @@ def integers(input: RealArray, name: str) -> None:
 
 def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
     """
-    positive  Checks a numeric numpy array's elements are positive
+    positive  Checks the elements of a numpy array are all positive
     ----------
     positive(input, name)
     Checks that the elements of the input numpy array are all greater than zero.
@@ -393,38 +400,89 @@ def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
         ValueError: If the array contains negative elements
     """
 
-    # Exit immediately if unsigned integers (all are positive)
+    # Exit immediately if unsigned integers (all are positive).
     if not np.issubdtype(input.dtype, np.unsignedinteger):
 
-        # Search for negative values
+        # Determine the comparison type
         if allow_zero:
-            operator = np.less
+            operator = '>='
         else:
-            operator = np.less_equal
-        negative = operator(input, 0)
+            operator = '>'
 
-        # Error if any were negative
-        if np.any(negative):
-            bad = np.argwhere(negative)[0]
-            raise ValueError(
-                f"The elements of {name} cannot be negative, but element {bad} is negative."
-            )
+        # Check for elements below the 0 bound
+        _check_bound(input, name, operator, 0)
 
 
 def inrange(input: RealArray, name: str, min: Optional[real] = None, max: Optional[real] = None) -> None:
+    """
+    inrange  Checks the elements of a numpy array are within a given range
+    ----------
+    inrange(input, name, min, max)
+    Checks that the elements of a real-valued numpy array are all within a
+    specified range. min and max are optional arguments, you can specify a single
+    one to only check an upper or a lower bound. Use both to check elements are
+    within a range. Uses an inclusive comparison (values equal to a bound will
+    pass validation).
+    ----------
+    Inputs:
+        input: The ndarray being checked
+        name: The name of the array for use in error messages
+        min: An optional lower bound (inclusive)
+        max: An optional upper bound (inclusive)
 
-    _check_bound(input, name, min, np.less, 'less')
-    _check_bound(input, name, max, np.greater, 'greater')
+    Raises:
+        ValueError: If any element is not within the bounds
+    """
+
+    _check_bound(input, name, '>=', min)
+    _check_bound(input, name, '<=', max)
 
 
-def _check_bound(input, name, threshold, operator, description):
+def _check_bound(input, name, operator, bound):
+    """
+    _check_bound  Checks that elements of a numpy array are valid relative to a bound
+    ----------
+    _check_bound(input, name, operator, bound)
+    Checks that the elements of the input numpy array are valid relative to a 
+    bound. Valid comparisons are >, <, >=, and <=. Raises a ValueError if the
+    criterion is not met.
+    ----------
+    Inputs:
+        input: The input being checked
+        name: A name for the input for use in error messages
+        operator: The comparison operator to apply. Options are '<', '>', '<=',
+            and '>='. Elements must satisfy: (input operator bound) to be valid.
+            For example, input < bound.
+        bound: The bound being compared to the elements of the array.
 
-    if threshold is not None:
-        failed = operator(input, threshold)
+    Raises:
+        ValueError: If any element fails the comparison
+    """
+
+    # Only compare if bounds were specified
+    if bound is not None:
+
+        # Get the operator for the comparison. Note that we are testing for failed
+        # elements, so actually need the *inverse* of the input operator.
+        if operator == '<':
+            description = 'less than'
+            operator = np.greater_equal
+        elif operator == '<=':
+            description = 'less than or equal to'
+            operator = np.greater
+        elif operator == '>=':
+            description = 'greater than or equal to'
+            operator = np.less
+        elif operator == '>':
+            description = 'greater than'
+            operator = np.less_equal
+
+        # Test elements. Raise ValueError if any fail
+        failed = operator(input, bound)
         if np.any(failed):
             bad = np.argwhere(failed)[0]
             raise ValueError(
-                f'{name} cannot have elements {description} than {threshold}, but element {bad} is {description} than {threshold}'
+                f'The elements of {name} must be {description} {bound}, but element {bad} is not.'
             )
 
 class DimensionError(Exception):

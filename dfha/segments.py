@@ -408,21 +408,14 @@ class Segments:
 
         # Check user inputs
         dem = self._validate(dem, 'dem')
-
         flow_directions = self._validate(flow_directions, 'flow_directions')
-        validate.positive(flow_directions, 'flow_directions')
+        validate.inrange(flow_directions, 'flow_directions', min=1, max=8)
         validate.integers(flow_directions, 'flow_directions')
-        if np.any(flow_directions > 8):
-        
-        if np.any(flow_directions > 8):
-            ValueError
-
         N = validate.scalar(N, 'N')
-        validate.integers(N, 'N')
         validate.positive(N, 'N')
-
+        validate.integers(N, 'N')
         resolution = validate.scalar(resolution, 'resolution')
-        validate.positive(resolution, 'resolution')
+        validate.positive(resolution)
 
         # Preallocate. Initialize kernel. Get flow lengths
         theta = np.empty(len(self))
