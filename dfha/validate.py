@@ -19,12 +19,14 @@ Note on dtypes:
     example, int may alias to numpy.int32, so would not be suitable to allow
     all integer types. Instead, use numpy.integer to enable all integer types.
 ----------
-Size and type:
-    ndarray         - Check that an input is a numpy ndarray
-    vector          - Check an input is a 1D numpy array. Optionally check dtype and length
-    matrix          - Check an input is a 2D numpy array. Optionally check dtype and shape
+Type and Size:
+    real            - Checks that a dtype is real-valued
+    scalar          - Checks input represents a real-valued scalar
+    vector          - Checks input represents a real-valued vector
+    matrix          - Checks input represents a real-valued matrix
+    array           - Checks input represents a real-valued array
 
-Numeric numpy:
+Numeric arrays:
     positive        - Checks that all elements are positive
     integers        - Checks that all elements are integers (NOT that the dtype is an int)
 
@@ -39,7 +41,7 @@ Custom Errors:
 import numpy as np
 from pathlib import Path
 import rasterio
-from dfha.utils import aslist
+from dfha.utils import aslist, isreal
 from typing import Any, Optional, List
 from dfha.typing import (
     strs,
@@ -58,18 +60,44 @@ def _nonsingleton(input: np.ndarray) -> List[bool]:
     "Finds the non-singleton dimensions of a numpy array"
     return [shape > 1 for shape in input.shape]
 
-
-def _shape(input: Any, name: str, axes: strs, shape: shape) -> None:
-    "Checks the shape of each axis is correct"
+            
+def _shape(name: str, axes: strs, required: shape, actual: shape) -> None:
+    'Checks the shape of each axis is correct'
     if shape is not None:
-        for axis, required, actual in zip(aslist(axes), aslist(shape), input.shape):
-            if required != -1 and required != actual:
+        for axis, required, actual in zip(aslist(axes), aslist(required), aslist(actual)):
+            if required != 1 and  required != actual:
                 raise ShapeError(name, axis, required, actual)
 
 
-def real(input: Any, name: str) -> RealArray:
+def real(dtype: type, name: str) -> None:
     """
-    real  Validate a real-valued numpy array
+    real  Checks a dtype is real-valued
+    ----------
+    real(dtype, name)
+    Checks that the dtype is real-valued. Here, real-valued is defined as any
+    dtype derived from numpy.integer or numpy.floating. Raises an exception
+    if this is not the case.
+    ----------
+    Inputs:
+        dtype: The dtype being checked
+        name: The name of the input being checked for use in error messages
+
+    Raises:
+        TypeError: If the dtype is not real-valued
+    """
+    isinteger = np.issubdtype(dtype, np.integer)
+    isfloating = np.issubdtype(dtype, np.floating)
+    if not isinteger and not isfloating:
+        raise TypeError(
+            f'The dtype of {name} ({dtype}) is not a real-valued dtype. '
+            'Allowed types are numpy.integer and numpy.floating'
+        )
+
+
+
+def array(input: Any, name: str) -> RealArray:
+    """
+    array  Validate a real-valued numpy array
     ----------
     real(input, name)
     Checks that an input represents a real-valued numpy array. If not, raises a
@@ -88,22 +116,14 @@ def real(input: Any, name: str) -> RealArray:
         TypeError: If the input is neither an int, float, or real-value numpy array
     """
 
-    # Check for basic numpy array
+    # Check for basic numpy array. Convert int or float to ndarray
     if isinstance(input, int) or isinstance(input, float):
         input = np.array(input)
     elif not isinstance(input, np.ndarray):
         raise TypeError(f"{name} is not a numpy.ndarray")
-
-    # Check real-valued
-    dtype = input.dtype
-    isinteger = np.issubdtype(dtype, np.integer)
-    isfloating = np.issubdtype(dtype, np.floating)
-    if not isinteger and not isfloating:
-        raise TypeError(
-            f"{name} does not have a real-valued dtype. Allowed types are numpy.integer and numpy.floating"
-        )
-
-    # Return as numpy array for internal use
+    
+    # Check real-valued and return array
+    real(input.dtype, name)
     return input
 
 
@@ -127,7 +147,7 @@ def scalar(input: Any, name: str) -> ScalarArray:
         TypeError: If the input does not represent a real-valued numpy array
         ShapeError: If the input has more than one element
     """
-    input = real(input, name)
+    input = array(input, name)
     if input.size != 1:
         raise ShapeError(name, "element", required=1, actual=input.size)
     return input.reshape(1)
@@ -162,7 +182,7 @@ def vector(input: Any, name: str, *, length: Optional[int] = None) -> VectorArra
     """
 
     # Real-valued
-    input = real(input, name)
+    input = array(input, name)
 
     # Only 1 non-singleton dimension
     nonsingletons = _nonsingleton(input)
@@ -173,7 +193,7 @@ def vector(input: Any, name: str, *, length: Optional[int] = None) -> VectorArra
         )
 
     # Optionally check length. Return 1D array
-    _shape(input, name, "Element(s)", length)
+    _shape(name, "Element(s)", required=length, actual=input.shape)
     return input.reshape(input.size)
 
 
@@ -207,8 +227,8 @@ def matrix(input: Any, name: str, *, shape: Optional[shape2d] = None) -> MatrixA
         TypeError: If the input does not represent a 2D real-valued numpy array
     """
 
-    # Real valued
-    input = real(input, name)
+    # Real valued array
+    input = array(input, name)
 
     # Only first 2 dimensions can be non-singleton
     if input.ndim > 2:
@@ -223,14 +243,20 @@ def matrix(input: Any, name: str, *, shape: Optional[shape2d] = None) -> MatrixA
     # Convert 1D to 2D. Optionally check shape
     if input.ndim == 1:
         input = input.reshape(1, -1)
-    _shape(input, name, ["Row(s)", "Column(s)"], shape)
+    _shape(name, ["Row(s)", "Column(s)"], required=shape, actual=input.shape)
 
     # Return 2D array
     nrows, ncols = input.shape[0:2]
     return input.reshape(nrows, ncols)
 
 
-def raster(raster: Any, name: str, *, nodata: Optional[scalar] = None) -> RasterArray:
+def raster(
+        raster: Any, 
+        name: str, 
+        *, 
+        nodata: Optional[scalar] = None,
+        shape: Optional[shape2d] = None
+    ) -> RasterArray:
     """
     raster  Check input is valid raster and return as numpy 2D array
     ----------
@@ -257,11 +283,18 @@ def raster(raster: Any, name: str, *, nodata: Optional[scalar] = None) -> Raster
     Specify a value for NoData elements when reading a raster from file. All
     NoData elements will be replaced with this value. This option has no effect
     when a numpy array is provided.
+
+    raster(..., *, shape)
+    Require the raster to have the specified shape. Raises a ShapeError if this
+    condition is not met.
     ----------
     Inputs:
         raster: The input being checked
         name: The name of the input for use in error messages
         nodata: A fill value for NoData elements when reading from file
+        shape: A required shape for the raster. A 2-tuple, first element is rows
+            second element is columns. If an element is -1, disables shape checking
+            for that axis.
 
     Outputs:
         numpy 2D array: The raster represented as a numpy array.
@@ -282,6 +315,14 @@ def raster(raster: Any, name: str, *, nodata: Optional[scalar] = None) -> Raster
             raise ValueError(
                 f"{name} must be an open rasterio.DatasetReader, but it is closed"
             )
+        
+        # Check shape and dtype before reading. Disable later shape checking
+        real(raster.dtypes[0], name)
+        if shape is not None:
+            nrows = raster.height
+            ncols = raster.width
+            _shape(name, ['Row(s)','Column(s)'], required=shape, actual=(nrows,ncols))
+            shape = None
 
         # Read raster from band 1. Optionally convert NoData to fill value
         if nodata is None:
@@ -291,13 +332,15 @@ def raster(raster: Any, name: str, *, nodata: Optional[scalar] = None) -> Raster
             raster = raster.read(1)
             raster[mask == 0] = nodata
 
-    # Require numpy 2D real-valued array. Return array
+    # Informative TypeError if not a supported input
     if not isinstance(raster, np.ndarray):
         raise TypeError(
             f"{name} is not a recognized raster type. Allowed types are: "
             "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray"
         )
-    return matrix(raster, name)
+    
+    # Require 2D real-valued numpy array. Optionally check shape. Return ndarray
+    return matrix(raster, name, shape=shape)
 
 
 def integers(input: RealArray, name: str) -> None:
