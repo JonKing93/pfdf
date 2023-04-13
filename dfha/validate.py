@@ -46,6 +46,7 @@ Internal Utilities:
 import numpy as np
 from pathlib import Path
 import rasterio
+from contextlib import nullcontext
 from dfha.utils import aslist, isreal
 from typing import Any, Optional, List
 from dfha.typing import (
@@ -310,41 +311,51 @@ def raster(
     if isinstance(raster, str):
         raster = Path(raster)
 
-    # Require file exists. Open with rasterio
+
+    # If Path, require file exists. Get context to close file after reading
     if isinstance(raster, Path):
         raster = raster.resolve(strict=True)
-        raster = rasterio.open(raster)
+        context = rasterio.open
+        reading = True
 
-    # Require open DatasetReader. Check the first band
-    if isinstance(raster, rasterio.DatasetReader):
-        band = 1
-        if raster.closed:
+    # If DatasetReader, require open. Use nullcontext to leave reader unchanged
+    elif isinstance(rasterio, rasterio.DatasetReader):
+        if raster.close:
             raise ValueError(
                 f"{name} must be an open rasterio.DatasetReader, but it is closed"
             )
+        context = nullcontext
+        reading = True
 
-        # Check shape and dtype before reading. Disable any later shape checking
-        real(raster.dtypes[band - 1], name)
-        if shape is not None:
-            nrows = raster.height
-            ncols = raster.width
-            _shape(name, ["Row(s)", "Column(s)"], required=shape, actual=(nrows, ncols))
-            shape = None
+    # Anything else should be a numpy ndarray
+    else:
+        if not isinstance(raster, np.ndarray):
+            raise TypeError(
+                f"{name} is not a recognized raster type. Allowed types are: "
+                "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray"
+            )
+        reading = False
 
-        # Read raster from band 1. Optionally convert NoData to fill value
-        if nodata is None:
-            raster = raster.read(band)
-        else:
-            mask = raster.read_masks(band)
-            raster = raster.read(band)
-            raster[mask == 0] = nodata
+    # If reading data from file, get data reader within context manager
+    if reading:
+        band = 1
+        with context(raster) as data:
 
-    # Explicit TypeError if not a supported input
-    if not isinstance(raster, np.ndarray):
-        raise TypeError(
-            f"{name} is not a recognized raster type. Allowed types are: "
-            "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray"
-        )
+            # Check shape and dtype before reading. Disable any later shape checking
+            real(data.dtypes[band-1], name)
+            if shape is not None:
+                nrows = data.height
+                ncols = data.width
+                _shape(name, ["Row(s)", "Column(s)"], required=shape, actual=(nrows, ncols))
+                shape = None
+
+            # Read raster from band 1. Optionally convert NoData to fill value
+            if nodata is None:
+                raster = data.read(band)
+            else:
+                mask = data.read_masks(band)
+                raster = data.read(band)
+                raster[mask == 0] = nodata
 
     # Require 2D real-valued numpy array. Optionally check shape. Return ndarray
     return matrix(raster, name, shape=shape)
@@ -496,10 +507,18 @@ class DimensionError(Exception):
 
 
 class ShapeError(Exception):
-    "When a numpy axis has the wrong shape"
+    """
+    When a numpy axis has the wrong shape
+    ----------
+    Properties:
+        required: The required shape
+        actual: The actual shape
+    """
 
     def __init__(self, name: str, axis: str, required: int, actual: int) -> None:
         message = (
             f"{name} must have {required} {axis}, but it has {actual} {axis} instead."
         )
+        self.required = required
+        self.actual = actual
         super().__init__(message)
