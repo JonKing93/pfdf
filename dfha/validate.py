@@ -19,7 +19,6 @@ Note on dtypes:
     all integer types. Instead, use numpy.integer to enable all integer types.
 ----------
 Array shape and type:
-    array           - Validates an input numpy array-like
     scalar          - Validates an input scalar
     vector          - Validates an input vector
     matrix          - Validates an input matrix
@@ -129,7 +128,11 @@ def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray
 
 
 def vector(
-    input: Any, name: str, *, dtype: Optional[dtypes] = None, length: Optional[int] = None
+    input: Any,
+    name: str,
+    *,
+    dtype: Optional[dtypes] = None,
+    length: Optional[int] = None,
 ) -> VectorArray:
     """
     vector  Validate an input represents a 1D numpy array
@@ -171,20 +174,26 @@ def vector(
         raise DimensionError(
             f"{name} can only have 1 dimension with a length greater than 1."
         )
-    
+
     # Optionally check length
-    shape_(name, 'element(s)', required=length, actual=input.size)
+    shape_(name, "element(s)", required=length, actual=input.size)
     return input.reshape(-1)
 
 
-def matrix(input: Any, name: str, *, dtype: Optional[dtypes] = None, shape: Optional[shape2d] = None) -> MatrixArray:
+def matrix(
+    input: Any,
+    name: str,
+    *,
+    dtype: Optional[dtypes] = None,
+    shape: Optional[shape2d] = None,
+) -> MatrixArray:
     """
     matrix  Validate input represents a 2D numpy array
     ----------
     matrix(input, name)
     Checks the input represents a 2D numpy array. Raises an exception
-    if not. Otherwise, returns the output as a 2D numpy array. Valid inputs may 
-    have any number of dimension, but only the first two dimensions may be 
+    if not. Otherwise, returns the output as a 2D numpy array. Valid inputs may
+    have any number of dimension, but only the first two dimensions may be
     non-singleton. A 1D array is interpreted as a 1xN array.
 
     matrix(..., *, dtype)
@@ -226,11 +235,11 @@ def matrix(input: Any, name: str, *, dtype: Optional[dtypes] = None, shape: Opti
                 f"Only the first two dimension of {name} can be longer than 1. "
                 f"But dimension {bad} is longer than 1."
             )
-        
+
     # Cast as 2D array. Optionally check shape. Return array
     nrows, ncols = input.shape[0:2]
     input = input.reshape(nrows, ncols)
-    shape_(name, ['row(s)','column(s)'], required=shape, actual=input.shape)
+    shape_(name, ["row(s)", "column(s)"], required=shape, actual=input.shape)
     return input
 
 
@@ -335,7 +344,7 @@ def raster(
                 raster[mask == 0] = nodata
 
     # Require 2D real-valued numpy array. Optionally check shape. Return ndarray
-    return matrix(raster, name, shape=shape)
+    return matrix(raster, name, shape=shape, dtype=[np.integer, np.floating])
 
 
 def integers(input: RealArray, name: str) -> None:
