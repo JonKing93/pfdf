@@ -3,14 +3,13 @@ validate  Functions that validate user inputs
 ----------
 The validate module contains functions that check user inputs and raise exceptions
 if the inputs are not valid. Some functions allow user inputs to be in multiple
-different formats. When this is the case, the function will usually return the
-input in a standard format for internal processing. For example, the "raster"
+different formats. When this is the case, the function will return the input in 
+a standard format for internal processing. For example, the "raster"
 function accepts both file paths and numpy 2D arrays, but will return the
 validated raster as a numpy 2D array. 
 
-The module also defines several custom errors (mainly relating to the shape of
-numpy arrays), which may be used to add identify errors originating from this
-package.
+The module also defines several custom exceptions relating to the shape of input
+numpy arrays.
 
 Note on dtypes:
     In general, it is best to use numpy scalar types to indicate the allowed
@@ -34,7 +33,7 @@ Numeric arrays:
 GIS:
     raster          - Check that an input is a raster and return it as a numpy 2D array
 
-Custom Errors:
+Exceptions:
     NDimError       - Raised when an input has an incorrect number of dimensions
     ShapeError      - Raised when an input has an incorrect shape
 
@@ -66,12 +65,14 @@ def _nonsingleton(input: np.ndarray) -> List[bool]:
     "Finds the non-singleton dimensions of a numpy array"
     return [shape > 1 for shape in input.shape]
 
-            
+
 def _shape(name: str, axes: strs, required: shape, actual: shape) -> None:
-    'Checks the shape of each axis is correct'
+    "Checks the shape of each axis is correct"
     if shape is not None:
-        for axis, required, actual in zip(aslist(axes), aslist(required), aslist(actual)):
-            if required != 1 and  required != actual:
+        for axis, required, actual in zip(
+            aslist(axes), aslist(required), aslist(actual)
+        ):
+            if required != 1 and required != actual:
                 raise ShapeError(name, axis, required, actual)
 
 
@@ -95,10 +96,9 @@ def real(dtype: type, name: str) -> None:
     isfloating = np.issubdtype(dtype, np.floating)
     if not isinteger and not isfloating:
         raise TypeError(
-            f'The dtype of {name} ({dtype}) is not a real-valued dtype. '
-            'Allowed types are numpy.integer and numpy.floating'
+            f"The dtype of {name} ({dtype}) is not a real-valued dtype. "
+            "Allowed types are numpy.integer and numpy.floating"
         )
-
 
 
 def array(input: Any, name: str) -> RealArray:
@@ -127,7 +127,7 @@ def array(input: Any, name: str) -> RealArray:
         input = np.array(input)
     elif not isinstance(input, np.ndarray):
         raise TypeError(f"{name} is not a numpy.ndarray")
-    
+
     # Check real-valued and return array
     real(input.dtype, name)
     return input
@@ -257,12 +257,12 @@ def matrix(input: Any, name: str, *, shape: Optional[shape2d] = None) -> MatrixA
 
 
 def raster(
-        raster: Any, 
-        name: str, 
-        *, 
-        nodata: Optional[scalar] = None,
-        shape: Optional[shape2d] = None
-    ) -> RasterArray:
+    raster: Any,
+    name: str,
+    *,
+    nodata: Optional[scalar] = None,
+    shape: Optional[shape2d] = None,
+) -> RasterArray:
     """
     raster  Check input is valid raster and return as numpy 2D array
     ----------
@@ -322,13 +322,13 @@ def raster(
             raise ValueError(
                 f"{name} must be an open rasterio.DatasetReader, but it is closed"
             )
-        
+
         # Check shape and dtype before reading. Disable any later shape checking
-        real(raster.dtypes[band-1], name)
+        real(raster.dtypes[band - 1], name)
         if shape is not None:
             nrows = raster.height
             ncols = raster.width
-            _shape(name, ['Row(s)','Column(s)'], required=shape, actual=(nrows,ncols))
+            _shape(name, ["Row(s)", "Column(s)"], required=shape, actual=(nrows, ncols))
             shape = None
 
         # Read raster from band 1. Optionally convert NoData to fill value
@@ -345,7 +345,7 @@ def raster(
             f"{name} is not a recognized raster type. Allowed types are: "
             "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray"
         )
-    
+
     # Require 2D real-valued numpy array. Optionally check shape. Return ndarray
     return matrix(raster, name, shape=shape)
 
@@ -405,15 +405,17 @@ def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
 
         # Determine the comparison type
         if allow_zero:
-            operator = '>='
+            operator = ">="
         else:
-            operator = '>'
+            operator = ">"
 
         # Check for elements below the 0 bound
         _check_bound(input, name, operator, 0)
 
 
-def inrange(input: RealArray, name: str, min: Optional[real] = None, max: Optional[real] = None) -> None:
+def inrange(
+    input: RealArray, name: str, min: Optional[real] = None, max: Optional[real] = None
+) -> None:
     """
     inrange  Checks the elements of a numpy array are within a given range
     ----------
@@ -434,8 +436,8 @@ def inrange(input: RealArray, name: str, min: Optional[real] = None, max: Option
         ValueError: If any element is not within the bounds
     """
 
-    _check_bound(input, name, '>=', min)
-    _check_bound(input, name, '<=', max)
+    _check_bound(input, name, ">=", min)
+    _check_bound(input, name, "<=", max)
 
 
 def _check_bound(input, name, operator, bound):
@@ -443,7 +445,7 @@ def _check_bound(input, name, operator, bound):
     _check_bound  Checks that elements of a numpy array are valid relative to a bound
     ----------
     _check_bound(input, name, operator, bound)
-    Checks that the elements of the input numpy array are valid relative to a 
+    Checks that the elements of the input numpy array are valid relative to a
     bound. Valid comparisons are >, <, >=, and <=. Raises a ValueError if the
     criterion is not met.
     ----------
@@ -464,17 +466,17 @@ def _check_bound(input, name, operator, bound):
 
         # Get the operator for the comparison. Note that we are testing for failed
         # elements, so actually need the *inverse* of the input operator.
-        if operator == '<':
-            description = 'less than'
+        if operator == "<":
+            description = "less than"
             operator = np.greater_equal
-        elif operator == '<=':
-            description = 'less than or equal to'
+        elif operator == "<=":
+            description = "less than or equal to"
             operator = np.greater
-        elif operator == '>=':
-            description = 'greater than or equal to'
+        elif operator == ">=":
+            description = "greater than or equal to"
             operator = np.less
-        elif operator == '>':
-            description = 'greater than'
+        elif operator == ">":
+            description = "greater than"
             operator = np.less_equal
 
         # Test elements. Raise ValueError if any fail
@@ -482,8 +484,9 @@ def _check_bound(input, name, operator, bound):
         if np.any(failed):
             bad = np.argwhere(failed)[0]
             raise ValueError(
-                f'The elements of {name} must be {description} {bound}, but element {bad} is not.'
+                f"The elements of {name} must be {description} {bound}, but element {bad} is not."
             )
+
 
 class DimensionError(Exception):
     "When a numpy array invalid non-singleton dimensions"
