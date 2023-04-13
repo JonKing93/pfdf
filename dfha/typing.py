@@ -24,12 +24,15 @@ Reallike = Union[int, float, Real]
 # Numpy shapes
 shape = Union[int, Sequence[int]]
 shape2d = Tuple[int, int]
+ScalarShape = Shape["1"]
+VectorShape = Shape["Elements"]
+MatrixShape = Shape["Rows, Columns"]
 
 # Real-valued arrays
-RealArray = NDArray[Any, Real]
-ScalarArray = NDArray[Shape["1"], Real]
-VectorArray = NDArray[Shape["Elements"], Real]
-MatrixArray = NDArray[Shape["Rows", "Columns"], Real]
+RealArray = Union[NDArray[Any, Integer], NDArray[Any, Floating]]
+ScalarArray = Union[NDArray[ScalarShape, Integer], NDArray[ScalarShape, Floating]]
+VectorArray = Union[NDArray[VectorShape, Integer], NDArray[VectorShape, Floating]]
+MatrixArray = Union[NDArray[MatrixShape, Integer], NDArray[MatrixShape, Floating]]
 
 # Real-valued array inputs
 scalar = Union[int, float, ScalarArray]
