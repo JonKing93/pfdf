@@ -105,11 +105,10 @@ User Functions:
 """
 
 import numpy as np
-import rasterio
 from math import sqrt
 from copy import deepcopy
 from dfha import validate
-from dfha.utils import any_defined
+from dfha.utils import any_defined, load_raster
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional
 from dfha.typing import (
     real,
@@ -825,10 +824,10 @@ def filter(
             assessment modeling.
     """
 
-    # Map each filter to its args. Order is threshold, raster, *args
+    # Map each filter to its args. Arg order must be threshold, raster, *args
+    # Note that the confinement filter should be first. This allows flow
+    # direction validation to occur before any computations.
     filters = {
-        "area": {"maximum_area": maximum_area, "upslope_area": upslope_area},
-        "basins": {"maximum_basins": maximum_basins, "upslope_basins": upslope_basins},
         "confinement": {
             "maximum_confinement": maximum_confinement,
             "dem": dem,
@@ -836,6 +835,9 @@ def filter(
             "N": N,
             "resolution": resolution,
         },
+        "area": {"maximum_area": maximum_area, "upslope_area": upslope_area},
+        "basins": {"maximum_basins": maximum_basins, "upslope_basins": upslope_basins},
+
         "development": {
             "maximum_development": maximum_development,
             "upslope_development": upslope_development,
@@ -856,60 +858,46 @@ def filter(
         saved[threshold] = validate.scalar(value, threshold, real)
         if filter == "confinement":
             (N, N_value), (resolution, res_value) = inputs[3:5]
-            saved[N], saved[resolution] = _validate_confinement_args(N_value, res_value)
+            saved[N], saved[resolution] = segments._validate_confinement_args(N_value, res_value)
 
     # Build the initial set of stream segments
     segments = Segments(stream_raster)
 
-    # Validate the rasters. Don't load file rasters into memory yet
+    # Validate the rasters, but don't load file rasters into memory yet
     for filter, args in filters.items():
         args = list(args.items())
         _validate_raster(filters, filter, segments, args[1])
         if filter == "confinement":
             _validate_raster(filters, filter, segments, args[2])
 
-    # Always make confinement the first filter. (It has an extra validation step
-    # so should run before any other computations).
-    if "confinement" in filters:
-        args = filters["confinement"]
-        threshold, dem, flow, N, resolution = args.values()
-        flow = _load_raster(flow)
-        _validate_flow(flow)
-        dem = _load_raster(dem)
-        segments._filter(
-            segments._confinement, ">", threshold, dem, flow, N, resolution
-        )
-
-        # Remove confinement filter and clean up (possibly large) rasters
-        del filters["confinement"]
-        del dem
-        del flow
-
-    # Iterate through standard statistical filters. Get the comparison type
-    for filter, args in filters.items():
+    # Iterate through filters. Get the comparison type
+    for filter, args in filters.item():
         threshold = list(args.keys)[0]
         if threshold.startswith("max"):
             type = ">"
         elif threshold.startswith("min"):
             type = "<"
+
+        # Get threshold and load raster into memory
         args = list(args.values())
+        threshold, raster = args[0:2]
+        raster = load_raster(raster)
 
-        # Load raster into memory and run filter
-        (threshold, raster) = args
-        raster = _load_raster(raster)
-        statistic = segments._stats[filter]
-        segments._filter(segments._summary, type, threshold, raster, statistic)
+        # Run the confinement filter (which should be first).
+        # Delete (possibly large) flow raster when finished
+        if filter == 'confinement':
+            flow, N, resolution = args[2:]
+            segments._validate_flow(flow)
+            segments._filter(segments._confinement, type, threshold, raster, flow, N, resolution)
+            del flow
 
-    # Return the IDs of the remaining segments
+        # Run a standard statistical filter
+        else:
+            statistic = segments._stats[filter]
+            segments._filter(segments._summary, type, threshold, raster, statistic)
+
+    # Return the IDs of the segments that passed the filters
     return segments.ids
-
-
-def _load_raster(raster: Union[str, RasterArray]) -> RasterArray:
-    'Loads a '
-    if isinstance(raster, str):
-        with rasterio.open(raster) as file:
-            raster = file.read(1)
-    return raster
 
 
 def _validate_raster(
@@ -917,7 +905,7 @@ def _validate_raster(
 ) -> None:
     'Validates a raster for a filter. Does not read raster files into memory'
     (name, raster) = args
-    filters[filter][name] = segments._validate(raster, name, noload=True)
+    filters[filter][name] = segments._validate(raster, name, load=False)
 
 
 class _Kernel:
