@@ -105,11 +105,12 @@ User Functions:
 """
 
 import numpy as np
+import rasterio
 from math import sqrt
 from copy import deepcopy
 from dfha import validate
 from dfha.utils import any_defined
-from typing import Any, Dict, Tuple, Literal, Union, Callable
+from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional
 from dfha.typing import real, Raster, RasterArray, scalar, ints, ScalarArray, VectorShape
 from nptyping import NDArray, Shape, Integer, Number, Bool
 
@@ -182,6 +183,15 @@ class Segments:
     Filtering:
         remove          - Removes the indicated segments from the Segments object
     """
+
+    # The statistical summary function for each value
+    _stats = {
+        'area': np.amax,
+        'basins': np.amax,
+        'confinement': np.mean,
+        'development': np.mean,
+        'slope': np.mean,
+    }
 
     #####
     # Properties
@@ -383,7 +393,7 @@ class Segments:
             numpy 1D array: The maximum upslope area of each stream segment.
         """
         upslope_area = self._validate(upslope_area, "upslope_area")
-        return self._summary(upslope_area, np.amax)
+        return self._summary(upslope_area, self._stats['area'])
 
     def basins(self, upslope_basins: Raster) -> SegmentValues:
         """
@@ -402,7 +412,7 @@ class Segments:
                 stream segment.
         """
         upslope_basins = self._validate(upslope_basins, "upslope_basins")
-        return self._summary(upslope_basins, np.amax)
+        return self._summary(upslope_basins, self._stats['basins'])
 
     def confinement(
         self,
@@ -448,11 +458,10 @@ class Segments:
         """
 
         # Check user inputs
-        dem = self._validate(dem, "dem")
-        flow_directions = self._validate(flow_directions, "flow_directions")
-        validate.inrange(flow_directions, "flow_directions", min=1, max=8)
-        validate.integers(flow_directions, "flow_directions")
         (N, resolution) = _validate_confinement_args(N, resolution)
+        flow_directions = self._validate(flow_directions, "flow_directions")
+        _validate_flow(flow_directions)
+        dem = self._validate(dem, "dem")
 
         # Preallocate. Initialize kernel. Get flow lengths
         theta = np.empty(len(self))
@@ -510,7 +519,7 @@ class Segments:
             numpy 1D array: The mean developed upslope area of each stream segment.
         """
         upslope_development = self._validate(upslope_development, "upslope_development")
-        return self._summary(upslope_development, np.amean)
+        return self._summary(upslope_development, self._stats['development'])
 
     def remove(self, ids: IDs) -> None:
         """
@@ -582,7 +591,7 @@ class Segments:
             numpy 1D array: The mean slope (rise/run) of each stream segment.
         """
         slopes = self._validate(slopes, "slopes")
-        return self._summary(slopes, np.mean)
+        return self._summary(slopes, self._stats['slope'])
 
     def summary(self, raster: Raster, statistic: Statistic) -> SegmentValues:
         """
@@ -741,154 +750,70 @@ def filter(
 
     # Map each filter to its args. Order is threshold, raster, *args
     filters = {
-        'area': [maximum_area, upslope_area],
-        'basins': [maximum_basins, upslope_basins],
-        'confinement': [maximum_confinement, dem, flow_directions, N, resolution],
-        'development': [maximum_development, upslope_development],
-        'slope': [minimum_slope, slopes]
+        'area': {'maximum_area': maximum_area, 'upslope_area': upslope_area},
+        'basins': {'maximum_basins': maximum_basins, 'upslope_basins': upslope_basins},
+        'confinement': {'maximum_confinement': maximum_confinement, 'dem': dem, 'flow_directions': flow_directions, 'N': N, 'resolution': resolution},
+        'development': {'maximum_development': maximum_development, 'upslope_development': upslope_development},
+        'slope': {'minimum_slope': minimum_slope, 'slopes': slopes},
     }
 
-    # Validate non-raster inputs
-    thresholds = [maximum_area, maximum_basins, maximum_confinement, maximum_development, minimum_slope]
-    for threshold in thresholds:
-        _validate_threshold(threshold)
-    if N is not None or resolution is not None:
-        N = validate.scalar(N, "N")
-        validate.positive(N, "N")
-        validate.integers(N, "N")
-        resolution = validate.scalar(resolution, "resolution")
-        validate.positive(resolution)
-
-
-
-
-    maximum_area = _validate_threshold(maximum_area, 'maximum_area')
-    maximum_area = _validate_threshold(maximum_area, 'maximum_area')
-    maximum_area = _validate_threshold(maximum_area, 'maximum_area')
-    maximum_area = _validate_scalar(maximum_area, 'maximum_area')
-    maximum_area = _validate_scalar(maximum_area, 'maximum_area')
-
-
-
-
-    if any_defined(maximum_area, upslope_area):
-        maximum_area = validate.scalar(maximum_area, 'maximum_area', real)
-    if any_defined(maximum_basins, upslope_basins):
-
-
-
-
-
-
-
-
-    # Build the initial Segments object
-    # Validate inputs
-    stream_raster = validate.raster(stream_raster, 'stream_raster', nodata=0, noload=True)
-    
-
-
-
-
-
-    # Validate filters
-    if any_defined(maximum_area, upslope_area):
-        maximum_area = validate.scalar(maximum_area, 'maximum_area', dtype=real)
-        upslope_area = validate.raster(upslope_area, 'upslope_area', )
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # Iterate through filters, remove filters without args
+    # Remove filters with no args
     for filter, args in filters.items():
-        if not any_defined(*args):
+        if not any_defined(*args.values()):
             del filters[filter]
 
-        # Validate filter inputs
-        else:
-            
+    # Validate non-raster inputs.
+    for filter, input_args in filters.items():
+        saved = filters[filter]
+        inputs = list(args.items())
+        (threshold, value) = inputs[0]
+        saved[threshold] = validate.scalar(value, threshold, real)
+        if filter=='confinement':
+            (N, N_value), (resolution, res_value) = inputs[3:5]
+            saved[N], saved[resolution] = _validate_confinement_args(N_value, res_value)
 
-    
-
-
-
-
-
-    # Note which filters to run
-
-
-
-
-
-    # Validate non-raster inputs
-    thresholds = [minimum_slope, maximum_area, maximum_development, maximum_basins, maximum_confinement]
-    
-
-
-
-
-
-
-    if minimum_slope is not None:
-
-
-
-
-
-
-
-
-
-
-    # Validate inputs for each filter
-    if any_defined(slopes, minimum_slope):
-        slopes = 
-
-
-
-
-
-
-
-
-
-    # Locate the stream segments. Initialize list of filters
+    # Build the initial set of stream segments
     segments = Segments(stream_raster)
 
-    # Apply filters (or ignore if not provided)
-    segments._filter(
-        segments.development, ">", maximum_development, upslope_development
-    )
-    segments._filter(segments.area, ">", maximum_area, upslope_area)
-    segments._filter(segments.basins, ">", maximum_basins, upslope_basins)
-    segments._filter(segments.slope, "<", minimum_slope, slopes)
-    segments._filter(
-        segments.confinement,
-        ">",
-        maximum_confinement,
-        dem,
-        flow_directions,
-        N,
-        resolution,
-    )
+    # Validate the rasters. Don't load file rasters into memory yet
+    for filter, args in filters.items():
+        args = list(args.items())
+        _validate_raster(filters, filter, segments, args[1])
+        if filter == 'confinement':
+            _validate_raster(filters, filter, segments, args[2])
 
-    # Return the IDs of model-worthy segments
-    return list(segments.keys())
+    # Always make confinement the first filter. (It has an extra validation step
+    # so should run before any other computations).
+    if 'confinement' in filters:
+        args = filters['confinement']
+        threshold, dem, flow, N, resolution = args.values()
+        flow = _load_raster(flow)
+        _validate_flow(flow)
+        dem = _load_raster(dem)
+        segments._filter(segments._confinement, '>', threshold, dem, flow, N, resolution)
+
+        # Remove confinement filter and clean up (possibly large) rasters
+        del filters['confinement']
+        del dem
+        del flow
+
+    # Iterate through standard statistical filters. Get the comparison type
+    for filter, args in filters.items():
+        threshold = list(args.keys)[0]
+        if threshold.startswith('max'):
+            type = '>'
+        elif threshold.startswith('min'):
+            type = '<'
+        args = list(args.values())
+
+        # Load raster into memory and run filter
+        (threshold, raster) = args
+        raster = _load_raster(raster)
+        statistic = segments._stats[filter]
+        segments._filter(segments._summary, type, threshold, raster, statistic)
+
+    # Return the IDs of the remaining segments
+    return segments.ids
 
 
 # Confinement Angle Utilities
@@ -913,6 +838,13 @@ def _flow_length(flow_direction: FlowNumber, lateral_length: scalar, diagonal_le
     return length
 
 
+def _load_raster(raster: Union[str, RasterArray]) -> RasterArray:
+    if isinstance(raster, str):
+        with rasterio.open(raster) as file:
+            raster = file.read(1)
+    return raster
+
+
 def _validate_confinement_args(N: Any, resolution: Any) -> Tuple[ScalarArray, ScalarArray]:
     N = validate.scalar(N, "N", real)
     validate.positive(N, "N")
@@ -920,6 +852,14 @@ def _validate_confinement_args(N: Any, resolution: Any) -> Tuple[ScalarArray, Sc
     resolution = validate.scalar(resolution, "resolution", real)
     validate.positive(resolution)
     return (N, resolution)
+
+def _validate_flow(flow_directions):
+    validate.inrange(flow_directions, "flow_directions", min=1, max=8)
+    validate.integers(flow_directions, "flow_directions")
+
+def _validate_raster(filters: Dict[str, Dict], filter: str, segments: Segments, args: Tuple[str, Any]) -> None:
+    (name, raster) = args
+    filters[filter][name] = segments._validate(raster, name, noload=True)
 
 
 class _Kernel:
