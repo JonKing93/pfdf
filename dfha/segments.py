@@ -110,14 +110,14 @@ from copy import deepcopy
 from dfha import validate
 from dfha.utils import any_defined
 from typing import Any, Dict, Tuple, Literal, Union, Callable
-from dfha.typing import Raster, RasterArray, scalar, ints, ScalarArray, VectorShape
+from dfha.typing import real, Raster, RasterArray, scalar, ints, ScalarArray, VectorShape
 from nptyping import NDArray, Shape, Integer, Number, Bool
 
 
 # Type aliases
 PixelValues = NDArray[Shape["Pixels"], Integer]
-SegmentValues = NDArray[Shape['Segments'], Number]
 indices = Dict[int, Tuple[PixelValues, PixelValues]]
+SegmentValues = NDArray[Shape['Segments'], Number]
 Statistic = Literal["min", "max", "mean", "median", "std"]
 StatFunction = Callable[[np.ndarray], np.ndarray]
 IDs = Union[ints, NDArray[VectorShape, Integer], NDArray[Shape["Segments"], Bool]]
@@ -187,7 +187,7 @@ class Segments:
     # Properties
     #####
     @property
-    def ids(self) -> PixelValues:
+    def ids(self) -> SegmentValues:
         "A numpy 1D array listing the stream segment IDs for the object."
         # (Use a numpy array so user can apply logical indexing when filtering)
         ids = list(self.indices.keys())
@@ -452,11 +452,7 @@ class Segments:
         flow_directions = self._validate(flow_directions, "flow_directions")
         validate.inrange(flow_directions, "flow_directions", min=1, max=8)
         validate.integers(flow_directions, "flow_directions")
-        N = validate.scalar(N, "N")
-        validate.positive(N, "N")
-        validate.integers(N, "N")
-        resolution = validate.scalar(resolution, "resolution")
-        validate.positive(resolution)
+        (N, resolution) = _validate_confinement_args(N, resolution)
 
         # Preallocate. Initialize kernel. Get flow lengths
         theta = np.empty(len(self))
@@ -631,22 +627,22 @@ class Segments:
 
 
 def filter(
-    stream_raster: np.ndarray,
+    stream_raster: Raster,
     *,
-    slopes: Optional[np.ndarray] = None,
-    minimum_slope: Optional[float] = None,
-    upslope_area: Optional[np.ndarray] = None,
-    maximum_area: Optional[float] = None,
-    upslope_development: Optional[np.ndarray] = None,
-    maximum_development: Optional[float] = None,
-    dem: Optional[np.ndarray] = None,
-    flow_directions: Optional[np.ndarray] = None,
-    N: Optional[int] = None,
-    resolution: Optional[float] = None,
-    maximum_confinement: Optional[float] = None,
-    upslope_basins: Optional[np.ndarray] = None,
-    maximum_basins: Optional[int] = None,
-) -> List[int]:
+    slopes: Optional[Raster] = None,
+    minimum_slope: Optional[scalar] = None,
+    upslope_area: Optional[Raster] = None,
+    maximum_area: Optional[scalar] = None,
+    upslope_development: Optional[Raster] = None,
+    maximum_development: Optional[scalar] = None,
+    dem: Optional[Raster] = None,
+    flow_directions: Optional[Raster] = None,
+    N: Optional[scalar] = None,
+    resolution: Optional[scalar] = None,
+    maximum_confinement: Optional[scalar] = None,
+    upslope_basins: Optional[Raster] = None,
+    maximum_basins: Optional[scalar] = None,
+) -> NDArray[Shape['IDs'], Integer]:
     """
     filter  Filters an initial stream network to a set of model-worthy stream segments
     ----------
@@ -743,6 +739,125 @@ def filter(
             assessment modeling.
     """
 
+    # Map each filter to its args. Order is threshold, raster, *args
+    filters = {
+        'area': [maximum_area, upslope_area],
+        'basins': [maximum_basins, upslope_basins],
+        'confinement': [maximum_confinement, dem, flow_directions, N, resolution],
+        'development': [maximum_development, upslope_development],
+        'slope': [minimum_slope, slopes]
+    }
+
+    # Validate non-raster inputs
+    thresholds = [maximum_area, maximum_basins, maximum_confinement, maximum_development, minimum_slope]
+    for threshold in thresholds:
+        _validate_threshold(threshold)
+    if N is not None or resolution is not None:
+        N = validate.scalar(N, "N")
+        validate.positive(N, "N")
+        validate.integers(N, "N")
+        resolution = validate.scalar(resolution, "resolution")
+        validate.positive(resolution)
+
+
+
+
+    maximum_area = _validate_threshold(maximum_area, 'maximum_area')
+    maximum_area = _validate_threshold(maximum_area, 'maximum_area')
+    maximum_area = _validate_threshold(maximum_area, 'maximum_area')
+    maximum_area = _validate_scalar(maximum_area, 'maximum_area')
+    maximum_area = _validate_scalar(maximum_area, 'maximum_area')
+
+
+
+
+    if any_defined(maximum_area, upslope_area):
+        maximum_area = validate.scalar(maximum_area, 'maximum_area', real)
+    if any_defined(maximum_basins, upslope_basins):
+
+
+
+
+
+
+
+
+    # Build the initial Segments object
+    # Validate inputs
+    stream_raster = validate.raster(stream_raster, 'stream_raster', nodata=0, noload=True)
+    
+
+
+
+
+
+    # Validate filters
+    if any_defined(maximum_area, upslope_area):
+        maximum_area = validate.scalar(maximum_area, 'maximum_area', dtype=real)
+        upslope_area = validate.raster(upslope_area, 'upslope_area', )
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Iterate through filters, remove filters without args
+    for filter, args in filters.items():
+        if not any_defined(*args):
+            del filters[filter]
+
+        # Validate filter inputs
+        else:
+            
+
+    
+
+
+
+
+
+    # Note which filters to run
+
+
+
+
+
+    # Validate non-raster inputs
+    thresholds = [minimum_slope, maximum_area, maximum_development, maximum_basins, maximum_confinement]
+    
+
+
+
+
+
+
+    if minimum_slope is not None:
+
+
+
+
+
+
+
+
+
+
+    # Validate inputs for each filter
+    if any_defined(slopes, minimum_slope):
+        slopes = 
 
 
 
@@ -796,6 +911,15 @@ def _flow_length(flow_direction: FlowNumber, lateral_length: scalar, diagonal_le
     else:
         length = lateral_length
     return length
+
+
+def _validate_confinement_args(N: Any, resolution: Any) -> Tuple[ScalarArray, ScalarArray]:
+    N = validate.scalar(N, "N", real)
+    validate.positive(N, "N")
+    validate.integers(N, "N")
+    resolution = validate.scalar(resolution, "resolution", real)
+    validate.positive(resolution)
+    return (N, resolution)
 
 
 class _Kernel:
