@@ -312,7 +312,8 @@ def raster(
         raster = raster.resolve(strict=True)
 
     # If DatasetReader, check that the associated file exists. Get the
-    # associated Path to allow later loading within a context manager.
+    # associated Path to allow loading within a context manager without closing
+    # the user's object
     elif isinstance(raster, rasterio.DatasetReader):
         raster = Path(raster.name)
         if not raster.exists():
