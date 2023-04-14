@@ -111,19 +111,27 @@ from copy import deepcopy
 from dfha import validate
 from dfha.utils import any_defined
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional
-from dfha.typing import real, Raster, RasterArray, scalar, ints, ScalarArray, VectorShape
+from dfha.typing import (
+    real,
+    Raster,
+    RasterArray,
+    scalar,
+    ints,
+    ScalarArray,
+    VectorShape,
+)
 from nptyping import NDArray, Shape, Integer, Number, Bool
 
 
 # Type aliases
 PixelValues = NDArray[Shape["Pixels"], Integer]
 indices = Dict[int, Tuple[PixelValues, PixelValues]]
-SegmentValues = NDArray[Shape['Segments'], Number]
+SegmentValues = NDArray[Shape["Segments"], Number]
 Statistic = Literal["min", "max", "mean", "median", "std"]
 StatFunction = Callable[[np.ndarray], np.ndarray]
 IDs = Union[ints, NDArray[VectorShape, Integer], NDArray[Shape["Segments"], Bool]]
 KernelIndices = Tuple[range, range]
-FlowNumber = Literal[1,2,3,4,5,6,7,8]
+FlowNumber = Literal[1, 2, 3, 4, 5, 6, 7, 8]
 
 
 class Segments:
@@ -184,13 +192,13 @@ class Segments:
         remove          - Removes the indicated segments from the Segments object
     """
 
-    # The statistical summary function for each value
+    # The statistical function for each type of summary value
     _stats = {
-        'area': np.amax,
-        'basins': np.amax,
-        'confinement': np.mean,
-        'development': np.mean,
-        'slope': np.mean,
+        "area": np.amax,
+        "basins": np.amax,
+        "confinement": np.mean,
+        "development": np.mean,
+        "slope": np.mean,
     }
 
     #####
@@ -288,11 +296,120 @@ class Segments:
         return "Stream Segments: " + ", ".join(ids)
 
     #####
-    # Private/Internal methods. (No error checking)
+    # Validation methods
     #####
+    def _validate(self, raster: Any, name: str) -> RasterArray:
+        """
+        _validate  Check input raster if compatible with stream segment pixel indices
+        ----------
+        self._validate(raster, name)
+        Validates the input raster and returns it as a numpy 2D array. A valid
+        raster must meet the criteria described in validate.raster AND must have
+        a shape matching the shape of the raster used to define the stream segments.
+        ----------
+        Inputs:
+            raster: The input raster being checked
+            name: A name for the raster for use in error messages
+
+        Outputs:
+            numpy 2D array: The raster as a numpy array
+        """
+
+        try:
+            return validate.raster(raster, name, shape=self.raster_shape)
+        except validate.ShapeError as error:
+            raise RasterShapeError(name, error)
+
+    @staticmethod
+    def _validate_confinement_args(
+        N: Any, resolution: Any
+    ) -> Tuple[ScalarArray, ScalarArray]:
+        """Validates the kernel size (N) and DEM resolution for confinement angles
+        Returns the values as scalar numpy arrays"""
+        N = validate.scalar(N, "N", real)
+        validate.positive(N, "N")
+        validate.integers(N, "N")
+        resolution = validate.scalar(resolution, "resolution", real)
+        validate.positive(resolution)
+        return (N, resolution)
+
+    @staticmethod
+    def _validate_flow(flow_directions) -> None:
+        "Checks that flow directions conform to the TauDEM style"
+        validate.inrange(flow_directions, "flow_directions", min=1, max=8)
+        validate.integers(flow_directions, "flow_directions")
+
+    #####
+    # Confinement angle calculations
+    #####
+    @staticmethod
+    def _confinement_angle(
+        slopes: NDArray[Shape["Pixels, 2 Rotations"], Number]
+    ) -> ScalarArray:
+        """Returns mean confinement angle for a set of pixels
+        slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise slopes
+            Each row holds the values for one pixel"""
+        theta = np.arctan(slopes)
+        theta = np.mean(theta, axis=0)
+        theta = 180 - np.sum(theta)
+
+    @staticmethod
+    def _flow_length(
+        flow_direction: FlowNumber, lateral_length: scalar, diagonal_length: scalar
+    ) -> scalar:
+        """Returns the flow length for a given flow direction
+        flow_direction: TauDEM style D8 flow number
+        lateral_length: Flow length up/down/right/left
+        diagonal_length: Flow length upleft/upright/downleft/downright"""
+        if flow_direction % 2 == 0:
+            length = diagonal_length
+        else:
+            length = lateral_length
+        return length
+
+    #####
+    # Low-level summary values (no error checking)
+    #####
+    def _confinement(
+        self,
+        dem: RasterArray,
+        flow_directions: RasterArray,
+        N: ScalarArray,
+        resolution: ScalarArray,
+    ) -> SegmentValues:
+        """Computes mean confinement angle. Assumes that all inputs are valid
+        numpy arrays. Please see the documention of Segments.confinement for 
+        additional details on the inputs and computation.
+        """
+
+        # Preallocate. Initialize kernel. Get flow lengths
+        theta = np.empty(len(self))
+        kernel = _Kernel(N, *self.raster_shape)
+        lateral_length = resolution * N
+        diagonal_length = lateral_length * sqrt(2)
+
+        # Get pixels for each stream segment. Preallocate orthogonal slopes
+        for i, id in enumerate(self.ids):
+            pixels = self.indices[id]
+            nPixels = pixels.shape[0]
+            slopes = np.empty((nPixels, 2), dem.dtype)
+
+            # Iterate through pixels as processing cells. Update kernel
+            for p, [row, col] in enumerate(pixels):
+                kernel.update(row, col)
+
+                # Get flow direction and length. Compute orthogonal slopes
+                flow = flow_directions[row, col]
+                length = self._flow_length(flow, lateral_length, diagonal_length)
+                slopes[p, :] = kernel.orthogonal_slopes(flow, dem, length)
+
+            # Compute and return mean confinement angles
+            theta[i] = self._confinement_angle(slopes)
+        return theta
+
     def _filter(
         self,
-        method: Callable[[Tuple('Segments', ...)], SegmentValues],
+        method: Callable[[Tuple("Segments", ...)], SegmentValues],
         type: Literal["<", ">"],
         threshold: scalar,
         *args: Any,
@@ -351,28 +468,6 @@ class Segments:
             summary[i] = statistic(raster[pixels])
         return summary
 
-    def _validate(self, raster: Any, name: str) -> RasterArray:
-        """
-        _validate  Check input raster if compatible with stream segment pixel indices
-        ----------
-        self._validate(raster, name)
-        Validates the input raster and returns it as a numpy 2D array. A valid
-        raster must meet the criteria described in validate.raster AND must have
-        a shape matching the shape of the raster used to define the stream segments.
-        ----------
-        Inputs:
-            raster: The input raster being checked
-            name: A name for the raster for use in error messages
-
-        Outputs:
-            numpy 2D array: The raster as a numpy array
-        """
-
-        try:
-            return validate.raster(raster, name, shape=self.raster_shape)
-        except validate.ShapeError as error:
-            raise RasterShapeError(name, error)
-
     #####
     # User Methods
     #####
@@ -393,7 +488,7 @@ class Segments:
             numpy 1D array: The maximum upslope area of each stream segment.
         """
         upslope_area = self._validate(upslope_area, "upslope_area")
-        return self._summary(upslope_area, self._stats['area'])
+        return self._summary(upslope_area, self._stats["area"])
 
     def basins(self, upslope_basins: Raster) -> SegmentValues:
         """
@@ -412,7 +507,7 @@ class Segments:
                 stream segment.
         """
         upslope_basins = self._validate(upslope_basins, "upslope_basins")
-        return self._summary(upslope_basins, self._stats['basins'])
+        return self._summary(upslope_basins, self._stats["basins"])
 
     def confinement(
         self,
@@ -458,37 +553,15 @@ class Segments:
         """
 
         # Check user inputs
-        (N, resolution) = _validate_confinement_args(N, resolution)
+        (N, resolution) = self._validate_confinement_args(N, resolution)
         flow_directions = self._validate(flow_directions, "flow_directions")
-        _validate_flow(flow_directions)
+        self._validate_flow(flow_directions)
         dem = self._validate(dem, "dem")
 
-        # Preallocate. Initialize kernel. Get flow lengths
-        theta = np.empty(len(self))
-        kernel = _Kernel(N, *self.raster_shape)
-        lateral_length = resolution * N
-        diagonal_length = lateral_length * sqrt(2)
+        # Compute mean confinement angle
+        return self._confinement(dem, flow_directions, N, resolution)
 
-        # Get pixels for each stream segment. Preallocate orthogonal slopes
-        for i, id in enumerate(self.ids):
-            pixels = self.indices[id]
-            nPixels = pixels.shape[0]
-            slopes = np.empty((nPixels, 2), dem.dtype)
-
-            # Iterate through pixels as processing cells. Update kernel
-            for p, [row, col] in enumerate(pixels):
-                kernel.update(row, col)
-
-                # Get flow direction and length. Compute orthogonal slopes
-                flow = flow_directions[row, col]
-                length = _flow_length(flow, lateral_length, diagonal_length)
-                slopes[p, :] = kernel.orthogonal_slopes(flow, dem, length)
-
-            # Compute and return mean confinement angles
-            theta[i] = _confinement_angle(slopes)
-        return theta
-
-    def copy(self) -> 'Segments':
+    def copy(self) -> "Segments":
         """
         copy  Returns a deep copy of a Segments object
         ----------
@@ -519,7 +592,7 @@ class Segments:
             numpy 1D array: The mean developed upslope area of each stream segment.
         """
         upslope_development = self._validate(upslope_development, "upslope_development")
-        return self._summary(upslope_development, self._stats['development'])
+        return self._summary(upslope_development, self._stats["development"])
 
     def remove(self, ids: IDs) -> None:
         """
@@ -541,7 +614,7 @@ class Segments:
         Inputs:
             segments: Indicates which stream segments to remove from the object.
                 May use either an integer or boolean syntax. Integers denote
-                the IDs of the segments to remove. If booleans, removes the 
+                the IDs of the segments to remove. If booleans, removes the
                 segments corresponding to True elements.
 
         Raises:
@@ -551,11 +624,15 @@ class Segments:
         """
 
         # Require numeric or bool vector
-        segments = validate.vector(segments, 'segments', dtype=[np.integer, np.floating, np.bool_])
+        segments = validate.vector(
+            segments, "segments", dtype=[np.integer, np.floating, np.bool_]
+        )
 
         # If boolean, require 1 element per segment. Convert to IDs
         if segments.dtype == bool:
-            validate.shape_('segments', 'element(s)', required=len(self), actual=segments.shape)
+            validate.shape_(
+                "segments", "element(s)", required=len(self), actual=segments.shape
+            )
             segments = self.ids[np.argwhere(segments)].reshape(-1)
 
         # If not boolean, get the unique inputs and the list of ID keys
@@ -570,7 +647,7 @@ class Segments:
                         f"Input ID {i} ({id}) is not the ID of a segment in the network. "
                         "See self.ids for a list of current segment IDs."
                     )
-                
+
         # Remove the IDs
         for id in segments:
             del self.indices[id]
@@ -591,7 +668,7 @@ class Segments:
             numpy 1D array: The mean slope (rise/run) of each stream segment.
         """
         slopes = self._validate(slopes, "slopes")
-        return self._summary(slopes, self._stats['slope'])
+        return self._summary(slopes, self._stats["slope"])
 
     def summary(self, raster: Raster, statistic: Statistic) -> SegmentValues:
         """
@@ -651,7 +728,7 @@ def filter(
     maximum_confinement: Optional[scalar] = None,
     upslope_basins: Optional[Raster] = None,
     maximum_basins: Optional[scalar] = None,
-) -> NDArray[Shape['IDs'], Integer]:
+) -> NDArray[Shape["IDs"], Integer]:
     """
     filter  Filters an initial stream network to a set of model-worthy stream segments
     ----------
@@ -750,11 +827,20 @@ def filter(
 
     # Map each filter to its args. Order is threshold, raster, *args
     filters = {
-        'area': {'maximum_area': maximum_area, 'upslope_area': upslope_area},
-        'basins': {'maximum_basins': maximum_basins, 'upslope_basins': upslope_basins},
-        'confinement': {'maximum_confinement': maximum_confinement, 'dem': dem, 'flow_directions': flow_directions, 'N': N, 'resolution': resolution},
-        'development': {'maximum_development': maximum_development, 'upslope_development': upslope_development},
-        'slope': {'minimum_slope': minimum_slope, 'slopes': slopes},
+        "area": {"maximum_area": maximum_area, "upslope_area": upslope_area},
+        "basins": {"maximum_basins": maximum_basins, "upslope_basins": upslope_basins},
+        "confinement": {
+            "maximum_confinement": maximum_confinement,
+            "dem": dem,
+            "flow_directions": flow_directions,
+            "N": N,
+            "resolution": resolution,
+        },
+        "development": {
+            "maximum_development": maximum_development,
+            "upslope_development": upslope_development,
+        },
+        "slope": {"minimum_slope": minimum_slope, "slopes": slopes},
     }
 
     # Remove filters with no args
@@ -768,7 +854,7 @@ def filter(
         inputs = list(args.items())
         (threshold, value) = inputs[0]
         saved[threshold] = validate.scalar(value, threshold, real)
-        if filter=='confinement':
+        if filter == "confinement":
             (N, N_value), (resolution, res_value) = inputs[3:5]
             saved[N], saved[resolution] = _validate_confinement_args(N_value, res_value)
 
@@ -779,31 +865,33 @@ def filter(
     for filter, args in filters.items():
         args = list(args.items())
         _validate_raster(filters, filter, segments, args[1])
-        if filter == 'confinement':
+        if filter == "confinement":
             _validate_raster(filters, filter, segments, args[2])
 
     # Always make confinement the first filter. (It has an extra validation step
     # so should run before any other computations).
-    if 'confinement' in filters:
-        args = filters['confinement']
+    if "confinement" in filters:
+        args = filters["confinement"]
         threshold, dem, flow, N, resolution = args.values()
         flow = _load_raster(flow)
         _validate_flow(flow)
         dem = _load_raster(dem)
-        segments._filter(segments._confinement, '>', threshold, dem, flow, N, resolution)
+        segments._filter(
+            segments._confinement, ">", threshold, dem, flow, N, resolution
+        )
 
         # Remove confinement filter and clean up (possibly large) rasters
-        del filters['confinement']
+        del filters["confinement"]
         del dem
         del flow
 
     # Iterate through standard statistical filters. Get the comparison type
     for filter, args in filters.items():
         threshold = list(args.keys)[0]
-        if threshold.startswith('max'):
-            type = '>'
-        elif threshold.startswith('min'):
-            type = '<'
+        if threshold.startswith("max"):
+            type = ">"
+        elif threshold.startswith("min"):
+            type = "<"
         args = list(args.values())
 
         # Load raster into memory and run filter
@@ -816,28 +904,6 @@ def filter(
     return segments.ids
 
 
-# Confinement Angle Utilities
-def _confinement_angle(slopes: NDArray[Shape['Pixels, 2 Rotations'], Number]) -> ScalarArray:
-    """Returns mean confinement angle for a set of pixels
-    slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise slopes
-        Each row holds the values for one pixel"""
-    theta = np.arctan(slopes)
-    theta = np.mean(theta, axis=0)
-    theta = 180 - np.sum(theta)
-
-
-def _flow_length(flow_direction: FlowNumber, lateral_length: scalar, diagonal_length: scalar) -> scalar:
-    """Returns the flow length for a given flow direction
-    flow_direction: TauDEM style D8 flow number
-    lateral_length: Flow length up/down/right/left
-    diagonal_length: Flow length upleft/upright/downleft/downright"""
-    if flow_direction % 2 == 0:
-        length = diagonal_length
-    else:
-        length = lateral_length
-    return length
-
-
 def _load_raster(raster: Union[str, RasterArray]) -> RasterArray:
     if isinstance(raster, str):
         with rasterio.open(raster) as file:
@@ -845,19 +911,9 @@ def _load_raster(raster: Union[str, RasterArray]) -> RasterArray:
     return raster
 
 
-def _validate_confinement_args(N: Any, resolution: Any) -> Tuple[ScalarArray, ScalarArray]:
-    N = validate.scalar(N, "N", real)
-    validate.positive(N, "N")
-    validate.integers(N, "N")
-    resolution = validate.scalar(resolution, "resolution", real)
-    validate.positive(resolution)
-    return (N, resolution)
-
-def _validate_flow(flow_directions):
-    validate.inrange(flow_directions, "flow_directions", min=1, max=8)
-    validate.integers(flow_directions, "flow_directions")
-
-def _validate_raster(filters: Dict[str, Dict], filter: str, segments: Segments, args: Tuple[str, Any]) -> None:
+def _validate_raster(
+    filters: Dict[str, Dict], filter: str, segments: Segments, args: Tuple[str, Any]
+) -> None:
     (name, raster) = args
     filters[filter][name] = segments._validate(raster, name, noload=True)
 
@@ -1010,7 +1066,7 @@ class _Kernel:
         fixed_rows: True for left/right, False for up/down
         """
         changing = self.indices(changing, nMax, before)
-        fixed = range(fixed, fixed+1)
+        fixed = range(fixed, fixed + 1)
         if fixed_rows:
             return (fixed, changing)
         else:
@@ -1053,14 +1109,14 @@ class _Kernel:
 
     def orthogonal_slopes(
         self, flow: FlowNumber, dem: RasterArray, length: scalar
-    ) -> NDArray[Shape['1 Pixel, 2 Rotations'], Number]:
+    ) -> NDArray[Shape["1 Pixel, 2 Rotations"], Number]:
         """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
         dem: DEM raster
         length: The lateral or diagonal flow length across 1 pixel"""
         clockwise = self.max_height(flow - 7, dem)
         counterclock = self.max_height(flow - 3, dem)
-        slopes = np.array([clockwise, counterclock]).reshape(1,2)
+        slopes = np.array([clockwise, counterclock]).reshape(1, 2)
         slopes = slopes - dem[self.row, self.col]
         slopes = slopes / length
         return slopes
