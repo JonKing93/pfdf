@@ -1,9 +1,9 @@
 """
-segments  Filter stream segments to model-worthy basins
+segments  Determine stream segments worthy of hazard assessment modeling
 ----------
-The segments module is used to compute values for each stream segment in a
-network. These computed values can then be used to filter the stream network to
-a final set of model-worthy segments. Filtering values include
+The segments module uses various filtering criter to reduce an initial set of
+stream segments (produced by the stream module) to a final set of segments worthy
+of hazard assessment modeling. Filtering criteria can include:
     
     * Slope
     * Confinement Angle
@@ -11,97 +11,42 @@ a final set of model-worthy segments. Filtering values include
     * Total developed upslope area
     * Number of upslope debris-retention basins
 
-Operational users will likely be most interested in the "filter" function, which
-implements a number of filters for standard hazard assessment and returns a final
-set of stream segments.
+This module provides two main workflows for filtering stream segments: 
+    1. The "filter" function, and
+    2. The "Segments" class
+The "filter" function is intended for operational users. This function implements
+a number of standard filters, and returns the IDs of stream segments deemed 
+worthy of hazard assessment modeling. 
 
-Other users may be interested in build custom filtering routines. The workflow
-for this is as follows: First, run the "locate" command on a stream link raster.
-This command returns a Segments object, which defines a set of stream segments
-for a DEM - the object's "indices" property maps segment IDs to the locations of
-the segment's pixels in the DEM. You can then use the "slope", "area", 
-"confinement", "basins", and/or "development" functions to return the values
-associated with the stream segments. For example, the "slope" command returns
-the mean slope for each segment in the dict. 
-then use these values to implement custom filtering routines. See also the "remove"
-command to remove segments from the set.
+By contrast, the "Segments" class is intended for users interested in designing 
+custom filtering routines. The class includes a number of methods that calculate
+values for each stream segment in a network - users can use these values to screen
+the stream segments as desired. Please see the documention of the "Segments"
+class for instructions on this workflow.
 
-Advanced users may want to implement filters beyond the 5 filters explicitly
-provided by this module. The "summarize" function provides support for this for
-basic calculations. Given an input raster of data values, the function returns 
-a summary statistic for each segment in the dict. The summary statistic for each
-segment is computed using the raster values for the segment's pixels. Options 
-include the min, max, mean, median, and standard deviation of the pixel values.
-
-
-
-Summary statistics are calculated
-from the 
-
-
-
-
-
-    * min
-
-
-We provide limited support for other using the
-"summarize" function. This function takes an input raster and returns a summary
-
-
-
-
-    * Next, use this dict to run the "slope", "area", "confinement", "basins",
-      and "development commands
-
-Other users may be interested in designing custom filters. This can be implemented
-using the "slope", "confinement", "area", "development", and "basins" functions.
-These functions return the values associated with a set of stream segments. Users
-can then use these values to implement custom filtering routines. Before using
-these functions, you should first use the "locate" function to locate the stream
-segments within the DEM. This command returns a dict that defines a set of stream
-segments. The dict maps stream segment IDs to pixel locations in the DEM, and is
-used as input to the aforementioned functions.
-
-
-
-
-
-
-The output of this command is a used as input to the
-aforementioned functions. Users may also be interested in the "remove" command,
-which can be used to remove 
-
-
-
-
-for a set of stream segments. Users can then use 
-the returned values to implement custom filtering routines. Before using these
-
-
-Note that most users
-will want to use the "locate
-
-Other users may be interested in the "slope", "confinement", "area", "development",
-
-    * Location below debris-retention basins
-    * Whether a segment is below a debris-retention basin, and
-    * Whether a segment is below a developed area
-
-Note that these values are summarized
+Most of the commands in this module operate on raster datasets, and so the module
+allows users to provide rasters in a variety of ways. When calling commands, 
+users may provide rasters as:
+    * A string indicating a raster file path,
+    * A pathlib.Path object to a raster file,
+    * A rasterio.DatasetReader object, or
+    * A 2D numpy array (real-valued)
+Note that file-based rasters are loaded using rasterio, and so support nearly all
+common raster file formats. You can find a complete list of supported formats
+here: https://gdal.org/drivers/raster/index.html
 ----------
-Operational Users:
-    filter      - Filters a stream network to model-worthy segments
+Functions:
+    filter              - Filters a network of stream segments
 
-User Functions:
-    locate      - Locates stream segments within a stream link raster
-    slope       - Returns the mean slope (rise/run) of stream segments
-    confinement - Returns the mean confinement angle of stream segments
-    area        - Returns the total upslope area of stream segments
-    development - Returns the total upslope developed area of stream segments
-    basins      - Returns the number of upslope debris basins for stream segments
+Classes:
+    Segments            - Defines a stream segment network and calculates values for the segments
 
+Custom Exceptions:
+    RasterShapeError    - When a values raster does not match the shape of the stream segment raster
 
+Internal:
+    _Kernel             - Locates raster pixels required for confinement angle focal statistics
+    _validate_raster    - Validates a raster for a filter
 """
 
 import numpy as np
@@ -145,8 +90,8 @@ class Segments:
     pixels (roughly, the river bed), and NOT using all the pixels in the segment's
     catchment area.
 
-    These summary values can then be used to filter an initial stream network
-    to segments to a final set of segments for hazard assessment modeling. A
+    These summary values can then be used to filter an initial stream segment
+    network to a final set of segments for hazard assessment modeling. A
     typical workflow is to:
         1. Define an initial set of segments by calling Segments() on a stream
            segment raster.*
@@ -158,12 +103,19 @@ class Segments:
 
     *See the help for Segments.__init__ for instructions on creating a Segments object
 
-    It is worth noting that the various summary methods require input rasters
-    with the same shape as the stream segment raster used to derive the initial
-    set of stream segments. If not, the summary method will raise an exception.
-    Users can retrieve this shape by inspecting the 'raster_shape' property.
-    Separately, users may find the "copy" method useful for testing out different
-    filtering criteria.
+    The "area", "basins", "confinement", "development", and "slope" represent
+    standard filters for hazard assessment analysis. However, some users may be
+    interested in computing other values for the stream segments. The "summary"
+    method is intended for such users. Given a raster of data values, this
+    function allows users to calculate common statistical values for the stream
+    segments in the network.
+
+    It is worth noting that most methods require input rasters with the same shape
+    as the stream segment raster used to derive the initial set of stream segments
+    (and will raise an exception when this criterion is not met). Users can 
+    retrieve this shape by inspecting the 'raster_shape' property. Separately, 
+    users may find the "copy" method useful for testing out different filtering 
+    criteria.
     ----------
     PROPERTIES:
         ids             - The list of stream segment IDs remaining in the set
@@ -213,9 +165,9 @@ class Segments:
     @property
     def indices(self) -> indices:
         """
-        A dict mapping each stream segment ID (int) to the indices of its associated
+        A dict mapping each stream segment ID to the indices of its associated
         pixels in the stream segment raster. The value of each key is a 2-tuple
-        whose elements are numpy 1D arrays. The first array lists the rows indices
+        whose elements are numpy 1D arrays. The first array lists the row indices
         of the pixels, and the second array lists the column indices.
         """
         return self._indices
