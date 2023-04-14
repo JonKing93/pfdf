@@ -307,54 +307,50 @@ def raster(
     if isinstance(raster, str):
         raster = Path(raster)
 
-    # If Path, require file exists. Get context to close file after reading
+    # If Path, require file exists
     if isinstance(raster, Path):
         raster = raster.resolve(strict=True)
-        context = rasterio.open
-        reading = True
 
-    # If DatasetReader, require open. Use nullcontext to leave reader unchanged
-    elif isinstance(rasterio, rasterio.DatasetReader):
-        if raster.close:
-            raise ValueError(
-                f"{name} must be an open rasterio.DatasetReader, but it is closed"
+    # If DatasetReader, check that the associated file exists. Get the
+    # associated Path to allow later loading within a context manager.
+    elif isinstance(raster, rasterio.DatasetReader):
+        raster = Path(raster.name)
+        if not raster.exists():
+            raise FileNotFoundError(
+                f'The raster file associated with the input rasterio.DatasetReader '
+                f'object no longer exists.\nFile: {raster}'
             )
-        context = nullcontext
-        reading = True
-
-    # Anything else should be a numpy ndarray
+        
+    # Anything else should be a numpy array. Validate and return the array
     else:
         if not isinstance(raster, np.ndarray):
             raise TypeError(
                 f"{name} is not a recognized raster type. Allowed types are: "
                 "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray"
             )
-        reading = False
+        return matrix(raster, name, shape=shape, dtype=real)
+    
+    # Validate band 1 of file-based rasters
+    band = 1
+    with rasterio.open(raster) as data:
+        dtype_(name, allowed=real, actual=data.dtypes[band-1])
+        if shape is not None:
+            nrows = data.height
+            ncols = data.width
+            shape_(name, ["rows", "columns"], required=shape, actual=(nrows, ncols))
+            shape = None
 
-    # If reading data from file, get data reader within context manager
-    if reading:
-        band = 1
-        with context(raster) as data:
-            # Check shape and dtype before reading. Disable any later shape checking
-            dtype_(name, allowed=real, actual=data.dtypes[band - 1])
-            if shape is not None:
-                nrows = data.height
-                ncols = data.width
-                shape_(name, ["rows", "columns"], required=shape, actual=(nrows, ncols))
-                shape = None
-
-            # Read raster from band 1. Optionally convert NoData to fill value
+        # Optionally load into memory. Optionally convert NoData values
+        if load:
             if nodata is None:
                 raster = data.read(band)
             else:
                 mask = data.read_masks(band)
                 raster = data.read(band)
                 raster[mask == 0] = nodata
-            return raster
-
-    # If a numpy array, require 2D real array. Optionally check shape
-    else:
-        return matrix(raster, name, shape=shape, dtype=real)
+        
+        # Return the array or Path
+        return raster
 
 
 def integers(input: RealArray, name: str) -> None:
