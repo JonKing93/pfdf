@@ -7,9 +7,15 @@ Type conversion:
 
 Argument Parsing:
     any_defined - True if any input is not None
+
+Rasters:
+    load_raster
 """
 
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Union
+from dfha.typing import RasterArray
+import rasterio
+from pathlib import Path
 
 
 def any_defined(*args: Any) -> bool:
@@ -50,3 +56,31 @@ def astuple(input: Any) -> Tuple:
     elif not isinstance(input, tuple):
         input = (input,)
     return input
+
+
+def load_raster(raster: Path) -> RasterArray:
+    """
+    load_raster  Loads the first band of a raster from file
+    ----------
+    load_raster(raster)
+    Uses rasterio to load the first band of a raster file. 
+
+
+
+
+    Takes an input raster and returns it as a numpy array. This function is
+    typically used in conjunction with validate.raster(..., load=False) and
+    allows the developer to control when a validated raster is loaded into
+    memory as a numpy array.
+
+    Inputs may either be a pathlib.Path or a numpy array. If the raster is already
+    a numpy array, it is returned back to the user. If a Path object, data is
+    read from     
+    
+    
+    
+    The input
+    raster should either be a Pathlib.path or a numpy array.
+    
+    
+    """

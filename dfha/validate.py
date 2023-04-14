@@ -49,7 +49,7 @@ from pathlib import Path
 import rasterio
 from contextlib import nullcontext
 from dfha.utils import aslist
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Union
 from dfha.typing import (
     strs,
     dtypes,
@@ -247,7 +247,8 @@ def raster(
     *,
     nodata: Optional[scalar] = None,
     shape: Optional[shape2d] = None,
-) -> RasterArray:
+    load: Optional[bool] = True,
+) -> Union[Path, RasterArray]:
     """
     raster  Check input is valid raster and return as numpy 2D array
     ----------
@@ -278,6 +279,13 @@ def raster(
     raster(..., *, shape)
     Require the raster to have the specified shape. Raises a ShapeError if this
     condition is not met.
+
+    raster(..., *, load=False)
+    Indicates that file-based rasters (those derived from a string, pathlib.Path,
+    or rasterio.DatasetReader object) should not be loaded into memory after
+    validating. If the input was a file-based raster, returns a pathlib.Path
+    object for the validated raster file instead of a numpy array. Input numpy
+    arrays are not affected and still return a numpy array.
     ----------
     Inputs:
         raster: The input being checked
@@ -286,9 +294,13 @@ def raster(
         shape: A required shape for the raster. A 2-tuple, first element is rows
             second element is columns. If an element is -1, disables shape checking
             for that axis.
+        load: True (default) if validated file-based rasters should be loaded
+            into memory and returned as a numpy array. If False, returns a 
+            pathlib.Path object for file-based rasters.
 
     Outputs:
         numpy 2D array: The raster represented as a numpy array.
+        pathlib.Path: If load=False and the input is a file-based raster
     """
 
     # Convert str to Path
@@ -338,9 +350,11 @@ def raster(
                 mask = data.read_masks(band)
                 raster = data.read(band)
                 raster[mask == 0] = nodata
+            return raster
 
-    # Require 2D real-valued numpy array. Optionally check shape. Return ndarray
-    return matrix(raster, name, shape=shape, dtype=real)
+    # If a numpy array, require 2D real array. Optionally check shape
+    else:
+        return matrix(raster, name, shape=shape, dtype=real)
 
 
 def integers(input: RealArray, name: str) -> None:

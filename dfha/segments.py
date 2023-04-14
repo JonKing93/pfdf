@@ -905,6 +905,7 @@ def filter(
 
 
 def _load_raster(raster: Union[str, RasterArray]) -> RasterArray:
+    'Loads a '
     if isinstance(raster, str):
         with rasterio.open(raster) as file:
             raster = file.read(1)
@@ -914,6 +915,7 @@ def _load_raster(raster: Union[str, RasterArray]) -> RasterArray:
 def _validate_raster(
     filters: Dict[str, Dict], filter: str, segments: Segments, args: Tuple[str, Any]
 ) -> None:
+    'Validates a raster for a filter. Does not read raster files into memory'
     (name, raster) = args
     filters[filter][name] = segments._validate(raster, name, noload=True)
 
