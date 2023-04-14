@@ -12,10 +12,10 @@ Rasters:
     load_raster
 """
 
-from typing import List, Any, Tuple, Union
-from dfha.typing import RasterArray
 import rasterio
 from pathlib import Path
+from typing import List, Any, Tuple, Optional
+from dfha.typing import RasterArray
 
 
 def any_defined(*args: Any) -> bool:
@@ -58,29 +58,24 @@ def astuple(input: Any) -> Tuple:
     return input
 
 
-def load_raster(raster: Path) -> RasterArray:
+def load_raster(raster: Path, band: Optional[int] = 1) -> RasterArray:
     """
-    load_raster  Loads the first band of a raster from file
+    load_raster  Loads a raster band from file
     ----------
     load_raster(raster)
-    Uses rasterio to load the first band of a raster file. 
+    Uses rasterio to load the first band of the input raster. Returns the loaded
+    data as a numpy.ndarray.
 
+    load_raster(raster, band)
+    Specifies a band of the raster to load. Default is the first band.
+    ----------
+    Inputs:
+        raster: The Path to a raster file
+        band: A raster band to read. Note that bands use 1-indexing. Default is
+            the first band.
 
-
-
-    Takes an input raster and returns it as a numpy array. This function is
-    typically used in conjunction with validate.raster(..., load=False) and
-    allows the developer to control when a validated raster is loaded into
-    memory as a numpy array.
-
-    Inputs may either be a pathlib.Path or a numpy array. If the raster is already
-    a numpy array, it is returned back to the user. If a Path object, data is
-    read from     
-    
-    
-    
-    The input
-    raster should either be a Pathlib.path or a numpy array.
-    
-    
+    Outputs:
+        numpy 2D array: The loaded raster as a numpy.ndarray
     """
+    with rasterio.open(raster) as raster:
+        return raster.read(band)
