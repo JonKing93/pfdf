@@ -6,6 +6,7 @@ from typing import Any, Union, Sequence, Dict, Tuple
 from nptyping import NDArray, Shape, Integer, Floating
 from pathlib import Path
 from rasterio import DatasetReader
+import numpy as np
 
 # Singular / plural built-ins
 strs = Union[str, Sequence[str]]
@@ -17,9 +18,7 @@ Pathdict = Dict[str, Path]
 
 # Numpy dtypes
 dtypes = Union[type, Sequence[type]]
-real = Union[int, float]
-Real = Union[Integer, Floating]
-Reallike = Union[int, float, Real]
+real = [np.integer, np.floating]  # Note this is an actual List, not a typing Union
 
 # Numpy shapes
 shape = Union[int, Sequence[int]]

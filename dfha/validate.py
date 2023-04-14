@@ -34,15 +34,13 @@ GIS:
 Low-level:
     shape_          - Check that array shapes are valid
     dtype_          - Checks that array dtype is valid
-    nonsingleton    - Locate nonsingleton dimensions        
+    nonsingleton    - Locate nonsingleton dimensions   
 
 Exceptions:
     NDimError       - Raised when an input has an incorrect number of dimensions
     ShapeError      - Raised when an input has an incorrect shape
 
-Internal Utilities:
-    _nonsingleton   - Locates the nonsingleton dimensions of a numpy array
-    _shape          - Checks an input shape matches the requested shape
+Internal:
     _check_bound    - Compares the elements of an ndarray to a bound
 """
 
@@ -326,13 +324,11 @@ def raster(
         band = 1
         with context(raster) as data:
             # Check shape and dtype before reading. Disable any later shape checking
-            real(data.dtypes[band - 1], name)
+            dtype_(name, allowed=real, actual=data.dtypes[band - 1])
             if shape is not None:
                 nrows = data.height
                 ncols = data.width
-                _shape(
-                    name, ["Row(s)", "Column(s)"], required=shape, actual=(nrows, ncols)
-                )
+                shape_(name, ["rows", "columns"], required=shape, actual=(nrows, ncols))
                 shape = None
 
             # Read raster from band 1. Optionally convert NoData to fill value
@@ -344,7 +340,7 @@ def raster(
                 raster[mask == 0] = nodata
 
     # Require 2D real-valued numpy array. Optionally check shape. Return ndarray
-    return matrix(raster, name, shape=shape, dtype=[np.integer, np.floating])
+    return matrix(raster, name, shape=shape, dtype=real)
 
 
 def integers(input: RealArray, name: str) -> None:
