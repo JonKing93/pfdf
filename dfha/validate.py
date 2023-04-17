@@ -47,7 +47,6 @@ Internal:
 import numpy as np
 from pathlib import Path
 import rasterio
-from contextlib import nullcontext
 from dfha.utils import aslist, real
 from typing import Any, Optional, List, Union
 from dfha.typing import (
