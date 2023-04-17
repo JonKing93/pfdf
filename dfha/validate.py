@@ -37,7 +37,7 @@ Low-level:
     nonsingleton    - Locate nonsingleton dimensions   
 
 Exceptions:
-    NDimError       - Raised when an input has invalid nonsingleton dimensions
+    DimensionError  - Raised when an input has invalid nonsingleton dimensions
     ShapeError      - Raised when an input has an incorrect shape
 
 Internal:
@@ -283,7 +283,7 @@ def nonsingleton(array: np.ndarray) -> List[bool]:
     Returns:
         List[bool]: Indicates the non-singleton dimensions.
     """
-    return [shape > 1 for shape in input.shape]
+    return [shape > 1 for shape in array.shape]
 
 
 def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
