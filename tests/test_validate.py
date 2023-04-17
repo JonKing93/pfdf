@@ -127,3 +127,80 @@ class TestDtype:
         validate.dtype_(self.name, allowed, self.dtype)
 
 
+#####
+# Numeric Arrays
+#####
+
+class TestPositive:
+    name = 'test name'
+
+    def test_pass(self):
+        array = np.arange(1,11).reshape(2,5)
+        validate.positive(array, self.name)
+
+    def test_fail(self):
+        array = np.arange(-11,-1).reshape(2,5)
+        with pytest.raises(ValueError) as error:
+            validate.positive(array, self.name)
+        assert_contains(error, self.name)
+
+    def test_pass_0(self):
+        array = np.arange(0,10).reshape(2,5)
+        validate.positive(array, self.name, allow_zero=True)
+
+    def test_fail_0(self):
+        array = np.arange(0,10).reshape(2,5)
+        with pytest.raises(ValueError) as error:
+            validate.positive(array, self.name)
+        assert_contains(error, self.name)
+
+
+class TestIntegers:
+    name = 'test name'
+
+    def test_pass(self):
+        array = np.array([-4.0,-3.0,1.0,2.0,3.0,100.000], dtype=float)
+        validate.integers(array, self.name)
+
+
+    def test_fail(self):
+        array = np.array([1.2,2.0,3.0,4.222])
+        with pytest.raises(ValueError) as error:
+            validate.integers(array, self.name)
+        assert_contains(error, self.name)
+
+
+class TestInRange:
+    name = 'test name'
+
+    @staticmethod
+    def bounds(array):
+        return (np.amin(array), np.amax(array))
+
+    def test_pass(self, array):
+        min, max = self.bounds(array)
+        validate.inrange(array, self.name, min-1, max+1)
+
+    def test_includes_bound(self, array):
+        min, max = self.bounds(array)
+        validate.inrange(array, self.name, min, max)
+
+    def test_too_high(self, array):
+        min, max = self.bounds(array)
+        with pytest.raises(ValueError) as error:
+            validate.inrange(array, self.name, min, max-1)
+        assert_contains(error, self.name, str(max-1))
+
+    def test_too_low(self, array):
+        min, max = self.bounds(array)
+        with pytest.raises(ValueError) as error:
+            validate.inrange(array, self.name, min+1, max)
+        assert_contains(error, self.name, str(min+1))
+
+    def test_only_upper(self, array):
+        _, max = self.bounds(array)
+        validate.inrange(array, self.name, max=max)
+
+    def test_only_lower(self, array):
+        min, _ = self.bounds(array)
+        validate.inrange(array, self.name, min=min)
