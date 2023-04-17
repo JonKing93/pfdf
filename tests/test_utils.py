@@ -54,23 +54,27 @@ def test_any_defined(input, expected):
 
 @pytest.fixture
 def band1():
-    return np.ndarray([1,2,3,4,5,6,7,8]).reshape(2,4)
+    return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4)
+
 
 @pytest.fixture
 def band2(band1):
     return band1 * 10
 
+
 @pytest.fixture
 def raster_path(tmp_path, band1, band2):
     raster = tmp_path / "raster.tif"
     with rasterio.open(
-        raster, 
-        'w', 
-        driver='GTiff',
-        height = band1.shape[0],
-        width = band1.shape[1],
-        count = 2,
-        dtype = band1.dtype,
+        raster,
+        "w",
+        driver="GTiff",
+        height=band1.shape[0],
+        width=band1.shape[1],
+        count=2,
+        dtype=band1.dtype,
+        crs="+proj=latlong",
+        transform=rasterio.transform.Affine(300, 0, 101985, 0,-300, 2826915)
     ) as file:
         file.write(band1, 1)
         file.write(band2, 2)
@@ -78,20 +82,20 @@ def raster_path(tmp_path, band1, band2):
 
 
 class TestLoadRaster:
-
-    @pytest.parametrize('array', (band1, band2))
-    def test_array(array):
-        assert array == utils.load_raster(array)
+    def test_array(_, band1):
+        output = utils.load_raster(band1)
+        assert np.array_equal(output, band1)
 
     # Band should be ignored when given an ndarray as input
-    @pytest.parametrize('band', (1,2,3))
-    def test_array_band(band1, band):
-        assert utils.load_raster(band1, band) == band1
+    @pytest.mark.parametrize("band", [(1), (2), (3)])
+    def test_array_band(_, band1, band):
+        output = utils.load_raster(band1, band)
+        assert np.array_equal(output, band1)
 
-    def test_path(raster_path, band1):
-        assert utils.load_raster(raster_path) == band1
+    def test_path(_, raster_path, band1):
+        output = utils.load_raster(raster_path)
+        assert np.array_equal(output, band1)
 
-    @pytest.parametrize('band, array', (1, band1), (2, band2))
-    def test_path_band(raster_path, band, array):
-        assert utils.load_raster(raster_path, band) == array
-
+    def test_path_band2(_, raster_path, band2):
+        output = utils.load_raster(raster_path, band=2)
+        assert np.array_equal(output, band2)
