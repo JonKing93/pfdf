@@ -138,14 +138,15 @@ def dtype_(name: str, allowed: dtypes, actual: type) -> None:
     """
     # Iterate through allowed types. Exit if any match
     if allowed is not None:
-        for type in aslist(allowed):
+        allowed = aslist(allowed)
+        for type in allowed:
             if np.issubdtype(actual, type):
                 return
 
         # TypeError if type was not allowed
         allowed = ", ".join([str(type)[8:-2] for type in allowed])
         raise TypeError(
-            f"The dtype of {name} ({actual}) is not a real-valued dtype. "
+            f"The dtype of {name} ({actual}) is not an allowed dtype. "
             f"Allowed types are: {allowed}"
         )
 
@@ -482,11 +483,11 @@ def shape_(name: str, axes: strs, required: shape, actual: shape) -> None:
     Raises:
         ShapeError: If the array does not have the required shape.
     """
-    if shape is not None:
+    if required is not None:
         for axis, required, actual in zip(
             aslist(axes), aslist(required), aslist(actual)
         ):
-            if required != 1 and required != actual:
+            if required != -1 and required != actual:
                 raise ShapeError(name, axis, required, actual)
 
 
