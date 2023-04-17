@@ -12,11 +12,15 @@ Rasters:
     load_raster
 """
 
-from numpy import ndarray
+from numpy import ndarray, integer, floating
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
 from dfha.typing import RasterArray
+
+
+# Real-valued numpy dtypes
+real = [integer, floating]
 
 
 def any_defined(*args: Any) -> bool:
@@ -59,7 +63,9 @@ def astuple(input: Any) -> Tuple:
     return input
 
 
-def load_raster(raster: Union[Path, RasterArray], band: Optional[int] = 1) -> RasterArray:
+def load_raster(
+    raster: Union[Path, RasterArray], band: Optional[int] = 1
+) -> RasterArray:
     """
     load_raster  Returns a raster as a numpy.ndarray
     ----------

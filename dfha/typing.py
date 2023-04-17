@@ -18,7 +18,6 @@ Pathdict = Dict[str, Path]
 
 # Numpy dtypes
 dtypes = Union[type, Sequence[type]]
-real = [np.integer, np.floating]  # Note this is an actual List, not a typing Union
 
 # Numpy shapes
 shape = Union[int, Sequence[int]]

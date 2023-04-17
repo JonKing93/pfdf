@@ -53,10 +53,9 @@ import numpy as np
 from math import sqrt
 from copy import deepcopy
 from dfha import validate
-from dfha.utils import any_defined, load_raster
+from dfha.utils import any_defined, load_raster, real
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional
 from dfha.typing import (
-    real,
     Raster,
     RasterArray,
     scalar,

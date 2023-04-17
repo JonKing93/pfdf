@@ -48,14 +48,13 @@ import numpy as np
 from pathlib import Path
 import rasterio
 from contextlib import nullcontext
-from dfha.utils import aslist
+from dfha.utils import aslist, real
 from typing import Any, Optional, List, Union
 from dfha.typing import (
     strs,
     dtypes,
     shape,
     shape2d,
-    real,
     RealArray,
     ScalarArray,
     VectorArray,
