@@ -17,6 +17,7 @@ import numpy as np
 # Singular / plural built-ins
 strs = Union[str, Sequence[str]]
 ints = Union[int, Sequence[int]]
+floats = Union[float, Sequence[float]]
 
 # Paths
 Pathlike = Union[str, Path]
@@ -40,8 +41,8 @@ MatrixArray = Union[NDArray[MatrixShape, Integer], NDArray[MatrixShape, Floating
 
 # Real-valued array inputs
 scalar = Union[int, float, ScalarArray]
-vector = Union[int, float, VectorArray]
-matrix = Union[int, float, MatrixArray]
+vector = Union[ints, floats, VectorArray]
+matrix = Union[ints, floats, MatrixArray]
 
 # Rasters
 RasterArray = MatrixArray  # alias for clarity

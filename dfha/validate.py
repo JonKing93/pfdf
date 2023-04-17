@@ -37,7 +37,7 @@ Low-level:
     nonsingleton    - Locate nonsingleton dimensions   
 
 Exceptions:
-    DimensionError  - Raised when an input has invalid nonsingleton dimensions
+    DimensionError  - Raised when an input has invalid nonsingleton dimensions or no elements
     ShapeError      - Raised when an input has an incorrect shape
 
 Internal:
@@ -152,7 +152,10 @@ def dtype_(name: str, allowed: dtypes, actual: type) -> None:
 
 
 def inrange(
-    input: RealArray, name: str, min: Optional[scalar] = None, max: Optional[scalar] = None
+    input: RealArray,
+    name: str,
+    min: Optional[scalar] = None,
+    max: Optional[scalar] = None,
 ) -> None:
     """
     inrange  Checks the elements of a numpy array are within a given range
@@ -251,16 +254,21 @@ def matrix(
 
     # Optionally check type
     input = np.array(input)
+    input = np.atleast_2d(input)
     dtype_(name, allowed=dtype, actual=input.dtype)
+
+    # Can't be empty
+    if input.size == 0:
+        raise DimensionError(
+            f'{name} does not have any elements.'
+        )
 
     # Only the first 2 dimensions can be non-singleton
     if input.ndim > 2:
         nonsingletons = nonsingleton(input)[2:]
         if any(nonsingletons):
-            bad = np.argwhere(nonsingletons) + 2
             raise DimensionError(
                 f"Only the first two dimension of {name} can be longer than 1. "
-                f"But dimension {bad} is longer than 1."
             )
 
     # Cast as 2D array. Optionally check shape. Return array
@@ -457,9 +465,17 @@ def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray
         TypeError: If the input does not have an allowed dtype
     """
 
+    # Optionally check dtype
     input = np.array(input)
     dtype_(name, allowed=dtype, actual=input.dtype)
-    shape_(name, "element", required=1, actual=input.size)
+
+    # No non-singleton dimensions
+    if input.size != 1:
+        raise DimensionError(
+            f"{name} must have exactly 1 element, but it has {input.size} elements instead."
+        )
+
+    # Return as 1D array
     return input.reshape(1)
 
 
@@ -548,7 +564,14 @@ def vector(
 
     # Optionally check dtype
     input = np.array(input)
+    input = np.atleast_1d(input)
     dtype_(name, allowed=dtype, actual=input.dtype)
+
+    # Can't be empty
+    if input.size == 0:
+        raise DimensionError(
+            f'{name} does not have any elements.'
+        )
 
     # Only 1 non-singleton dimension
     nonsingletons = nonsingleton(input)
