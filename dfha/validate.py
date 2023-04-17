@@ -353,7 +353,6 @@ def raster(
     Raises exceptions if:
         * a raster file does not exist
         * a raster file cannot be opened by rasterio
-        * a DatasetReader object is closed
         * a numpy array does not have 2 dimensions
         * a numpy array dtype is not a numpy.integer or numpy.floating
         * the input is some other type
