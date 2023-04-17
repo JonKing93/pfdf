@@ -1,5 +1,8 @@
 """
 test_utils  Unit tests for low-level package utilities
+
+Requirements:
+    * pytest, numpy, rasterio
 """
 
 import pytest
@@ -7,7 +10,41 @@ import numpy as np
 import rasterio
 from dfha import utils
 
+#####
+# Fixtures
+#####
+@pytest.fixture
+def band1():
+    return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4)
 
+
+@pytest.fixture
+def band2(band1):
+    return band1 * 10
+
+
+@pytest.fixture
+def raster_path(tmp_path, band1, band2):
+    raster = tmp_path / "raster.tif"
+    with rasterio.open(
+        raster,
+        "w",
+        driver="GTiff",
+        height=band1.shape[0],
+        width=band1.shape[1],
+        count=2,
+        dtype=band1.dtype,
+        crs="+proj=latlong",
+        transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
+    ) as file:
+        file.write(band1, 1)
+        file.write(band2, 2)
+    return raster
+
+
+#####
+# Tests
+#####
 @pytest.mark.parametrize(
     "input, expected",
     (
@@ -50,35 +87,6 @@ def test_astuple(input, expected):
 )
 def test_any_defined(input, expected):
     assert utils.any_defined(*input) == expected
-
-
-@pytest.fixture
-def band1():
-    return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4)
-
-
-@pytest.fixture
-def band2(band1):
-    return band1 * 10
-
-
-@pytest.fixture
-def raster_path(tmp_path, band1, band2):
-    raster = tmp_path / "raster.tif"
-    with rasterio.open(
-        raster,
-        "w",
-        driver="GTiff",
-        height=band1.shape[0],
-        width=band1.shape[1],
-        count=2,
-        dtype=band1.dtype,
-        crs="+proj=latlong",
-        transform=rasterio.transform.Affine(300, 0, 101985, 0,-300, 2826915)
-    ) as file:
-        file.write(band1, 1)
-        file.write(band2, 2)
-    return raster
 
 
 class TestLoadRaster:
