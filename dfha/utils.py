@@ -1,7 +1,10 @@
 """
-utils  Utility functions
+utils  Low-level utility functions used throughout the package
 ----------
-Type conversion:
+Numpy dtypes:
+    real        - A list of numpy dtypes considered to be real-valued numbers
+
+Sequence conversion:
     aslist      - Returns an input as a list
     astuple     - Returns an input as a tuple
 
@@ -9,7 +12,7 @@ Argument Parsing:
     any_defined - True if any input is not None
 
 Rasters:
-    load_raster
+    load_raster - Returns a pre-validated raster as a numpy array
 """
 
 from numpy import ndarray, integer, floating
