@@ -1,5 +1,11 @@
 """
 typing  Type aliases for the post-wildfire debris-flow package
+----------
+The typing module contains various type aliases used throughout the package.
+Note that this module does not provide *every* type alias used within the package.
+Rather, it provides common aliases that are used in multiple modules. As such,
+individual modules may still define aliases unique to their individual
+implementations.
 """
 
 from typing import Any, Union, Sequence, Dict, Tuple
