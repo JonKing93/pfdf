@@ -28,16 +28,16 @@ Numeric arrays:
     integers        - Checks that all elements are integers (NOT that the dtype is an int)
     inrange         - Checks that all elements are within a given range (inclusive)
 
-GIS:
+Rasters:
     raster          - Check that an input is a raster and return it as a numpy 2D array
 
 Low-level:
-    shape_          - Check that array shapes are valid
+    shape_          - Check that array shape is valid
     dtype_          - Checks that array dtype is valid
     nonsingleton    - Locate nonsingleton dimensions   
 
 Exceptions:
-    NDimError       - Raised when an input has an incorrect number of dimensions
+    NDimError       - Raised when an input has invalid nonsingleton dimensions
     ShapeError      - Raised when an input has an incorrect shape
 
 Internal:
@@ -151,7 +151,7 @@ def dtype_(name: str, allowed: dtypes, actual: type) -> None:
 
 
 def inrange(
-    input: RealArray, name: str, min: Optional[real] = None, max: Optional[real] = None
+    input: RealArray, name: str, min: Optional[scalar] = None, max: Optional[scalar] = None
 ) -> None:
     """
     inrange  Checks the elements of a numpy array are within a given range
