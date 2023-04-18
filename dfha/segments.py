@@ -1,8 +1,8 @@
 """
 segments  Determine stream segments worthy of hazard assessment modeling
 ----------
-The segments module uses various filtering criter to reduce an initial set of
-stream segments (produced by the stream module) to a final set of segments worthy
+The segments module uses various filtering criteria to reduce an initial stream
+segment network (produced by the stream module) to a final set of segments worthy
 of hazard assessment modeling. Filtering criteria can include:
     
     * Slope
@@ -19,7 +19,7 @@ a number of standard filters, and returns the IDs of stream segments deemed
 worthy of hazard assessment modeling. 
 
 By contrast, the "Segments" class is intended for users interested in designing 
-custom filtering routines. The class includes a number of methods that calculate
+custom filtering routines. The class includes a variety of methods that calculate
 values for each stream segment in a network - users can use these values to screen
 the stream segments as desired. Please see the documention of the "Segments"
 class for instructions on this workflow.
@@ -56,6 +56,7 @@ from dfha import validate
 from dfha.utils import any_defined, load_raster, real
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional
 from dfha.typing import (
+    shape,
     Raster,
     RasterArray,
     scalar,
@@ -1066,9 +1067,9 @@ class _Kernel:
 class RasterShapeError(Exception):
     "When the shape of a values raster does not match the shape of the stream segment raster"
 
-    def __init__(self, name: str, cause: validate.ShapeError) -> None:
+    def __init__(self, name: str, required: shape, actual: shape) -> None:
         message = (
-            f"The shape of the {name} raster {cause.actual} does not match the "
-            f"shape of the stream segment raster used to derive the segments {cause.required}."
+            f"The shape of the {name} raster {actual} does not match the "
+            f"shape of the stream segment raster used to derive the segments {required}."
         )
         super().__init__(message)
