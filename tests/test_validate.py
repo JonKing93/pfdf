@@ -97,13 +97,14 @@ class TestCheckBound:
 
 class TestShapeError:
     def test(_):
-        error = validate.ShapeError("array", "elements", 5, 6)
+        error = validate.ShapeError("array", "columns", 1, (2,5), (2,6))
         assert isinstance(error, Exception)
-        assert error.required == 5
-        assert error.actual == 6
+        assert error.index == 1
+        assert error.required == (2,5)
+        assert error.actual == (2,6)
         assert (
             error.args[0]
-            == "array must have 5 elements, but it has 6 elements instead."
+            == "array must have 5 columns, but it has 6 columns instead."
         )
 
 

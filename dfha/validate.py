@@ -47,7 +47,7 @@ Internal:
 import numpy as np
 from pathlib import Path
 import rasterio
-from dfha.utils import aslist, real
+from dfha.utils import aslist, astuple, real
 from typing import Any, Optional, List, Union
 from dfha.typing import (
     strs,
@@ -499,11 +499,13 @@ def shape_(name: str, axes: strs, required: shape, actual: shape) -> None:
         ShapeError: If the array does not have the required shape.
     """
     if required is not None:
-        for axis, required, actual in zip(
-            aslist(axes), aslist(required), aslist(actual)
+        axes = aslist(axes)
+        indices = range(0, len(axes))
+        for axis, index, required_, actual_ in zip(
+            axes, indices, astuple(required), astuple(actual)
         ):
-            if required != -1 and required != actual:
-                raise ShapeError(name, axis, required, actual)
+            if required_ != -1 and required_ != actual_:
+                raise ShapeError(name, axis, index, required, actual)
 
 
 class ShapeError(Exception):
@@ -511,14 +513,16 @@ class ShapeError(Exception):
     When a numpy axis has the wrong shape
     ----------
     Properties:
+        index: The index of the bad axis
         required: The required shape
         actual: The actual shape
     """
 
-    def __init__(self, name: str, axis: str, required: int, actual: int) -> None:
+    def __init__(self, name: str, axis: str, index: int, required: shape, actual: shape) -> None:
         message = (
-            f"{name} must have {required} {axis}, but it has {actual} {axis} instead."
+            f"{name} must have {required[index]} {axis}, but it has {actual[index]} {axis} instead."
         )
+        self.index = index
         self.required = required
         self.actual = actual
         super().__init__(message)
