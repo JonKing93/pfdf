@@ -6,6 +6,7 @@ test:
     MIN_COVERAGE: 95
   script:
     - pip install numpy
+    - pip install nptyping
     - pip install rasterio
     - pip install pytest
     - pip install pytest-cov
