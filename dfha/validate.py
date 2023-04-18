@@ -259,9 +259,7 @@ def matrix(
 
     # Can't be empty
     if input.size == 0:
-        raise DimensionError(
-            f'{name} does not have any elements.'
-        )
+        raise DimensionError(f"{name} does not have any elements.")
 
     # Only the first 2 dimensions can be non-singleton
     if input.ndim > 2:
@@ -513,15 +511,15 @@ class ShapeError(Exception):
     When a numpy axis has the wrong shape
     ----------
     Properties:
+        required: The required shape of the numpy array
+        actual: The actual shape of the numpy array
         index: The index of the bad axis
-        required: The required shape
-        actual: The actual shape
     """
 
-    def __init__(self, name: str, axis: str, index: int, required: shape, actual: shape) -> None:
-        message = (
-            f"{name} must have {required[index]} {axis}, but it has {actual[index]} {axis} instead."
-        )
+    def __init__(
+        self, name: str, axis: str, index: int, required: shape, actual: shape
+    ) -> None:
+        message = f"{name} must have {required[index]} {axis}, but it has {actual[index]} {axis} instead."
         self.index = index
         self.required = required
         self.actual = actual
@@ -572,9 +570,7 @@ def vector(
 
     # Can't be empty
     if input.size == 0:
-        raise DimensionError(
-            f'{name} does not have any elements.'
-        )
+        raise DimensionError(f"{name} does not have any elements.")
 
     # Only 1 non-singleton dimension
     nonsingletons = nonsingleton(input)

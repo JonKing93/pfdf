@@ -295,7 +295,7 @@ class Segments:
     #####
     @staticmethod
     def _confinement_angle(
-        slopes: NDArray[Shape["Pixels, 2 Rotations"], Number]
+        slopes: NDArray[Shape["Pixels, 2 rotations"], Number]
     ) -> ScalarArray:
         """Returns mean confinement angle for a set of pixels
         slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise slopes
@@ -360,7 +360,7 @@ class Segments:
 
     def _filter(
         self,
-        method: Callable[[Tuple("Segments", ...)], SegmentValues],
+        method: Callable[["Segments", Tuple[Any, ...]], SegmentValues],
         type: Literal["<", ">"],
         threshold: scalar,
         *args: Any,
@@ -1051,7 +1051,7 @@ class _Kernel:
 
     def orthogonal_slopes(
         self, flow: FlowNumber, dem: RasterArray, length: scalar
-    ) -> NDArray[Shape["1 Pixel, 2 Rotations"], Number]:
+    ) -> NDArray[Shape["1 pixel, 2 rotations"], Number]:
         """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
         dem: DEM raster
@@ -1067,9 +1067,9 @@ class _Kernel:
 class RasterShapeError(Exception):
     "When the shape of a values raster does not match the shape of the stream segment raster"
 
-    def __init__(self, name: str, required: shape, actual: shape) -> None:
+    def __init__(self, name: str, cause: validate.ShapeError) -> None:
         message = (
-            f"The shape of the {name} raster {actual} does not match the "
-            f"shape of the stream segment raster used to derive the segments {required}."
+            f"The shape of the {name} raster {cause.actual} does not match the "
+            f"shape of the stream segment raster used to derive the segments {cause.required}."
         )
         super().__init__(message)
