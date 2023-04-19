@@ -54,7 +54,7 @@ from math import sqrt
 from copy import deepcopy
 from dfha import validate
 from dfha.utils import any_defined, load_raster, real
-from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional
+from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
     shape,
     Raster,
@@ -74,8 +74,8 @@ SegmentValues = NDArray[Shape["Segments"], Number]
 Statistic = Literal["min", "max", "mean", "median", "std"]
 StatFunction = Callable[[np.ndarray], np.ndarray]
 IDs = Union[ints, NDArray[VectorShape, Integer], NDArray[Shape["Segments"], Bool]]
-KernelIndices = Tuple[range, range]
 FlowNumber = Literal[1, 2, 3, 4, 5, 6, 7, 8]
+KernelIndices = Tuple[List[int], List[int]]
 
 
 class Segments:
@@ -981,14 +981,16 @@ class _Kernel:
         return self.diagonal(before, before)
 
     def exchange(self, before_rows: bool) -> KernelIndices:
-        "before_rows: True for downleft, False for upright"
-        return self.diagonal(before_rows, not before_rows)
+        "before_rows: True for upright, False for downleft"
+        (rows, cols) = self.diagonal(before_rows, not before_rows)
+        cols = list(reversed(cols))
+        return (rows, cols)
 
     # Utilities
     def diagonal(self, before_rows: bool, before_cols: bool) -> KernelIndices:
         """
-        before_rows: True for left, False for right
-        before_cols: True for up, False for down
+        before_rows: True for up, False for down
+        before_cols: True for left, False for right
         """
         rows = self.indices(self.row, self.nRows, before_rows)
         cols = self.indices(self.col, self.nCols, before_cols)
@@ -1008,14 +1010,14 @@ class _Kernel:
         fixed_rows: True for left/right, False for up/down
         """
         changing = self.indices(changing, nMax, before)
-        fixed = range(fixed, fixed + 1)
+        fixed = [fixed] * len(changing)
         if fixed_rows:
             return (fixed, changing)
         else:
             return (changing, fixed)
 
-    def indices(self, index: int, nMax: int, before: bool) -> range:
-        """
+    def indices(self, index: int, nMax: int, before: bool) -> List[int]:
+        """Returns indices adjacent to a processing cell
         index: An index of the processing cell (row or col)
         nMax: The raster size in the index direction (nRows or nCols)
         before: True for up/left, False for down/right
@@ -1026,16 +1028,16 @@ class _Kernel:
         else:
             start = index + 1
             stop = min(nMax, index + self.N + 1)
-        return range(start, stop)
+        return list(range(start, stop))
 
     @staticmethod
-    def limit(N: int, indices: range, before: bool) -> range:
-        """
+    def limit(N: int, indices: List[int], are_before: bool) -> List[int]:
+        """Restricts indices to N values adjacent to the processing cell
         N: The number of indices to keep
         indices: The current set of indices
-        before: True if these are indices before the processing cell (up/left)
+        are_before: True if these are indices before the processing cell (up/left)
         """
-        if before:
+        if are_before:
             return indices[-N:]
         else:
             return indices[0:N]
