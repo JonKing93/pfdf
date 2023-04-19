@@ -42,6 +42,26 @@ def kernel5(kernel):
     return kernel
 
 
+@pytest.fixture
+def kernel2():
+    kernel = segments._Kernel(2, 5, 5)
+    kernel.update(2, 2)
+    return kernel
+
+
+@pytest.fixture
+def dem():
+    return np.array(
+        [
+            [21, 98, 23, 98, 24],
+            [98, 20, 22, 25, 98],
+            [19, 18, 99, 10, 11],
+            [98, 16, 15, 13, 98],
+            [17, 98, 14, 98, 12],
+        ]
+    )
+
+
 class TestKernel:
     def test_init(_):
         kernel = segments._Kernel(4, 100, 250)
@@ -71,10 +91,22 @@ class TestKernel:
         assert kernel.indices(8, 10, before=False) == [9]
 
     def test_lateral(_, kernel):
-        assert kernel.lateral(5, 10, 5, True, True) == ([5,5,5,5], [1, 2, 3, 4])  # Left
-        assert kernel.lateral(5, 10, 5, False, True) == ([5,5,5,5], [6, 7, 8, 9])  # Right
-        assert kernel.lateral(5, 10, 5, True, False) == ([1, 2, 3, 4], [5,5,5,5])  # Up
-        assert kernel.lateral(5, 10, 5, False, False) == ([6, 7, 8, 9], [5,5,5,5])  # Down
+        assert kernel.lateral(5, 10, 5, True, True) == (
+            [5, 5, 5, 5],
+            [1, 2, 3, 4],
+        )  # Left
+        assert kernel.lateral(5, 10, 5, False, True) == (
+            [5, 5, 5, 5],
+            [6, 7, 8, 9],
+        )  # Right
+        assert kernel.lateral(5, 10, 5, True, False) == (
+            [1, 2, 3, 4],
+            [5, 5, 5, 5],
+        )  # Up
+        assert kernel.lateral(5, 10, 5, False, False) == (
+            [6, 7, 8, 9],
+            [5, 5, 5, 5],
+        )  # Down
 
     def test_lateral_edge(_, kernel):
         assert kernel.lateral(1, 10, 2, True, True) == ([2], [0])
@@ -94,7 +126,7 @@ class TestKernel:
         assert kernel5.diagonal(False, True) == ([6, 7, 8, 9], [1, 2, 3, 4])
 
     def test_diagonal_edge(_, kernel):
-        kernel.update(1,1)
+        kernel.update(1, 1)
         assert kernel.diagonal(True, True) == ([0], [0])
         kernel.update(1, 248)
         assert kernel.diagonal(True, False) == ([0], [249])
@@ -113,12 +145,12 @@ class TestKernel:
         assert kernel.diagonal(False, True) == ([], [])
 
     def test_vertical(_, kernel5):
-        assert kernel5.vertical(True) == ([1, 2, 3, 4], [5,5,5,5])
-        assert kernel5.vertical(False) == ([6, 7, 8, 9], [5,5,5,5])
+        assert kernel5.vertical(True) == ([1, 2, 3, 4], [5, 5, 5, 5])
+        assert kernel5.vertical(False) == ([6, 7, 8, 9], [5, 5, 5, 5])
 
     def test_horizontal(_, kernel5):
-        assert kernel5.horizontal(True) == ([5,5,5,5], [1, 2, 3, 4])
-        assert kernel5.horizontal(False) == ([5,5,5,5], [6, 7, 8, 9])
+        assert kernel5.horizontal(True) == ([5, 5, 5, 5], [1, 2, 3, 4])
+        assert kernel5.horizontal(False) == ([5, 5, 5, 5], [6, 7, 8, 9])
 
     def test_identity(_, kernel5):
         assert kernel5.identity(True) == ([1, 2, 3, 4], [1, 2, 3, 4])
@@ -129,16 +161,16 @@ class TestKernel:
         assert kernel5.exchange(False) == ([6, 7, 8, 9], [4, 3, 2, 1])
 
     def test_left(_, kernel5):
-        assert kernel5.left() == ([5,5,5,5], [1, 2, 3, 4])
+        assert kernel5.left() == ([5, 5, 5, 5], [1, 2, 3, 4])
 
     def test_right(_, kernel5):
-        assert kernel5.right() == ([5,5,5,5], [6, 7, 8, 9])
+        assert kernel5.right() == ([5, 5, 5, 5], [6, 7, 8, 9])
 
     def test_up(_, kernel5):
-        assert kernel5.up() == ([1, 2, 3, 4], [5,5,5,5])
+        assert kernel5.up() == ([1, 2, 3, 4], [5, 5, 5, 5])
 
     def test_down(_, kernel5):
-        assert kernel5.down() == ([6, 7, 8, 9], [5,5,5,5])
+        assert kernel5.down() == ([6, 7, 8, 9], [5, 5, 5, 5])
 
     def test_upleft(_, kernel5):
         assert kernel5.upleft() == ([1, 2, 3, 4], [1, 2, 3, 4])
@@ -151,3 +183,28 @@ class TestKernel:
 
     def test_downleft(_, kernel5):
         assert kernel5.downleft() == ([6, 7, 8, 9], [4, 3, 2, 1])
+
+    flow_height = [(k - 1, 2 * k + 9) for k in range(1, 9)]
+
+    @pytest.mark.parametrize("flow, height", flow_height)
+    def test_max_height(_, kernel2, dem, flow, height):
+        assert kernel2.max_height(flow, dem) == height
+
+    @pytest.mark.parametrize(
+        "flow, slopes",
+        [
+            (1, [1.4, 2.2]),
+            (2, [1.6, 2.4]),
+            (3, [1.8, 1.0]),
+            (4, [2.0, 1.2]),
+            (5, [2.2, 1.4]),
+            (6, [2.4, 1.6]),
+            (7, [1.0, 1.8]),
+            (8, [1.2, 2.0]),
+        ],
+    )
+    def test_orthogonal_slopes(_, kernel2, dem, flow, slopes):
+        dem[2,2] = 1
+        output = kernel2.orthogonal_slopes(flow, dem, 10)
+        slopes = np.array(slopes).reshape(1,2)
+        assert np.array_equal(output, slopes)

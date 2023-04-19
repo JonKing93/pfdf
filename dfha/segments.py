@@ -1047,7 +1047,7 @@ class _Kernel:
         """Returns the maximum height in a particular direction
         flow: Flow direction index
         dem: DEM raster"""
-        direction = self.directions(flow)
+        direction = self.directions[flow]
         heights = dem[direction(self)]
         return np.amax(heights)
 
