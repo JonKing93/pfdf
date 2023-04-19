@@ -3,7 +3,7 @@ segments  Determine stream segments worthy of hazard assessment modeling
 ----------
 The segments module uses various filtering criteria to reduce an initial stream
 segment network (produced by the stream module) to a final set of segments worthy
-of hazard assessment modeling. Filtering criteria can include:
+of hazard assessment modeling. Common filtering criteria include:
     
     * Slope
     * Confinement Angle
@@ -56,7 +56,6 @@ from dfha import validate
 from dfha.utils import any_defined, load_raster, real
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
-    shape,
     Raster,
     RasterArray,
     scalar,

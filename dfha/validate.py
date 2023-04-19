@@ -496,12 +496,15 @@ def shape_(name: str, axes: strs, required: shape, actual: shape) -> None:
     Raises:
         ShapeError: If the array does not have the required shape.
     """
+    # Convert inputs to sequences
     if required is not None:
         axes = aslist(axes)
+        required = astuple(required)
+        actual = astuple(actual)
+
+        # Check the length of each dimension
         indices = range(0, len(axes))
-        for axis, index, required_, actual_ in zip(
-            axes, indices, astuple(required), astuple(actual)
-        ):
+        for axis, index, required_, actual_ in zip(axes, indices, required, actual):
             if required_ != -1 and required_ != actual_:
                 raise ShapeError(name, axis, index, required, actual)
 
