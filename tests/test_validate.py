@@ -19,7 +19,6 @@ def array():
 
 def assert_contains(error, *strings):
     message = error.value.args[0]
-    print(repr(message))
     for string in strings:
         assert string in message
 

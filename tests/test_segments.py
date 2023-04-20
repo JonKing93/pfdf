@@ -263,6 +263,20 @@ def indices():
         indices[key] = (index_array(rows), index_array(cols))
     return indices
 
+@pytest.fixture
+def segments5(stream):
+    return Segments(stream)
+
+@pytest.fixture
+def segments0(stream0):
+    return Segments(stream0)
+
+def assert_contains(error, *strings):
+    message = error.value.args[0]
+    for string in strings:
+        assert string in message
+
+
 def index_array(ints):
     return np.array(ints, dtype='int64').reshape(-1)
 
@@ -321,44 +335,64 @@ class TestInit:
 
 class TestIds:
 
-    def test(_, stream):
-        segments = Segments(stream)
-        ids = segments.ids
+    def test(_, segments5):
+        ids = segments5.ids
         expected = np.array([1,2,3,4,5])
         assert np.array_equal(ids, expected)
 
-    def test_empty(_, stream0):
-        segments = Segments(stream0)
-        ids = segments.ids
+    def test_empty(_, segments5):
+        ids = segments5.ids
         expected = np.array([], dtype=int)
         assert np.array_equal(ids, expected)
 
 
 class TestIndices:
 
-    def test(_, stream, indices):
-        segments = Segments(stream)
-        validate_indices(segments.indices, indices)
+    def test(_, segments5, indices):
+        validate_indices(segments5.indices, indices)
 
-    def test_empty(_, stream0, indices):
-        segments = Segments(stream0)
-        validate_indices(segments.indices, {})
+    def test_empty(_, segments0, indices):
+        validate_indices(segments0.indices, {})
 
 
 class TestRasterShape:
-    def test(_, stream):
-        assert Segments(stream).raster_shape == (5,5)
+    def test(_, segments5):
+        assert segments5.raster_shape == (5,5)
 
 
 class TestLen:
-    def test(_, stream, stream0):
-        assert len(Segments(stream)) == 5
-        stream(stream>3) == 0
-        assert len(Segments(stream)) == 3
-        assert len(Segments(stream0)) == 0
+    def test(_, segments5, segments0):
+        assert len(segments5) == 5
+        assert len(segments0) == 0
 
 class TestStr:
-    def test(_, stream, stream0):
-        assert str(Segments(stream)) == 'Stream Segments: 1, 2, 3, 4, 5'
-        assert str(Segments(stream0)) == 'Stream Segments: None'
+    def test(_, segments5, segments0):
+        assert str(segments5) == 'Stream Segments: 1, 2, 3, 4, 5'
+        assert str(segments0) == 'Stream Segments: None'
+
+class TestValidate:
+
+    def test_valid_numpy(_, segments5):
+        output = segments5._validate(stream, '')
+        assert np.array_equal(output, stream)
+
+    def test_valid_file(_, segments5, stream_path):
+        output = segments5._validate(stream_path, '')
+        with rasterio.open(stream_path) as data:
+            expected = data.read(1)
+        assert np.array_equal(output, expected)
+
+    def test_notraster(_, segments5, stream):
+        bad = np.stack((stream, stream))
+        name = 'raster name'
+        with pytest.raises(validate.DimensionError) as error:
+            segments5._validate(bad, name)
+        assert_contains(error, name)    
+
+    def test_wrong_shape(_, segments5):
+        bad = np.array([1,2,3])
+        name = 'raster name'
+        with pytest.raises(segments.RasterShapeError) as error:
+            segments5._validate(bad, name)
+        assert_contains(error, name)
 
