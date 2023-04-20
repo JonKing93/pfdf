@@ -96,7 +96,7 @@ class Segments:
            segment raster.*
         2. Use the "area", "basins", "confinement", "development", "slope",
            and/or "summary" methods to return summary values for the segments.
-        3. Use the "remove" method to filter out segments whose value don't meet
+        3. Use the "remove" method to filter out segments whose values don't meet
            the criteria for hazard assessment modeling.
         4. Inspect the "ids" property to get a list of final stream segments
 
@@ -105,16 +105,18 @@ class Segments:
     The "area", "basins", "confinement", "development", and "slope" represent
     standard filters for hazard assessment analysis. However, some users may be
     interested in computing other values for the stream segments. The "summary"
-    method is intended for such users. Given a raster of data values, this
+    method is intended for this case. Given a raster of data values, this
     function allows users to calculate common statistical values for the stream
-    segments in the network.
+    segments in the network. For example, the mean value of each segment over the
+    values raster, or the max value in each segment over the raster.
 
     It is worth noting that most methods require input rasters with the same shape
     as the stream segment raster used to derive the initial set of stream segments
     (and will raise an exception when this criterion is not met). Users can 
-    retrieve this shape by inspecting the 'raster_shape' property. Separately, 
-    users may find the "copy" method useful for testing out different filtering 
-    criteria.
+    retrieve this shape by inspecting the 'raster_shape' property. 
+    
+    Separately, users may find the "copy" method useful for testing out different
+    filtering criteria.
     ----------
     PROPERTIES:
         ids             - The list of stream segment IDs remaining in the set
@@ -140,6 +142,28 @@ class Segments:
 
     Filtering:
         remove          - Removes the indicated segments from the Segments object
+
+    INTERNAL:
+    Class Variables:
+        _stats                      - Dict mapping standard filters to statistical functions
+
+    Object Variables:
+        _raster_shape               - The shape of the stream segment raster
+        _indices                    - Dict mapping segment IDs to pixel indices
+
+    Validation:
+        _validate                   - Validates an input raster
+        _validate_flow              - Validates flow direction numbers
+        _validate_confinement_args  - Validate kernel size (N) and DEM resolution
+
+    Confinement:
+        _confinement                - Computes mean confinement angles for a set of stream segments
+        _confinement_angle          - Computes confinement from a set of pixel slopes
+        _flow_length                - Returns flow length in a given direction
+
+    Filtering:
+        _summary                    - Computes a summary statistic for a set of stream segments
+        _filter                     - Applies a filter to a set of stream segments
     """
 
     # The statistical function for each type of summary value
@@ -217,10 +241,10 @@ class Segments:
         validate.positive(stream_raster, name, allow_zero=True)
         validate.integers(stream_raster, name)
 
-        # Get the indices of stream segment pixels. Organize as column vectors
+        # Get the indices of stream segment pixels. Organize as 1D vectors
         (rows, cols) = np.nonzero(stream_raster)
-        rows = rows.reshape(-1, 1)
-        cols = cols.reshape(-1, 1)
+        rows = rows.reshape(-1)
+        cols = cols.reshape(-1)
 
         # Reduce the stream link raster to just the segments. Get the segment IDs
         segments = stream_raster[rows, cols].reshape(-1)
@@ -231,8 +255,7 @@ class Segments:
         self._indices = {id: None for id in ids}
         for id in ids:
             pixels = np.nonzero(segments == id)
-            indices = (rows[pixels], cols[pixels])
-            self._indices[id] = np.hstack(indices)
+            self._indices[id] = (rows[pixels], cols[pixels])
         self._raster_shape = stream_raster.shape
 
     def __len__(self) -> int:
@@ -241,9 +264,11 @@ class Segments:
 
     def __str__(self) -> str:
         "A string listing the stream segment IDs in a Segments object"
-        ids = self.ids
-        ids = [str(id) for id in ids]
-        return "Stream Segments: " + ", ".join(ids)
+        if len(self) == 0:
+            list = 'None'
+        else:
+            list = ", ".join([str(id) for id in self.ids])
+        return f"Stream Segments: {list}"
 
     #####
     # Validation methods

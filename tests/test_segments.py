@@ -6,6 +6,7 @@ import pytest
 import rasterio
 import numpy as np
 from dfha import validate, segments
+from dfha.segments import Segments
 
 
 #####
@@ -208,3 +209,156 @@ class TestKernel:
         output = kernel2.orthogonal_slopes(flow, dem, 10)
         slopes = np.array(slopes).reshape(1,2)
         assert np.array_equal(output, slopes)
+
+
+#####
+# Segments class
+#####
+
+@pytest.fixture
+def stream():
+    return np.array([
+        [0,1,0,2,5],
+        [1,1,0,2,0],
+        [0,4,0,2,0],
+        [4,0,2,0,0],
+        [4,0,2,0,3],
+    ])
+
+@pytest.fixture
+def stream0(stream):
+    return np.zeros(stream.shape)
+
+@pytest.fixture
+def stream_path(tmp_path, stream):
+    filepath = tmp_path / "stream.tif"
+    with rasterio.open(
+        filepath,
+        'w',
+        driver='GTiff',
+        height=5,
+        width=5,
+        count=1,
+        dtype=stream.dtype,
+        crs="+proj=latlong",
+        transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
+    ) as raster:
+        nulls = stream==0
+        stream[np.nonzero(nulls)] = -999
+        raster.write(stream, indexes=1)
+        valid = np.logical_not(nulls)
+        raster.write_mask(valid)
+    return filepath
+
+@pytest.fixture
+def indices():
+    indices = {
+        1: ([0,1,1],[1,0,1]),
+        2: ([0,1,2,3,4], [3,3,3,2,2]),
+        3: ([4],[4]),
+        4: ([2,3,4], [1,0,0]),
+        5: ([0], [4]),
+    }
+    for key, (rows, cols) in indices.items():
+        indices[key] = (index_array(rows), index_array(cols))
+    return indices
+
+def index_array(ints):
+    return np.array(ints, dtype='int64').reshape(-1)
+
+def validate_indices(output, expected):
+    assert isinstance(output, dict)
+    assert sorted(output.keys()) == sorted(expected.keys())
+    for key, value in output.items():
+        assert isinstance(value, tuple)
+        assert len(value) == 2
+        assert np.array_equal(value[0], expected[key][0])
+        assert np.array_equal(value[1], expected[key][1])
+
+
+class TestInit:
+
+    @staticmethod
+    def validate(segments, indices):
+        assert isinstance(segments, Segments)
+        validate_indices(segments._indices, indices)
+        assert segments._raster_shape == (5,5)
+
+    def test(self, stream, indices):
+        segments = Segments(stream)
+        self.validate(segments, indices)
+
+    def test_negative_nodata(self, stream_path, indices):
+        segments = Segments(stream_path)
+        self.validate(segments, indices)
+
+    def test_floating_ints(self, stream, indices):
+        stream = stream.astype(float)
+        segments = Segments(stream)
+        self.validate(segments, indices)
+
+    def test_nosegments(self, stream0):
+        segments = Segments(stream0)
+        assert isinstance(segments, Segments)
+        assert segments._indices == {}
+
+    def test_negative_failed(self, stream):
+        stream[0,0] = -1
+        with pytest.raises(ValueError):
+            Segments(stream)
+
+    def test_nonint_failed(self, stream):
+        stream = stream.astype(float)
+        stream[0,0] = 2.2
+        with pytest.raises(ValueError):
+            Segments(stream)
+
+    def test_ND_failed(self, stream):
+        stream = np.stack((stream, stream))
+        with pytest.raises(validate.DimensionError):
+            Segments(stream)
+
+
+class TestIds:
+
+    def test(_, stream):
+        segments = Segments(stream)
+        ids = segments.ids
+        expected = np.array([1,2,3,4,5])
+        assert np.array_equal(ids, expected)
+
+    def test_empty(_, stream0):
+        segments = Segments(stream0)
+        ids = segments.ids
+        expected = np.array([], dtype=int)
+        assert np.array_equal(ids, expected)
+
+
+class TestIndices:
+
+    def test(_, stream, indices):
+        segments = Segments(stream)
+        validate_indices(segments.indices, indices)
+
+    def test_empty(_, stream0, indices):
+        segments = Segments(stream0)
+        validate_indices(segments.indices, {})
+
+
+class TestRasterShape:
+    def test(_, stream):
+        assert Segments(stream).raster_shape == (5,5)
+
+
+class TestLen:
+    def test(_, stream, stream0):
+        assert len(Segments(stream)) == 5
+        stream(stream>3) == 0
+        assert len(Segments(stream)) == 3
+        assert len(Segments(stream0)) == 0
+
+class TestStr:
+    def test(_, stream, stream0):
+        assert str(Segments(stream)) == 'Stream Segments: 1, 2, 3, 4, 5'
+        assert str(Segments(stream0)) == 'Stream Segments: None'
+
