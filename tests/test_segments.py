@@ -478,10 +478,13 @@ class TestFlowLength:
 class TestConfinementAngle:
 
     def test_single_pixel(_):
+        # 45 degree slope on either side. 90 degrees of empty space remain from open plain
         slopes = np.array([1, 1]).reshape(1,2)
         assert Segments._confinement_angle(slopes) == 90
 
     def test_multiple(_):
+        # clockwise slopes are 45 and 30. counterclockwise are 60 and 0.
+        # Mean slopes are 37.5 and 30 so 112.5 degrees of open space remain from open plain
         slopes = np.array([
             [1, sqrt(3)],
             [1/sqrt(3), 0],
