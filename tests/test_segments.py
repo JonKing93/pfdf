@@ -491,3 +491,28 @@ class TestConfinementAngle:
         ])
         assert Segments._confinement_angle(slopes) == 112.5
 
+
+class Test_Confinement:
+
+    def test(_):
+        stream = np.array([
+            [0,0,0],
+            [1,2,0],
+            [0,0,0]
+        ])
+        flow = np.array([
+            [9,9,9],
+            [1,5,9],
+            [9,9,9]
+        ])
+        dem = np.array([
+            [1, sqrt(3), 0],
+            [0,0,0],
+            [1/sqrt(3),0,0],
+        ])
+        expected = np.array([105, 120])
+
+        segments = Segments(stream)
+        output = segments._confinement(dem, flow, 1, 1)
+        assert np.array_equal(output, expected)
+

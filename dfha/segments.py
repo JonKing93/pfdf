@@ -112,9 +112,9 @@ class Segments:
 
     It is worth noting that most methods require input rasters with the same shape
     as the stream segment raster used to derive the initial set of stream segments
-    (and will raise an exception when this condition is not met). Users can 
-    retrieve this shape by inspecting the 'raster_shape' property. 
-    
+    (and will raise an exception when this condition is not met). Users can
+    retrieve this shape by inspecting the 'raster_shape' property.
+
     Separately, users may find the "copy" method useful for testing out different
     filtering criteria.
     ----------
@@ -265,7 +265,7 @@ class Segments:
     def __str__(self) -> str:
         "A string listing the stream segment IDs in a Segments object"
         if len(self) == 0:
-            list = 'None'
+            list = "None"
         else:
             list = ", ".join([str(id) for id in self.ids])
         return f"Stream Segments: {list}"
@@ -305,7 +305,7 @@ class Segments:
         validate.positive(N, "N")
         validate.integers(N, "N")
         resolution = validate.scalar(resolution, "resolution", real)
-        validate.positive(resolution, 'resolution')
+        validate.positive(resolution, "resolution")
         return (N, resolution)
 
     @staticmethod
@@ -354,7 +354,7 @@ class Segments:
         resolution: ScalarArray,
     ) -> SegmentValues:
         """Computes mean confinement angle. Assumes that all inputs are valid
-        numpy arrays. Please see the documention of Segments.confinement for 
+        numpy arrays. Please see the documention of Segments.confinement for
         additional details on the inputs and computation.
         """
 
@@ -366,7 +366,7 @@ class Segments:
 
         # Get pixels for each stream segment. Preallocate orthogonal slopes
         for i, id in enumerate(self.ids):
-            pixels = self.indices[id]
+            pixels = np.stack(self.indices[id], axis=-1)
             nPixels = pixels.shape[0]
             slopes = np.empty((nPixels, 2), dem.dtype)
 
@@ -380,6 +380,7 @@ class Segments:
                 slopes[p, :] = kernel.orthogonal_slopes(flow, dem, length)
 
             # Compute and return mean confinement angles
+            print(slopes)
             theta[i] = self._confinement_angle(slopes)
         return theta
 
@@ -411,7 +412,6 @@ class Segments:
 
         # Only run if at least one of the filter's arguments were given
         if any_defined(threshold, *args):
-
             # Get segment values and find invalid segments
             values = method(self, *args)
             if type == ">":
@@ -814,7 +814,6 @@ def filter(
         },
         "area": {"maximum_area": maximum_area, "upslope_area": upslope_area},
         "basins": {"maximum_basins": maximum_basins, "upslope_basins": upslope_basins},
-
         "development": {
             "maximum_development": maximum_development,
             "upslope_development": upslope_development,
@@ -835,7 +834,9 @@ def filter(
         saved[threshold] = validate.scalar(value, threshold, real)
         if filter == "confinement":
             (N, N_value), (resolution, res_value) = inputs[3:5]
-            saved[N], saved[resolution] = segments._validate_confinement_args(N_value, res_value)
+            saved[N], saved[resolution] = segments._validate_confinement_args(
+                N_value, res_value
+            )
 
     # Build the initial set of stream segments
     segments = Segments(stream_raster)
@@ -862,10 +863,12 @@ def filter(
 
         # Run the confinement filter (which should be first).
         # Delete (possibly large) flow raster when finished
-        if filter == 'confinement':
+        if filter == "confinement":
             flow, N, resolution = args[2:]
             segments._validate_flow(flow)
-            segments._filter(segments._confinement, type, threshold, raster, flow, N, resolution)
+            segments._filter(
+                segments._confinement, type, threshold, raster, flow, N, resolution
+            )
             del flow
 
         # Run a standard statistical filter
@@ -880,7 +883,7 @@ def filter(
 def _validate_raster(
     filters: Dict[str, Dict], filter: str, segments: Segments, args: Tuple[str, Any]
 ) -> None:
-    'Validates a raster for a filter. Does not read raster files into memory'
+    "Validates a raster for a filter. Does not read raster files into memory"
     (name, raster) = args
     filters[filter][name] = segments._validate(raster, name, load=False)
 
