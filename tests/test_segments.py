@@ -5,6 +5,7 @@ test_segments  Unit tests for stream segment filtering
 import pytest
 import rasterio
 import numpy as np
+from math import sqrt
 from dfha import validate, segments
 from dfha.segments import Segments
 
@@ -465,4 +466,25 @@ class TestValidateFlow:
             segments5._validate_flow(flow)
         assert_contains(error, self.name)
 
+
+class TestFlowLength:
+
+    @pytest.mark.parametrize('flow, expected',
+        [(1, 10), (2, 14), (3, 10), (4, 14), (5, 10), (6, 14), (7, 10), (8, 14)]
+        )
+    def test(_, flow, expected):
+        assert Segments._flow_length(flow, 10, 14) == expected
+
+class TestConfinementAngle:
+
+    def test_single_pixel(_):
+        slopes = np.array([1, 1]).reshape(1,2)
+        assert Segments._confinement_angle(slopes) == 90
+
+    def test_multiple(_):
+        slopes = np.array([
+            [1, sqrt(3)],
+            [1/sqrt(3), 0],
+        ])
+        assert Segments._confinement_angle(slopes) == 112.5
 

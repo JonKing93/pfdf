@@ -107,12 +107,12 @@ class Segments:
     interested in computing other values for the stream segments. The "summary"
     method is intended for this case. Given a raster of data values, this
     function allows users to calculate common statistical values for the stream
-    segments in the network. For example, the mean value of each segment over the
-    values raster, or the max value in each segment over the raster.
+    segments in the network. For example, the mean value of the raster values in
+    each segment, or the maximum value from the raster in each segment.
 
     It is worth noting that most methods require input rasters with the same shape
     as the stream segment raster used to derive the initial set of stream segments
-    (and will raise an exception when this criterion is not met). Users can 
+    (and will raise an exception when this condition is not met). Users can 
     retrieve this shape by inspecting the 'raster_shape' property. 
     
     Separately, users may find the "copy" method useful for testing out different
@@ -321,12 +321,13 @@ class Segments:
     def _confinement_angle(
         slopes: NDArray[Shape["Pixels, 2 rotations"], Number]
     ) -> ScalarArray:
-        """Returns mean confinement angle for a set of pixels
+        """Returns mean confinement angle given slopes for a set of pixels
         slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise slopes
             Each row holds the values for one pixel"""
         theta = np.arctan(slopes)
         theta = np.mean(theta, axis=0)
-        theta = 180 - np.sum(theta)
+        theta = np.sum(theta)
+        return 180 - np.degrees(theta)
 
     @staticmethod
     def _flow_length(
