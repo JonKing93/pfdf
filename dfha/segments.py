@@ -305,7 +305,7 @@ class Segments:
         validate.positive(N, "N")
         validate.integers(N, "N")
         resolution = validate.scalar(resolution, "resolution", real)
-        validate.positive(resolution)
+        validate.positive(resolution, 'resolution')
         return (N, resolution)
 
     @staticmethod

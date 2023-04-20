@@ -271,6 +271,11 @@ def segments5(stream):
 def segments0(stream0):
     return Segments(stream0)
 
+@pytest.fixture
+def flow(stream):
+    stream[stream==0] = 6
+    return stream
+
 def assert_contains(error, *strings):
     message = error.value.args[0]
     for string in strings:
@@ -395,4 +400,69 @@ class TestValidate:
         with pytest.raises(segments.RasterShapeError) as error:
             segments5._validate(bad, name)
         assert_contains(error, name)
+
+
+class TestValidateConfinementArgs:
+    def test_valid(_, segments5):
+        (N, res) = segments5._validate_confinement_args(4, 9.3)
+        assert isinstance(N, np.ndarray)
+        assert N.shape == (1,)
+        assert N == 4
+        assert isinstance(res, np.ndarray)
+        assert res.shape==(1,)
+        assert res==9.3
+
+    def test_N_nonscalar(_, segments5):
+        with pytest.raises(validate.DimensionError) as error:
+            segments5._validate_confinement_args([2,3], 9.3)
+        assert_contains(error, 'N')
+
+
+    def test_N_negative(_, segments5):
+        with pytest.raises(ValueError) as error:
+            segments5._validate_confinement_args(-2, 9.3)
+        assert_contains(error, 'N')
+
+    def test_N_nonint(_, segments5):
+        with pytest.raises(ValueError) as error:
+            segments5._validate_confinement_args(4.3, 9.3)
+        assert_contains(error, 'N')
+
+
+    def test_res_nonscalar(_, segments5):
+        with pytest.raises(validate.DimensionError) as error:
+            segments5._validate_confinement_args(4, [2, 3])
+        assert_contains(error, 'resolution')
+
+    def test_res_negative(_, segments5):
+        with pytest.raises(ValueError) as error:
+            segments5._validate_confinement_args(4, -3)
+        assert_contains(error, 'resolution')
+
+
+class TestValidateFlow:
+    name = 'flow_directions'
+
+    def test_valid(self, segments5, flow):
+        segments5._validate_flow(flow)
+
+    def test_too_low(self, segments5, flow):
+        flow[0,0] = 0
+        with pytest.raises(ValueError) as error:
+            segments5._validate_flow(flow)
+        assert_contains(error, self.name)
+
+    def test_too_high(self, segments5, flow):
+        flow[0,0] = 9
+        with pytest.raises(ValueError) as error:
+            segments5._validate_flow(flow)
+        assert_contains(error, self.name)
+
+    def test_nonint(self, segments5, flow):
+        flow = flow.astype(float)
+        flow[0,0] = 2.2
+        with pytest.raises(ValueError) as error:
+            segments5._validate_flow(flow)
+        assert_contains(error, self.name)
+
 
