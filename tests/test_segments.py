@@ -178,6 +178,19 @@ def indices3():
     return index_dict(indices)
 
 
+@pytest.fixture
+def segmentsc():
+    stream = np.array([[0, 0, 0], [1, 2, 0], [0, 0, 0]])
+    return Segments(stream)
+
+@pytest.fixture
+def flowc():
+    return np.array([[8, 8, 8], [1, 5, 8], [8, 8, 8]])
+
+@pytest.fixture
+def demc():
+    return np.array([[1, sqrt(3), 0], [0, 0, 0], [1 / sqrt(3), 0, 0]])
+
 #####
 # Custom Error
 #####
@@ -549,20 +562,9 @@ class TestConfinementAngle:
 
 
 class Test_Confinement:
-    def test(_):
-        stream = np.array([[0, 0, 0], [1, 2, 0], [0, 0, 0]])
-        flow = np.array([[9, 9, 9], [1, 5, 9], [9, 9, 9]])
-        dem = np.array(
-            [
-                [1, sqrt(3), 0],
-                [0, 0, 0],
-                [1 / sqrt(3), 0, 0],
-            ]
-        )
+    def test(_, segmentsc, flowc, demc):
         expected = np.array([105, 120])
-
-        segments = Segments(stream)
-        output = segments._confinement(dem, flow, 1, 1)
+        output = segmentsc._confinement(demc, flowc, 1, 1)
         assert np.array_equal(output, expected)
 
 
@@ -737,3 +739,37 @@ class TestSummary:
             segments3.summary(bad, values3)
         assert_contains(error, bad)
 
+
+class TestConfinement:
+    def test(_, segmentsc, demc, flowc):
+        expected = np.array([105, 120])
+        output = segmentsc.confinement(demc, flowc, 1, 1)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_dem(_, segmentsc, demc, flowc):
+        demc = np.concatenate((demc, demc), axis=1)
+        with pytest.raises(segments.RasterShapeError) as error:
+            segmentsc.confinement(demc, flowc, 1, 1)
+        assert_contains(error, 'dem')
+
+    def test_invalid_flow_shape(_, segmentsc, demc, flowc):
+        flowc = np.concatenate((flowc, flowc), axis=1)
+        with pytest.raises(segments.RasterShapeError) as error:
+            segmentsc.confinement(demc, flowc, 1, 1)
+        assert_contains(error, 'flow_directions')
+
+    def test_invalid_flow_values(_, segmentsc, demc, flowc):
+        flowc[0,0] = 0
+        with pytest.raises(ValueError) as error:
+            segmentsc.confinement(demc, flowc, 1, 1)
+        assert_contains(error, 'flow_directions')
+
+    def test_invalid_N(_, segmentsc, demc, flowc):
+        with pytest.raises(ValueError) as error:
+            segmentsc.confinement(demc, flowc, -2, 1)
+        assert_contains(error, 'N')
+
+    def test_invalid_resolution(_, segmentsc, demc, flowc):
+        with pytest.raises(ValueError) as error:
+            segmentsc.confinement(demc, flowc, 1, -2)
+        assert_contains(error, 'resolution')
