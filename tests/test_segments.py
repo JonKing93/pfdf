@@ -1,5 +1,32 @@
 """
 test_segments  Unit tests for stream segment filtering
+----------
+These unit tests are designed to proceed through the module's functions in order
+of increasing interdependency. In this way, low-level errors can be identified
+before testing more complex, user-facing functions.
+
+The tests use a number of pytest fixtures. Many fixtures are grouped by a common
+suffix. These include:
+    5: For 5x5 raster datasets - often used to test Segments constructors and filters
+    3: For 3x3 datasets - often used to test statistical summary values
+    c: Values used to test confinement angle calculations
+
+The tests for each function and class method are grouped into a class. The exception
+is for the _Kernel class - all tests for this class are grouped into a single class.
+The tests are organized as follows:
+
+* Small utility functions for implementing the tests
+* Fixtures
+* RasterShapeError
+* _Kernel class
+* Internal Segments class
+* User-facing Segments class
+* Filter function and support
+
+RUN THE TESTS:
+    * Install pytest, rasterio, and numpy
+    * Run `pytest tests/test_segments.py --cov=dfha.segments --cov-fail-under=95`
+      from the OS command line.
 """
 
 import pytest
@@ -150,16 +177,19 @@ def segments0(stream0):
 
 
 @pytest.fixture
-def segments3():
-    return Segments(
-        np.array(
-            [
-                [0, 2, 2],
-                [1, 2, 0],
-                [1, 0, 3],
-            ]
-        )
+def stream3():
+    return np.array(
+        [
+            [0, 2, 2],
+            [1, 2, 0],
+            [1, 0, 3],
+        ]
     )
+
+
+@pytest.fixture
+def segments3(stream3):
+    return Segments(stream3)
 
 
 @pytest.fixture
@@ -180,9 +210,13 @@ def indices3():
 
 
 @pytest.fixture
-def segmentsc():
-    stream = np.array([[0, 0, 0], [1, 2, 0], [0, 0, 0]])
-    return Segments(stream)
+def streamc():
+    return np.array([[0, 0, 0], [1, 2, 0], [0, 0, 0]])
+
+
+@pytest.fixture
+def segmentsc(streamc):
+    return Segments(streamc)
 
 
 @pytest.fixture
@@ -451,7 +485,7 @@ class TestStr:
 
 
 class TestValidate:
-    @pytest.mark.parametrize('load', [(True), (False)])
+    @pytest.mark.parametrize("load", [(True), (False)])
     def test_valid_numpy(_, segments5, stream, load):
         output = segments5._validate(stream, "", load)
         assert np.array_equal(output, stream)
@@ -463,11 +497,11 @@ class TestValidate:
         assert np.array_equal(output, expected)
 
     def test_str_noload(_, segments5, stream_path):
-        output = segments5._validate(str(stream_path), '', load=False)
-        assert output==stream_path
-    
+        output = segments5._validate(str(stream_path), "", load=False)
+        assert output == stream_path
+
     def test_path_noload(_, segments5, stream_path):
-        output = segments5._validate(stream_path, '', load=False)
+        output = segments5._validate(stream_path, "", load=False)
         assert output == stream_path
 
     def test_not_raster(_, segments5, stream):
@@ -792,65 +826,65 @@ class TestSummary:
 # Filtering
 #####
 
+
 class TestValidateRaster:
     def test_valid_str(_, segments5, stream_path):
-        args = ('upslope_area', str(stream_path))
+        args = ("upslope_area", str(stream_path))
         filters = {
-            'area': {args[0]: args[1]},
-            'basins': {'upslope_basins': None},
+            "area": {args[0]: args[1]},
+            "basins": {"upslope_basins": None},
         }
         expected = {
-            'area': {'upslope_area': stream_path},
-            'basins': {'upslope_basins': None},
+            "area": {"upslope_area": stream_path},
+            "basins": {"upslope_basins": None},
         }
 
-        filter = 'area'
+        filter = "area"
         segments._validate_raster(filters, filter, segments5, args)
         assert filters == expected
 
     def test_valid_path(_, segments5, stream_path):
-        args = ('upslope_area', stream_path)
+        args = ("upslope_area", stream_path)
         filters = {
-            'area': {args[0]: args[1]},
-            'basins': {'upslope_basins': None},
+            "area": {args[0]: args[1]},
+            "basins": {"upslope_basins": None},
         }
         expected = deepcopy(filters)
 
-        filter = 'area'
+        filter = "area"
         segments._validate_raster(filters, filter, segments5, args)
         assert filters == expected
 
     def test_valid_numpy(_, segments5, stream):
-        args = ('upslope_area', stream)
+        args = ("upslope_area", stream)
         filters = {
-            'area': {args[0]: args[1]},
-            'basins': {'upslope_basins': None},
+            "area": {args[0]: args[1]},
+            "basins": {"upslope_basins": None},
         }
         expected = deepcopy(filters)
 
-        filter = 'area'
+        filter = "area"
         segments._validate_raster(filters, filter, segments5, args)
-        assert np.array_equal(filters['area'][args[0]], expected['area'][args[0]])
+        assert np.array_equal(filters["area"][args[0]], expected["area"][args[0]])
 
     def test_invalid(_, segments5, stream):
-        stream = np.concatenate((stream,stream), axis=1)
-        args = ('upslope_area', stream)
+        stream = np.concatenate((stream, stream), axis=1)
+        args = ("upslope_area", stream)
         filters = {
-            'area': {args[0]: args[1]},
-            'basins': {'upslope_basins': None},
+            "area": {args[0]: args[1]},
+            "basins": {"upslope_basins": None},
         }
-        filter = 'area'
+        filter = "area"
 
         with pytest.raises(segments.RasterShapeError) as error:
             segments._validate_raster(filters, filter, segments5, args)
         assert_contains(error, args[0])
 
-class Test_Filter:
-    # This is the internal method in the Segments class
 
+class Test_Filter:  # This is the internal method in the Segments class
     def test_no_args(_, segments3, values3):
         method = Segments._summary
-        type = '<'
+        type = "<"
         threshold = None
         args = (None, None, None)
         expected = segments3.copy()
@@ -860,7 +894,7 @@ class Test_Filter:
     def test_lesser(_, segments3, values3):
         method = Segments._summary
         args = (values3, np.mean)
-        type = '<'
+        type = "<"
         threshold = 0
         expected = segments3.copy()
         expected.remove(1)
@@ -870,14 +904,14 @@ class Test_Filter:
     def test_greater(_, segments3, values3):
         method = Segments._summary
         args = (values3, np.mean)
-        type = '>'
+        type = ">"
         threshold = 0
         expected = segments3.copy()
-        expected.remove([2,3])
+        expected.remove([2, 3])
         segments3._filter(method, type, threshold, *args)
         validate_indices(segments3._indices, expected._indices)
 
-    @pytest.mark.parametrize('type, failed', [('<', [1]),('>',[2])])
+    @pytest.mark.parametrize("type, failed", [("<", [1]), (">", [2])])
     def test_on_threshold(_, segments3, values3, type, failed):
         method = Segments._summary
         args = (values3, np.amax)
@@ -890,7 +924,7 @@ class Test_Filter:
     def test_none_removed(_, segments3, values3):
         method = Segments._summary
         args = (values3, np.mean)
-        type = '<'
+        type = "<"
         threshold = -999
         expected = segments3.copy()
         segments3._filter(method, type, threshold, *args)
@@ -899,17 +933,166 @@ class Test_Filter:
     def test_all_removed(_, segments3, values3):
         method = Segments._summary
         args = (values3, np.mean)
-        type = '<'
+        type = "<"
         threshold = 999
         segments3._filter(method, type, threshold, *args)
         assert segments3._indices == {}
 
     def test_confinement(_, segmentsc, demc, flowc):
         method = Segments._confinement
-        type = '<'
+        type = "<"
         threshold = 110
         args = (demc, flowc, 1, 1)
         expected = segmentsc.copy()
         expected.remove(1)
         segmentsc._filter(method, type, threshold, *args)
         validate_indices(segmentsc._indices, expected._indices)
+
+
+class TestFilter:  # This is the user-facing function
+    def test_none(_, stream):
+        expected = np.array([1, 2, 3, 4, 5])
+        ids = segments.filter(stream)
+        assert np.array_equiv(ids, expected)
+
+    def test_partial_args(_, stream):
+        with pytest.raises(TypeError) as error:
+            segments.filter(stream, slopes=stream)
+        assert_contains(error, "minimum_slope")
+
+    def test_partial_threshold(_, stream):
+        with pytest.raises(TypeError) as error:
+            segments.filter(stream, minimum_slope=2)
+        assert_contains(error, "slopes")
+
+    def test_invalid_threshold(_, stream):
+        with pytest.raises(TypeError) as error:
+            segments.filter(stream, minimum_slope="invalid", slopes=stream)
+        assert_contains(error, "minimum_slope")
+
+    def test_invalid_raster(_, stream):
+        with pytest.raises(FileNotFoundError):
+            segments.filter(stream, minimum_slope=2, slopes="not-a-file")
+
+    def test_invalid_flow(_, streamc, demc, flowc):
+        flowc[0, 0] = 0
+        with pytest.raises(ValueError) as error:
+            segments.filter(
+                streamc,
+                maximum_confinement=2,
+                dem=demc,
+                flow_directions=flowc,
+                N=1,
+                resolution=1,
+            )
+        assert_contains(error, "flow_directions")
+
+    def test_invalid_N(_, streamc, demc, flowc):
+        with pytest.raises(ValueError) as error:
+            segments.filter(
+                streamc,
+                maximum_confinement=2,
+                dem=demc,
+                flow_directions=flowc,
+                N=-2,
+                resolution=1,
+            )
+        assert_contains(error, "N")
+
+    def test_invalid_resolution(_, streamc, demc, flowc):
+        with pytest.raises(ValueError) as error:
+            segments.filter(
+                streamc,
+                maximum_confinement=2,
+                dem=demc,
+                flow_directions=flowc,
+                N=1,
+                resolution=-2,
+            )
+        assert_contains(error, "resolution")
+
+    def test_str_raster(_, stream_path):
+        basins = str(stream_path)
+        ids = segments.filter(stream_path, maximum_basins=3, upslope_basins=basins)
+        expected = np.array([1, 2, 3])
+        assert np.array_equal(ids, expected)
+
+    def test_path_raster(_, stream_path):
+        basins = stream_path
+        ids = segments.filter(stream_path, maximum_basins=3, upslope_basins=basins)
+        expected = np.array([1, 2, 3])
+        assert np.array_equal(ids, expected)
+
+    def test_numpy_raster(_, stream):
+        basins = stream
+        ids = segments.filter(stream, maximum_basins=3, upslope_basins=basins)
+        expected = np.array([1, 2, 3])
+        assert np.array_equal(ids, expected)
+
+    def test_statistic(_, stream):
+        # Same as previous, but should still be here because it tests a different item
+        basins = stream
+        ids = segments.filter(stream, maximum_basins=3, upslope_basins=basins)
+        expected = np.array([1, 2, 3])
+        assert np.array_equal(ids, expected)
+
+    def test_confinement(_, streamc, demc, flowc):
+        ids = segments.filter(
+            streamc,
+            maximum_confinement=110,
+            dem=demc,
+            flow_directions=flowc,
+            N=1,
+            resolution=1,
+        )
+        expected = np.array(
+            [
+                1,
+            ]
+        )
+        assert np.array_equal(ids, expected)
+
+    def test_area(_, stream):
+        ids = segments.filter(stream, maximum_area=3, upslope_area=stream)
+        expected = np.array([1, 2, 3])
+        assert np.array_equal(ids, expected)
+
+    def test_basins(_, stream):
+        ids = segments.filter(stream, maximum_basins=3, upslope_basins=stream)
+        expected = np.array([1, 2, 3])
+        assert np.array_equal(ids, expected)
+
+    def test_development(_, stream):
+        ids = segments.filter(stream, maximum_development=3, upslope_development=stream)
+        expected = np.array([1, 2, 3])
+        assert np.array_equal(ids, expected)
+
+    def test_slope(_, stream):
+        ids = segments.filter(stream, minimum_slope=3, slopes=stream)
+        expected = np.array([3, 4, 5])
+        assert np.array_equal(ids, expected)
+
+    def test_multiple(_, stream):
+        ids = segments.filter(
+            stream, minimum_slope=2, slopes=stream, maximum_area=4, upslope_area=stream
+        )
+        expected = np.array([2, 3, 4])
+        assert np.array_equal(ids, expected)
+
+    def test_remove_all(_, stream):
+        basins = stream
+        ids = segments.filter(stream, maximum_basins=0, upslope_basins=basins)
+        expected = np.array([])
+        assert np.array_equal(ids, expected)
+
+    def test_remove_all_early(_, stream):
+        # When all segments are removed before the final filter
+        ids = segments.filter(
+            stream,
+            maximum_basins=0,
+            upslope_basins=stream,
+            minimum_slope=100,
+            slopes=stream,
+        )
+        expected = np.array([])
+        assert np.array_equal(ids, expected)

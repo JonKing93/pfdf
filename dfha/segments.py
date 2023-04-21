@@ -387,7 +387,6 @@ class Segments:
                 slopes[p, :] = kernel.orthogonal_slopes(flow, dem, length)
 
             # Compute and return mean confinement angles
-            print(slopes)
             theta[i] = self._confinement_angle(slopes)
         return theta
 
@@ -410,6 +409,7 @@ class Segments:
         ----------
         Inputs:
             method: A Segments method that returns a set of segment values
+                Note: This SHOULD NOT be a bound method.
             type:
                 '>': Removes segments greater than the threshold
                 '<': Removes segments less than the threshold
@@ -425,9 +425,6 @@ class Segments:
                 failed = values > threshold
             elif type == "<":
                 failed = values < threshold
-                print(values)
-                print(threshold)
-                print(failed)
             self.remove(failed)
 
     def _summary(self, raster: RasterArray, statistic: StatFunction) -> SegmentValues:
@@ -686,7 +683,7 @@ class Segments:
 
         # Validate user statistic
         if not isinstance(statistic, str):
-            raise TypeError('statistic must be a string.')
+            raise TypeError("statistic must be a string.")
         statistic = statistic.lower()
         if statistic not in stat_functions:
             supported = ", ".join(stat_functions.keys())
@@ -834,19 +831,19 @@ def filter(
     }
 
     # Remove filters with no args
-    for filter, args in filters.items():
+    for filter, args in list(filters.items()):
         if not any_defined(*args.values()):
             del filters[filter]
 
     # Validate non-raster inputs.
-    for filter, input_args in filters.items():
+    for filter, args in filters.items():
         saved = filters[filter]
         inputs = list(args.items())
         (threshold, value) = inputs[0]
         saved[threshold] = validate.scalar(value, threshold, real)
         if filter == "confinement":
             (N, N_value), (resolution, res_value) = inputs[3:5]
-            saved[N], saved[resolution] = segments._validate_confinement_args(
+            saved[N], saved[resolution] = Segments._validate_confinement_args(
                 N_value, res_value
             )
 
@@ -860,33 +857,35 @@ def filter(
         if filter == "confinement":
             _validate_raster(filters, filter, segments, args[2])
 
-    # Iterate through filters. Get the comparison type
-    for filter, args in filters.item():
-        threshold = list(args.keys)[0]
-        if threshold.startswith("max"):
-            type = ">"
-        elif threshold.startswith("min"):
-            type = "<"
+    # Iterate through filters. Only run if there are stream segments remaining
+    for filter, args in filters.items():
+        if len(segments) > 0:
+            # Get the comparison type
+            threshold = list(args.keys())[0]
+            if threshold.startswith("max"):
+                type = ">"
+            elif threshold.startswith("min"):
+                type = "<"
 
-        # Get threshold and load raster into memory
-        args = list(args.values())
-        threshold, raster = args[0:2]
-        raster = load_raster(raster)
+            # Get threshold and load raster into memory
+            args = list(args.values())
+            threshold, raster = args[0:2]
+            raster = load_raster(raster)
 
-        # Run the confinement filter (which should be first).
-        # Delete (possibly large) flow raster when finished
-        if filter == "confinement":
-            flow, N, resolution = args[2:]
-            segments._validate_flow(flow)
-            segments._filter(
-                segments._confinement, type, threshold, raster, flow, N, resolution
-            )
-            del flow
+            # Run the confinement filter (which should be first).
+            # Delete (possibly large) flow raster when finished
+            if filter == "confinement":
+                flow, N, resolution = args[2:]
+                segments._validate_flow(flow)
+                segments._filter(
+                    Segments._confinement, type, threshold, raster, flow, N, resolution
+                )
+                del flow
 
-        # Run the remaining (standard statistical) filters
-        else:
-            statistic = segments._stats[filter]
-            segments._filter(segments._summary, type, threshold, raster, statistic)
+            # Run the remaining (standard statistical) filters
+            else:
+                statistic = segments._stats[filter]
+                segments._filter(Segments._summary, type, threshold, raster, statistic)
 
     # Return the IDs of the segments that passed the filters
     return segments.ids
