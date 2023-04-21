@@ -332,7 +332,7 @@ def raster(
     *,
     nodata: Optional[scalar] = None,
     shape: Optional[shape2d] = None,
-    load: Optional[bool] = True,
+    load: bool = True,
 ) -> Union[Path, RasterArray]:
     """
     raster  Check input is valid raster and return as numpy 2D array

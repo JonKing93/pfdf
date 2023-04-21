@@ -273,7 +273,7 @@ class Segments:
     #####
     # Validation methods
     #####
-    def _validate(self, raster: Any, name: str) -> RasterArray:
+    def _validate(self, raster: Any, name: str, load: bool = True) -> RasterArray:
         """
         _validate  Check input raster if compatible with stream segment pixel indices
         ----------
@@ -281,17 +281,24 @@ class Segments:
         Validates the input raster and returns it as a numpy 2D array. A valid
         raster must meet the criteria described in validate.raster AND must have
         a shape matching the shape of the raster used to define the stream segments.
+
+        self._validate(raster, name, load=False)
+        Returns the Path for file-based rasters, rather than loading and returning
+        as a numpy 2D array. Will still return a numpy array when a numpy array
+        is provided as the raster input.
         ----------
         Inputs:
             raster: The input raster being checked
             name: A name for the raster for use in error messages
+            load: True (default) if file-based rasters should be loaded and returned
+                as a numpy array. False to return the Path to file-based rasters.
 
         Outputs:
             numpy 2D array: The raster as a numpy array
         """
 
         try:
-            return validate.raster(raster, name, shape=self.raster_shape)
+            return validate.raster(raster, name, shape=self.raster_shape, load=load)
         except validate.ShapeError as error:
             raise RasterShapeError(name, error)
 
@@ -418,6 +425,9 @@ class Segments:
                 failed = values > threshold
             elif type == "<":
                 failed = values < threshold
+                print(values)
+                print(threshold)
+                print(failed)
             self.remove(failed)
 
     def _summary(self, raster: RasterArray, statistic: StatFunction) -> SegmentValues:
