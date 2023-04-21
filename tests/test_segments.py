@@ -11,26 +11,39 @@ from dfha.segments import Segments
 
 
 #####
-# Custom Error
+# Testing Utilities
+#####
+def index_dict(indices):
+    for key, (rows, cols) in indices.items():
+        indices[key] = (index_array(rows), index_array(cols))
+    return indices
+
+
+def index_array(ints):
+    return np.array(ints, dtype="int64").reshape(-1)
+
+
+def validate_indices(output, expected):
+    assert isinstance(output, dict)
+    assert sorted(output.keys()) == sorted(expected.keys())
+    for key, value in output.items():
+        assert isinstance(value, tuple)
+        assert len(value) == 2
+        assert np.array_equal(value[0], expected[key][0])
+        assert np.array_equal(value[1], expected[key][1])
+
+
+def assert_contains(error, *strings):
+    message = error.value.args[0]
+    for string in strings:
+        assert string in message
+
+
+#####
+# Pytest Fixtures
 #####
 
-
-class TestRasterShapeError:
-    def test(_):
-        name = "test"
-        cause = validate.ShapeError(name, "rows", 0, required=(10, 10), actual=(9, 10))
-        error = segments.RasterShapeError(name, cause)
-
-        assert isinstance(error, Exception)
-        assert error.args[0] == (
-            "The shape of the test raster (9, 10) does not match the shape of the "
-            "stream segment raster used to derive the segments (10, 10)."
-        )
-
-
-#####
-# Kernel
-#####
+# Kernel Fixtures
 
 
 @pytest.fixture
@@ -62,6 +75,130 @@ def dem():
             [17, 98, 14, 98, 12],
         ]
     )
+
+
+# Segments Fixtures
+
+
+@pytest.fixture
+def stream():
+    return np.array(
+        [
+            [0, 1, 0, 2, 5],
+            [1, 1, 0, 2, 0],
+            [0, 4, 0, 2, 0],
+            [4, 0, 2, 0, 0],
+            [4, 0, 2, 0, 3],
+        ]
+    )
+
+
+@pytest.fixture
+def flow(stream):
+    stream[stream == 0] = 6
+    return stream
+
+
+@pytest.fixture
+def indices():
+    indices = {
+        1: ([0, 1, 1], [1, 0, 1]),
+        2: ([0, 1, 2, 3, 4], [3, 3, 3, 2, 2]),
+        3: ([4], [4]),
+        4: ([2, 3, 4], [1, 0, 0]),
+        5: ([0], [4]),
+    }
+    return index_dict(indices)
+
+
+@pytest.fixture
+def stream_path(tmp_path, stream):
+    filepath = tmp_path / "stream.tif"
+    with rasterio.open(
+        filepath,
+        "w",
+        driver="GTiff",
+        height=5,
+        width=5,
+        count=1,
+        dtype=stream.dtype,
+        crs="+proj=latlong",
+        transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
+    ) as raster:
+        nulls = stream == 0
+        stream[np.nonzero(nulls)] = -999
+        raster.write(stream, indexes=1)
+        valid = np.logical_not(nulls)
+        raster.write_mask(valid)
+    return filepath
+
+
+@pytest.fixture
+def segments5(stream):
+    return Segments(stream)
+
+
+@pytest.fixture
+def stream0(stream):
+    return np.zeros(stream.shape)
+
+
+@pytest.fixture
+def segments0(stream0):
+    return Segments(stream0)
+
+
+@pytest.fixture
+def segments3():
+    return Segments(
+        np.array(
+            [
+                [0, 2, 2],
+                [1, 2, 0],
+                [1, 0, 3],
+            ]
+        )
+    )
+
+
+@pytest.fixture
+def values3():
+    return np.array(
+        [
+            [999, 3, 4],
+            [-8, 2, 999],
+            [-9, 999, 2.2],
+        ]
+    )
+
+
+@pytest.fixture
+def indices3():
+    indices = {1: ([1, 2], [0, 0]), 2: ([0, 0, 1], [1, 2, 1]), 3: ([2], [2])}
+    return index_dict(indices)
+
+
+#####
+# Custom Error
+#####
+
+
+class TestRasterShapeError:
+    def test(_):
+        name = "test"
+        cause = validate.ShapeError(name, "rows", 0, required=(10, 10), actual=(9, 10))
+        error = segments.RasterShapeError(name, cause)
+
+        assert isinstance(error, Exception)
+        assert error.args[0] == (
+            "The shape of the test raster (9, 10) does not match the shape of the "
+            "stream segment raster used to derive the segments (10, 10)."
+        )
+
+
+#####
+# Kernel
+#####
 
 
 class TestKernel:
@@ -206,103 +343,23 @@ class TestKernel:
         ],
     )
     def test_orthogonal_slopes(_, kernel2, dem, flow, slopes):
-        dem[2,2] = 1
+        dem[2, 2] = 1
         output = kernel2.orthogonal_slopes(flow, dem, 10)
-        slopes = np.array(slopes).reshape(1,2)
+        slopes = np.array(slopes).reshape(1, 2)
         assert np.array_equal(output, slopes)
 
 
 #####
-# Segments class
+# Segments: Properties, Dunders, and Internal (except _filter)
 #####
-
-@pytest.fixture
-def stream():
-    return np.array([
-        [0,1,0,2,5],
-        [1,1,0,2,0],
-        [0,4,0,2,0],
-        [4,0,2,0,0],
-        [4,0,2,0,3],
-    ])
-
-@pytest.fixture
-def stream0(stream):
-    return np.zeros(stream.shape)
-
-@pytest.fixture
-def stream_path(tmp_path, stream):
-    filepath = tmp_path / "stream.tif"
-    with rasterio.open(
-        filepath,
-        'w',
-        driver='GTiff',
-        height=5,
-        width=5,
-        count=1,
-        dtype=stream.dtype,
-        crs="+proj=latlong",
-        transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
-    ) as raster:
-        nulls = stream==0
-        stream[np.nonzero(nulls)] = -999
-        raster.write(stream, indexes=1)
-        valid = np.logical_not(nulls)
-        raster.write_mask(valid)
-    return filepath
-
-@pytest.fixture
-def indices():
-    indices = {
-        1: ([0,1,1],[1,0,1]),
-        2: ([0,1,2,3,4], [3,3,3,2,2]),
-        3: ([4],[4]),
-        4: ([2,3,4], [1,0,0]),
-        5: ([0], [4]),
-    }
-    for key, (rows, cols) in indices.items():
-        indices[key] = (index_array(rows), index_array(cols))
-    return indices
-
-@pytest.fixture
-def segments5(stream):
-    return Segments(stream)
-
-@pytest.fixture
-def segments0(stream0):
-    return Segments(stream0)
-
-@pytest.fixture
-def flow(stream):
-    stream[stream==0] = 6
-    return stream
-
-def assert_contains(error, *strings):
-    message = error.value.args[0]
-    for string in strings:
-        assert string in message
-
-
-def index_array(ints):
-    return np.array(ints, dtype='int64').reshape(-1)
-
-def validate_indices(output, expected):
-    assert isinstance(output, dict)
-    assert sorted(output.keys()) == sorted(expected.keys())
-    for key, value in output.items():
-        assert isinstance(value, tuple)
-        assert len(value) == 2
-        assert np.array_equal(value[0], expected[key][0])
-        assert np.array_equal(value[1], expected[key][1])
 
 
 class TestInit:
-
     @staticmethod
     def validate(segments, indices):
         assert isinstance(segments, Segments)
         validate_indices(segments._indices, indices)
-        assert segments._raster_shape == (5,5)
+        assert segments._raster_shape == (5, 5)
 
     def test(self, stream, indices):
         segments = Segments(stream)
@@ -323,13 +380,13 @@ class TestInit:
         assert segments._indices == {}
 
     def test_negative_failed(self, stream):
-        stream[0,0] = -1
+        stream[0, 0] = -1
         with pytest.raises(ValueError):
             Segments(stream)
 
     def test_nonint_failed(self, stream):
         stream = stream.astype(float)
-        stream[0,0] = 2.2
+        stream[0, 0] = 2.2
         with pytest.raises(ValueError):
             Segments(stream)
 
@@ -340,20 +397,18 @@ class TestInit:
 
 
 class TestIds:
-
     def test(_, segments5):
         ids = segments5.ids
-        expected = np.array([1,2,3,4,5])
+        expected = np.array([1, 2, 3, 4, 5])
         assert np.array_equal(ids, expected)
 
-    def test_empty(_, segments5):
-        ids = segments5.ids
+    def test_empty(_, segments0):
+        ids = segments0.ids
         expected = np.array([], dtype=int)
         assert np.array_equal(ids, expected)
 
 
 class TestIndices:
-
     def test(_, segments5, indices):
         validate_indices(segments5.indices, indices)
 
@@ -363,7 +418,7 @@ class TestIndices:
 
 class TestRasterShape:
     def test(_, segments5):
-        assert segments5.raster_shape == (5,5)
+        assert segments5.raster_shape == (5, 5)
 
 
 class TestLen:
@@ -371,33 +426,34 @@ class TestLen:
         assert len(segments5) == 5
         assert len(segments0) == 0
 
+
 class TestStr:
     def test(_, segments5, segments0):
-        assert str(segments5) == 'Stream Segments: 1, 2, 3, 4, 5'
-        assert str(segments0) == 'Stream Segments: None'
+        assert str(segments5) == "Stream Segments: 1, 2, 3, 4, 5"
+        assert str(segments0) == "Stream Segments: None"
+
 
 class TestValidate:
-
-    def test_valid_numpy(_, segments5):
-        output = segments5._validate(stream, '')
+    def test_valid_numpy(_, segments5, stream):
+        output = segments5._validate(stream, "")
         assert np.array_equal(output, stream)
 
     def test_valid_file(_, segments5, stream_path):
-        output = segments5._validate(stream_path, '')
+        output = segments5._validate(stream_path, "")
         with rasterio.open(stream_path) as data:
             expected = data.read(1)
         assert np.array_equal(output, expected)
 
     def test_notraster(_, segments5, stream):
         bad = np.stack((stream, stream))
-        name = 'raster name'
+        name = "raster name"
         with pytest.raises(validate.DimensionError) as error:
             segments5._validate(bad, name)
-        assert_contains(error, name)    
+        assert_contains(error, name)
 
     def test_wrong_shape(_, segments5):
-        bad = np.array([1,2,3])
-        name = 'raster name'
+        bad = np.array([1, 2, 3])
+        name = "raster name"
         with pytest.raises(segments.RasterShapeError) as error:
             segments5._validate(bad, name)
         assert_contains(error, name)
@@ -410,109 +466,274 @@ class TestValidateConfinementArgs:
         assert N.shape == (1,)
         assert N == 4
         assert isinstance(res, np.ndarray)
-        assert res.shape==(1,)
-        assert res==9.3
+        assert res.shape == (1,)
+        assert res == 9.3
 
     def test_N_nonscalar(_, segments5):
         with pytest.raises(validate.DimensionError) as error:
-            segments5._validate_confinement_args([2,3], 9.3)
-        assert_contains(error, 'N')
-
+            segments5._validate_confinement_args([2, 3], 9.3)
+        assert_contains(error, "N")
 
     def test_N_negative(_, segments5):
         with pytest.raises(ValueError) as error:
             segments5._validate_confinement_args(-2, 9.3)
-        assert_contains(error, 'N')
+        assert_contains(error, "N")
 
     def test_N_nonint(_, segments5):
         with pytest.raises(ValueError) as error:
             segments5._validate_confinement_args(4.3, 9.3)
-        assert_contains(error, 'N')
-
+        assert_contains(error, "N")
 
     def test_res_nonscalar(_, segments5):
         with pytest.raises(validate.DimensionError) as error:
             segments5._validate_confinement_args(4, [2, 3])
-        assert_contains(error, 'resolution')
+        assert_contains(error, "resolution")
 
     def test_res_negative(_, segments5):
         with pytest.raises(ValueError) as error:
             segments5._validate_confinement_args(4, -3)
-        assert_contains(error, 'resolution')
+        assert_contains(error, "resolution")
 
 
 class TestValidateFlow:
-    name = 'flow_directions'
+    name = "flow_directions"
 
     def test_valid(self, segments5, flow):
         segments5._validate_flow(flow)
 
     def test_too_low(self, segments5, flow):
-        flow[0,0] = 0
+        flow[0, 0] = 0
         with pytest.raises(ValueError) as error:
             segments5._validate_flow(flow)
         assert_contains(error, self.name)
 
     def test_too_high(self, segments5, flow):
-        flow[0,0] = 9
+        flow[0, 0] = 9
         with pytest.raises(ValueError) as error:
             segments5._validate_flow(flow)
         assert_contains(error, self.name)
 
     def test_nonint(self, segments5, flow):
         flow = flow.astype(float)
-        flow[0,0] = 2.2
+        flow[0, 0] = 2.2
         with pytest.raises(ValueError) as error:
             segments5._validate_flow(flow)
         assert_contains(error, self.name)
 
 
 class TestFlowLength:
-
-    @pytest.mark.parametrize('flow, expected',
-        [(1, 10), (2, 14), (3, 10), (4, 14), (5, 10), (6, 14), (7, 10), (8, 14)]
-        )
+    @pytest.mark.parametrize(
+        "flow, expected",
+        [(1, 10), (2, 14), (3, 10), (4, 14), (5, 10), (6, 14), (7, 10), (8, 14)],
+    )
     def test(_, flow, expected):
         assert Segments._flow_length(flow, 10, 14) == expected
 
-class TestConfinementAngle:
 
+class TestConfinementAngle:
     def test_single_pixel(_):
         # 45 degree slope on either side. 90 degrees of empty space remain from open plain
-        slopes = np.array([1, 1]).reshape(1,2)
+        slopes = np.array([1, 1]).reshape(1, 2)
         assert Segments._confinement_angle(slopes) == 90
 
     def test_multiple(_):
         # clockwise slopes are 45 and 30. counterclockwise are 60 and 0.
         # Mean slopes are 37.5 and 30 so 112.5 degrees of open space remain from open plain
-        slopes = np.array([
-            [1, sqrt(3)],
-            [1/sqrt(3), 0],
-        ])
+        slopes = np.array(
+            [
+                [1, sqrt(3)],
+                [1 / sqrt(3), 0],
+            ]
+        )
         assert Segments._confinement_angle(slopes) == 112.5
 
 
 class Test_Confinement:
-
     def test(_):
-        stream = np.array([
-            [0,0,0],
-            [1,2,0],
-            [0,0,0]
-        ])
-        flow = np.array([
-            [9,9,9],
-            [1,5,9],
-            [9,9,9]
-        ])
-        dem = np.array([
-            [1, sqrt(3), 0],
-            [0,0,0],
-            [1/sqrt(3),0,0],
-        ])
+        stream = np.array([[0, 0, 0], [1, 2, 0], [0, 0, 0]])
+        flow = np.array([[9, 9, 9], [1, 5, 9], [9, 9, 9]])
+        dem = np.array(
+            [
+                [1, sqrt(3), 0],
+                [0, 0, 0],
+                [1 / sqrt(3), 0, 0],
+            ]
+        )
         expected = np.array([105, 120])
 
         segments = Segments(stream)
         output = segments._confinement(dem, flow, 1, 1)
         assert np.array_equal(output, expected)
+
+
+class Test_Summary:
+    def test_mean(_, segments3, values3):
+        expected = np.array([-8.5, 3, 2.2])
+        output = segments3._summary(values3, np.mean)
+        assert np.array_equal(output, expected)
+
+    def test_max(_, segments3, values3):
+        expected = np.array([-8, 4, 2.2])
+        output = segments3._summary(values3, np.amax)
+        assert np.array_equal(output, expected)
+
+
+#####
+# Segments: User-facing
+#####
+
+
+class TestRemove:
+    def test_ints(_, segments3, indices3):
+        segments3.remove([2, 3])
+        del indices3[2]
+        del indices3[3]
+        validate_indices(segments3._indices, indices3)
+
+    def test_unordered(_, segments3, indices3):
+        segments3.remove([3, 2])
+        del indices3[2]
+        del indices3[3]
+        validate_indices(segments3._indices, indices3)
+
+    def test_duplicate(_, segments3, indices3):
+        segments3.remove([1, 1, 1, 1, 1])
+        del indices3[1]
+        validate_indices(segments3._indices, indices3)
+
+    def test_nonlist(_, segments3, indices3):
+        segments3.remove(1)
+        del indices3[1]
+        validate_indices(segments3._indices, indices3)
+
+    def test_all(_, segments3):
+        segments3.remove([1, 2, 3])
+        validate_indices(segments3._indices, {})
+
+    @pytest.mark.parametrize("input", [(4), (2.2)])
+    def test_invalid_ints(_, segments3, input):
+        with pytest.raises(KeyError):
+            segments3.remove(input)
+
+    def test_invalid_type(_, segments3):
+        with pytest.raises(TypeError):
+            segments3.remove("3")
+
+    def test_bools(_, segments3, indices3):
+        segments3.remove([False, True, True])
+        del indices3[2]
+        del indices3[3]
+        validate_indices(segments3._indices, indices3)
+
+    def test_bools_none(_, segments3, indices3):
+        segments3.remove([False, False, False])
+        validate_indices(segments3._indices, indices3)
+
+    def test_bools_all(_, segments3):
+        segments3.remove([True, True, True])
+        validate_indices(segments3._indices, {})
+
+    @pytest.mark.parametrize("input", [([True, False]), ([True, False, True, False])])
+    def test_invalid_bools(_, segments3, input):
+        with pytest.raises(validate.ShapeError):
+            segments3.remove(input)
+
+
+class TestCopy:
+    def test(_, segments3):
+        output = segments3.copy()
+        assert output._raster_shape == segments3._raster_shape
+        validate_indices(output._indices, segments3._indices)
+
+    def test_empty(_, segments0):
+        output = segments0.copy()
+        assert output._raster_shape == segments0._raster_shape
+        validate_indices(output._indices, segments0._indices)
+
+
+class TestArea:
+    def test(_, segments3, values3):
+        expected = np.array([-8, 4, 2.2])
+        output = segments3.area(values3)
+        assert np.array_equal(output, expected)
+
+    def test_invalid(_, segments3, values3):
+        values3 = np.concatenate((values3, values3), axis=1)
+        with pytest.raises(segments.RasterShapeError) as error:
+            segments3.area(values3)
+        assert_contains(error, "upslope_area")
+
+
+class TestBasins:
+    def test(_, segments3, values3):
+        expected = np.array([-8, 4, 2.2])
+        output = segments3.basins(values3)
+        assert np.array_equal(output, expected)
+
+    def test_invalid(_, segments3, values3):
+        values3 = np.concatenate((values3, values3), axis=1)
+        with pytest.raises(segments.RasterShapeError) as error:
+            segments3.basins(values3)
+        assert_contains(error, "upslope_basins")
+
+
+class TestDevelopment:
+    def test(_, segments3, values3):
+        expected = np.array([-8.5, 3, 2.2])
+        output = segments3.development(values3)
+        assert np.array_equal(output, expected)
+
+    def test_invalid(_, segments3, values3):
+        values3 = np.concatenate((values3, values3), axis=1)
+        with pytest.raises(segments.RasterShapeError) as error:
+            segments3.development(values3)
+        assert_contains(error, "upslope_development")
+
+
+class TestSlope:
+    def test(_, segments3, values3):
+        expected = np.array([-8.5, 3, 2.2])
+        output = segments3.slope(values3)
+        assert np.array_equal(output, expected)
+
+    def test_invalid(_, segments3, values3):
+        values3 = np.concatenate((values3, values3), axis=1)
+        with pytest.raises(segments.RasterShapeError) as error:
+            segments3.slope(values3)
+        assert_contains(error, "slopes")
+
+
+class TestSummary:
+    @pytest.mark.parametrize(
+        "statistic, expected",
+        [
+            ("mean", [-8.5, 3, 2.2]),
+            ("median", [-8.5, 3, 2.2]),
+            ("max", [-8, 4, 2.2]),
+            ("min", [-9, 2, 2.2]),
+            ('std', [0.5, np.std([2,3,4]), 0]),
+            ("MAX", [-8, 4, 2.2]),    # Test case-insensitive
+        ],
+    )
+    def test(_, segments3, values3, statistic, expected):
+        expected = np.array(expected)
+        output = segments3.summary(statistic, values3)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_values(_, segments3, values3):
+        values3 = np.concatenate((values3, values3), axis=1)
+        with pytest.raises(segments.RasterShapeError) as error:
+            segments3.summary('mean', values3)
+        assert_contains(error, "input raster")
+
+    def test_invalid_stattype(_, segments3, values3):
+        with pytest.raises(TypeError) as error:
+            segments3.summary(5, values3)
+        assert_contains(error, 'statistic must be a string.')
+
+    def test_invalid_stat(_, segments3, values3):
+        bad = 'some invalid string'
+        with pytest.raises(ValueError) as error:
+            segments3.summary(bad, values3)
+        assert_contains(error, bad)
 

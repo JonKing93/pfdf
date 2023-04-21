@@ -570,7 +570,7 @@ class Segments:
         upslope_development = self._validate(upslope_development, "upslope_development")
         return self._summary(upslope_development, self._stats["development"])
 
-    def remove(self, ids: IDs) -> None:
+    def remove(self, segments: IDs) -> None:
         """
         remove  Removes segments from a Segments object
         ----------
@@ -638,7 +638,7 @@ class Segments:
         order of segment IDs in the object.
         ----------
         Inputs:
-            slopes: A numpy 2D array holding the slopes of the DEM pixels
+            slopes: A numpy 2D array holding the slopes (rise/run) of the DEM pixels
 
         Outputs:
             numpy 1D array: The mean slope (rise/run) of each stream segment.
@@ -646,20 +646,20 @@ class Segments:
         slopes = self._validate(slopes, "slopes")
         return self._summary(slopes, self._stats["slope"])
 
-    def summary(self, raster: Raster, statistic: Statistic) -> SegmentValues:
+    def summary(self, statistic: Statistic, raster: Raster) -> SegmentValues:
         """
         summary  Computes a summary statistic for each stream segment
         ----------
-        self.summary(raster, statistic)
+        self.summary(statistic, raster)
         Given a raster of data values, computes a generic summary statistic
         for each stream segment. This function can be used to extend filtering
         beyond the built-in summary values. Statistic options include: mean,
         median, std, min, and max.
         ----------
         Inputs:
+            statistic: 'mean', 'median', 'std', 'min', or 'max'
             raster: A raster of data values over which to compute stream segment
                 summary values
-            statistic: 'mean', 'median', 'std', 'min', or 'max'
 
         Outputs:
             numpy 1D array: The summary statistic for each stream segment
@@ -675,6 +675,8 @@ class Segments:
         }
 
         # Validate user statistic
+        if not isinstance(statistic, str):
+            raise TypeError('statistic must be a string.')
         statistic = statistic.lower()
         if statistic not in stat_functions:
             supported = ", ".join(stat_functions.keys())
@@ -871,7 +873,7 @@ def filter(
             )
             del flow
 
-        # Run a standard statistical filter
+        # Run the remaining (standard statistical) filters
         else:
             statistic = segments._stats[filter]
             segments._filter(segments._summary, type, threshold, raster, statistic)
