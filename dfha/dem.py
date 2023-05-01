@@ -279,42 +279,30 @@ def analyze(
 #####
 # Low Level
 #####
-def area_d8(
-    flow_directions_path: Path,
-    weights_path: Union[Path, None],
-    area_path: Path,
-    verbose: bool,
-) -> None:
+def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
     """
-    area_d8  Runs the TauDEM D8 upslope area routine
+    pitremove  Runs the TauDEM PitRemove routine
     ----------
-    area_d8(flow_directions_path, weights_path=None, area_path, verbose)
-    Computes upslope area (also known as contributing area) using a D8 flow model.
-    All raster pixels are given an equal area of 1. Saves the output upslope
-    area to the indicated path. Optionally prints TauDEM messages to the console.
-
-    area_d8(flow_directions_path, weights_path, area_path, verbose)
-    Computes weighted upslope area. The area of each raster pixel is set to the
-    corresponding value in the weights raster.
+    pitremove(dem_path, pitfilled_path, verbose)
+    Runs the TauDEM pit filling routine on a input DEM. Saves the output
+    pitfilled DEM to the indicated path. Optionally prints TauDEM messages to
+    the console.
     ----------
     Inputs:
-        flow_directions_path: The absolute Path for the input D8 flow directions.
-        weights_path: The absolute Path to the input raster holding area weights
-            for each pixel. If None, computes unweighted upslope area.
-        area: The absolute Path to the output upslope area
+        dem_path: The absolute Path object for the input DEM
+        pitfilled_path: The absolute Path object for the output
+            pitfilled DEM.
         verbose: True if TauDEM messages should be printed to the console.
-            False to suppress these messages.
+            False if the messages should be suppressed.
 
     Outputs: None
 
     Saves:
-        A file matching the "area" path.
+        A file matching the "pitfilled" path
     """
 
-    area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path} -nc"
-    if weights_path is not None:
-        area_d8 += f" -wg {weights_path}"
-    _run_taudem(area_d8, verbose)
+    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
+    _run_taudem(pitremove, verbose)
 
 
 def flow_d8(
@@ -375,35 +363,117 @@ def flow_dinf(
     _run_taudem(flow_dinf, verbose)
 
 
-def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
+def area_d8(
+    flow_directions_path: Path,
+    weights_path: Union[Path, None],
+    area_path: Path,
+    verbose: bool,
+) -> None:
     """
-    pitremove  Runs the TauDEM PitRemove routine
+    area_d8  Runs the TauDEM D8 upslope area routine
     ----------
-    pitremove(dem_path, pitfilled_path, verbose)
-    Runs the TauDEM pit filling routine on a input DEM. Saves the output
-    pitfilled DEM to the indicated path. Optionally prints TauDEM messages to
-    the console.
+    area_d8(flow_directions_path, weights_path=None, area_path, verbose)
+    Computes upslope area (also known as contributing area) using a D8 flow model.
+    All raster pixels are given an equal area of 1. Saves the output upslope
+    area to the indicated path. Optionally prints TauDEM messages to the console.
+
+    area_d8(flow_directions_path, weights_path, area_path, verbose)
+    Computes weighted upslope area. The area of each raster pixel is set to the
+    corresponding value in the weights raster.
     ----------
     Inputs:
-        dem_path: The absolute Path object for the input DEM
-        pitfilled_path: The absolute Path object for the output
-            pitfilled DEM.
+        flow_directions_path: The absolute Path for the input D8 flow directions.
+        weights_path: The absolute Path to the input raster holding area weights
+            for each pixel. If None, computes unweighted upslope area.
+        area: The absolute Path to the output upslope area
         verbose: True if TauDEM messages should be printed to the console.
-            False if the messages should be suppressed.
+            False to suppress these messages.
 
     Outputs: None
 
     Saves:
-        A file matching the "pitfilled" path
+        A file matching the "area" path.
     """
 
-    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
-    _run_taudem(pitremove, verbose)
+    area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path} -nc"
+    if weights_path is not None:
+        area_d8 += f" -wg {weights_path}"
+    _run_taudem(area_d8, verbose)
+
+
+def relief_dinf(
+    pitfilled_path: Path,
+    flow_directions_path: Path,
+    slopes_path: Path,
+    relief_path: Path,
+    verbose: bool,
+) -> None:
+    """
+    relief_dinf  Computes the vertical component of the longest flow path
+    ----------
+    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
+    Computes the vertical component of the longest flow path. This analysis
+    requires an input pitfilled DEM, and D-Infinity flow directions and slopes.
+    The routine is set to account for edge contamination. Uses a threshold of
+    0.49 so that computed relief mimics the results for a D8 flow model. Saves
+    the computed length to the indicated path. Optionally prints TauDEM messages
+    to the console.
+    ----------
+    Inputs:
+        pitfilled_path: The absolute Path to the input pitfilled DEM
+        flow_directions_path: The absolute Path to the input D-infinity flow directions
+        slopes_path: The absolute Path to the input D-infinity slopes
+        relief_path: The absolute Path to the output D8 relief
+        verbose: True to print TauDEM messages to the console. False to
+            suppress these messages.
+
+    Outputs: None
+
+    Saves:
+        A file matching the "relief" path.
+    """
+
+    # Run the command. The "-m max v" computes the (v)ertical component of the
+    # longest (max)imum flow path. The "-thresh 0.49" option mimics results for a
+    #  D8 flow model. The "-nc" flag causes the routine to account for edge contamination.
+    relief = (
+        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
+        + f" -slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
+    )
+    _run_taudem(relief, verbose)
 
 
 #####
 # Utilities
 #####
+
+
+def _run_taudem(command: strs, verbose: bool) -> None:
+    """
+    _run_taudem  Runs a TauDEM command as a subprocess
+    ----------
+    _run_taudem(command, verbose)
+    Runs a TauDEM command as a subprocess. If verbose=True, prints TauDEM
+    messages to the console. If verbose=False, suppresses these messages. Raises
+    a CalledProcessError if the TauDEM process does not complete successfully
+    (i.e. the process returns an exit code not equal to 0).
+    ----------
+    Inputs:
+        command: The arguments used to run a TauDEM command
+        verbose: True if TauDEM messages should be printed to the
+            console. False if these messages should be suppressed.
+
+    Raises:
+        CalledProcessError: If the TauDEM process returns an exit code not equal
+            to 0.
+
+    Saves:
+        The various output files associated with the TauDEM command.
+
+    Outputs: None
+    """
+
+    return subprocess.run(command, capture_output=not verbose, check=True)
 
 
 def _verbosity(verbose: Union[bool, None]) -> bool:
@@ -703,116 +773,24 @@ def flow_directions(
             return flow
 
 
-
-
-
-#############################################################
-
-
-def relief(
-    pitfilled_path: Pathlike,
-    flow_directions_path: Pathlike,
-    slopes_path: Pathlike,
-    relief_path: Pathlike,
-    *,
-    verbose: Optional[bool] = None,
-) -> Path:
-    """
-    relief  Computes the vertical relief of the longest flow path
-    ----------
-    relief(pitfilled_path, flow_directions_path, slopes_path, relief_path)
-    Computes the vertical relief of the longest flow path using a pitfilled DEM,
-    and D-infinity flow directions and slopes. Saves the output relief to the
-    indicated path.
-
-    relief(..., *, verbose)
-    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
-    the console. If verbose=False, suppresses the messages. If unspecified, uses
-    the default verbosity setting for the module (initially set as False).
-    ----------
-    Inputs:
-        pitfilled_path: The path to the input pitfilled DEM
-        flow_directions_path: The path to the input D-infinity flow directions
-        slopes_path: The path to the input D-infinity slopes
-        relief_path: The path to the output vertical relief
-        verbose: Set to True to print TauDEM messages to the console. False to
-            suppress these messages. If unset, uses the default verbosity for
-            the module (initially set as False).
-
-    Outputs:
-        pathlib.Path: The absolute Path to the output vertical relief
-    """
-
-    verbose = _verbosity(verbose)
-    pitfilled_path = _input_path(pitfilled_path)
-    flow_directions_path = _input_path(flow_directions_path)
-    slopes_path = _input_path(slopes_path)
-    relief_path = _output_path(relief_path)
-
-    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
-    return relief_path
-
-
-def relief_dinf(
-    pitfilled_path: Path,
-    flow_directions_path: Path,
-    slopes_path: Path,
-    relief_path: Path,
-    verbose: bool,
-) -> None:
-    """
-    relief_dinf  Computes the vertical component of the longest flow path
-    ----------
-    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
-    Computes the vertical component of the longest flow path. This analysis
-    requires an input pitfilled DEM, and D-Infinity flow directions and slopes.
-    The routine is set to account for edge contamination. Uses a threshold of
-    0.49 so that computed relief mimics the results for a D8 flow model. Saves
-    the computed length to the indicated path. Optionally prints TauDEM messages
-    to the console.
-    ----------
-    Inputs:
-        pitfilled_path: The absolute Path to the input pitfilled DEM
-        flow_directions_path: The absolute Path to the input D-infinity flow directions
-        slopes_path: The absolute Path to the input D-infinity slopes
-        relief_path: The absolute Path to the output D8 relief
-        verbose: True to print TauDEM messages to the console. False to
-            suppress these messages.
-
-    Outputs: None
-
-    Saves:
-        A file matching the "relief" path.
-    """
-
-    # Run the command. The "-m max v" computes the (v)ertical component of the
-    # longest (max)imum flow path. The "-thresh 0.49" option mimics results for a
-    #  D8 flow model. The "-nc" flag causes the routine to account for edge contamination.
-    relief = (
-        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
-        + f" -slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
-    )
-    _run_taudem(relief, verbose)
-
-
 def upslope_area(
-    flow_directions_path: Pathlike,
-    area_path: Pathlike,
+    flow_directions: Raster,
     *,
-    weights_path: Optional[Pathlike] = None,
+    file: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
-) -> Path:
+) -> Output:
     """
-    upslope_area  Computes upslope area
+    upslope_area  Computes the upslope area (number of upslope pixels) over a DEM
     ----------
-    upslope_area(flow_directions_path, area_path)
-    Computes upslope area (also known as contributing area) using flow directions
-    from a D8 flow model. Gives all DEM pixels an equal area of 1. Saves the
-    output upslope area to the indicated path.
+    upslope_area(flow_directions)
+    Uses D8 flow directions to compute the upslope area (also known as contributing
+    area) for a DEM. All pixels are given an area of 1, so this method effectively
+    computes the number of pixels above a given point on the raster. Returns the
+    upslope area as a numpy 2D array.
 
-    upslope_area(..., *, weights_path)
-    Computes weighted upslope area. The area of each DEM pixel is set as the
-    value of the corresponding pixel in the weight raster.
+    upslope_area(..., *, file)
+    Saves the upslope area to the designated file. Returns the Path to the raster,
+    rather than a numpy 2D array.
 
     upslope_area(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -820,117 +798,138 @@ def upslope_area(
     the default verbosity setting for the module (initially set as False).
     ----------
     Inputs:
-        flow_directions_path: The path to the input D8 flow directions.
-        area_path: The path to the output upslope area.
-        weights_path: The optional path to an area weights raster
+        flow_directions: The raster of D8 flow directions used to compute upslope.
+            Flow numbers should proceed from 1 to 8, clockwise from right.
+        file: The path to a file in which to save the upslope area.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
 
     Outputs:
-        pathlib.Path: The absolute Path to the output usplope areas
+        numpy 2D array: The upslope area raster as an array
+        pathlib.Path: The Path to a saved upslope area raster
 
     Saves:
-        A file matching the "area" path
+        Optionally saves upslope area to a path matching the "file" input.
     """
 
-    verbose = _verbosity(verbose)
-    flow_directions_path = _input_path(flow_directions_path)
-    if weights_path is not None:
-        weights_path = _input_path(weights_path)
-    area_path = _output_path(area_path)
-    area_d8(flow_directions_path, weights_path, area_path, verbose)
-    return area_path
+    verbose, [flow, area], save = _validate(
+        temp, [flow_directions, area], ["flow_directions", "area"]
+    )
+    with TemporaryDirectory() as temp:
+        flow, area = _paths(temp, [flow, area], [None, save], ["flow", "area"])
+        area_d8(flow, None, area, verbose)
+        return _output(area, save)
 
 
-def upslope_basins(
-    flow_directions_path: Pathlike,
-    isbasin_path: Pathlike,
-    upslope_basins_path: Pathlike,
+def upslope_sum(
+    flow_directions: Raster,
+    weights: Raster,
     *,
+    file: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
-) -> Path:
+) -> Output:
     """
-    upslope_basins  Computes the number of upslope debris-retention basins
+    upslope_sum  Computes the weighted sum of upslope pixels
     ----------
-    upslope_basins(flow_directions_path, isbasin_path, upslope_basins_path)
-    Computes the number of debris-retention basins upslope of each pixel. Returns
-    the absolute Path to the output upslope_basins raster.
+    upslope_sum(flow_directions, weights)
+    Computes a weighted sum of upslope pixels. Each pixel is given a weight
+    denoted by an associated weights raster. Returns the sum as a numpy 2D array.
 
-    upslope_basins(..., *, verbose)
+    upslope_sum(..., *, file)
+    Saves the upslope sum to the indicated file. Returns the Path to the saved
+    upslope sum raster, rather than a numpy 2D array.
+
+    upslope_sum(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
     the console. If verbose=False, suppresses the messages. If unspecified, uses
     the default verbosity setting for the module (initially set as False).
     ----------
     Inputs:
-        flow_directions_path: The path to the input D8 flow directions.
-        isbasin_path: The path to the input raster indicating the DEM pixels
-            that contain a debris-retention basin. Pixels containing a basin
-            should have a value of 1. All other pixels should be 0.
-        upslope_basins_path: The path to the output raster holding the number
-            of upslope debris-retention basins.
+        flow_directions: D8 flow directions used to determine upslope pixels. Flow
+            numbers should proceed from 1 to 8, clockwise from right.
+        weights: A weights raster, must have the same shape as the flow directions
+            raster. Assigns a value to each pixel for the weighted sum.
+        file: The path to a file in which to save the upslope sum.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
 
     Outputs:
-        pathlib.Path: The absolute Path to the output raster of total upslope
-            debris-retention basins.
+        numpy 2D array: The upslope sum raster.
+        pathlib.Path: The Path to a saved upslope sum raster.
 
     Saves:
-        A file matching the "upslope_basins" path
+        Optionally saves the upslope sum raster to a path matching the "file" input.
     """
-    return upslope_area(
-        flow_directions_path,
-        upslope_basins_path,
-        weights_path=isbasin_path,
-        verbose=verbose,
+
+    verbose, [flow, area], save = _validate(
+        temp, [flow_directions, area], ["flow_directions", "area"]
     )
+    with TemporaryDirectory() as temp:
+        flow, area = _paths(temp, [flow, area], [None, save], ["flow", "area"])
+        area_d8(flow, None, area, verbose)
+        return _output(area, save)
 
 
-def upslope_burn(
-    flow_directions_path: Pathlike,
-    isburned_path: Pathlike,
-    burned_area_path: Pathlike,
+def relief(
+    pitfilled: Pathlike,
+    flow_directions: Pathlike,
+    slopes: Pathlike,
     *,
+    file: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
-) -> Path:
+) -> Output:
     """
-    upslope_burn  Computes total burned upslope area
+    relief  Computes the vertical relief along the longest flow path
     ----------
-    upslope_burn(flow_directions_path, isburned_path, burned_area_path)
-    Computes total burned upslope area using flow directions from a D8 flow model.
-    Pixels that are specified as burned are given a weight of 1. All other pixels
-    are given a weight of 0. Returns the absolute Path to the raster holding the
-    computed total burned upslope area.
+    relief(pitfilled, flow_directions, slopes)
+    Computes the vertical relief along the longest flow path. Requires D-infinity
+    flow directions and slopes. Returns the relief raster as a numpy 2D array.
 
-    upslope_burn(..., *, verbose)
+    relief(..., *, file)
+    Saves the relief raster to the indicated file. Returns the Path to the saved
+    raster, rather than a numpy 2D array.
+
+    relief(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
     the console. If verbose=False, suppresses the messages. If unspecified, uses
     the default verbosity setting for the module (initially set as False).
     ----------
     Inputs:
-        flow_directions_path: The path to the input D8 flow directions
-        isburned_path: The path to the input raster indicating which DEM pixels
-            are burned. Burned pixels should have a value of 1. Unburned pixels
-            should be 0.
-        burned_area_path: The path to the output burned upslope area raster
+        pitfilled: A pitfilled DEM raster
+        flow_directions: A D-infinity flow direction raster. Must have the same
+            shape as the pitfilled DEM.
+        slopes: A D-infinity flow slopes raster. Must have the same shape as the
+            pitfilled DEM.
+        file: The path to the file in which to save the vertical relief raster.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
 
     Outputs:
-        pathlib.Path: The absolute Path to the burned upslope area raster.
+        numpy 2D array: The vertical relief raster.
+        pathlib.Path: The Path to a saved vertical relief raster.
 
     Saves:
-        A file matching the "burned_area" path.
+        Optionally saves the vertical relief to a path matching the "file" input.
     """
-    return upslope_area(
-        flow_directions_path,
-        burned_area_path,
-        weights_path=isburned_path,
-        verbose=verbose,
+
+    names = ["pitfilled", "flow_directions", "slopes", "relief"]
+    verbose, [pitfilled, flow, slopes, relief], save = _validate(
+        verbose, [pitfilled, flow_directions, slopes, file], names
     )
+    with TemporaryDirectory() as temp:
+        pitfilled, flow, slopes, relief = _paths(
+            temp, [pitfilled, flow, slopes, relief], [None, None, None, save], names
+        )
+        relief_dinf(pitfilled, flow, slopes, relief, verbose)
+        return _output(relief, save)
+
+
+#############################################################
+
+
 
 
 def _input_path(input: Pathlike) -> Path:
@@ -1036,33 +1035,6 @@ def _output_path(output: Pathlike) -> Path:
         output = output.with_name(name)
     return output
 
-
-def _run_taudem(command: strs, verbose: bool) -> None:
-    """
-    _run_taudem  Runs a TauDEM command as a subprocess
-    ----------
-    _run_taudem(command, verbose)
-    Runs a TauDEM command as a subprocess. If verbose=True, prints TauDEM
-    messages to the console. If verbose=False, suppresses these messages. Raises
-    a CalledProcessError if the TauDEM process does not complete successfully
-    (i.e. the process returns an exit code not equal to 0).
-    ----------
-    Inputs:
-        command: The arguments used to run a TauDEM command
-        verbose: True if TauDEM messages should be printed to the
-            console. False if these messages should be suppressed.
-
-    Raises:
-        CalledProcessError: If the TauDEM process returns an exit code not equal
-            to 0.
-
-    Saves:
-        The various output files associated with the TauDEM command.
-
-    Outputs: None
-    """
-
-    return subprocess.run(command, capture_output=not verbose, check=True)
 
 
 def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
