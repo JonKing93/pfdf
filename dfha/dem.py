@@ -77,23 +77,23 @@ from typing import Union, Optional, List, Literal, Tuple, Dict, Any, Sequence
 from dfha.typing import Raster, ValidatedRaster, RasterArray, strs, Pathlike, PathDict
 
 # Type aliases
+Option = Union[None, bool]
 Output = Union[RasterArray, Path]
 FlowSlopes = Tuple[Output, Output]
 FlowOutput = Union[Output, FlowSlopes]
 OutputOption = Literal["default", "saved", "all"]
 OutputType = Union[None, bool]
+InputPath = Union[Pathlike, None]
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
+overwrite_by_default: bool = False  # Whether to overwrite files
 
 # Types of files in a DEM analysis
 _inputs = ["dem", "isburned"]
 _intermediate = ["pitfilled", "flow_directions_dinf", "slopes_dinf"]
 _final = ["flow_directions", "total_area", "burned_area", "relief"]
 _basins = ["isbasin", "upslope_basins"]
-
-# Type aliases
-InputPath = Union[Pathlike, None]
 
 
 #####
@@ -475,59 +475,89 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     return subprocess.run(command, capture_output=not verbose, check=True)
 
 
-def _verbosity(verbose: Union[bool, None]) -> bool:
+def _options(verbose: Option, overwrite: Option) -> Tuple[bool, bool]:
     """
-    _verbosity  Parses the verbosity setting for a function
+    _options  Parses the verbosity and overwrite setting for a routine
     ----------
-    _verbosity(verbose)
-    Parses the "verbose" option for a function. The option is not altered if it
-    is a bool. If the option is None (i.e. not set by the user), sets the option
-    to the default value for the module. Returns a bool indicating the verbosity
-    setting to use for the function.
+    _options(verbose, overwrite)
+    Parses the verbosity and file overwrite settings for a routine. The option is
+    not altered if it is a bool. If the option is None (i.e. not set by the user),
+    sets the option to the default value for the module. The default verbosity is
+    set by the verbose_by_default variable. Default overwrite setting is set by
+    overwrite_by_default. Returns the final verbosity and overwrite settings.
     ----------
     Inputs:
-        verbose (bool | None): The initial state of the verbose option
+        verbose: The initial state of the verbosity option
+        overwrite: The initial state of the overwrite option
 
     Outputs:
-        bool: The verbosity setting for the function.
+        (bool, bool): The first element is the verbosity setting, and the second
+            is the overwrite setting.
     """
-
     if verbose is None:
         verbose = verbose_by_default
-    return verbose
+    if overwrite is None:
+        overwrite = overwrite_by_default
+    return verbose, overwrite
 
 
-def _validate(
-    verbose: Any, rasters: List[Any], names: Sequence[str]
-) -> Tuple[bool, List[ValidatedRaster], bool]:
+def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[ValidatedRaster]:
+    # Validate each raster. First raster may be any shape
+    shape = None
+    nrasters = len(rasters)
+    for r, raster, name in zip(range(0, nrasters), rasters, names):
+        rasters[r] = validate.raster(raster, name, shape=shape, load=False)
+
+        # Get the shape from the first raster
+        if r == 0 and nrasters > 1:
+            if isinstance(raster, Path):
+                with rasterio.open(raster) as data:
+                    shape = (data.height, data.width)
+            else:
+                shape = raster.shape
+    return rasters
+
+
+def _validate_output(path: Any) -> Tuple[Union[None, Path], bool]:
     """
-    _validate  Validates verbosity and rasters for a routine
+    _validate_output  Validate and parse options for an output raster
     ----------
-    _validate(verbose, rasters, names)
-    Validates and gets the verbosity setting. Validates rasters for a routine.
-    The "rasters" input should be a list - the final element should be the output
-    raster path (which may be None). All other elements should be input rasters.
-    Returns the final verbosity setting, a list of validated rasters, and a bool
-    indicating whether the output raster should be saved to file.
+    _validate_output(path)
+    Validates the Path for an output raster. A valid path may either be None (for
+    returning the raster directly as an array), or convertible to a Path object.
+    Returns the Path to the output file (which may be None), and a bool indicating
+    whether the output raster should be saved to file.
+
+    When a file path is provided, ensures the output file ends with a ".tif"
+    extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
+    to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
     ----------
     Inputs:
-        verbose: The user-provided verbosity
-        rasters: A list of user-provided rasters for the routine. The final element
-            should be the output raster path. All other elements should be input
-            rasters.
-        names: A name for each raster for use in error messages.
+        path: The user-provided Path to an output raster.
 
     Outputs:
-        3-tuple (bool, List[rasters], bool): First element is the verbosity
-            setting. Second element is the list of validated rasters. Final element
-            is whether the output raster should be saved to file.
+        (None|pathlib.Path, bool): A 2-tuple. First element is the Path for the
+            output raster (which may be None). Second element indicates whether
+            the output raster should be saved to file.
     """
-    verbose = _verbosity(verbose)
-    input_indices = range(0, len(rasters) - 1)
-    for r, raster, name in zip(input_indices, rasters, names):
-        rasters[r] = validate.raster(raster, name, load=False)
-    rasters[-1], save = _validate_output(rasters[-1])
-    return verbose, rasters, save
+
+    # Note whether saving to file
+    if path is None:
+        save = False
+    else:
+        save = True
+
+        # If saving, get an absolute Path
+        path = Path(path).resolve()
+
+        # Ensure a .tif extension
+        extension = path.suffix
+        if extension.lower() in [".tiff", ".tif"]:
+            path = path.with_suffix(".tif")
+        else:
+            name = path.name + ".tif"
+            path = path.with_name(name)
+    return path, save
 
 
 def _paths(
@@ -585,48 +615,6 @@ def _output(raster: Path, save: bool) -> Output:
     return raster
 
 
-def _validate_output(path: Any) -> Tuple[Union[None, Path], bool]:
-    """
-    _validate_output  Validate and parse options for an output raster
-    ----------
-    _validate_output(path)
-    Validates the Path for an output raster. A valid path may either be None (for
-    returning the raster directly as an array), or convertible to a Path object.
-    Returns the Path to the output file (which may be None), and a bool indicating
-    whether the output raster should be saved to file.
-
-    When a file path is provided, ensures the output file ends with a ".tif"
-    extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
-    to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
-    ----------
-    Inputs:
-        path: The user-provided Path to an output raster.
-
-    Outputs:
-        (None|pathlib.Path, bool): A 2-tuple. First element is the Path for the
-            output raster (which may be None). Second element indicates whether
-            the output raster should be saved to file.
-    """
-
-    # Note whether saving to file
-    if path is None:
-        save = False
-    else:
-        save = True
-
-        # If saving, get an absolute Path
-        path = Path(path).resolve()
-
-        # Ensure a .tif extension
-        extension = path.suffix
-        if extension.lower() in [".tiff", ".tif"]:
-            path = path.with_suffix(".tif")
-        else:
-            name = path.name + ".tif"
-            path = path.with_name(name)
-    return path, save
-
-
 #####
 # Working
 #####
@@ -666,8 +654,13 @@ def pitfill(
         Optionally saves the pitfilled DEM to a path matching the "file" input
     """
 
-    names = ["dem","pitfilled"]
-    verbose, [dem, pitfilled], save = _validate(verbose, [dem, file], names)
+    # Validate
+    verbose, overwrite = _options(verbose, overwrite)
+    names = ["dem", "pitfilled"]
+    [dem] = _validate_inputs([dem], names[0:1])
+    pitfilled, save = _validate_output(file)
+
+    # Run using temporary files as necessary
     with TemporaryDirectory() as temp:
         dem, pitfilled = _paths(temp, [dem, pitfilled], [None, save], names)
         pitremove(dem, pitfilled, verbose)
@@ -735,11 +728,11 @@ def flow_directions(
         Optionally saves flow slopes to a path matching the "slopes_file" input.
     """
 
-    # Validate essential inputs. Optionally validate slopes
+    # Validate inputs
+    verbose, overwrite = _options(verbose, overwrite)
     names = ["pitfilled", "flow_directions", "slopes"]
-    verbose, [pitfilled, flow], save = _validate(
-        verbose, [pitfilled, file], names[0:-1]
-    )
+    [pitfilled, flow] = _validate_inputs([pitfilled, flow_directions], names[0:2])
+    flow, save = _validate_output(file)
     if return_slopes:
         slopes, save_slopes = _validate_output(slopes_file)
     else:
@@ -810,8 +803,13 @@ def upslope_area(
         Optionally saves upslope area to a path matching the "file" input.
     """
 
-    names = ["flow_directions", "upslope area"]
-    verbose, [flow, area], save = _validate(temp, [flow_directions, area], names)
+    # Validate
+    verbose, overwrite = _options(verbose, overwrite)
+    names = ["flow_directions", "upslope_area"]
+    [flow] = _validate_inputs([flow_directions], names[0:1])
+    area, save = _validate_output(file)
+
+    # Run using temp files as needed
     with TemporaryDirectory() as temp:
         flow, area = _paths(temp, [flow, area], [None, save], names)
         area_d8(flow, None, area, verbose)
@@ -859,10 +857,13 @@ def upslope_sum(
         Optionally saves the upslope sum raster to a path matching the "file" input.
     """
 
-    names = ["flow_directions", "weights", "upslope sum"]
-    verbose, [flow, weights, sum], save = _validate(
-        temp, [flow_directions, weights, file], names
-    )
+    # Validate
+    verbose, overwrite = _options(verbose, overwrite)
+    names = ["flow_directions", "weights", "upslope_sum"]
+    [flow, weights] = _validate_inputs([flow_directions, weights], names[0:2])
+    sum, save = _validate_output(file)
+
+    # Run using temp files as needed
     with TemporaryDirectory() as temp:
         flow, weights, sum = _paths(
             temp, [flow, weights, sum], [None, None, save], names
@@ -914,10 +915,15 @@ def relief(
         Optionally saves the vertical relief to a path matching the "file" input.
     """
 
+    # Validate
+    verbose, overwrite = _options(verbose, overwrite)
     names = ["pitfilled", "flow_directions", "slopes", "relief"]
-    verbose, [pitfilled, flow, slopes, relief], save = _validate(
-        verbose, [pitfilled, flow_directions, slopes, file], names
+    [pitfilled, flow, slopes] = _validate_inputs(
+        [pitfilled, flow_directions, slopes], names[0:3]
     )
+    relief, save = _validate_output(file)
+
+    # Run using temp files as needed
     with TemporaryDirectory() as temp:
         pitfilled, flow, slopes, relief = _paths(
             temp, [pitfilled, flow, slopes, relief], [None, None, None, save], names
@@ -1032,5 +1038,3 @@ def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
 
     # Return path dict, list of temporary files, and debris-basin switch
     return (paths, temporary, hasbasins)
-
-
