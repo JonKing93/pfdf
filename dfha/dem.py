@@ -405,6 +405,7 @@ def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
 # Utilities
 #####
 
+
 def _verbosity(verbose: Union[bool, None]) -> bool:
     """
     _verbosity  Parses the verbosity setting for a function
@@ -426,7 +427,10 @@ def _verbosity(verbose: Union[bool, None]) -> bool:
         verbose = verbose_by_default
     return verbose
 
-def _validate(verbose: Any, rasters: List[Any], names: Sequence[str]) -> Tuple[bool, List[ValidatedRaster], bool]:
+
+def _validate(
+    verbose: Any, rasters: List[Any], names: Sequence[str]
+) -> Tuple[bool, List[ValidatedRaster], bool]:
     """
     _validate  Validates verbosity and rasters for a routine
     ----------
@@ -447,20 +451,22 @@ def _validate(verbose: Any, rasters: List[Any], names: Sequence[str]) -> Tuple[b
     Outputs:
         3-tuple (bool, List[rasters], bool): First element is the verbosity
             setting. Second element is the list of validated rasters. Final element
-            is whether the output raster should be saved to file.    
+            is whether the output raster should be saved to file.
     """
     verbose = _verbosity(verbose)
-    input_indices = range(0, len(rasters)-1)
+    input_indices = range(0, len(rasters) - 1)
     for r, raster, name in zip(input_indices, rasters, names):
         rasters[r] = validate.raster(raster, name, load=False)
-    if rasters[-1] is None:
-        save = False
-    else:
-        save = True
-        rasters[-1] = _output_path(raster)
+    rasters[-1], save = _validate_output(rasters[-1])
     return verbose, rasters, save
 
-def _paths(temp: TemporaryDirectory, rasters: List[ValidatedRaster], save: Sequence[OutputType], names: Sequence[str]) -> List[Path]:
+
+def _paths(
+    temp: TemporaryDirectory,
+    rasters: List[ValidatedRaster],
+    save: Sequence[OutputType],
+    names: Sequence[str],
+) -> List[Path]:
     """
     _paths  Returns file paths for the rasters needed for a routine
     ----------
@@ -481,12 +487,13 @@ def _paths(temp: TemporaryDirectory, rasters: List[ValidatedRaster], save: Seque
     temp = Path(temp)
     indices = range(0, len(rasters))
     for r, raster, name, save in zip(indices, rasters, names, save):
-        tempfile = temp / (name+".tif")
+        tempfile = temp / (name + ".tif")
         if save is None and not isinstance(raster, Path):
             rasters[r] = write_raster(raster, tempfile)
         elif save == False:
             rasters[r] = tempfile
     return rasters
+
 
 def _output(raster: Path, save: bool) -> Output:
     """
@@ -509,16 +516,55 @@ def _output(raster: Path, save: bool) -> Output:
     return raster
 
 
+def _validate_output(path: Any) -> Tuple[Union[None, Path], bool]:
+    """
+    _validate_output  Validate and parse options for an output raster
+    ----------
+    _validate_output(path)
+    Validates the Path for an output raster. A valid path may either be None (for
+    returning the raster directly as an array), or convertible to a Path object.
+    Returns the Path to the output file (which may be None), and a bool indicating
+    whether the output raster should be saved to file.
+
+    When a file path is provided, ensures the output file ends with a ".tif"
+    extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
+    to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
+    ----------
+    Inputs:
+        path: The user-provided Path to an output raster.
+
+    Outputs:
+        (None|pathlib.Path, bool): A 2-tuple. First element is the Path for the
+            output raster (which may be None). Second element indicates whether
+            the output raster should be saved to file.
+    """
+
+    # Note whether saving to file
+    if path is None:
+        save = False
+    else:
+        save = True
+
+        # If saving, get an absolute Path
+        path = Path(path).resolve()
+
+        # Ensure a .tif extension
+        extension = path.suffix
+        if extension.lower() in [".tiff", ".tif"]:
+            path = path.with_suffix(".tif")
+        else:
+            name = path.name + ".tif"
+            path = path.with_name(name)
+    return path
+
 
 #####
 # Working
 #####
 
+
 def pitfill(
-    dem: Raster, 
-    *, 
-    file: Optional[Pathlike] = None, 
-    verbose: Optional[bool] = None
+    dem: Raster, *, file: Optional[Pathlike] = None, verbose: Optional[bool] = None
 ) -> Output:
     """
     pitfill  Fills pits (depressions) in a DEM
@@ -542,7 +588,7 @@ def pitfill(
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
-    
+
     Outputs:
         numpy 2D array: The pitfilled DEM
         pathlib.Path: The path to a saved pitfilled DEM
@@ -551,44 +597,46 @@ def pitfill(
         Optionally saves the pitfilled DEM to a path matching the "file" input
     """
 
-    verbose, [dem, pitfilled], save = _validate(verbose, [dem, file], ["dem","pitfilled"])
+    verbose, [dem, pitfilled], save = _validate(
+        verbose, [dem, file], ["dem", "pitfilled"]
+    )
     with TemporaryDirectory() as temp:
-        dem, pitfilled = _paths(temp, [dem,pitfilled], [None,save], ["dem","pitfilled"])
+        dem, pitfilled = _paths(
+            temp, [dem, pitfilled], [None, save], ["dem", "pitfilled"]
+        )
         pitremove(dem, pitfilled, verbose)
         return _output(pitfilled, save)
 
 
-
-
-
-
-
-
-
-
-
-
 def flow_directions(
     type: Literal["D8", "DInf"],
-    pitfilled_path: Pathlike,
-    flow_directions_path: Pathlike,
+    pitfilled: Raster,
     *,
-    slopes_path: Optional[Pathlike] = None,
+    file: Optional[Pathlike] = None,
+    return_slopes: Optional[bool] = False,
+    slopes_file: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
-) -> Union[Path, Tuple[Path, Path]]:
+) -> FlowOutput:
     """
     flow_directions  Computes D8 or D-Infinity flow directions and slopes
     ----------
-    flow_directions(type, pitfilled_path, flow_directions_path)
-    Computes flow-directions from a pitfilled DEM. Uses a D8 or D-Infinity flow
-    model, as indicated by the user. Saves the output flow directions to the
-    indicated path and returns a Path object for the flow directions. (Note that
-    this syntax deletes any output flow slopes produced by TauDEM).
+    flow_directions(type, pitfilled)
+    Computes D8 or D-Infinity flow directions from a pitfilled DEM. Returns the
+    flow directions as a numpy 2D array. D8 flow directions are numbered from
+    1 to 8 proceeding clockwise from right.
 
-    flow_directions(..., *, slopes_path)
-    Also saves flow slopes to the indicated path. Returns a 2-tuple whose first
-    element is the absolute Path for the flow directions, and whose second element
-    is the absolute Path for the flow slopes.
+    flow_directions(..., *, file)
+    Saves the flow directions to file. Returns the absolute Path to the raster
+    file (rather than a numpy array).
+
+    flow_directions(..., *, return_slopes)
+    Also returns flow slopes. The output will be a 2-tuple - the first element is
+    the flow-directions and the second element is the flow-slopes. The flow-slopes
+    will be returned as a numpy 2D array.
+
+    flow_directions(..., *, return_slopes=True, slopes_file)
+    Saves flow slopes to file. Returns the absolute Path to the slopes file, rather
+    than a numpy array. If return_slopes=False, then the slopes file is ignored.
 
     flow_directions(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -596,86 +644,69 @@ def flow_directions(
     the default verbosity setting for the module (initially set as False).
     ----------
     Inputs:
-        type: The type of flow model to use. Set as "D8" for a
-            D8 flow model. Set to "DInf" for a D-infinity flow model.
-        pitfilled_path: The path to the input pitfilled DEM
-        flow_directions_path: The path for the output flow directions
-        slopes_path: The optional path for output flow slopes. If not specified,
-            output flow slopes will be deleted.
+        type: Use "D8" for a D8 flow model. Use "DInf" for a D-Infinity flow model.
+        pitfilled: The pitfilled DEM from which flow directions will be computed
+        file: A path at which to save computed flow directions
+        return_slopes: True to also return flow slopes. False (default) to only
+            return flow-directions.
+        slopes_file: A path at which to save computed flow slopes. Ignored if
+            return_slopes is False.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
 
     Outputs:
-        pathlib.Path: If no flow slope path is provided, returns the path to the
-            output flow directions
+        numpy 2D array | pathlib.Path: The flow directions or Path to the flow
+            directions if not returning flow slopes.
 
-        tuple(pathlib.Path, pathlib.Path): If a flow slope path is provided,
-            returns a tuple whose first element is the path to the flow directions,
-            and whose second element is the path to the flow slopes.
+        (flow_directions, flow_slopes): If also returning flow slopes, a 2-tuple
+            whose first element is the flow directions and second element is the
+            flow slopes. Each raster may either be a numpy 2D array, or a Path,
+            depending on whether an output file was specified.
 
-    Saves.
-        A file matching the "flow_directions" path. Optionally also saves a file
-        matchinge the "slopes" path.
+    Saves:
+        Optionally saves flow-directions to a path matching the "file" input.
+        Optionally saves flow slopes to a path matching the "slopes_file" input.
     """
 
-    # Parse options and paths
-    verbose = _verbosity(verbose)
-    pitfilled_path = _input_path(pitfilled_path)
-    flow_directions_path = _output_path(flow_directions_path)
-
-    # Optional slopes path. Only save slopes if provided by user. Otherwise, use
-    # a temporary file
-    if slopes_path is None:
-        slopes_path = _temporary("slopes", flow_directions_path.parent)
-        delete_slopes = True
+    # Validate essential inputs. Optionally validate slopes
+    verbose, [pitfilled, flow], save = _validate(
+        verbose, [pitfilled, file], ["pitfilled", "flow"]
+    )
+    if return_slopes:
+        slopes, save_slopes = _validate_output(slopes_file)
     else:
-        slopes_path = _output_path(slopes_path)
-        delete_slopes = False
+        save_slopes = False
 
-    # Get function for indicated flow type
-    if type == "D8":
-        flow = flow_d8
-    elif type == "DInf":
-        flow = flow_dinf
+    # Get file paths, use temporary paths as necessary
+    with TemporaryDirectory() as temp:
+        pitfilled, flow, slopes = _paths(
+            temp,
+            [pitfilled, flow, slopes],
+            [None, save, save_slopes],
+            names=["pitfilled", "flow_d8", "slopes_d8"],
+        )
 
-    # Run. Delete slopes if using a temp file
-    try:
-        flow(pitfilled_path, flow_directions_path, slopes_path, verbose)
-    finally:
-        if delete_slopes:
-            slopes_path.unlink(missing_ok=True)
+        # Run the appropriate flow model
+        if type == "D8":
+            flow_model = flow_d8
+        elif type == "DInf":
+            flow_model = flow_dinf
+        flow_model(pitfilled, flow, slopes, verbose)
 
-    # Return flow-directions and optionally slopes
-    if delete_slopes:
-        return flow_directions_path
-    else:
-        return (flow_directions_path, slopes_path)
-    
-
-
-
-
-
-    
-
-
-
-
-
-
+        # ALways return flow. Optionally return slopes
+        flow = _output(flow, save)
+        if return_slopes:
+            slopes = _output(slopes, save_slopes)
+            return flow, slopes
+        else:
+            return flow
 
 
 
 
 
 #############################################################
-
-
-
-
-
-
 
 
 def relief(
@@ -1108,6 +1139,3 @@ def _temporary(prefix: str, folder: Path) -> Path:
     tail = "".join(tail)
     name = f"{prefix}_{tail}.tif"
     return folder / name
-
-
-
