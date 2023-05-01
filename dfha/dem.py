@@ -68,7 +68,7 @@ Utilities:
     _output_dict        - Builds the output Path dict for a DEM analysis
 """
 
-import subprocess, random, string
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from dfha import validate
@@ -85,7 +85,6 @@ OutputType = Union[None, bool]
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
-_tmp_string_length = 10  # The length of the random string for temporary files
 
 # Types of files in a DEM analysis
 _inputs = ["dem", "isburned"]
@@ -625,7 +624,7 @@ def _validate_output(path: Any) -> Tuple[Union[None, Path], bool]:
         else:
             name = path.name + ".tif"
             path = path.with_name(name)
-    return path
+    return path, save
 
 
 #####
@@ -667,13 +666,10 @@ def pitfill(
         Optionally saves the pitfilled DEM to a path matching the "file" input
     """
 
-    verbose, [dem, pitfilled], save = _validate(
-        verbose, [dem, file], ["dem", "pitfilled"]
-    )
+    names = ["dem","pitfilled"]
+    verbose, [dem, pitfilled], save = _validate(verbose, [dem, file], names)
     with TemporaryDirectory() as temp:
-        dem, pitfilled = _paths(
-            temp, [dem, pitfilled], [None, save], ["dem", "pitfilled"]
-        )
+        dem, pitfilled = _paths(temp, [dem, pitfilled], [None, save], names)
         pitremove(dem, pitfilled, verbose)
         return _output(pitfilled, save)
 
@@ -740,8 +736,9 @@ def flow_directions(
     """
 
     # Validate essential inputs. Optionally validate slopes
+    names = ["pitfilled", "flow_directions", "slopes"]
     verbose, [pitfilled, flow], save = _validate(
-        verbose, [pitfilled, file], ["pitfilled", "flow"]
+        verbose, [pitfilled, file], names[0:-1]
     )
     if return_slopes:
         slopes, save_slopes = _validate_output(slopes_file)
@@ -754,7 +751,7 @@ def flow_directions(
             temp,
             [pitfilled, flow, slopes],
             [None, save, save_slopes],
-            names=["pitfilled", "flow_d8", "slopes_d8"],
+            names,
         )
 
         # Run the appropriate flow model
@@ -813,11 +810,10 @@ def upslope_area(
         Optionally saves upslope area to a path matching the "file" input.
     """
 
-    verbose, [flow, area], save = _validate(
-        temp, [flow_directions, area], ["flow_directions", "area"]
-    )
+    names = ["flow_directions", "upslope area"]
+    verbose, [flow, area], save = _validate(temp, [flow_directions, area], names)
     with TemporaryDirectory() as temp:
-        flow, area = _paths(temp, [flow, area], [None, save], ["flow", "area"])
+        flow, area = _paths(temp, [flow, area], [None, save], names)
         area_d8(flow, None, area, verbose)
         return _output(area, save)
 
@@ -863,13 +859,16 @@ def upslope_sum(
         Optionally saves the upslope sum raster to a path matching the "file" input.
     """
 
-    verbose, [flow, area], save = _validate(
-        temp, [flow_directions, area], ["flow_directions", "area"]
+    names = ["flow_directions", "weights", "upslope sum"]
+    verbose, [flow, weights, sum], save = _validate(
+        temp, [flow_directions, weights, file], names
     )
     with TemporaryDirectory() as temp:
-        flow, area = _paths(temp, [flow, area], [None, save], ["flow", "area"])
-        area_d8(flow, None, area, verbose)
-        return _output(area, save)
+        flow, weights, sum = _paths(
+            temp, [flow, weights, sum], [None, None, save], names
+        )
+        area_d8(flow, weights, sum, verbose)
+        return _output(sum, save)
 
 
 def relief(
@@ -930,29 +929,6 @@ def relief(
 #############################################################
 
 
-
-
-def _input_path(input: Pathlike) -> Path:
-    """
-    _input_path  Returns the absolute Path to a TauDEM input file
-    ----------
-    _input_path(input)
-    Returns the absolute Paths to the indicated file. Raises a FileNotFoundError
-    if the file does not exist.
-    ----------
-    Inputs:
-        input: The user-provided path to a TauDEM input file.
-
-    Outputs:
-        pathlib.Path: The absolute Path to the input file
-
-    Raises:
-        FileNotFoundError: If the file does not exist
-    """
-
-    return Path(input).resolve(strict=True)
-
-
 def _output_dict(
     paths: PathDict, option: OutputOption, temporary: List[str], hasbasins: bool
 ) -> PathDict:
@@ -1003,38 +979,6 @@ def _output_dict(
         for file in temporary:
             output[file] = None
     return output
-
-
-def _output_path(output: Pathlike) -> Path:
-    """
-    _output_path  Returns the path for an output file
-    ----------
-    _output_path(output)
-    Returns an absolute Path for an output file produced by a TauDEM command.
-    Ensures that the path ends with a ".tif" extension. If the input
-    path ends with a case-insensitive .tif or .tiff, converts the extension to
-    lowercase ".tif". Otherwise, appends ".tif" to the end of the path.
-    ----------
-    Inputs:
-        output: A user-provided path for an output file
-
-    Outputs:
-        pathlib.Path: The absolute Path for the output file. Will always end
-            with a .tif extension.
-    """
-
-    # Get an absolute path object
-    output = Path(output).resolve()
-
-    # Ensure a .tif extension
-    extension = output.suffix
-    if extension.lower() in [".tiff", ".tif"]:
-        output = output.with_suffix(".tif")
-    else:
-        name = output.name + ".tif"
-        output = output.with_name(name)
-    return output
-
 
 
 def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
@@ -1090,24 +1034,3 @@ def _setup(paths: Dict[str, Pathlike]) -> Tuple[PathDict, List[str], bool]:
     return (paths, temporary, hasbasins)
 
 
-def _temporary(prefix: str, folder: Path) -> Path:
-    """
-    _temporary  Returns a path for a temporary file
-    ----------
-    _temporary(prefix, folder)
-    Returns an absolute Path for a temporary file. The file name will follow the
-    format <prefix>_<random ASCII letters>.tif. Places the file in the indicated
-    folder.
-    ----------
-    Inputs:
-        prefix: A prefix for the file name
-        folder: The folder that should contain the temporary file
-
-    Outputs:
-        pathlib.Path: The absolute Path for the temporary file.
-    """
-
-    tail = random.choices(string.ascii_letters, k=_tmp_string_length)
-    tail = "".join(tail)
-    name = f"{prefix}_{tail}.tif"
-    return folder / name
