@@ -72,14 +72,16 @@ import subprocess, random, string
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from dfha import validate
-from dfha.utils import write_raster
-from typing import Union, Optional, List, Literal, Tuple, Dict
-from dfha.typing import Raster, RasterArray, Pathlike
+from dfha.utils import write_raster, load_raster
+from typing import Union, Optional, List, Literal, Tuple, Dict, Any, Sequence
+from dfha.typing import Raster, ValidatedRaster, RasterArray, strs, Pathlike, PathDict
 
 # Type aliases
 Output = Union[RasterArray, Path]
 FlowSlopes = Tuple[Output, Output]
 FlowOutput = Union[Output, FlowSlopes]
+OutputOption = Literal["default", "saved", "all"]
+OutputType = Union[None, bool]
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
@@ -92,11 +94,7 @@ _final = ["flow_directions", "total_area", "burned_area", "relief"]
 _basins = ["isbasin", "upslope_basins"]
 
 # Type aliases
-Pathlike = Union[Path, str]
-strs = Union[str, List[str]]
 InputPath = Union[Pathlike, None]
-OutputOption = Literal["default", "saved", "all"]
-PathDict = Dict[str, Path]
 
 
 #####
@@ -428,6 +426,87 @@ def _verbosity(verbose: Union[bool, None]) -> bool:
         verbose = verbose_by_default
     return verbose
 
+def _validate(verbose: Any, rasters: List[Any], names: Sequence[str]) -> Tuple[bool, List[ValidatedRaster], bool]:
+    """
+    _validate  Validates verbosity and rasters for a routine
+    ----------
+    _validate(verbose, rasters, names)
+    Validates and gets the verbosity setting. Validates rasters for a routine.
+    The "rasters" input should be a list - the final element should be the output
+    raster path (which may be None). All other elements should be input rasters.
+    Returns the final verbosity setting, a list of validated rasters, and a bool
+    indicating whether the output raster should be saved to file.
+    ----------
+    Inputs:
+        verbose: The user-provided verbosity
+        rasters: A list of user-provided rasters for the routine. The final element
+            should be the output raster path. All other elements should be input
+            rasters.
+        names: A name for each raster for use in error messages.
+
+    Outputs:
+        3-tuple (bool, List[rasters], bool): First element is the verbosity
+            setting. Second element is the list of validated rasters. Final element
+            is whether the output raster should be saved to file.    
+    """
+    verbose = _verbosity(verbose)
+    input_indices = range(0, len(rasters)-1)
+    for r, raster, name in zip(input_indices, rasters, names):
+        rasters[r] = validate.raster(raster, name, load=False)
+    if rasters[-1] is None:
+        save = False
+    else:
+        save = True
+        rasters[-1] = _output_path(raster)
+    return verbose, rasters, save
+
+def _paths(temp: TemporaryDirectory, rasters: List[ValidatedRaster], save: Sequence[OutputType], names: Sequence[str]) -> List[Path]:
+    """
+    _paths  Returns file paths for the rasters needed for a routine
+    ----------
+    _paths(temp, rasters, output_type, names)
+    Returns an file path for each provided raster. If the raster has no associated
+    file, returns the path to a temporary file.
+    ----------
+    Inputs:
+        temp: A tempfile.TemporaryDirectory to hold temporary raster files.
+        rasters: A list of validated rasters
+        save: Whether each raster should be saved. Use a bool for output rasters,
+            and None for input rasters.
+        names: A name for each raster. Used to create temporary file names.
+
+    Output:
+        List[Path]: The absolute path to the file for each raster.
+    """
+    temp = Path(temp)
+    indices = range(0, len(rasters))
+    for r, raster, name, save in zip(indices, rasters, names, save):
+        tempfile = temp / (name+".tif")
+        if save is None and not isinstance(raster, Path):
+            rasters[r] = write_raster(raster, tempfile)
+        elif save == False:
+            rasters[r] = tempfile
+    return rasters
+
+def _output(raster: Path, save: bool) -> Output:
+    """
+    _output  Returns the final output form of a TauDEM output raster.
+    ----------
+    _output(raster, save)
+    If saving the raster to file, returns the absolute Path to the file. If not
+    saving, returns the rasters as a numpy 2D array.
+    ----------
+    Inputs:
+        raster: The absolute Path to a TauDEM output raster
+        save: True if returning a Path. False if returning a numpy 2D array.
+
+    Outputs:
+        pathlib.Path: The Path to the raster
+        numpy 2D array: The raster data as a numpy array
+    """
+    if not save:
+        raster = load_raster(raster)
+    return raster
 
 
 
@@ -472,11 +551,11 @@ def pitfill(
         Optionally saves the pitfilled DEM to a path matching the "file" input
     """
 
-    verbose, [dem, pitfilled], asarray = _validate(verbose, [dem, file], ["dem","pitfilled"])
+    verbose, [dem, pitfilled], save = _validate(verbose, [dem, file], ["dem","pitfilled"])
     with TemporaryDirectory() as temp:
-        dem, pitfilled = _paths(temp, [dem,pitfilled], [None,asarray], ["dem","pitfilled"])
+        dem, pitfilled = _paths(temp, [dem,pitfilled], [None,save], ["dem","pitfilled"])
         pitremove(dem, pitfilled, verbose)
-        return _output(pitfilled, asarray)
+        return _output(pitfilled, save)
 
 
 
@@ -580,27 +659,9 @@ def flow_directions(
 
     
 
-def _validate(verbose, rasters, isinput, names):
-    verbose = _verbosity(verbose)
-    for r, (raster, name, isinput) in enumerate(zip(rasters,names,isinput)):
-        if isinput:
-            rasters[r] = validate.raster(raster, name, load=False)
-        elif raster is None:
-            asarray = True
-        else:
-            asarray = False
-            rasters[r] = _output_path(raster)
-    return verbose, *rasters, asarray
 
-def _paths(temp, rasters, output_type, names):
-    temp = Path(temp)
-    for r, raster, name, isinput in enumerate(zip(rasters, names, isinput)):
-        temp_file = temp / (name+".tif")
-        if output_type is None and not isinstance(raster, Path):
-            rasters[r] = utils.write_raster(raster, temp_file)
-        elif output_type == True:
-            rasters[r] = temp_file
-    return rasters
+
+
 
 
 

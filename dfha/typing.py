@@ -53,4 +53,5 @@ matrix = Union[ints, floats, MatrixArray]
 
 # Rasters
 RasterArray = MatrixArray  # alias for clarity
+ValidatedRaster = Union[Path, RasterArray]
 Raster = Union[str, Path, DatasetReader, RasterArray]
