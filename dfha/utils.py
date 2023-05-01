@@ -90,3 +90,17 @@ def load_raster(
         with rasterio.open(raster) as raster:
             raster = raster.read(band)
     return raster
+
+
+def write_raster(raster: RasterArray, path: Path) -> Path:
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=raster.shape[0],
+        width=raster.shape[1],
+        count=1,
+        dtype=raster.dtype,
+        crs="+proj=latlong",
+    ) as file:
+        file.write(raster, 1)
