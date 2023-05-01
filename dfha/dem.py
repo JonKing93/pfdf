@@ -518,7 +518,7 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[Validated
     return rasters
 
 
-def _validate_output(path: Any) -> Tuple[Union[None, Path], bool]:
+def _validate_output(path: Any, overwrite: bool) -> Tuple[Union[None, Path], bool]:
     """
     _validate_output  Validate and parse options for an output raster
     ----------
@@ -531,6 +531,8 @@ def _validate_output(path: Any) -> Tuple[Union[None, Path], bool]:
     When a file path is provided, ensures the output file ends with a ".tif"
     extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
     to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
+
+    If the file already exists and overwrite is set to False, raises a FileExistsError.
     ----------
     Inputs:
         path: The user-provided Path to an output raster.
@@ -549,6 +551,13 @@ def _validate_output(path: Any) -> Tuple[Union[None, Path], bool]:
 
         # If saving, get an absolute Path
         path = Path(path).resolve()
+
+        # Optionally prevent overwriting
+        if not overwrite and path.is_file():
+            raise FileExistsError(
+                "Output file already exists:\n\t{path}\n"
+                'If you want to replace existing files, use the "overwrite" option.'
+            )
 
         # Ensure a .tif extension
         extension = path.suffix
@@ -658,7 +667,7 @@ def pitfill(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["dem", "pitfilled"]
     [dem] = _validate_inputs([dem], names[0:1])
-    pitfilled, save = _validate_output(file)
+    pitfilled, save = _validate_output(file, overwrite)
 
     # Run using temporary files as necessary
     with TemporaryDirectory() as temp:
@@ -732,9 +741,9 @@ def flow_directions(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["pitfilled", "flow_directions", "slopes"]
     [pitfilled, flow] = _validate_inputs([pitfilled, flow_directions], names[0:2])
-    flow, save = _validate_output(file)
+    flow, save = _validate_output(file, overwrite)
     if return_slopes:
-        slopes, save_slopes = _validate_output(slopes_file)
+        slopes, save_slopes = _validate_output(slopes_file, overwrite)
     else:
         save_slopes = False
 
@@ -807,7 +816,7 @@ def upslope_area(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "upslope_area"]
     [flow] = _validate_inputs([flow_directions], names[0:1])
-    area, save = _validate_output(file)
+    area, save = _validate_output(file, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -861,7 +870,7 @@ def upslope_sum(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "weights", "upslope_sum"]
     [flow, weights] = _validate_inputs([flow_directions, weights], names[0:2])
-    sum, save = _validate_output(file)
+    sum, save = _validate_output(file, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -921,7 +930,7 @@ def relief(
     [pitfilled, flow, slopes] = _validate_inputs(
         [pitfilled, flow_directions, slopes], names[0:3]
     )
-    relief, save = _validate_output(file)
+    relief, save = _validate_output(file, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
