@@ -70,7 +70,16 @@ Utilities:
 
 import subprocess, random, string
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from dfha import validate
+from dfha.utils import write_raster
 from typing import Union, Optional, List, Literal, Tuple, Dict
+from dfha.typing import Raster, RasterArray, Pathlike
+
+# Type aliases
+Output = Union[RasterArray, Path]
+FlowSlopes = Tuple[Output, Output]
+FlowOutput = Union[Output, FlowSlopes]
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
@@ -90,6 +99,9 @@ OutputOption = Literal["default", "saved", "all"]
 PathDict = Dict[str, Path]
 
 
+#####
+# Operational
+#####
 def analyze(
     paths: Dict[str, Pathlike],
     *,
@@ -266,6 +278,9 @@ def analyze(
     return _output_dict(paths, outputs, temporary, hasbasins)
 
 
+#####
+# Low Level
+#####
 def area_d8(
     flow_directions_path: Path,
     weights_path: Union[Path, None],
@@ -362,6 +377,118 @@ def flow_dinf(
     _run_taudem(flow_dinf, verbose)
 
 
+def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
+    """
+    pitremove  Runs the TauDEM PitRemove routine
+    ----------
+    pitremove(dem_path, pitfilled_path, verbose)
+    Runs the TauDEM pit filling routine on a input DEM. Saves the output
+    pitfilled DEM to the indicated path. Optionally prints TauDEM messages to
+    the console.
+    ----------
+    Inputs:
+        dem_path: The absolute Path object for the input DEM
+        pitfilled_path: The absolute Path object for the output
+            pitfilled DEM.
+        verbose: True if TauDEM messages should be printed to the console.
+            False if the messages should be suppressed.
+
+    Outputs: None
+
+    Saves:
+        A file matching the "pitfilled" path
+    """
+
+    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
+    _run_taudem(pitremove, verbose)
+
+
+#####
+# Utilities
+#####
+
+def _verbosity(verbose: Union[bool, None]) -> bool:
+    """
+    _verbosity  Parses the verbosity setting for a function
+    ----------
+    _verbosity(verbose)
+    Parses the "verbose" option for a function. The option is not altered if it
+    is a bool. If the option is None (i.e. not set by the user), sets the option
+    to the default value for the module. Returns a bool indicating the verbosity
+    setting to use for the function.
+    ----------
+    Inputs:
+        verbose (bool | None): The initial state of the verbose option
+
+    Outputs:
+        bool: The verbosity setting for the function.
+    """
+
+    if verbose is None:
+        verbose = verbose_by_default
+    return verbose
+
+
+
+
+#####
+# Working
+#####
+
+def pitfill(
+    dem: Raster, 
+    *, 
+    file: Optional[Pathlike] = None, 
+    verbose: Optional[bool] = None
+) -> Output:
+    """
+    pitfill  Fills pits (depressions) in a DEM
+    ----------
+    pitfill(dem)
+    Runs the TauDEM pitfilling routine on the input DEM. Returns the pitfilled
+    DEM as a numpy 2D array.
+
+    pitfill(..., *, file)
+    Saves the pitfilled DEM to file. Returns the absolute Path to the saved file
+    rather than a numpy array.
+
+    pitfill(..., *, verbose)
+    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
+    the console. If verbose=False, suppresses the messages. If unspecified, uses
+    the default verbosity setting for the module (initially set as False).
+    ----------
+    Inputs:
+        dem: The digital elevation model raster being pitfilled
+        file: The path to a file in which to save the pitfilled DEM
+        verbose: Set to True to print TauDEM messages to the console. False to
+            suppress these messages. If unset, uses the default verbosity for
+            the module (initially set as False).
+    
+    Outputs:
+        numpy 2D array: The pitfilled DEM
+        pathlib.Path: The path to a saved pitfilled DEM
+
+    Saves:
+        Optionally saves the pitfilled DEM to a path matching the "file" input
+    """
+
+    verbose, [dem, pitfilled], asarray = _validate(verbose, [dem, file], ["dem","pitfilled"])
+    with TemporaryDirectory() as temp:
+        dem, pitfilled = _paths(temp, [dem,pitfilled], [None,asarray], ["dem","pitfilled"])
+        pitremove(dem, pitfilled, verbose)
+        return _output(pitfilled, asarray)
+
+
+
+
+
+
+
+
+
+
+
+
 def flow_directions(
     type: Literal["D8", "DInf"],
     pitfilled_path: Pathlike,
@@ -445,72 +572,49 @@ def flow_directions(
         return flow_directions_path
     else:
         return (flow_directions_path, slopes_path)
+    
 
 
-def pitfill(
-    dem_path: Pathlike,
-    pitfilled_path: Pathlike,
-    *,
-    verbose: Optional[bool] = None,
-) -> Path:
-    """
-    pitfill  Fills pits (depressions) in a DEM
-    ----------
-    pitfill(dem_path, pitfilled_path)
-    Runs the TauDEM pitfilling routine on the input DEM. Saves the pitfilled
-    DEM to the indicated path. Returns an absolute Path object to the output
-    pitfilled DEM.
 
-    pitfill(dem_path, pitfilled_path, *, verbose)
-    Indicate how to treat TauDEM messages. If verbose=True, prints messages to
-    the console. If verbose=False, suppresses the messages. If unspecified, uses
-    the default verbosity setting for the module (initially set as False).
-    ----------
-    Inputs:
-        dem: The path to the input DEM being pitfilled
-        pitfilled: The path to the output pitfilled DEM
-        verbose: Set to True to print TauDEM messages to the console. False to
-            suppress these messages. If unset, uses the default verbosity for
-            the module (initially set as False).
 
-    Outputs:
-        pathlib.Path: The absolute Path to the output pitfilled DEM
 
-    Saves:
-        A file matching the "pitfilled" input.
-    """
+    
 
+def _validate(verbose, rasters, isinput, names):
     verbose = _verbosity(verbose)
-    dem_path = _input_path(dem_path)
-    pitfilled_path = _output_path(pitfilled_path)
-    pitremove(dem_path, pitfilled_path, verbose)
-    return pitfilled_path
+    for r, (raster, name, isinput) in enumerate(zip(rasters,names,isinput)):
+        if isinput:
+            rasters[r] = validate.raster(raster, name, load=False)
+        elif raster is None:
+            asarray = True
+        else:
+            asarray = False
+            rasters[r] = _output_path(raster)
+    return verbose, *rasters, asarray
+
+def _paths(temp, rasters, output_type, names):
+    temp = Path(temp)
+    for r, raster, name, isinput in enumerate(zip(rasters, names, isinput)):
+        temp_file = temp / (name+".tif")
+        if output_type is None and not isinstance(raster, Path):
+            rasters[r] = utils.write_raster(raster, temp_file)
+        elif output_type == True:
+            rasters[r] = temp_file
+    return rasters
 
 
-def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
-    """
-    pitremove  Runs the TauDEM PitRemove routine
-    ----------
-    pitremove(dem_path, pitfilled_path, verbose)
-    Runs the TauDEM pit filling routine on a input DEM. Saves the output
-    pitfilled DEM to the indicated path. Optionally prints TauDEM messages to
-    the console.
-    ----------
-    Inputs:
-        dem_path: The absolute Path object for the input DEM
-        pitfilled_path: The absolute Path object for the output
-            pitfilled DEM.
-        verbose: True if TauDEM messages should be printed to the console.
-            False if the messages should be suppressed.
 
-    Outputs: None
 
-    Saves:
-        A file matching the "pitfilled" path
-    """
 
-    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
-    _run_taudem(pitremove, verbose)
+
+
+#############################################################
+
+
+
+
+
+
 
 
 def relief(
@@ -945,23 +1049,4 @@ def _temporary(prefix: str, folder: Path) -> Path:
     return folder / name
 
 
-def _verbosity(verbose: Union[bool, None]) -> bool:
-    """
-    _verbosity  Parses the verbosity setting for a function
-    ----------
-    _verbosity(verbose)
-    Parses the "verbose" option for a function. The option is not altered if it
-    is a bool. If the option is None (i.e. not set by the user), sets the option
-    to the default value for the module. Returns a bool indicating the verbosity
-    setting to use for the function.
-    ----------
-    Inputs:
-        verbose (bool | None): The initial state of the verbose option
 
-    Outputs:
-        bool: The verbosity setting for the function.
-    """
-
-    if verbose is None:
-        verbose = verbose_by_default
-    return verbose
