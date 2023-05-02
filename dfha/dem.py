@@ -579,7 +579,7 @@ def _paths(
     _paths  Returns file paths for the rasters needed for a routine
     ----------
     _paths(temp, rasters, output_type, names)
-    Returns an file path for each provided raster. If the raster has no associated
+    Returns a file path for each provided raster. If the raster has no associated
     file, returns the path to a temporary file.
     ----------
     Inputs:
