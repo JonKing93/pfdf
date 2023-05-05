@@ -75,6 +75,7 @@ Utilities:
     _output             - Returns an output raster as a numpy 2D array or Path
 """
 
+import rasterio
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -88,364 +89,16 @@ Option = Union[None, bool]  # None: Default, bool: User-specified
 Output = Union[RasterArray, Path]
 FlowSlopes = Tuple[Output, Output]
 FlowOutput = Union[Output, FlowSlopes]
-SaveType = Union[None, bool]  # None: Input, True: Save/Path, False: Delete/Numpy
+save = bool
+SaveType = Union[None, save]  # None: Input, True: Save/Path, False: Delete/Numpy
+OutputPath = Union[None, Path]
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
 overwrite_by_default: bool = False  # Whether to overwrite files
 
-
 #####
-# Low Level
-#####
-def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
-    """
-    pitremove  Runs the TauDEM PitRemove routine
-    ----------
-    pitremove(dem_path, pitfilled_path, verbose)
-    Runs the TauDEM pit filling routine on a input DEM. Saves the output
-    pitfilled DEM to the indicated path. Optionally prints TauDEM messages to
-    the console.
-    ----------
-    Inputs:
-        dem_path: The absolute Path object for the input DEM
-        pitfilled_path: The absolute Path object for the output
-            pitfilled DEM.
-        verbose: True if TauDEM messages should be printed to the console.
-            False if the messages should be suppressed.
-
-    Outputs: None
-
-    Saves:
-        A file matching the "pitfilled" path
-    """
-
-    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
-    _run_taudem(pitremove, verbose)
-
-
-def flow_d8(
-    pitfilled_path: Path, flow_directions_path: Path, slopes_path: Path, verbose: bool
-) -> None:
-    """
-    flow_d8  Runs the TauDEM D8 flow direction routine
-    ----------
-    flow_d8(pitfilled_path, flow_directions_path, slopes_path, verbose)
-    Calculates flow directions and slopes from a pitfilled DEM using a D8 flow
-    model. Saves the output flow directions and slopes to the indicated paths.
-    Optionally prints TauDEM messages to the console.
-    ----------
-    Inputs:
-        pitfilled_path: The absolute Path to the pitfilled DEM being analyzed.
-        flow_directions_path: The absolute Path for the output flow directions
-        slopes_path: The absolute Path for the output slopes
-        verbose: True if TauDEM messages should be printed to console.
-            False if these messages should be suppressed.
-
-    Outputs: None
-
-    Saves:
-        Files matching the "flow_directions" and "slopes" paths.
-    """
-
-    flow_d8 = (
-        f"D8FlowDir -fel {pitfilled_path} -p {flow_directions_path} -sd8 {slopes_path}"
-    )
-    _run_taudem(flow_d8, verbose)
-
-
-def flow_dinf(
-    pitfilled_path: Path, flow_directions_path: Path, slopes_path: Path, verbose: bool
-) -> None:
-    """
-    flow_dinf  Runs the TauDEM D-Infinity flow direction routine
-    ----------
-    flow_dinf(pitfilled_path, flow_directions_path, slopes_path, verbose)
-    Calculates flow directions and slopes from a pitfilled DEM using a
-    D-infinity flow model. Saves the output flow directions and slopes to the
-    indicated paths. Optionally prints TauDEM messages to the console.
-    ----------
-    Inputs:
-        pitfilled_path: The absolute Path to the pitfilled DEM being analyzed.
-        flow_directions_path: The absolute Path for the output flow directions
-        slopes_path: The absolute Path for the output slopes
-        verbose: True if TauDEM messages should be printed to console.
-            False if these messages should be suppressed.
-
-    Outputs: None
-
-    Saves:
-        Files matching the "flow_directions" and "slopes" paths.
-    """
-
-    flow_dinf = f"DInfFlowDir -fel {pitfilled_path} -ang {flow_directions_path} -slp {slopes_path}"
-    _run_taudem(flow_dinf, verbose)
-
-
-def area_d8(
-    flow_directions_path: Path,
-    weights_path: Union[Path, None],
-    area_path: Path,
-    verbose: bool,
-) -> None:
-    """
-    area_d8  Runs the TauDEM D8 upslope area routine
-    ----------
-    area_d8(flow_directions_path, weights_path=None, area_path, verbose)
-    Computes upslope area (also known as contributing area) using a D8 flow model.
-    All raster pixels are given an equal area of 1. Saves the output upslope
-    area to the indicated path. Optionally prints TauDEM messages to the console.
-
-    area_d8(flow_directions_path, weights_path, area_path, verbose)
-    Computes weighted upslope area. The area of each raster pixel is set to the
-    corresponding value in the weights raster.
-    ----------
-    Inputs:
-        flow_directions_path: The absolute Path for the input D8 flow directions.
-        weights_path: The absolute Path to the input raster holding area weights
-            for each pixel. If None, computes unweighted upslope area.
-        area: The absolute Path to the output upslope area
-        verbose: True if TauDEM messages should be printed to the console.
-            False to suppress these messages.
-
-    Outputs: None
-
-    Saves:
-        A file matching the "area" path.
-    """
-
-    area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path} -nc"
-    if weights_path is not None:
-        area_d8 += f" -wg {weights_path}"
-    _run_taudem(area_d8, verbose)
-
-
-def relief_dinf(
-    pitfilled_path: Path,
-    flow_directions_path: Path,
-    slopes_path: Path,
-    relief_path: Path,
-    verbose: bool,
-) -> None:
-    """
-    relief_dinf  Computes the vertical component of the longest flow path
-    ----------
-    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
-    Computes the vertical component of the longest flow path. This analysis
-    requires an input pitfilled DEM, and D-Infinity flow directions and slopes.
-    The routine is set to account for edge contamination. Uses a threshold of
-    0.49 so that computed relief mimics the results for a D8 flow model. Saves
-    the computed length to the indicated path. Optionally prints TauDEM messages
-    to the console.
-    ----------
-    Inputs:
-        pitfilled_path: The absolute Path to the input pitfilled DEM
-        flow_directions_path: The absolute Path to the input D-infinity flow directions
-        slopes_path: The absolute Path to the input D-infinity slopes
-        relief_path: The absolute Path to the output D8 relief
-        verbose: True to print TauDEM messages to the console. False to
-            suppress these messages.
-
-    Outputs: None
-
-    Saves:
-        A file matching the "relief" path.
-    """
-
-    # Run the command. The "-m max v" computes the (v)ertical component of the
-    # longest (max)imum flow path. The "-thresh 0.49" option mimics results for a
-    #  D8 flow model. The "-nc" flag causes the routine to account for edge contamination.
-    relief = (
-        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
-        + f" -slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
-    )
-    _run_taudem(relief, verbose)
-
-
-#####
-# Utilities
-#####
-
-
-def _run_taudem(command: strs, verbose: bool) -> None:
-    """
-    _run_taudem  Runs a TauDEM command as a subprocess
-    ----------
-    _run_taudem(command, verbose)
-    Runs a TauDEM command as a subprocess. If verbose=True, prints TauDEM
-    messages to the console. If verbose=False, suppresses these messages. Raises
-    a CalledProcessError if the TauDEM process does not complete successfully
-    (i.e. the process returns an exit code not equal to 0).
-    ----------
-    Inputs:
-        command: The arguments used to run a TauDEM command
-        verbose: True if TauDEM messages should be printed to the
-            console. False if these messages should be suppressed.
-
-    Raises:
-        CalledProcessError: If the TauDEM process returns an exit code not equal
-            to 0.
-
-    Saves:
-        The various output files associated with the TauDEM command.
-
-    Outputs: None
-    """
-
-    return subprocess.run(command, capture_output=not verbose, check=True)
-
-
-def _options(verbose: Option, overwrite: Option) -> Tuple[bool, bool]:
-    """
-    _options  Parses the verbosity and overwrite setting for a routine
-    ----------
-    _options(verbose, overwrite)
-    Parses the verbosity and file overwrite settings for a routine. The option is
-    not altered if it is a bool. If the option is None (i.e. not set by the user),
-    sets the option to the default value for the module. The default verbosity is
-    set by the verbose_by_default variable. Default overwrite setting is set by
-    overwrite_by_default. Returns the final verbosity and overwrite settings.
-    ----------
-    Inputs:
-        verbose: The initial state of the verbosity option
-        overwrite: The initial state of the overwrite option
-
-    Outputs:
-        (bool, bool): The first element is the verbosity setting, and the second
-            is the overwrite setting.
-    """
-    if verbose is None:
-        verbose = verbose_by_default
-    if overwrite is None:
-        overwrite = overwrite_by_default
-    return verbose, overwrite
-
-
-def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[ValidatedRaster]:
-    # Validate each raster. First raster may be any shape
-    shape = None
-    nrasters = len(rasters)
-    for r, raster, name in zip(range(0, nrasters), rasters, names):
-        rasters[r] = validate.raster(raster, name, shape=shape, load=False)
-
-        # Get the shape from the first raster
-        if r == 0 and nrasters > 1:
-            if isinstance(raster, Path):
-                with rasterio.open(raster) as data:
-                    shape = (data.height, data.width)
-            else:
-                shape = raster.shape
-    return rasters
-
-
-def _validate_output(path: Any, overwrite: bool) -> Tuple[Union[None, Path], bool]:
-    """
-    _validate_output  Validate and parse options for an output raster
-    ----------
-    _validate_output(path)
-    Validates the Path for an output raster. A valid path may either be None (for
-    returning the raster directly as an array), or convertible to a Path object.
-    Returns the Path to the output file (which may be None), and a bool indicating
-    whether the output raster should be saved to file.
-
-    When a file path is provided, ensures the output file ends with a ".tif"
-    extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
-    to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
-
-    If the file already exists and overwrite is set to False, raises a FileExistsError.
-    ----------
-    Inputs:
-        path: The user-provided Path to an output raster.
-
-    Outputs:
-        (None|pathlib.Path, bool): A 2-tuple. First element is the Path for the
-            output raster (which may be None). Second element indicates whether
-            the output raster should be saved to file.
-    """
-
-    # Note whether saving to file
-    if path is None:
-        save = False
-    else:
-        save = True
-
-        # If saving, get an absolute Path
-        path = Path(path).resolve()
-
-        # Optionally prevent overwriting
-        if not overwrite and path.is_file():
-            raise FileExistsError(
-                "Output file already exists:\n\t{path}\n"
-                'If you want to replace existing files, use the "overwrite" option.'
-            )
-
-        # Ensure a .tif extension
-        extension = path.suffix
-        if extension.lower() in [".tiff", ".tif"]:
-            path = path.with_suffix(".tif")
-        else:
-            name = path.name + ".tif"
-            path = path.with_name(name)
-    return path, save
-
-
-def _paths(
-    temp: TemporaryDirectory,
-    rasters: List[ValidatedRaster],
-    save: Sequence[SaveType],
-    names: Sequence[str],
-) -> List[Path]:
-    """
-    _paths  Returns file paths for the rasters needed for a routine
-    ----------
-    _paths(temp, rasters, output_type, names)
-    Returns a file path for each provided raster. If the raster has no associated
-    file, returns the path to a temporary file.
-    ----------
-    Inputs:
-        temp: A tempfile.TemporaryDirectory to hold temporary raster files.
-        rasters: A list of validated rasters
-        save: Whether each raster should be saved. Use a bool for output rasters,
-            and None for input rasters.
-        names: A name for each raster. Used to create temporary file names.
-
-    Output:
-        List[Path]: The absolute path to the file for each raster.
-    """
-    temp = Path(temp)
-    indices = range(0, len(rasters))
-    for r, raster, name, save in zip(indices, rasters, names, save):
-        tempfile = temp / (name + ".tif")
-        if save is None and not isinstance(raster, Path):
-            rasters[r] = write_raster(raster, tempfile)
-        elif save == False:
-            rasters[r] = tempfile
-    return rasters
-
-
-def _output(raster: Path, save: bool) -> Output:
-    """
-    _output  Returns the final output form of a TauDEM output raster.
-    ----------
-    _output(raster, save)
-    If saving the raster to file, returns the absolute Path to the file. If not
-    saving, returns the rasters as a numpy 2D array.
-    ----------
-    Inputs:
-        raster: The absolute Path to a TauDEM output raster
-        save: True if returning a Path. False if returning a numpy 2D array.
-
-    Outputs:
-        pathlib.Path: The Path to the raster
-        numpy 2D array: The raster data as a numpy array
-    """
-    if not save:
-        raster = load_raster(raster)
-    return raster
-
-
-#####
-# Working
+# User Functions
 #####
 
 
@@ -771,3 +424,373 @@ def relief(
         )
         relief_dinf(pitfilled, flow, slopes, relief, verbose)
         return _output(relief, save)
+
+
+#####
+# Low Level
+#####
+
+
+def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
+    """
+    pitremove  Runs the TauDEM PitRemove routine
+    ----------
+    pitremove(dem_path, pitfilled_path, verbose)
+    Runs the TauDEM pit filling routine on a input DEM. Saves the output
+    pitfilled DEM to the indicated path. Optionally prints TauDEM messages to
+    the console.
+    ----------
+    Inputs:
+        dem_path: The absolute Path object for the input DEM
+        pitfilled_path: The absolute Path object for the output
+            pitfilled DEM.
+        verbose: True if TauDEM messages should be printed to the console.
+            False if the messages should be suppressed.
+
+    Outputs: None
+
+    Saves:
+        A file matching the "pitfilled" path
+    """
+
+    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
+    _run_taudem(pitremove, verbose)
+
+
+def flow_d8(
+    pitfilled_path: Path, flow_directions_path: Path, slopes_path: Path, verbose: bool
+) -> None:
+    """
+    flow_d8  Runs the TauDEM D8 flow direction routine
+    ----------
+    flow_d8(pitfilled_path, flow_directions_path, slopes_path, verbose)
+    Calculates flow directions and slopes from a pitfilled DEM using a D8 flow
+    model. Saves the output flow directions and slopes to the indicated paths.
+    Optionally prints TauDEM messages to the console.
+    ----------
+    Inputs:
+        pitfilled_path: The absolute Path to the pitfilled DEM being analyzed.
+        flow_directions_path: The absolute Path for the output flow directions
+        slopes_path: The absolute Path for the output slopes
+        verbose: True if TauDEM messages should be printed to console.
+            False if these messages should be suppressed.
+
+    Outputs: None
+
+    Saves:
+        Files matching the "flow_directions" and "slopes" paths.
+    """
+
+    flow_d8 = (
+        f"D8FlowDir -fel {pitfilled_path} -p {flow_directions_path} -sd8 {slopes_path}"
+    )
+    _run_taudem(flow_d8, verbose)
+
+
+def flow_dinf(
+    pitfilled_path: Path, flow_directions_path: Path, slopes_path: Path, verbose: bool
+) -> None:
+    """
+    flow_dinf  Runs the TauDEM D-Infinity flow direction routine
+    ----------
+    flow_dinf(pitfilled_path, flow_directions_path, slopes_path, verbose)
+    Calculates flow directions and slopes from a pitfilled DEM using a
+    D-infinity flow model. Saves the output flow directions and slopes to the
+    indicated paths. Optionally prints TauDEM messages to the console.
+    ----------
+    Inputs:
+        pitfilled_path: The absolute Path to the pitfilled DEM being analyzed.
+        flow_directions_path: The absolute Path for the output flow directions
+        slopes_path: The absolute Path for the output slopes
+        verbose: True if TauDEM messages should be printed to console.
+            False if these messages should be suppressed.
+
+    Outputs: None
+
+    Saves:
+        Files matching the "flow_directions" and "slopes" paths.
+    """
+
+    flow_dinf = f"DInfFlowDir -fel {pitfilled_path} -ang {flow_directions_path} -slp {slopes_path}"
+    _run_taudem(flow_dinf, verbose)
+
+
+def area_d8(
+    flow_directions_path: Path,
+    weights_path: Union[Path, None],
+    area_path: Path,
+    verbose: bool,
+) -> None:
+    """
+    area_d8  Runs the TauDEM D8 upslope area routine
+    ----------
+    area_d8(flow_directions_path, weights_path=None, area_path, verbose)
+    Computes upslope area (also known as contributing area) using a D8 flow model.
+    All raster pixels are given an equal area of 1. Saves the output upslope
+    area to the indicated path. Optionally prints TauDEM messages to the console.
+
+    area_d8(flow_directions_path, weights_path, area_path, verbose)
+    Computes weighted upslope area. The area of each raster pixel is set to the
+    corresponding value in the weights raster.
+    ----------
+    Inputs:
+        flow_directions_path: The absolute Path for the input D8 flow directions.
+        weights_path: The absolute Path to the input raster holding area weights
+            for each pixel. If None, computes unweighted upslope area.
+        area: The absolute Path to the output upslope area
+        verbose: True if TauDEM messages should be printed to the console.
+            False to suppress these messages.
+
+    Outputs: None
+
+    Saves:
+        A file matching the "area" path.
+    """
+
+    area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path} -nc"
+    if weights_path is not None:
+        area_d8 += f" -wg {weights_path}"
+    _run_taudem(area_d8, verbose)
+
+
+def relief_dinf(
+    pitfilled_path: Path,
+    flow_directions_path: Path,
+    slopes_path: Path,
+    relief_path: Path,
+    verbose: bool,
+) -> None:
+    """
+    relief_dinf  Computes the vertical component of the longest flow path
+    ----------
+    relief_dinf(pitfilled_path, flow_directions_path, slopes_path, relief_path, verbose)
+    Computes the vertical component of the longest flow path. This analysis
+    requires an input pitfilled DEM, and D-Infinity flow directions and slopes.
+    The routine is set to account for edge contamination. Uses a threshold of
+    0.49 so that computed relief mimics the results for a D8 flow model. Saves
+    the computed length to the indicated path. Optionally prints TauDEM messages
+    to the console.
+    ----------
+    Inputs:
+        pitfilled_path: The absolute Path to the input pitfilled DEM
+        flow_directions_path: The absolute Path to the input D-infinity flow directions
+        slopes_path: The absolute Path to the input D-infinity slopes
+        relief_path: The absolute Path to the output D8 relief
+        verbose: True to print TauDEM messages to the console. False to
+            suppress these messages.
+
+    Outputs: None
+
+    Saves:
+        A file matching the "relief" path.
+    """
+
+    # Run the command. The "-m max v" computes the (v)ertical component of the
+    # longest (max)imum flow path. The "-thresh 0.49" option mimics results for a
+    #  D8 flow model. The "-nc" flag causes the routine to account for edge contamination.
+    relief = (
+        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
+        + f" -slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
+    )
+    _run_taudem(relief, verbose)
+
+
+#####
+# Utilities
+#####
+
+
+def _options(verbose: Option, overwrite: Option) -> Tuple[bool, bool]:
+    """
+    _options  Parses the verbosity and overwrite setting for a routine
+    ----------
+    _options(verbose, overwrite)
+    Parses the verbosity and file overwrite settings for a routine. The option is
+    not altered if it is a bool. If the option is None (i.e. not set by the user),
+    sets the option to the default value for the module. The default verbosity is
+    set by the verbose_by_default variable. Default overwrite setting is set by
+    overwrite_by_default. Returns the final verbosity and overwrite settings.
+    ----------
+    Inputs:
+        verbose: The initial state of the verbosity option
+        overwrite: The initial state of the overwrite option
+
+    Outputs:
+        (bool, bool): The first element is the verbosity setting, and the second
+            is the overwrite setting.
+    """
+    if verbose is None:
+        verbose = verbose_by_default
+    if overwrite is None:
+        overwrite = overwrite_by_default
+    return verbose, overwrite
+
+
+def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[ValidatedRaster]:
+    """
+    _validate_inputs  Validates user provided input rasters
+    ----------
+    _validate_inputs(rasters, names)
+    Checks that inputs are valid rasters. If multiple rasters are provided,
+    checks that all rasters have the same shape. Does not load file-based rasters
+    into memory.
+    ----------
+    Inputs:
+        rasters: The user-provided input rasters
+        names: The names of the rasters for use in error messages.
+
+    Outputs:
+        List[numpy 2D array | Path]: The validated rasters.
+    """
+
+    # Validate each raster. First raster may be any shape
+    shape = None
+    nrasters = len(rasters)
+    for r, raster, name in zip(range(0, nrasters), rasters, names):
+        rasters[r] = validate.raster(raster, name, shape=shape, load=False)
+
+        # Get the shape from the first raster
+        if nrasters > 1 and r == 0:
+            if isinstance(raster, Path):
+                with rasterio.open(raster) as data:
+                    shape = (data.height, data.width)
+            else:
+                shape = raster.shape
+    return rasters
+
+
+def _validate_output(path: Any, overwrite: bool) -> Tuple[OutputPath, save]:
+    """
+    _validate_output  Validate and parse options for an output raster
+    ----------
+    _validate_output(path)
+    Validates the Path for an output raster. A valid path may either be None (for
+    returning the raster directly as an array), or convertible to a Path object.
+    Returns the Path to the output file (which may be None), and a bool indicating
+    whether the output raster should be saved to file.
+
+    When a file path is provided, ensures the output file ends with a ".tif"
+    extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
+    to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
+
+    If the file already exists and overwrite is set to False, raises a FileExistsError.
+    ----------
+    Inputs:
+        path: The user-provided Path to an output raster.
+
+    Outputs:
+        (None|pathlib.Path, bool): A 2-tuple. First element is the Path for the
+            output raster - this may be None if not saving. Second element
+            indicates whether the output raster should be saved to file.
+
+    Raises:
+        FileExistsError: If the file exists and overwrite=False
+    """
+
+    # Note whether saving to file
+    if path is None:
+        save = False
+    else:
+        save = True
+
+        # If saving, get an absolute Path
+        path = Path(path).resolve()
+
+        # Optionally prevent overwriting
+        if not overwrite and path.is_file():
+            raise FileExistsError(
+                "Output file already exists:\n\t{path}\n"
+                'If you want to replace existing files, use the "overwrite" option.'
+            )
+
+        # Ensure a .tif extension
+        extension = path.suffix
+        if extension.lower() in [".tiff", ".tif"]:
+            path = path.with_suffix(".tif")
+        else:
+            name = path.name + ".tif"
+            path = path.with_name(name)
+    return path, save
+
+
+def _paths(
+    temp: TemporaryDirectory,
+    rasters: List[ValidatedRaster],
+    save: Sequence[SaveType],
+    names: Sequence[str],
+) -> List[Path]:
+    """
+    _paths  Returns file paths for the rasters needed for a routine
+    ----------
+    _paths(temp, rasters, output_type, names)
+    Returns a file path for each provided raster. If the raster has no associated
+    file, returns the path to a temporary file.
+    ----------
+    Inputs:
+        temp: A tempfile.TemporaryDirectory to hold temporary raster files.
+        rasters: A list of validated rasters
+        save: Whether each raster should be saved. Use a bool for output rasters,
+            and None for input rasters.
+        names: A name for each raster. Used to create temporary file names.
+
+    Output:
+        List[Path]: The absolute path to the file for each raster.
+    """
+    temp = Path(temp)
+    indices = range(0, len(rasters))
+    for r, raster, name, save in zip(indices, rasters, names, save):
+        tempfile = temp / (name + ".tif")
+        if save is None and not isinstance(raster, Path):
+            rasters[r] = write_raster(raster, tempfile)
+        elif save == False:
+            rasters[r] = tempfile
+    return rasters
+
+
+def _run_taudem(command: strs, verbose: bool) -> None:
+    """
+    _run_taudem  Runs a TauDEM command as a subprocess
+    ----------
+    _run_taudem(command, verbose)
+    Runs a TauDEM command as a subprocess. If verbose=True, prints TauDEM
+    messages to the console. If verbose=False, suppresses these messages. Raises
+    a CalledProcessError if the TauDEM process does not complete successfully
+    (i.e. the process returns an exit code not equal to 0).
+    ----------
+    Inputs:
+        command: The arguments used to run a TauDEM command
+        verbose: True if TauDEM messages should be printed to the
+            console. False if these messages should be suppressed.
+
+    Raises:
+        CalledProcessError: If the TauDEM process returns an exit code not equal
+            to 0.
+
+    Saves:
+        The various output files associated with the TauDEM command.
+
+    Outputs: None
+    """
+
+    return subprocess.run(command, capture_output=not verbose, check=True)
+
+
+def _output(raster: Path, save: bool) -> Output:
+    """
+    _output  Returns the final output form of a TauDEM output raster.
+    ----------
+    _output(raster, save)
+    If saving the raster to file, returns the absolute Path to the file. If not
+    saving, returns the rasters as a numpy 2D array.
+    ----------
+    Inputs:
+        raster: The absolute Path to a TauDEM output raster
+        save: True if returning a Path. False if returning a numpy 2D array.
+
+    Outputs:
+        pathlib.Path: The Path to the raster
+        numpy 2D array: The raster data as a numpy array
+    """
+    if not save:
+        raster = load_raster(raster)
+    return raster
