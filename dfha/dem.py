@@ -53,7 +53,6 @@ Running this module requires:
     * Installing TauDEM 5.3
 ----------
 User functions:
-    analyze             - Implements DEM analyses required for standard hazard assessment
     pitfill             - Fills pits in a DEM
     flow_directions     - Computes D8 and D-Infinity flow directions and slopes
     upslope_pixels      - Computes the number of upslope pixels
@@ -81,17 +80,15 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from dfha import validate
 from dfha.utils import write_raster, load_raster
-from typing import Union, Optional, List, Literal, Tuple, Dict, Any, Sequence
-from dfha.typing import Raster, ValidatedRaster, RasterArray, strs, Pathlike, PathDict
+from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
+from dfha.typing import Raster, ValidatedRaster, RasterArray, strs, Pathlike
 
 # Type aliases
-Option = Union[None, bool]
+Option = Union[None, bool]  # None: Default, bool: User-specified
 Output = Union[RasterArray, Path]
 FlowSlopes = Tuple[Output, Output]
 FlowOutput = Union[Output, FlowSlopes]
-OutputOption = Literal["default", "saved", "all"]
-OutputType = Union[None, bool]
-InputPath = Union[Pathlike, None]
+SaveType = Union[None, bool]  # None: Input, True: Save/Path, False: Delete/Numpy
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
@@ -395,7 +392,7 @@ def _validate_output(path: Any, overwrite: bool) -> Tuple[Union[None, Path], boo
 def _paths(
     temp: TemporaryDirectory,
     rasters: List[ValidatedRaster],
-    save: Sequence[OutputType],
+    save: Sequence[SaveType],
     names: Sequence[str],
 ) -> List[Path]:
     """
@@ -774,5 +771,3 @@ def relief(
         )
         relief_dinf(pitfilled, flow, slopes, relief, verbose)
         return _output(relief, save)
-
-
