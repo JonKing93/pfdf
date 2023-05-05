@@ -2,7 +2,7 @@
 dem  Functions that implement DEM analyses
 ----------
 The dem module provide functions that implement basic analyses on a Digital
-Elevation Model (DEM). These include pitfilling, and the calculation of flow
+Elevation Model (DEM). These include pitfilling, the calculation of flow
 directions, upslope pixel counts, weighted sums of upslope pixels, and vertical
 relief.
 
