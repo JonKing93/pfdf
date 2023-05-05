@@ -19,12 +19,12 @@ to give the total upslope (contributing) area. Also, the "upslope_sum" function
 can be used to compute a variety of values, including the number of burned upslope
 pixels, and the number of upslope debris basins.
 
-These functions on raster datasets, and users may provide input rasters in a variety
-of formats. Currently, the module supports:
+In general, these functions operate on raster datasets, and users may provide 
+input rasters in a variety of formats. Currently, the module supports:
     * A string indicating a raster file path,
     * A pathlib.Path object to a raster file,
     * A rasterio.DatasetReader object, or
-    * A 2D numpy array (real-valued)
+    * A 2D numpy array (integer or floating)
 Note that file-based rasters are loaded using rasterio, and so support nearly all
 common raster file formats. You can find a complete list of supported formats
 here: https://gdal.org/drivers/raster/index.html
@@ -36,19 +36,17 @@ in a "tif" extension - appending one to the file name, or converting ".tiff" to
 user-provided path. To accommodate this, the final Path to the raster is returned
 as output when saving to file.
 
+By default, this module suppresses TauDEM console output, and prevents saved
+output files from replacing existing files. Users can set the module variables
+"verbose_by_default" and "overwrite_by_default" to True to change this default
+behavior. Alternatively, each function supports "verbose" and "overwrite" options,
+which take precedence over the module's default behavior.
+
 In addition to the standard user functions, this module includes the low-level
 "pitremove", "flow_d8", "flow_dinf", "area_d8", and "relief_dinf" functions, 
 which provide wrappers to the TauDEM commands used to implement the analyses. 
 These functions are primarily intended for developers, and we recommend that
 most users instead use the aforementioned high-level functions.
-
-The rasters produced by this module are often used to help delineate a
-stream network. As such, a suggested workflow for hazard assessment users is as
-follows:
-    * Acquire DEM data
-    *** Run this module
-    * Delineate a stream network
-    * Filter the network to model-worthy drainages
 
 REQUIREMENTS:
 Running this module requires:
@@ -70,7 +68,13 @@ Low-level functions:
     relief_dinf         - Computes vertical components of the longest flow path
 
 Utilities:
-    _options            - 
+    _options            - Determine verbosity and overwrite permissions for a routine
+    _validate_inputs    - Validate user-provided input rasters
+    _validate_output    - Validate the path for a saved output raster
+    _paths              - Return paths the rasters used by a TauDEM routine
+    _run_taudem         - Runs a TauDEM routine as a subprocess
+    _output             - Returns an output raster as a numpy 2D array or Path
+    
 
 
 
