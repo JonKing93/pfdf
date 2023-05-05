@@ -3,28 +3,40 @@ dem  Functions that implement DEM analyses
 ----------
 The dem module provide functions that implement basic analyses on a Digital
 Elevation Model (DEM). These include pitfilling, and the calculation of flow
-directions, upslope areas, and vertical relief.
+directions, upslope pixel counts, weighted sums of upslope pixels, and vertical
+relief.
 
 This module implements DEM analyses using the TauDEM package (specifically, the
 TauDEM command-line interface). Documentation of TauDEM is available here:
 https://hydrology.usu.edu/taudem/taudem5/documentation.html
 
-We recommend most users begin with the "analyze" function, which implements all
-the DEM analyses required for a basic hazard assessment. Users may also be
-interested in the "pitfill", "flow_directions", "upslope_area", "upslope_burn",
-"upslope_basins", and "relief" functions, which implement individual pieces of
-this overall analysis. (Note that upslope_basins and upslope_burn are specialized
-versions of upslope_area. In general, you can use upslope_area to implement both
-weighted and unweighted upslope area routines).
+We recommend operational users begin with the "analyze" functions, which implements
+a number of DEM analyses required for a basic hazard assessment. Other users may
+be interested in the "pitfill", "flow_directions", "upslope_pixels", "upslope_sum",
+and "relief" functions, which implement specific DEM analyses. Note that the
+output of the "upslope_pixels" function can be combined with the DEM resolution
+to give the total upslope (contributing) area. Also, the "upslope_sum" function
+can be used to compute a variety of values, including the number of burned upslope
+pixels, and the number of upslope debris basins.
 
-In general, the functions in this module require various input rasters and
-compute rasters as outputs. The module follows the raster file format
-conventions of TauDEM: input rasters may use nearly any raster file format, but
-outputs will always use a GeoTIFF format. Specifically, the module supports any
-input raster format that can be read by the GDAL library. For a complete list of
-supported formats, see: https://gdal.org/drivers/raster/index.html
+These functions on raster datasets, and users may provide input rasters in a variety
+of formats. Currently, the module supports:
+    * A string indicating a raster file path,
+    * A pathlib.Path object to a raster file,
+    * A rasterio.DatasetReader object, or
+    * A 2D numpy array (real-valued)
+Note that file-based rasters are loaded using rasterio, and so support nearly all
+common raster file formats. You can find a complete list of supported formats
+here: https://gdal.org/drivers/raster/index.html
 
-In addition to the user functions, this module includes the low-level 
+Output rasters are returned as a numpy 2D by default, or are saved to a GeoTIFF
+file if a path is provided. The module ensures that the output path always ends
+in a "tif" extension - appending one to the file name, or converting ".tiff" to
+".tif" as necessary. As such, the final output path may vary slightly from the
+user-provided path. To accommodate this, the final Path to the raster is returned
+as output when saving to file.
+
+In addition to the standard user functions, this module includes the low-level
 "pitremove", "flow_d8", "flow_dinf", "area_d8", and "relief_dinf" functions, 
 which provide wrappers to the TauDEM commands used to implement the analyses. 
 These functions are primarily intended for developers, and we recommend that
@@ -43,12 +55,11 @@ Running this module requires:
     * Installing TauDEM 5.3
 ----------
 User functions:
-    analyze             - Implements all DEM analyses required for standard hazard assessment
+    analyze             - Implements DEM analyses required for standard hazard assessment
     pitfill             - Fills pits in a DEM
     flow_directions     - Computes D8 and D-Infinity flow directions and slopes
-    upslope_area        - Computes upslope (contributing) area
-    upslope_burn        - Computes total upslope burned area
-    upslope_basins      - Computes the number of upslope debris-retention basins
+    upslope_pixels      - Computes the number of upslope pixels
+    upslope_sum         - Computes a weighted sum of upslope pixels
     relief              - Computes the vertical component of the longest flow path
 
 Low-level functions:
@@ -59,6 +70,11 @@ Low-level functions:
     relief_dinf         - Computes vertical components of the longest flow path
 
 Utilities:
+    _options            - 
+
+
+
+
     _verbosity          - Determines the verbosity setting for a routine
     _input_paths        - Returns the absolute Path for an input file
     _output_path        - Returns the absolute Path for an output file
@@ -630,7 +646,11 @@ def _output(raster: Path, save: bool) -> Output:
 
 
 def pitfill(
-    dem: Raster, *, file: Optional[Pathlike] = None, verbose: Optional[bool] = None
+    dem: Raster,
+    *,
+    path: Optional[Pathlike] = None,
+    verbose: Optional[bool] = None,
+    overwrite: Optional[bool] = None,
 ) -> Output:
     """
     pitfill  Fills pits (depressions) in a DEM
@@ -639,9 +659,13 @@ def pitfill(
     Runs the TauDEM pitfilling routine on the input DEM. Returns the pitfilled
     DEM as a numpy 2D array.
 
-    pitfill(..., *, file)
+    pitfill(..., *, path)
     Saves the pitfilled DEM to file. Returns the absolute Path to the saved file
     rather than a numpy array.
+
+    pitfill(..., *, path, overwrite)
+    Indicates whether saved output can replace an existing file. If unspecfied,
+    uses the default setting for the module (initially set as False).
 
     pitfill(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -650,24 +674,27 @@ def pitfill(
     ----------
     Inputs:
         dem: The digital elevation model raster being pitfilled
-        file: The path to a file in which to save the pitfilled DEM
+        path: The path to a file in which to save the pitfilled DEM
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
+        overwrite: True to allow saved output to replace existing files. False
+            to prevent replacement. If unset, uses the default permission for
+            the module (initially set as False).
 
     Outputs:
-        numpy 2D array: The pitfilled DEM
-        pathlib.Path: The path to a saved pitfilled DEM
+        numpy 2D array | pathlib.Path: The pitfilled DEM, or path to a saved
+            pitfilled DEM.
 
     Saves:
-        Optionally saves the pitfilled DEM to a path matching the "file" input
+        Optionally saves the pitfilled DEM to a path matching the "path" input
     """
 
     # Validate
     verbose, overwrite = _options(verbose, overwrite)
     names = ["dem", "pitfilled"]
     [dem] = _validate_inputs([dem], names[0:1])
-    pitfilled, save = _validate_output(file, overwrite)
+    pitfilled, save = _validate_output(path, overwrite)
 
     # Run using temporary files as necessary
     with TemporaryDirectory() as temp:
@@ -680,9 +707,9 @@ def flow_directions(
     type: Literal["D8", "DInf"],
     pitfilled: Raster,
     *,
-    file: Optional[Pathlike] = None,
+    path: Optional[Pathlike] = None,
     return_slopes: Optional[bool] = False,
-    slopes_file: Optional[Pathlike] = None,
+    slopes_path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
 ) -> FlowOutput:
     """
@@ -693,7 +720,7 @@ def flow_directions(
     flow directions as a numpy 2D array. D8 flow directions are numbered from
     1 to 8 proceeding clockwise from right.
 
-    flow_directions(..., *, file)
+    flow_directions(..., *, path)
     Saves the flow directions to file. Returns the absolute Path to the raster
     file (rather than a numpy array).
 
@@ -702,9 +729,9 @@ def flow_directions(
     the flow-directions and the second element is the flow-slopes. The flow-slopes
     will be returned as a numpy 2D array.
 
-    flow_directions(..., *, return_slopes=True, slopes_file)
+    flow_directions(..., *, return_slopes=True, slopes_path)
     Saves flow slopes to file. Returns the absolute Path to the slopes file, rather
-    than a numpy array. If return_slopes=False, then the slopes file is ignored.
+    than a numpy array. If return_slopes=False, then the slopes path is ignored.
 
     flow_directions(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -714,36 +741,37 @@ def flow_directions(
     Inputs:
         type: Use "D8" for a D8 flow model. Use "DInf" for a D-Infinity flow model.
         pitfilled: The pitfilled DEM from which flow directions will be computed
-        file: A path at which to save computed flow directions
+        path: A path at which to save computed flow directions
         return_slopes: True to also return flow slopes. False (default) to only
             return flow-directions.
-        slopes_file: A path at which to save computed flow slopes. Ignored if
+        slopes_path: A path at which to save computed flow slopes. Ignored if
             return_slopes is False.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
 
     Outputs:
-        numpy 2D array | pathlib.Path: The flow directions or Path to the flow
-            directions if not returning flow slopes.
+        numpy 2D array | pathlib.Path: The flow directions or Path to saved flow
+            directions. (If not returning flow slopes).
 
-        (flow_directions, flow_slopes): If also returning flow slopes, a 2-tuple
-            whose first element is the flow directions and second element is the
-            flow slopes. Each raster may either be a numpy 2D array, or a Path,
-            depending on whether an output file was specified.
+        2-Tuple (flow_directions, flow_slopes): If also returning flow slopes,
+            returns a 2-tuple whose first element is the flow directions and
+            second element is the flow slopes. Each output raster may either be
+            a numpy 2D array or Path, depending on whether the associated path
+            was provided.
 
     Saves:
-        Optionally saves flow-directions to a path matching the "file" input.
-        Optionally saves flow slopes to a path matching the "slopes_file" input.
+        Optionally saves flow-directions to a path matching the "path" input.
+        Optionally saves flow slopes to a path matching the "slopes_path" input.
     """
 
     # Validate inputs
     verbose, overwrite = _options(verbose, overwrite)
     names = ["pitfilled", "flow_directions", "slopes"]
     [pitfilled, flow] = _validate_inputs([pitfilled, flow_directions], names[0:2])
-    flow, save = _validate_output(file, overwrite)
+    flow, save = _validate_output(path, overwrite)
     if return_slopes:
-        slopes, save_slopes = _validate_output(slopes_file, overwrite)
+        slopes, save_slopes = _validate_output(slopes_path, overwrite)
     else:
         save_slopes = False
 
@@ -772,23 +800,23 @@ def flow_directions(
             return flow
 
 
-def upslope_area(
+def upslope_pixels(
     flow_directions: Raster,
     *,
-    file: Optional[Pathlike] = None,
+    path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
 ) -> Output:
     """
-    upslope_area  Computes the upslope area (number of upslope pixels) over a DEM
+    upslope_pixels  Computes the number of upslope pixels over a DEM
     ----------
-    upslope_area(flow_directions)
-    Uses D8 flow directions to compute the upslope area (also known as contributing
-    area) for a DEM. All pixels are given an area of 1, so this method effectively
-    computes the number of pixels above a given point on the raster. Returns the
-    upslope area as a numpy 2D array.
+    upslope_pixels(flow_directions)
+    Uses D8 flow directions to compute the number of upslope pixels for a DEM.
+    Upslope pixel counts can be combined with the DEM resolution to give the
+    total upslope (contributing) area for the DEM. Returns the upslope pixel
+    counts as a numpy 2D array.
 
-    upslope_area(..., *, file)
-    Saves the upslope area to the designated file. Returns the Path to the raster,
+    upslope_area(..., *, path)
+    Saves the upslope pixels to the designated file. Returns the Path to the raster,
     rather than a numpy 2D array.
 
     upslope_area(..., *, verbose)
@@ -798,25 +826,25 @@ def upslope_area(
     ----------
     Inputs:
         flow_directions: The raster of D8 flow directions used to compute upslope.
-            Flow numbers should proceed from 1 to 8, clockwise from right.
-        file: The path to a file in which to save the upslope area.
+            pixels. Flow numbers should proceed from 1 to 8, clockwise from right.
+        path: The path to a file in which to save the upslope area.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
 
     Outputs:
-        numpy 2D array: The upslope area raster as an array
-        pathlib.Path: The Path to a saved upslope area raster
+        numpy 2D array | pathlib.Path: The upslope pixel raster as an array or
+            the Path to a saved upslope pixel raster.
 
     Saves:
-        Optionally saves upslope area to a path matching the "file" input.
+        Optionally saves upslope area to a path matching the "path" input.
     """
 
     # Validate
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "upslope_area"]
     [flow] = _validate_inputs([flow_directions], names[0:1])
-    area, save = _validate_output(file, overwrite)
+    area, save = _validate_output(path, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -829,17 +857,17 @@ def upslope_sum(
     flow_directions: Raster,
     weights: Raster,
     *,
-    file: Optional[Pathlike] = None,
+    path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
 ) -> Output:
     """
-    upslope_sum  Computes the weighted sum of upslope pixels
+    upslope_sum  Computes a weighted sum of upslope pixels
     ----------
     upslope_sum(flow_directions, weights)
     Computes a weighted sum of upslope pixels. Each pixel is given a weight
     denoted by an associated weights raster. Returns the sum as a numpy 2D array.
 
-    upslope_sum(..., *, file)
+    upslope_sum(..., *, path)
     Saves the upslope sum to the indicated file. Returns the Path to the saved
     upslope sum raster, rather than a numpy 2D array.
 
@@ -849,28 +877,28 @@ def upslope_sum(
     the default verbosity setting for the module (initially set as False).
     ----------
     Inputs:
-        flow_directions: D8 flow directions used to determine upslope pixels. Flow
+        flow_directions: D8 flow directions used to determine upslope sums. Flow
             numbers should proceed from 1 to 8, clockwise from right.
         weights: A weights raster, must have the same shape as the flow directions
             raster. Assigns a value to each pixel for the weighted sum.
-        file: The path to a file in which to save the upslope sum.
+        path: The path to a file in which to save the upslope sum.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
 
     Outputs:
-        numpy 2D array: The upslope sum raster.
-        pathlib.Path: The Path to a saved upslope sum raster.
+        numpy 2D array | pathlib.Path: The upslope sum raster or the Path to a
+            saved upslope sum raster.
 
     Saves:
-        Optionally saves the upslope sum raster to a path matching the "file" input.
+        Optionally saves the upslope sum raster to a path matching the "path" input.
     """
 
     # Validate
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "weights", "upslope_sum"]
     [flow, weights] = _validate_inputs([flow_directions, weights], names[0:2])
-    sum, save = _validate_output(file, overwrite)
+    sum, save = _validate_output(path, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -886,7 +914,7 @@ def relief(
     flow_directions: Pathlike,
     slopes: Pathlike,
     *,
-    file: Optional[Pathlike] = None,
+    path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
 ) -> Output:
     """
@@ -896,7 +924,7 @@ def relief(
     Computes the vertical relief along the longest flow path. Requires D-infinity
     flow directions and slopes. Returns the relief raster as a numpy 2D array.
 
-    relief(..., *, file)
+    relief(..., *, path)
     Saves the relief raster to the indicated file. Returns the Path to the saved
     raster, rather than a numpy 2D array.
 
@@ -911,7 +939,7 @@ def relief(
             shape as the pitfilled DEM.
         slopes: A D-infinity flow slopes raster. Must have the same shape as the
             pitfilled DEM.
-        file: The path to the file in which to save the vertical relief raster.
+        path: The path to the file in which to save the vertical relief raster.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
@@ -921,7 +949,7 @@ def relief(
         pathlib.Path: The Path to a saved vertical relief raster.
 
     Saves:
-        Optionally saves the vertical relief to a path matching the "file" input.
+        Optionally saves the vertical relief to a path matching the "path" input.
     """
 
     # Validate
@@ -930,7 +958,7 @@ def relief(
     [pitfilled, flow, slopes] = _validate_inputs(
         [pitfilled, flow_directions, slopes], names[0:3]
     )
-    relief, save = _validate_output(file, overwrite)
+    relief, save = _validate_output(path, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
