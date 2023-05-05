@@ -117,12 +117,12 @@ def pitfill(
     DEM as a numpy 2D array.
 
     pitfill(..., *, path)
-    Saves the pitfilled DEM to file. Returns the absolute Path to the saved file
-    rather than a numpy array.
-
     pitfill(..., *, path, overwrite)
-    Indicates whether saved output can replace an existing file. If unspecfied,
-    uses the default setting for the module (initially set as False).
+    Saves the pitfilled DEM to file. Returns the absolute Path to the saved file
+    rather than a numpy array. Use the "overwrite" option to allow/prevent saved
+    output from replacing an existing file. If not set, uses the default overwrite
+    permission for the module (initially set as False). If "path" is not provided,
+    then "overwrite" is ignored.
 
     pitfill(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -168,6 +168,7 @@ def flow_directions(
     return_slopes: Optional[bool] = False,
     slopes_path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
+    overwrite: Optional[bool] = None,
 ) -> FlowOutput:
     """
     flow_directions  Computes D8 or D-Infinity flow directions and slopes
@@ -178,17 +179,20 @@ def flow_directions(
     1 to 8 proceeding clockwise from right.
 
     flow_directions(..., *, path)
-    Saves the flow directions to file. Returns the absolute Path to the raster
-    file (rather than a numpy array).
+    flow_directions(..., *, path, overwrite)
+    Saves the flow directions to file. Returns the absolute Path to the saved file
+    rather than a numpy array. Use the "overwrite" option to allow/prevent saved
+    rasters from replacing an existing file. If not set, uses the default overwrite
+    permission for the module (initially set as False). 
 
-    flow_directions(..., *, return_slopes)
-    Also returns flow slopes. The output will be a 2-tuple - the first element is
-    the flow-directions and the second element is the flow-slopes. The flow-slopes
-    will be returned as a numpy 2D array.
-
+    flow_directions(..., *, return_slopes=True)
     flow_directions(..., *, return_slopes=True, slopes_path)
-    Saves flow slopes to file. Returns the absolute Path to the slopes file, rather
-    than a numpy array. If return_slopes=False, then the slopes path is ignored.
+    flow_directions(..., *, return_slopes=True, slopes_path, overwrite)
+    Also returns flow slopes. The output will be a 2-tuple - the first element is
+    the flow-directions and the second element is the flow-slopes. If "slopes_path"
+    is provided, save the slopes and returns the Path to the saved raster. Otherwise,
+    returns the slopes as a numpy 2D array. The "overwrite" option can also be
+    used to permit/allow saved flow slopes to replace existing files.
 
     flow_directions(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -262,6 +266,7 @@ def upslope_pixels(
     *,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
+    overwrite: Optional[bool] = None,
 ) -> Output:
     """
     upslope_pixels  Computes the number of upslope pixels over a DEM
@@ -272,9 +277,13 @@ def upslope_pixels(
     total upslope (contributing) area for the DEM. Returns the upslope pixel
     counts as a numpy 2D array.
 
-    upslope_area(..., *, path)
-    Saves the upslope pixels to the designated file. Returns the Path to the raster,
-    rather than a numpy 2D array.
+    upslope_pixels(..., *, path)
+    upslope_pixels(..., *, path, overwrite)
+    Saves the upslope pixel raster to file. Returns the absolute Path to the saved file
+    rather than a numpy array. Use the "overwrite" option to allow/prevent saved
+    output from replacing an existing file. If not set, uses the default overwrite
+    permission for the module (initially set as False). If "path" is not provided,
+    then "overwrite" is ignored.
 
     upslope_area(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -316,6 +325,7 @@ def upslope_sum(
     *,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
+    overwrite: Optional[bool] = None,
 ) -> Output:
     """
     upslope_sum  Computes a weighted sum of upslope pixels
@@ -325,8 +335,12 @@ def upslope_sum(
     denoted by an associated weights raster. Returns the sum as a numpy 2D array.
 
     upslope_sum(..., *, path)
-    Saves the upslope sum to the indicated file. Returns the Path to the saved
-    upslope sum raster, rather than a numpy 2D array.
+    upslope_sum(..., *, path, overwrite)
+    Saves the upslope sum raster to file. Returns the absolute Path to the saved file
+    rather than a numpy array. Use the "overwrite" option to allow/prevent saved
+    output from replacing an existing file. If not set, uses the default overwrite
+    permission for the module (initially set as False). If "path" is not provided,
+    then "overwrite" is ignored.
 
     upslope_sum(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -373,6 +387,7 @@ def relief(
     *,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
+    overwrite: Optional[bool] = None,
 ) -> Output:
     """
     relief  Computes the vertical relief along the longest flow path
@@ -382,8 +397,12 @@ def relief(
     flow directions and slopes. Returns the relief raster as a numpy 2D array.
 
     relief(..., *, path)
-    Saves the relief raster to the indicated file. Returns the Path to the saved
-    raster, rather than a numpy 2D array.
+    relief(..., *, path, overwrite)
+    Saves the relief raster to file. Returns the absolute Path to the saved file
+    rather than a numpy array. Use the "overwrite" option to allow/prevent saved
+    output from replacing an existing file. If not set, uses the default overwrite
+    permission for the module (initially set as False). If "path" is not provided,
+    then "overwrite" is ignored.
 
     relief(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
