@@ -90,7 +90,7 @@ Output = Union[RasterArray, Path]
 FlowSlopes = Tuple[Output, Output]
 FlowOutput = Union[Output, FlowSlopes]
 save = bool
-SaveType = Union[None, save]  # None: Input, True: Save/Path, False: Delete/Numpy
+SaveType = Union[None, save]  # (None is for inputs)
 OutputPath = Union[None, Path]
 
 # Configuration
