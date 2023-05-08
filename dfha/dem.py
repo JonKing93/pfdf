@@ -804,11 +804,12 @@ def _output(raster: Path, save: bool) -> Output:
     ----------
     Inputs:
         raster: The absolute Path to a TauDEM output raster
-        save: True if returning a Path. False if returning a numpy 2D array.
+        save: True if returning the Path to a saved raster. False if returning a
+            numpy 2D array.
 
     Outputs:
-        pathlib.Path: The Path to the raster
-        numpy 2D array: The raster data as a numpy array
+        pathlib.Path | numpy 2D array: The raster as a numpy array, or the Path
+            to a saved raster.
     """
     if not save:
         raster = load_raster(raster)
