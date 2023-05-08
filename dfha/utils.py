@@ -2,24 +2,25 @@
 utils  Low-level utility functions used throughout the package
 ----------
 Numpy dtypes:
-    real        - A list of numpy dtypes considered to be real-valued numbers
+    real            - A list of numpy dtypes considered to be real-valued numbers
 
 Sequence conversion:
-    aslist      - Returns an input as a list
-    astuple     - Returns an input as a tuple
+    aslist          - Returns an input as a list
+    astuple         - Returns an input as a tuple
 
 Argument Parsing:
-    any_defined - True if any input is not None
+    any_defined     - True if any input is not None
 
 Rasters:
-    load_raster - Returns a pre-validated raster as a numpy array
+    load_raster     - Returns a pre-validated raster as a numpy array
+    write_raster    - Writes a 2D numpy array (raster) to a GeoTIFF file
 """
 
 from numpy import ndarray, integer, floating
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
-from dfha.typing import RasterArray, scalar
+from dfha.typing import RasterArray, ValidatedRaster, scalar
 
 
 # Real-valued numpy dtypes
@@ -66,9 +67,7 @@ def astuple(input: Any) -> Tuple:
     return input
 
 
-def load_raster(
-    raster: Union[Path, RasterArray], band: Optional[int] = 1
-) -> RasterArray:
+def load_raster(raster: ValidatedRaster, band: Optional[int] = 1) -> RasterArray:
     """
     load_raster  Returns a raster as a numpy.ndarray
     ----------
@@ -81,7 +80,7 @@ def load_raster(
     load the first band.
     ----------
     Inputs:
-        raster: The Path to a raster file or a raster as an numpy array
+        raster: The Path to a raster file or a raster as a 2D numpy array
 
     Outputs:
         numpy 2D array: The raster as a numpy.ndarray
@@ -92,7 +91,9 @@ def load_raster(
     return raster
 
 
-def write_raster(raster: RasterArray, path: Path, nodata: Optional[scalar] = None) -> Path:
+def write_raster(
+    raster: RasterArray, path: Path, nodata: Optional[scalar] = None
+) -> Path:
     """
     write_raster  Writes a numpy array (raster) to a GeoTIFF file
     ----------
@@ -109,7 +110,7 @@ def write_raster(raster: RasterArray, path: Path, nodata: Optional[scalar] = Non
         nodata: A nodata value that should be saved in the GeoTIFF metadata.
 
     Saves:
-        A GeoTIFF file matching the "path" input.    
+        A GeoTIFF file matching the "path" input.
     """
 
     with rasterio.open(
@@ -120,6 +121,6 @@ def write_raster(raster: RasterArray, path: Path, nodata: Optional[scalar] = Non
         width=raster.shape[1],
         count=1,
         dtype=raster.dtype,
-        nodata = nodata
+        nodata=nodata,
     ) as file:
         file.write(raster, 1)
