@@ -10,12 +10,13 @@ import numpy as np
 import rasterio
 from dfha import utils
 
+
 #####
 # Fixtures
 #####
 @pytest.fixture
 def band1():
-    return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4)
+    return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4).astype(float)
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def band2(band1):
 
 
 @pytest.fixture
-def raster_path(tmp_path, band1, band2):
+def fraster(tmp_path, band1, band2):
     raster = tmp_path / "raster.tif"
     with rasterio.open(
         raster,
@@ -40,6 +41,11 @@ def raster_path(tmp_path, band1, band2):
         file.write(band1, 1)
         file.write(band2, 2)
     return raster
+
+
+@pytest.fixture
+def output_path(tmp_path):
+    return tmp_path / "output.tif"
 
 
 #####
@@ -100,10 +106,28 @@ class TestLoadRaster:
         output = utils.load_raster(band1, band)
         assert np.array_equal(output, band1)
 
-    def test_path(_, raster_path, band1):
-        output = utils.load_raster(raster_path)
+    def test_path(_, fraster, band1):
+        output = utils.load_raster(fraster)
         assert np.array_equal(output, band1)
 
-    def test_path_band2(_, raster_path, band2):
-        output = utils.load_raster(raster_path, band=2)
+    def test_path_band2(_, fraster, band2):
+        output = utils.load_raster(fraster, band=2)
         assert np.array_equal(output, band2)
+
+
+class TestWriteRaster:
+    def test(_, band1, output_path):
+        utils.write_raster(band1, output_path)
+        with rasterio.open(output_path) as file:
+            assert file.count == 1
+            raster = file.read(1)
+            assert np.array_equal(raster, band1)
+
+    @pytest.mark.parametrize("nodata", (np.nan, 0, -999))
+    def test_nodata(_, band1, output_path, nodata):
+        utils.write_raster(band1, output_path, nodata)
+        with rasterio.open(output_path) as file:
+            assert file.count == 1
+            assert np.array_equal(file.nodata, nodata, equal_nan=True)
+            raster = file.read(1)
+            assert np.array_equal(raster, band1)

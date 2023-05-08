@@ -19,7 +19,7 @@ from numpy import ndarray, integer, floating
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
-from dfha.typing import RasterArray
+from dfha.typing import RasterArray, scalar
 
 
 # Real-valued numpy dtypes
@@ -92,7 +92,26 @@ def load_raster(
     return raster
 
 
-def write_raster(raster: RasterArray, path: Path) -> Path:
+def write_raster(raster: RasterArray, path: Path, nodata: Optional[scalar] = None) -> Path:
+    """
+    write_raster  Writes a numpy array (raster) to a GeoTIFF file
+    ----------
+    write_raster(raster, path)
+    Writes a 2D numpy array to a GeoTIFF file.
+
+    write_raster(raster, path, nodata)
+    Also specifies a nodata value for the raster. The nodata value is saved in
+    the GeoTIFF metadata (rather than as a nodata mask).
+    ----------
+    Inputs:
+        raster: A numpy 2D array. Should have an integer or floating dtype.
+        path: The path to the file in which to write the raster
+        nodata: A nodata value that should be saved in the GeoTIFF metadata.
+
+    Saves:
+        A GeoTIFF file matching the "path" input.    
+    """
+
     with rasterio.open(
         path,
         "w",
@@ -101,6 +120,6 @@ def write_raster(raster: RasterArray, path: Path) -> Path:
         width=raster.shape[1],
         count=1,
         dtype=raster.dtype,
-        crs="+proj=latlong",
+        nodata = nodata
     ) as file:
         file.write(raster, 1)
