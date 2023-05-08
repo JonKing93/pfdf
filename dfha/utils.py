@@ -121,6 +121,7 @@ def write_raster(
         width=raster.shape[1],
         count=1,
         dtype=raster.dtype,
+        crs="+proj=latlon",
         nodata=nodata,
     ) as file:
         file.write(raster, 1)
