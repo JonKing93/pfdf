@@ -760,7 +760,8 @@ def _paths(
     for r, raster, name, save in zip(indices, rasters, names, save):
         tempfile = temp / (name + ".tif")
         if save is None and not isinstance(raster, Path):
-            rasters[r] = write_raster(raster, tempfile)
+            write_raster(raster, tempfile)
+            rasters[r] = tempfile
         elif save == False:
             rasters[r] = tempfile
     return rasters

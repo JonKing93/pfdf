@@ -2,7 +2,7 @@
 test_dem2  Unit tests for the dem module with updated backend
 """
 
-import pytest
+import pytest, subprocess
 import numpy as np
 from pathlib import Path
 from dfha import dem, validate
@@ -37,6 +37,7 @@ def assert_contains(error, *strings):
 #####
 # Module Utilities
 #####
+
 
 class TestOptions:
     @pytest.mark.parametrize("verbose", (True, False))
@@ -88,7 +89,7 @@ class TestValidateInputs:
         assert_contains(error, "test 2")
 
     def test_valid_array(_, araster):
-        output = dem._validate_inputs([araster], ['test name'])
+        output = dem._validate_inputs([araster], ["test name"])
         assert isinstance(output, list)
         assert len(output) == 1
         assert np.array_equal(output[0], araster)
@@ -108,8 +109,7 @@ class TestValidateInputs:
 
 
 class TestValidateOutput:
-
-    @pytest.mark.parametrize('input', (True, 5, np.arange(0,100)))
+    @pytest.mark.parametrize("input", (True, 5, np.arange(0, 100)))
     def test_invalid(_, input):
         with pytest.raises(TypeError):
             dem._validate_output(input, True)
@@ -118,16 +118,18 @@ class TestValidateOutput:
         with pytest.raises(FileExistsError):
             dem._validate_output(fraster, overwrite=False)
 
-    @pytest.mark.parametrize('overwrite', (True, False))
+    @pytest.mark.parametrize("overwrite", (True, False))
     def test_none(_, overwrite):
         path, save = dem._validate_output(None, overwrite)
         assert path is None
         assert save == False
 
-    @pytest.mark.parametrize('path', ('some-file', 'some-file.tif', 'some-file.tiff','some-file.TiFf'))
+    @pytest.mark.parametrize(
+        "path", ("some-file", "some-file.tif", "some-file.tiff", "some-file.TiFf")
+    )
     def test_valid(_, path):
         output, save = dem._validate_output(path, True)
-        assert output == Path('some-file.tif')
+        assert output == Path("some-file.tif")
         assert save == True
 
     def test_valid_overwrite(_, fraster):
@@ -135,3 +137,46 @@ class TestValidateOutput:
         assert output == fraster
         assert save == True
 
+
+class TestPaths:
+    def test(_, tmp_path, araster, fraster):
+        output = dem._paths(
+            tmp_path,
+            rasters=[araster, fraster, fraster, None],
+            save=[None, None, True, False],
+            names=["input-1", "input-2", "output-1", "output-2"],
+        )
+
+        assert isinstance(output, list)
+        assert len(output) == 4
+        assert output[0] == tmp_path / "input-1.tif"
+        assert output[1] == fraster
+        assert output[2] == fraster
+        assert output[3] == tmp_path / "output-2.tif"
+
+
+class TestRunTaudem:
+    def test_verbose(_, tmp_path, fraster, capfd):
+        dem_data = fraster
+        pitfilled = tmp_path / 'pitfilled.tif'
+        command = f'PitRemove -z {dem_data} -fel {pitfilled}'
+        dem._run_taudem(command, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ''
+
+    def test_quiet(_, tmp_path, fraster, capfd):
+        dem_data = fraster
+        pitfilled = tmp_path / 'pitfilled.tif'
+        command = f'PitRemove -z {dem_data} -fel {pitfilled}'
+        dem._run_taudem(command, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ''
+
+    def test_failed(_, tmp_path):
+        dem_data = tmp_path / 'not-a-file.tif'
+        pitfilled = tmp_path / 'pitfilled.tif'
+        command = f'PitRemove -z {dem_data} -fel {pitfilled}'
+        with pytest.raises(subprocess.CalledProcessError):
+            dem._run_taudem(command, verbose=False)
+    
+    
