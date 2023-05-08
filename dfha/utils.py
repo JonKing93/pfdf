@@ -16,7 +16,7 @@ Rasters:
     write_raster    - Writes a 2D numpy array (raster) to a GeoTIFF file
 """
 
-from numpy import ndarray, integer, floating
+from numpy import ndarray, integer, floating, array
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
@@ -113,6 +113,8 @@ def write_raster(
         A GeoTIFF file matching the "path" input.
     """
 
+    placeholder_transform = (0.03, 0, -4, 0, 0.03, -3)
+    placeholder_crs = "+proj=latlon"
     with rasterio.open(
         path,
         "w",
@@ -121,7 +123,8 @@ def write_raster(
         width=raster.shape[1],
         count=1,
         dtype=raster.dtype,
-        crs="+proj=latlon",
         nodata=nodata,
+        transform=placeholder_transform,
+        crs=placeholder_crs,
     ) as file:
         file.write(raster, 1)
