@@ -229,11 +229,12 @@ def flow_directions(
     # Validate inputs
     verbose, overwrite = _options(verbose, overwrite)
     names = ["pitfilled", "flow_directions", "slopes"]
-    [pitfilled, flow] = _validate_inputs([pitfilled, flow_directions], names[0:2])
+    [pitfilled] = _validate_inputs([pitfilled], names[0:1])
     flow, save = _validate_output(path, overwrite)
     if return_slopes:
         slopes, save_slopes = _validate_output(slopes_path, overwrite)
     else:
+        slopes = None
         save_slopes = False
 
     # Get file paths, use temporary paths as necessary

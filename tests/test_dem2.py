@@ -6,7 +6,7 @@ import pytest, subprocess
 import numpy as np
 from pathlib import Path
 from dfha import dem, validate
-from dfha.utils import write_raster
+from dfha.utils import write_raster, load_raster
 
 #####
 # Testing Utilities
@@ -25,6 +25,67 @@ def fraster(araster, tmp_path):
     path = tmp_path / "raster.tif"
     write_raster(araster, path)
     return path
+
+
+@pytest.fixture
+def fdem(tmp_path):
+    dem = np.array([[4, 5, 6, 6], [5, 1, 4, 5], [3, 2, 3, 4]])
+    path = tmp_path / "dem.tif"
+    write_raster(dem, path)
+    return path
+
+
+@pytest.fixture
+def fpitfilled(tmp_path):
+    pitfilled = np.array(
+        [
+            [4, 5, 6, 6],
+            [5, 2, 4, 5],
+            [3, 2, 3, 4],
+        ]
+    )
+    path = tmp_path / "pitfilled.tif"
+    write_raster(pitfilled, path)
+    return path
+
+
+@pytest.fixture
+def fflow8(tmp_path):
+    fill = -32768
+    flow = np.array(
+        [[fill, fill, fill, fill], [fill, 7, 5, fill], [fill, fill, fill, fill]]
+    )
+    path = tmp_path / "flow8.tif"
+    write_raster(flow, path)
+    return path
+
+
+@pytest.fixture
+def fslopes8(tmp_path):
+    slopes = np.array([[-1, -1, -1, -1], [-1, 0, 0.000599734, -1], [-1, -1, -1, -1]])
+    path = tmp_path / "slopes8.tif"
+    write_raster(slopes, path)
+    return path
+
+
+@pytest.fixture
+def fflowi(tmp_path):
+    fill = -3.4028235e38
+    slopes = np.array(
+        [
+            [fill, fill, fill, fill],
+            [fill, 4.7123890, 3.1415927, fill],
+            [fill, fill, fill, fill],
+        ]
+    )
+    path = tmp_path / "slopesi.tif"
+    write_raster(slopes, path)
+    return path
+
+
+@pytest.fixture
+def fslopesi(fslopes8):
+    return fslopes8
 
 
 # Check string is in error message
@@ -188,3 +249,55 @@ class TestOutput:
     def test_path(_, fraster):
         output = dem._output(fraster, save=True)
         assert output == fraster
+
+
+#####
+# Low Level
+#####
+
+
+def test_pitremove(fdem, fpitfilled, tmp_path):
+    pitfilled = tmp_path / "output.tif"
+    assert not pitfilled.is_file()
+    dem.pitremove(fdem, pitfilled, False)
+    assert pitfilled.is_file()
+
+    output = load_raster(pitfilled)
+    expected = load_raster(fpitfilled)
+    assert np.array_equal(output, expected)
+
+
+def test_flow_d8(fpitfilled, fflow8, fslopes8, tmp_path):
+    flow = tmp_path / "output-1.tif"
+    slopes = tmp_path / "output-2.tif"
+    assert not flow.is_file()
+    assert not slopes.is_file()
+    dem.flow_d8(fpitfilled, flow, slopes, False)
+    assert flow.is_file()
+    assert slopes.is_file()
+
+    output = load_raster(flow)
+    expected = load_raster(fflow8)
+    assert np.array_equal(output, expected)
+
+    output = load_raster(slopes).astype(float)
+    expected = load_raster(fslopes8).astype(float)
+    assert np.allclose(output, expected, rtol=0, atol=1e-7)
+
+
+def test_flow_dinf(fpitfilled, fflowi, fslopesi, tmp_path):
+    flow = tmp_path / "output-1.tif"
+    slopes = tmp_path / "output-2.tif"
+    assert not flow.is_file()
+    assert not slopes.is_file()
+    dem.flow_dinf(fpitfilled, flow, slopes, False)
+    assert flow.is_file()
+    assert slopes.is_file()
+
+    output = load_raster(flow)[1,1:3]
+    expected = load_raster(fflowi)[1,1:3]
+    assert np.allclose(output, expected, rtol=0, atol=1e-7)
+
+    output = load_raster(slopes)[1,1:3].astype(float)
+    expected = load_raster(fslopesi)[1,1:3].astype(float)
+    assert np.allclose(output, expected, rtol=0, atol=1e-7)
