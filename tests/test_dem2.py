@@ -12,6 +12,9 @@ from dfha.utils import write_raster, load_raster
 # Testing Utilities
 #####
 
+fmin = np.finfo("float32").min
+
+
 # A raster as a numpy array
 @pytest.fixture
 def araster():
@@ -26,20 +29,28 @@ def fraster(araster, tmp_path):
     return path
 
 
-
-def file_raster(folder, name, raster, nodata):
-    path = folder / name
+def file_raster(raster, dtype, folder, name, nodata=None):
+    path = folder / (name + ".tif")
+    raster = raster.astype(dtype)
     write_raster(raster, path, nodata)
     return path
-    
+
+
+def filled_raster(dtype, folder, name, center, fill):
+    raster = np.array(
+        [
+            [fill, fill, fill, fill],
+            [fill, center[0], center[1], fill],
+            [fill, fill, fill, fill],
+        ]
+    )
+    return file_raster(raster, dtype, folder, name, nodata=fill)
 
 
 @pytest.fixture
 def fdem(tmp_path):
-    dem = np.array([[4, 5, 6, 6], [5, 1, 4, 5], [3, 2, 3, 4]]).astype('float32')
-    path = tmp_path / "dem.tif"
-    write_raster(dem, path)
-    return path
+    dem = np.array([[4, 5, 6, 6], [5, 1, 4, 5], [3, 2, 3, 4]])
+    return file_raster(dem, "float32", tmp_path, "dem")
 
 
 @pytest.fixture
@@ -50,45 +61,28 @@ def fpitfilled(tmp_path):
             [5, 2, 4, 5],
             [3, 2, 3, 4],
         ]
-    ).astype('float32')
-    path = tmp_path / "pitfilled.tif"
-    write_raster(pitfilled, path)
-    return path
+    )
+    return file_raster(pitfilled, "float32", tmp_path, "pitfilled")
 
 
 @pytest.fixture
 def fflow8(tmp_path):
-    fill = -32768
-    flow = np.array(
-        [[fill, fill, fill, fill], [fill, 7, 5, fill], [fill, fill, fill, fill]]
-    ).astype('int16')
-    path = tmp_path / "flow8.tif"
-    write_raster(flow, path, nodata=fill)
-    return path
+    return filled_raster("int16", tmp_path, "flow8", center=[7, 5], fill=-32768)
 
 
 @pytest.fixture
 def fslopes8(tmp_path):
-    slopes = np.array([[-1, -1, -1, -1], [-1, 0, 0.000599734, -1], [-1, -1, -1, -1]]).astype('float32')
-    path = tmp_path / "slopes8.tif"
-    write_raster(slopes, path, nodata=-1)
-    return path
+    return filled_raster(
+        "float32", tmp_path, "slopes8", center=[0, 0.000599734], fill=-1
+    )
 
 
 # D-infinity flow directions
 @pytest.fixture
 def fflowi(tmp_path):
-    fill = -3.4028235e38
-    slopes = np.array(
-        [
-            [fill, fill, fill, fill],
-            [fill, 4.7123890, 3.1415927, fill],
-            [fill, fill, fill, fill],
-        ]
-    ).astype('float32')
-    path = tmp_path / "slopesi.tif"
-    write_raster(slopes, path, nodata=fill)
-    return path
+    return filled_raster(
+        "float32", tmp_path, "slopesi", center=[4.7123890, 3.1415927], fill=fmin
+    )
 
 
 # D-infinity slopes are the same as D8 for this simple example
@@ -100,42 +94,25 @@ def fslopesi(fslopes8):
 # Unweighted upslope area
 @pytest.fixture
 def fareau(tmp_path):
-    area = np.array([
-        [-1,-1,-1,-1],
-        [-1, 2, 1,-1],
-        [-1,-1,-1,-1]
-    ]).astype('float32')
-    path = tmp_path / "area_unweighted.tif"
-    write_raster(area, path, nodata=-1)
-    return path
+    return filled_raster("float32", tmp_path, "area_unweighted", center=[2, 1], fill=-1)
 
 
-# # Area weights
-# @pytest.fixture
-# def fweights(tmp_path):
-#     fill = -999
-#     weights = np.array([
-#         [fill, fill, fill, fill],
-#         [fill, 2, 6, fill],
-#         [fill, fill, fill, fill]
-#     ])
-#     path = tmp_path / "weights.tif"
-#     write_raster(weights, path)
-#     return path
+# Area weights
+@pytest.fixture
+def fweights(tmp_path):
+    return filled_raster("float32", tmp_path, "weights", center=[2, 6], fill=-999)
 
-# # Weighted area
-# @pytest.fixture
-# def fareaw(tmp_path):
-#     fill = -999
-#     area = np.array([
-#         [fill, fill, fill, fill],
-#         [fill, 8, 6, fill],
-#         [fill, fill, fill, fill]
-#     ])
-#     path = tmp_path / "area_weighted.tif"
-#     write_raster(area, path)
-#     return path
 
+# Weighted area
+@pytest.fixture
+def fareaw(tmp_path):
+    return filled_raster("float32", tmp_path, "area_weighted", center=[8, 6], fill=-1)
+
+
+# Vertical relief
+@pytest.fixture
+def frelief(tmp_path):
+    return filled_raster("float32", tmp_path, "relief", center=[2, 0], fill=fmin)
 
 
 # Check string is in error message
@@ -347,47 +324,44 @@ class TestFlowDinf:
         assert flow.is_file()
         assert slopes.is_file()
 
-        output = load_raster(flow)[1,1:3]
-        expected = load_raster(fflowi)[1,1:3]
+        output = load_raster(flow)[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
         assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
-        output = load_raster(slopes)[1,1:3].astype(float)
-        expected = load_raster(fslopesi)[1,1:3].astype(float)
+        output = load_raster(slopes)[1, 1:3].astype(float)
+        expected = load_raster(fslopesi)[1, 1:3].astype(float)
         assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
 
 class TestAreaD8:
     def test_unweighted(_, fflow8, fareau, tmp_path):
-        flow1 = '../flow8.tif'
-        flow2 = fflow8
-
-        area1 = tmp_path / "output1.tif"
-        area2 = tmp_path / "output2.tif"
-
-        dem.area_d8(flow1, None, area1, True)
-        dem.area_d8(flow2, None, area2, True)
-
-        area1 = load_raster(area1)
-        area2 = load_raster(area2)
-
-        print(area1)
-        print(area2)
-        print(np.array_equal(area1, area2))
-        assert False
-
-
-
-
         area = tmp_path / "output.tif"
-        dem.area_d8(flow, None, area, False)
-
-        flow = load_raster(flow)
-        print(flow)
+        assert not area.is_file()
+        dem.area_d8(fflow8, None, area, False)
+        assert area.is_file()
 
         output = load_raster(area)
-        print(output)
-        assert False
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+
+    def test_weighted(_, fflow8, fweights, fareaw, tmp_path):
+        area = tmp_path / "output.tif"
+        assert not area.is_file()
+        dem.area_d8(fflow8, fweights, area, False)
+        assert area.is_file()
+
+        output = load_raster(area)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
 
 
+class TestReliefDinf:
+    def test(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path):
+        relief = tmp_path / "output.tif"
+        assert not relief.is_file()
+        dem.relief_dinf(fpitfilled, fflowi, fslopesi, relief, False)
+        assert relief.is_file()
 
-
+        output = load_raster(relief)
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)

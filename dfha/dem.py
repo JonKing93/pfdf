@@ -183,7 +183,7 @@ def flow_directions(
     Saves the flow directions to file. Returns the absolute Path to the saved file
     rather than a numpy array. Use the "overwrite" option to allow/prevent saved
     rasters from replacing an existing file. If not set, uses the default overwrite
-    permission for the module (initially set as False). 
+    permission for the module (initially set as False).
 
     flow_directions(..., *, return_slopes=True)
     flow_directions(..., *, return_slopes=True, slopes_path)
@@ -570,7 +570,6 @@ def area_d8(
     area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path} -nc"
     if weights_path is not None:
         area_d8 += f" -wg {weights_path}"
-    print(area_d8)
     _run_taudem(area_d8, verbose)
 
 
