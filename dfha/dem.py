@@ -570,6 +570,7 @@ def area_d8(
     area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path} -nc"
     if weights_path is not None:
         area_d8 += f" -wg {weights_path}"
+    print(area_d8)
     _run_taudem(area_d8, verbose)
 
 
