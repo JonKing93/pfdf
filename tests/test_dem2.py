@@ -2,6 +2,7 @@
 test_dem2  Unit tests for the dem module with updated backend
 """
 
+import rasterio
 import pytest, subprocess
 import numpy as np
 from pathlib import Path
@@ -293,11 +294,17 @@ class TestPaths:
             rasters=[araster, fraster, fraster, None],
             save=[None, None, True, False],
             names=["input-1", "input-2", "output-1", "output-2"],
+            nodata=[5, 'ignored']
         )
 
         assert isinstance(output, list)
         assert len(output) == 4
         assert output[0] == tmp_path / "input-1.tif"
+        assert output[0].is_file()
+        with rasterio.open(output[0]) as file:
+            data = file.read(1)
+            assert np.array_equal(data, araster)
+            assert file.nodata == 5
         assert output[1] == fraster
         assert output[2] == fraster
         assert output[3] == tmp_path / "output-2.tif"
