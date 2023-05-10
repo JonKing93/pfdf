@@ -76,7 +76,7 @@ Utilities:
 """
 
 import rasterio
-from numpy import ndarray
+from numpy import ndarray, empty
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -131,7 +131,7 @@ def pitfill(
     pitfill(..., *, nodata)
     Optionally indicates a NoData value when the DEM is a numpy array. Without
     this option, all values in a numpy array are treated as valid. The nodata
-    value must be convertible to the dtype of the DEM. If the DEM is a file-based
+    value will be converted to the same dtype as the DEM. If the DEM is a file-based
     raster, this option is ignored.
 
     pitfill(..., *, verbose)
@@ -162,7 +162,7 @@ def pitfill(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["dem", "pitfilled"]
     [dem] = _validate_inputs([dem], names[0:1])
-    nodata = _nodata([nodata], ["nodata"], [dem], names[0:1])
+    nodata = _nodata([nodata], ["nodata"], [dem])
     pitfilled, save = _validate_output(path, overwrite)
 
     # Run using temporary files as necessary
@@ -210,7 +210,7 @@ def flow_directions(
     flow_directions(..., *, nodata)
     Optionally indicates a NoData value for when the pitfilled DEM is a numpy array.
     Without this option, all values in an input numpy array are treated as valid.
-    The nodata value must be convertible to the dtype of the pitfilled DEM. If
+    The nodata value will be converted to the dtype of the pitfilled DEM. If
     the pitfilled DEM is a file-based raster, this option is ignored.
 
     flow_directions(..., *, verbose)
@@ -250,7 +250,7 @@ def flow_directions(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["pitfilled", "flow_directions", "slopes"]
     [pitfilled] = _validate_inputs([pitfilled], names[0:1])
-    nodata = _nodata([nodata], ["nodata"], [pitfilled], names[0:1])
+    nodata = _nodata([nodata], ["nodata"], [pitfilled])
     flow, save = _validate_output(path, overwrite)
 
     # Get flow-slope options and path
@@ -310,7 +310,7 @@ def upslope_pixels(
     upslope_pixels(..., *, nodata)
     Optionally indicates a NoData value for when the flow directions are a numpy array.
     Without this option, all values in an input numpy array are treated as valid.
-    The nodata value must be convertible to the dtype of the flow directions. If
+    The nodata value will be converted to the dtype of the flow directions. If
     the flow directions are a file-based raster, this option is ignored.
 
     upslope_area(..., *, verbose)
@@ -339,7 +339,7 @@ def upslope_pixels(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "upslope_area"]
     [flow] = _validate_inputs([flow_directions], names[0:1])
-    nodata = _nodata([nodata], ["nodata"], [flow], names[0:1])
+    nodata = _nodata([nodata], ["nodata"], [flow])
     area, save = _validate_output(path, overwrite)
 
     # Run using temp files as needed
@@ -378,7 +378,7 @@ def upslope_sum(
     upslope_sum(..., *, weights_nodata)
     Optionally indicate NoData values for when the flow directions or pixel weights
     are a numpy array. Without these options, all values in an input numpy array
-    are treated as valid. The nodata value must be convertible to the dtype of
+    are treated as valid. The nodata value will be converted to the dtype of
     associated raster. If an input raster is a file-based, the associated nodata
     value is ignored.
 
@@ -415,7 +415,6 @@ def upslope_sum(
         [flow_nodata, weights_nodata],
         ["flow_nodata", "weights_nodata"],
         [flow, weights],
-        names[0:2],
     )
     sum, save = _validate_output(path, overwrite)
 
@@ -464,8 +463,8 @@ def relief(
     relief(..., *, slopes_nodata)
     Optionally indicate NoData values for when the pitfilled DEM, flow directions,
     and/or flow slopes are numpy arrays. Without these options, all values in the
-    associated input numpy arrays are treated as valid. Each nodata value must be
-    convertible to the dtype of the associated input raster. If an input raster
+    associated input numpy arrays are treated as valid. Each nodata value will be
+    converted to the dtype of the associated input raster. If an input raster
     is file-based, the associated nodata value is ignored.
 
     relief(..., *, verbose)
@@ -505,7 +504,6 @@ def relief(
         [pitfilled_nodata, flow_nodata, slopes_nodata],
         ["pitfilled_nodata", "flow_nodata", "slopes_nodata"],
         [pitfilled, flow, slopes],
-        names[0:4],
     )
     relief, save = _validate_output(path, overwrite)
 
@@ -759,31 +757,29 @@ def _nodata(
     nodata: List[Any],
     names: Sequence[str],
     rasters: Sequence[ValidatedRaster],
-    raster_names: Sequence[str],
 ) -> Sequence[nodata]:
     """
-    _nodata  Validates and parses the NoData value for a numpy raster
+    _nodata  Validates and parses NoData values for input numpy rasters
     ----------
-    _nodata(raster, nodata)
+    _nodata(nodata, names, rasters)
+    Validates nodata values for input rasters that are numpy arrays. Ensures each
+    NoData value is the same dtype as the associated raster. Returns the validated
+    NoData values as a list.
+    ----------
+    Inputs:
+        nodata: User-provided nodata values for the input rasters
+        names: The names of the nodata variables for use in error messages
+        rasters: The validated input rasters
+
+    Outputs:
+        List[None | real-valued scalar]: The validated NoData values
     """
 
-    # Validate nodata values for numpy input rasters
     indices = range(0, len(nodata))
-    for k, value, name, raster, raster_name in zip(
-        indices, nodata, names, rasters, raster_names
-    ):
+    for k, value, name, raster in zip(indices, nodata, names, rasters):
         if isinstance(raster, ndarray) and value is not None:
             value = validate.scalar(value, name, real)
-
-            # Ensure NoData value has the correct dtype
-            try:
-                nodata[k] = value.astype(raster.dtype)
-            except ValueError as error:
-                error.add_note(
-                    f"The {name} value ({nodata}) cannot be converted to the dtype "
-                    f"of the {raster_name} raster ({raster.dtype})."
-                )
-                raise error
+            nodata[k] = value.astype(raster.dtype)
     return nodata
 
 

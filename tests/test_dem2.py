@@ -12,7 +12,11 @@ from dfha.utils import write_raster, load_raster
 # Testing Utilities
 #####
 
+# TauDEM floating-point fill value
 fmin = np.finfo("float32").min
+
+# Raster data for a pre-existing output file
+existing_raster = np.arange(0, 10).reshape(2, 5)
 
 
 # A raster as a numpy array
@@ -29,6 +33,7 @@ def fraster(araster, tmp_path):
     return path
 
 
+# Saves a file-based raster
 def file_raster(raster, dtype, folder, name, nodata=None):
     path = folder / (name + ".tif")
     raster = raster.astype(dtype)
@@ -36,6 +41,7 @@ def file_raster(raster, dtype, folder, name, nodata=None):
     return path
 
 
+# Saves a 3x4 raster whose edges are fill values
 def filled_raster(dtype, folder, name, center, fill):
     raster = np.array(
         [
@@ -194,6 +200,60 @@ class TestValidateInputs:
         assert len(output) == 2
         assert np.array_equal(output[0], araster)
         assert np.array_equal(output[1], fraster)
+
+
+class TestNoData:
+    def test_file(_, fdem):
+        output = dem._nodata(["ignore me"], ["test name"], [fdem])
+        assert output == ["ignore me"]
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 5, -999))
+    def test_valid(_, fdem, value):
+        raster = load_raster(fdem)
+        output = dem._nodata([value], ["test name"], [raster])
+        expected = validate.scalar(value, "")
+        assert np.array_equal(output, [expected], equal_nan=True)
+
+    def test_none(_, fdem):
+        raster = load_raster(fdem)
+        output = dem._nodata([None], ["test name"], raster)
+        assert output == [None]
+
+    # NaN (floating) should convert to 0 for integer rasters
+    def test_converted(_, fflow8):
+        raster = load_raster(fflow8)
+        output = dem._nodata([np.nan], 'test name', [raster])
+        assert output == [0]
+
+    def test_nonscalar(_, fdem):
+        raster = load_raster(fdem)
+        with pytest.raises(validate.DimensionError) as error:
+            dem._nodata([raster], ["test name"], [raster])
+            assert_contains(error, "test name")
+
+    def test_not_real(_, fdem):
+        raster = load_raster(fdem)
+        with pytest.raises(TypeError) as error:
+            dem._nodata([True], ["test name"], [raster])
+            assert_contains(error, "test name")
+
+    def test_mixed_valid(_, fdem):
+        raster = load_raster(fdem)
+        rasters = [raster, raster, fdem]
+        values = [None, -999, "ignored"]
+        output = dem._nodata(values, ["", "", ""], rasters)
+        assert output == values
+
+    def test_mixed_invalid(_, fdem):
+        raster = load_raster(fdem)
+        rasters = [raster, raster, fdem]
+        with pytest.raises(TypeError) as error:
+            dem._nodata(
+                [5, "invalid", "ignored"],
+                ["test1", "test2", "test3"],
+                rasters,
+            )
+            assert_contains(error, "test2")
 
 
 class TestValidateOutput:
@@ -364,4 +424,103 @@ class TestReliefDinf:
 
         output = load_raster(relief)
         expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
+
+
+#####
+# User Functions
+#####
+
+
+class TestPitfill:
+    def test_verbose(_, fdem, capfd):
+        dem.pitfill(fdem, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
+
+    def test_quiet(_, fdem, capfd):
+        dem.pitfill(fdem, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fdem, fpitfilled, tmp_path):
+        pitfilled = tmp_path / "output.tif"
+        write_raster(existing_raster, pitfilled)
+        dem.pitfill(fdem, path=pitfilled, overwrite=True)
+        output = load_raster(pitfilled)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_, fdem, tmp_path):
+        pitfilled = tmp_path / "output.tif"
+        write_raster(existing_raster, pitfilled)
+        with pytest.raises(FileExistsError):
+            dem.pitfill(fdem, path=pitfilled, overwrite=False)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array(_, fdem, fpitfilled, load_input):
+        if load_input:
+            fdem = load_raster(fdem)
+        output = dem.pitfill(fdem)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "dem.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save(_, fdem, fpitfilled, tmp_path, load_input):
+        if load_input:
+            fdem = load_raster(fdem)
+        pitfilled = tmp_path / "output.tif"
+        output = dem.pitfill(fdem, path=pitfilled)
+        assert output == pitfilled
+        output = load_raster(pitfilled)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
+
+
+class TestUpslopePixels:
+    def test_verbose(_, fflow8, capfd):
+        dem.upslope_pixels(fflow8, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
+
+    def test_quiet(_, fflow8, capfd):
+        dem.upslope_pixels(fflow8, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fflow8, fareau, tmp_path):
+        area = tmp_path / "output.tif"
+        write_raster(existing_raster, area)
+        dem.upslope_pixels(fflow8, path=area, overwrite=True)
+        output = load_raster(area)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_, fflow8, tmp_path):
+        area = tmp_path / "output.tif"
+        write_raster(existing_raster, area)
+        with pytest.raises(FileExistsError):
+            dem.upslope_pixels(fflow8, path=area, overwrite=False)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array(_, fflow8, fareau, load_input):
+        if load_input:
+            fflow8 = load_raster(fflow8)
+            fill = np.nonzero(fflow8) == -32768
+            fflow8[np.nonzero(fill)] = np.nan
+        output = dem.upslope_pixels(fflow8)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "dem.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save(_, fflow8, fareau, tmp_path, load_input):
+        if load_input:
+            fflow8 = load_raster(fflow8)
+        area = tmp_path / "output.tif"
+        output = dem.upslope_pixels(fflow8, path=area)
+        assert output == area
+        output = load_raster(area)
+        expected = load_raster(fareau)
         assert np.array_equal(output, expected)
