@@ -484,6 +484,19 @@ class TestPitfill:
         expected = load_raster(fpitfilled)
         assert np.array_equal(output, expected)
 
+    def test_nodata(_, fdem):
+        fdem = load_raster(fdem)
+        output = dem.pitfill(fdem, nodata=4)
+        fill = -3e38
+        expected = fdem
+        expected[expected==4] = fill
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fdem, fpitfilled):
+        output = dem.pitfill(fdem, nodata=4)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
+
 
 class TestUpslopePixels:
     def test_verbose(_, fflow8, capfd):
@@ -514,9 +527,7 @@ class TestUpslopePixels:
     def test_array(_, fflow8, fareau, load_input):
         if load_input:
             fflow8 = load_raster(fflow8)
-            fill = np.nonzero(fflow8) == -32768
-            fflow8[np.nonzero(fill)] = np.nan
-        output = dem.upslope_pixels(fflow8)
+        output = dem.upslope_pixels(fflow8, nodata=-32768)
         expected = load_raster(fareau)
         assert np.array_equal(output, expected)
         assert not (Path.cwd() / "dem.tif").is_file()
@@ -526,8 +537,23 @@ class TestUpslopePixels:
         if load_input:
             fflow8 = load_raster(fflow8)
         area = tmp_path / "output.tif"
-        output = dem.upslope_pixels(fflow8, path=area)
+        output = dem.upslope_pixels(fflow8, nodata=-32768, path=area)
         assert output == area
         output = load_raster(area)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+
+    def test_nodata(_, fflow8, fareau):
+        flow = load_raster(fflow8)
+        output = dem.upslope_pixels(flow, nodata=0)
+        expected = load_raster(fareau)
+        expected[expected==-1] = 1
+        expected[2,1] = 3
+        print(output)
+        print(expected)
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fflow8, fareau):
+        output = dem.upslope_pixels(fflow8, nodata=0)
         expected = load_raster(fareau)
         assert np.array_equal(output, expected)
