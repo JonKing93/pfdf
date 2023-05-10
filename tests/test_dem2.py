@@ -557,3 +557,67 @@ class TestUpslopePixels:
         output = dem.upslope_pixels(fflow8, nodata=0)
         expected = load_raster(fareau)
         assert np.array_equal(output, expected)
+
+
+class TestUpslopeSum:
+    def test_verbose(_, fflow8, fweights, capfd):
+        dem.upslope_sum(fflow8, fweights, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
+
+    def test_quiet(_, fflow8, fweights, capfd):
+        dem.upslope_sum(fflow8, fweights, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fflow8, fweights, fareaw, tmp_path):
+        area = tmp_path / "output.tif"
+        write_raster(existing_raster, area)
+        dem.upslope_sum(fflow8, fweights, path=area, overwrite=True)
+        output = load_raster(area)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_, fflow8, fweights, tmp_path):
+        area = tmp_path / "output.tif"
+        write_raster(existing_raster, area)
+        with pytest.raises(FileExistsError):
+            dem.upslope_sum(fflow8, fweights, path=area, overwrite=False)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array(_, fflow8, fweights, fareaw, load_input):
+        if load_input:
+            fflow8 = load_raster(fflow8)
+            fweights = load_raster(fweights)
+        output = dem.upslope_sum(fflow8, fweights, flow_nodata=-32768, weights_nodata=-999)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "dem.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save(_, fflow8, fweights, fareaw, tmp_path, load_input):
+        if load_input:
+            fflow8 = load_raster(fflow8)
+            fweights = load_raster(fweights)
+        area = tmp_path / "output.tif"
+        output = dem.upslope_sum(fflow8, fweights, path=area, flow_nodata=-32768, weights_nodata=-999)
+        assert output == area
+        output = load_raster(area)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
+
+    def test_nodata(_, fflow8, fareau):
+        flow = load_raster(fflow8)
+        weights = np.ones(flow.shape)
+        output = dem.upslope_sum(flow, weights, flow_nodata=0)
+        expected = load_raster(fareau)
+        expected[expected==-1] = 1
+        expected[2,1] = 3
+        print(output)
+        print(expected)
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fflow8, fweights, fareaw):
+        output = dem.upslope_sum(fflow8, fweights, flow_nodata=0, weights_nodata=2)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
