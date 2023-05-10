@@ -498,6 +498,155 @@ class TestPitfill:
         assert np.array_equal(output, expected)
 
 
+class TestFlowDirections:
+    def test_verbose(_, fpitfilled, capfd):
+        dem.flow_directions("D8", fpitfilled, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
+
+    def test_quiet(_, fpitfilled, capfd):
+        dem.flow_directions("D8", fpitfilled, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fpitfilled, fflow8, tmp_path):
+        flow = tmp_path / "output.tif"
+        write_raster(existing_raster, flow)
+        dem.flow_directions("D8", fpitfilled, path=flow, overwrite=True)
+        output = load_raster(flow)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_, fpitfilled, tmp_path):
+        flow = tmp_path / "output.tif"
+        write_raster(existing_raster, flow)
+        with pytest.raises(FileExistsError):
+            dem.upslope_pixels(fpitfilled, path=flow, overwrite=False)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array8(_, fpitfilled, fflow8, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+        output = dem.flow_directions("D8", fpitfilled)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "flow_directions.tif").is_file()
+        assert not (Path.cwd() / "slopes.tif").is_file()
+
+    def test_array8_slopes(_, fpitfilled, fflow8, fslopes8):
+        output = dem.flow_directions("D8", fpitfilled, return_slopes=True)
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        flow, slopes = output
+        expected = load_raster(fflow8)
+        assert np.array_equal(flow, expected)
+        expected = load_raster(fslopes8)
+        assert np.allclose(slopes, expected, rtol=0, atol=1e-7)
+        assert not (Path.cwd() / "flow_directions.tif").is_file()
+        assert not (Path.cwd() / "slopes.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save8(_, fpitfilled, fflow8, tmp_path, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+        flow = tmp_path / "output.tif"
+        output = dem.flow_directions("D8", fpitfilled, path=flow)
+        assert output == flow
+        output = load_raster(flow)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+
+    def test_save8_slopes(_, fpitfilled, fflow8, fslopes8, tmp_path):
+        flow_path = tmp_path / "output-1.tif"
+        slopes_path = tmp_path / "output-2.tif"
+        output = dem.flow_directions(
+            "D8",
+            fpitfilled,
+            path=flow_path,
+            return_slopes=True,
+            slopes_path=slopes_path,
+        )
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        flow, slopes = output
+        assert flow == flow_path
+        output = load_raster(flow_path)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+        assert slopes == slopes_path
+        output = load_raster(slopes_path)
+        expected = load_raster(fslopes8)
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_arrayI(_, fpitfilled, fflowi, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+        output = dem.flow_directions("DInf", fpitfilled)[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+        assert not (Path.cwd() / "flow_directions.tif").is_file()
+        assert not (Path.cwd() / "slopes.tif").is_file()
+
+    def test_arrayI_slopes(_, fpitfilled, fflowi, fslopesi):
+        output = dem.flow_directions("DInf", fpitfilled, return_slopes=True)
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        flow, slopes = output
+        flow = flow[1, 1:3]
+        slopes = slopes[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(flow, expected, rtol=0, atol=1e-7)
+        expected = load_raster(fslopesi)[1, 1:3]
+        assert np.allclose(slopes, expected, rtol=0, atol=1e-7)
+        assert not (Path.cwd() / "flow_directions.tif").is_file()
+        assert not (Path.cwd() / "slopes.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_saveI(_, fpitfilled, fflowi, tmp_path, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+        flow = tmp_path / "output.tif"
+        output = dem.flow_directions("DInf", fpitfilled, path=flow)
+        assert output == flow
+        output = load_raster(flow)[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+
+    def test_saveI_slopes(_, fpitfilled, fflowi, fslopesi, tmp_path):
+        flow_path = tmp_path / "output-1.tif"
+        slopes_path = tmp_path / "output-2.tif"
+        output = dem.flow_directions(
+            "DInf",
+            fpitfilled,
+            path=flow_path,
+            return_slopes=True,
+            slopes_path=slopes_path,
+        )
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        flow, slopes = output
+        assert flow == flow_path
+        output = load_raster(flow_path)[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+        assert slopes == slopes_path
+        output = load_raster(slopes_path)[1, 1:3]
+        expected = load_raster(fslopesi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+
+    def test_nodata(_, fpitfilled):
+        pitfilled = load_raster(fpitfilled)
+        output = dem.flow_directions("D8", pitfilled, nodata=4)
+        expected = np.full(pitfilled.shape, -32768)
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fpitfilled, fflow8):
+        output = dem.flow_directions("D8", fpitfilled, nodata=4)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+
+
 class TestUpslopePixels:
     def test_verbose(_, fflow8, capfd):
         dem.upslope_pixels(fflow8, verbose=True)
@@ -549,8 +698,6 @@ class TestUpslopePixels:
         expected = load_raster(fareau)
         expected[expected == -1] = 1
         expected[2, 1] = 3
-        print(output)
-        print(expected)
         assert np.array_equal(output, expected)
 
     def test_ignore_nodata(_, fflow8, fareau):
@@ -652,7 +799,7 @@ class TestRelief:
         expected = load_raster(frelief)
         assert np.array_equal(output, expected)
 
-    def test_invalid_overwrite(_,  fpitfilled, fflowi, fslopesi, tmp_path):
+    def test_invalid_overwrite(_, fpitfilled, fflowi, fslopesi, tmp_path):
         relief = tmp_path / "output.tif"
         write_raster(existing_raster, relief)
         with pytest.raises(FileExistsError):
@@ -694,7 +841,7 @@ class TestRelief:
             fpitfilled,
             fflowi,
             fslopesi,
-            path = relief,
+            path=relief,
             flow_nodata=fmin,
             slopes_nodata=-1,
         )
@@ -711,6 +858,8 @@ class TestRelief:
         assert np.array_equal(output, expected)
 
     def test_ignore_nodata(_, fpitfilled, fflowi, fslopesi, frelief):
-        output = dem.relief(fpitfilled, fflowi, fslopesi, flow_nodata=0, slopes_nodata=0)
+        output = dem.relief(
+            fpitfilled, fflowi, fslopesi, flow_nodata=0, slopes_nodata=0
+        )
         expected = load_raster(frelief)
         assert np.array_equal(output, expected)
