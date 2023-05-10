@@ -223,7 +223,7 @@ class TestNoData:
     # NaN (floating) should convert to 0 for integer rasters
     def test_converted(_, fflow8):
         raster = load_raster(fflow8)
-        output = dem._nodata([np.nan], 'test name', [raster])
+        output = dem._nodata([np.nan], "test name", [raster])
         assert output == [0]
 
     def test_nonscalar(_, fdem):
@@ -294,7 +294,7 @@ class TestPaths:
             rasters=[araster, fraster, fraster, None],
             save=[None, None, True, False],
             names=["input-1", "input-2", "output-1", "output-2"],
-            nodata=[5, 'ignored']
+            nodata=[5, "ignored"],
         )
 
         assert isinstance(output, list)
@@ -489,7 +489,7 @@ class TestPitfill:
         output = dem.pitfill(fdem, nodata=4)
         fill = -3e38
         expected = fdem
-        expected[expected==4] = fill
+        expected[expected == 4] = fill
         assert np.array_equal(output, expected)
 
     def test_ignore_nodata(_, fdem, fpitfilled):
@@ -530,7 +530,7 @@ class TestUpslopePixels:
         output = dem.upslope_pixels(fflow8, nodata=-32768)
         expected = load_raster(fareau)
         assert np.array_equal(output, expected)
-        assert not (Path.cwd() / "dem.tif").is_file()
+        assert not (Path.cwd() / "upslope_pixels.tif").is_file()
 
     @pytest.mark.parametrize("load_input", (True, False))
     def test_save(_, fflow8, fareau, tmp_path, load_input):
@@ -547,8 +547,8 @@ class TestUpslopePixels:
         flow = load_raster(fflow8)
         output = dem.upslope_pixels(flow, nodata=0)
         expected = load_raster(fareau)
-        expected[expected==-1] = 1
-        expected[2,1] = 3
+        expected[expected == -1] = 1
+        expected[2, 1] = 3
         print(output)
         print(expected)
         assert np.array_equal(output, expected)
@@ -589,10 +589,12 @@ class TestUpslopeSum:
         if load_input:
             fflow8 = load_raster(fflow8)
             fweights = load_raster(fweights)
-        output = dem.upslope_sum(fflow8, fweights, flow_nodata=-32768, weights_nodata=-999)
+        output = dem.upslope_sum(
+            fflow8, fweights, flow_nodata=-32768, weights_nodata=-999
+        )
         expected = load_raster(fareaw)
         assert np.array_equal(output, expected)
-        assert not (Path.cwd() / "dem.tif").is_file()
+        assert not (Path.cwd() / "upslope_sum.tif").is_file()
 
     @pytest.mark.parametrize("load_input", (True, False))
     def test_save(_, fflow8, fweights, fareaw, tmp_path, load_input):
@@ -600,7 +602,9 @@ class TestUpslopeSum:
             fflow8 = load_raster(fflow8)
             fweights = load_raster(fweights)
         area = tmp_path / "output.tif"
-        output = dem.upslope_sum(fflow8, fweights, path=area, flow_nodata=-32768, weights_nodata=-999)
+        output = dem.upslope_sum(
+            fflow8, fweights, path=area, flow_nodata=-32768, weights_nodata=-999
+        )
         assert output == area
         output = load_raster(area)
         expected = load_raster(fareaw)
@@ -611,13 +615,102 @@ class TestUpslopeSum:
         weights = np.ones(flow.shape)
         output = dem.upslope_sum(flow, weights, flow_nodata=0)
         expected = load_raster(fareau)
-        expected[expected==-1] = 1
-        expected[2,1] = 3
-        print(output)
-        print(expected)
+        expected[expected == -1] = 1
+        expected[2, 1] = 3
         assert np.array_equal(output, expected)
 
     def test_ignore_nodata(_, fflow8, fweights, fareaw):
         output = dem.upslope_sum(fflow8, fweights, flow_nodata=0, weights_nodata=2)
         expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
+
+
+class TestRelief:
+    def test_verbose(_, fpitfilled, fflowi, fslopesi, capfd):
+        dem.relief(fpitfilled, fflowi, fslopesi, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
+
+    def test_quiet(_, fpitfilled, fflowi, fslopesi, capfd):
+        dem.relief(fpitfilled, fflowi, fslopesi, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path):
+        relief = tmp_path / "output.tif"
+        write_raster(existing_raster, relief)
+        dem.relief(
+            fpitfilled,
+            fflowi,
+            fslopesi,
+            path=relief,
+            overwrite=True,
+            flow_nodata=fmin,
+            slopes_nodata=-1,
+        )
+        output = load_raster(relief)
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_,  fpitfilled, fflowi, fslopesi, tmp_path):
+        relief = tmp_path / "output.tif"
+        write_raster(existing_raster, relief)
+        with pytest.raises(FileExistsError):
+            dem.relief(
+                fpitfilled,
+                fflowi,
+                fslopesi,
+                path=relief,
+                overwrite=False,
+                flow_nodata=fmin,
+                slopes_nodata=-1,
+            )
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array(_, fpitfilled, fflowi, fslopesi, frelief, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+            fflowi = load_raster(fflowi)
+            fslopesi = load_raster(fslopesi)
+        output = dem.relief(
+            fpitfilled,
+            fflowi,
+            fslopesi,
+            flow_nodata=fmin,
+            slopes_nodata=-1,
+        )
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "relief.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+            fflowi = load_raster(fflowi)
+            fslopesi = load_raster(fslopesi)
+        relief = tmp_path / "output.tif"
+        output = dem.relief(
+            fpitfilled,
+            fflowi,
+            fslopesi,
+            path = relief,
+            flow_nodata=fmin,
+            slopes_nodata=-1,
+        )
+        assert output == relief
+        output = load_raster(relief)
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
+
+    def test_nodata(_, fpitfilled, fflowi, fslopesi):
+        flow = load_raster(fflowi)
+        output = dem.relief(fpitfilled, flow, fslopesi, flow_nodata=0)
+        expected = np.zeros(flow.shape)
+        expected[1:, 1] = 2
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fpitfilled, fflowi, fslopesi, frelief):
+        output = dem.relief(fpitfilled, fflowi, fslopesi, flow_nodata=0, slopes_nodata=0)
+        expected = load_raster(frelief)
         assert np.array_equal(output, expected)

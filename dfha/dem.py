@@ -337,7 +337,7 @@ def upslope_pixels(
 
     # Validate
     verbose, overwrite = _options(verbose, overwrite)
-    names = ["flow_directions", "upslope_area"]
+    names = ["flow_directions", "upslope_pixels"]
     [flow] = _validate_inputs([flow_directions], names[0:1])
     nodata = _nodata([nodata], ["nodata"], [flow])
     area, save = _validate_output(path, overwrite)
