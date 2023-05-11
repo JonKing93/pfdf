@@ -487,24 +487,25 @@ class Segments:
         return self._summary(upslope_basins, self._stats["basins"])
 
     def catchment_mean(
-        self, npixels: SegmentValues, flow_directions: Raster, raster: Raster
+        self, npixels: SegmentValues, flow_directions: Raster, values: Raster
     ) -> SegmentValues:
         """
         catchment_mean  Computes mean values over all pixels in stream segment catchment areas
         ----------
-        self.catchment_mean(npixels, flow_directions, raster)
+        self.catchment_mean(npixels, flow_directions, values)
         Computes the mean value over all pixels in the catchment (upslope) area
         for each stream segment. Calculates mean values over an input values raster.
-        Returns mean values as a numpy 1D array. The order of mean values matches
-        the order of segment IDs in the object.
+        and returns the mean values as a numpy 1D array. The order of mean values 
+        matches the order of segment IDs in the object. Note that the values raster
+        cannot include negative values.
         ----------
         Inputs:
             npixels: The number of upslope pixels for each stream segment. Values
                 must be positive.
             flow_directions: A raster with TauDEM-style D8 flow directions for
                 the DEM pixels.
-            raster: A raster of data values for the DEM pixels over which to
-                calculate catchment means.
+            values: A raster of data values for the DEM pixels over which to
+                calculate catchment means. All values must be positive.
 
         Outputs:
             numpy 1D array: The catchment mean for each stream segment.
@@ -513,14 +514,53 @@ class Segments:
         # Validate inputs
         npixels = validate.vector(npixels, "npixels", dtype=real, length=len(self))
         validate.positive(npixels, "npixels")
-        raster = self._validate(raster, "values raster")
+        values = self._validate(values, "values raster")
+        validate.positive(values, 'values_raster', allow_zero=True)
         flow_directions = self._validate(flow_directions, "flow_directions")
         self._validate_flow(flow_directions)
 
-        # Compute mean values
-        upslope_sums = dem.upslope_sum(flow_directions, raster)
+        # Compute mean values. (Note that np.amax gives us the sum from the most
+        # downstream pixel).
+        upslope_sums = dem.upslope_sum(flow_directions, values)
         segment_sums = self._summary(upslope_sums, np.amax)
         return segment_sums / npixels
+    
+
+    def masked_catchment_mean(self, flow_directions: Raster, values: Raster, use: Raster):
+        """
+        masked_catchment_mean  Computes mean values over indicated pixels in stream segment catchment areas
+        ----------
+        self.masked_catchment_mean(flow_directions, values, use)
+        Computes mean values over the catchment areas of the stream segments. Only
+        computes means using indicated pixels in the values raster. Returns values
+        as a numpy 1D array. The order of mean values will match the order of IDs
+        in the Segments object. Note that all values used in the mean must be 
+        positive.
+        ----------
+        Inputs:
+            flow_directions: A raster with TauDEM-style D8 flow directions for
+                the DEM pixels.
+            values: A raster of data values for the DEM pixels over which to
+                calculate catchment means. All values must be positive.
+            use: A raster indicating which DEM pixels should be used to calculate means.
+
+        Outputs:
+            numpy 1D array: The mean value for each stream segment
+        """
+
+        # Validate inputs
+        flow_directions = self._validate(flow_directions, 'flow_directions')
+        self._validate_flow(flow_directions)
+        values = self._validate(values, 'values')
+        validate.positive(values, 'values', allow_zero=True)
+        use = self._validate(use, 'use')
+
+        # Compute the masked mean. (np.amax gives the sum in the most downstream pixel)
+        npixels = dem.upslope_sum(flow_directions, use)
+        values = values * use
+        sums = self._summary(values, np.amax)
+        return sums / npixels
+
 
     def confinement(
         self,
@@ -699,18 +739,18 @@ class Segments:
 
     def slope(self, slopes: Raster) -> SegmentValues:
         """
-        slope  Returns the mean slope (rise/run) for each stream segment
+        slope  Returns the mean slope for each stream segment
         ----------
         self.slope(slopes)
-        Computes the mean slope (rise/run) for each stream segment. Returns the slopes
+        Computes the mean slope for each stream segment. Returns the slopes
         as a numpy 1D array. The order of slopes in the output array will match the
         order of segment IDs in the object.
         ----------
         Inputs:
-            slopes: A raster holding the slopes (rise/run) of the DEM pixels
+            slopes: A raster holding the slopes of the DEM pixels
 
         Outputs:
-            numpy 1D array: The mean slope (rise/run) of each stream segment.
+            numpy 1D array: The mean slope of each stream segment.
         """
         slopes = self._validate(slopes, "slopes")
         return self._summary(slopes, self._stats["slope"])
