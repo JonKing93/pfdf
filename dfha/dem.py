@@ -14,8 +14,9 @@ We recommend users work with the "pitfill", "flow_directions", "upslope_pixels",
 "upslope_sum", and "relief" functions, which implement specific DEM analyses.
 Note that the "upslope_sum" function is generalizable to a number of analyses
 useful for hazard assessment - for example, to compute the number of burned upslope
-pixels, or the number of upslope debris basins. We also note that the "relief"
-analysis is typically only needed when running the M3 model from Staley et al., 2017.
+pixels, the number of developed upslope pixels, or the number of upslope debris
+basins. We also note that the "relief" analysis is typically only needed when 
+running the M3 model from Staley et al., 2017.
 
 In general, these functions operate on raster datasets, and users may provide 
 input rasters in a variety of formats. Currently, the module supports:
