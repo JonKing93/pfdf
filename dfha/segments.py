@@ -52,7 +52,7 @@ Internal:
 import numpy as np
 from math import sqrt
 from copy import deepcopy
-from dfha import validate
+from dfha import validate, dem
 from dfha.utils import any_defined, load_raster, real
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
@@ -62,6 +62,7 @@ from dfha.typing import (
     ints,
     ScalarArray,
     VectorShape,
+    VectorArray,
 )
 from nptyping import NDArray, Shape, Integer, Number, Bool
 
@@ -87,7 +88,8 @@ class Segments:
     mean slope of each stream segment, or the segment's confinement angles.
     Note that summary statistics are only calculated using stream segment
     pixels (roughly, the river bed), and NOT using all the pixels in the segment's
-    catchment area.
+    catchment area. The one exception is the "catchment_mean" method, which
+    computes a mean over all pixels in the catchment area.
 
     These summary values can then be used to filter an initial stream segment
     network to a final set of segments for hazard assessment modeling. A
@@ -132,13 +134,16 @@ class Segments:
         __init__        - Defines a set of stream segments from a stream segment raster
         copy            - Returns a deep copy of the current object
 
-    Summary Values:
+    Specific Values:
         area            - Returns the maximum upslope area of each segment
         basins          - Returns the maximum number of upslope debris basins of each segment
         confinement     - Returns the mean confinement angle of each segment
         development     - Returns the mean upslope developed area for each segment
         slope           - Returns the mean slope for each segment
+
+    Generic Values:
         summary         - Returns a generic statistical summary value for each segment
+        catchment_mean  - Returns a mean computed over the catchment area for each segment
 
     Filtering:
         remove          - Removes the indicated segments from the Segments object
@@ -491,6 +496,43 @@ class Segments:
         """
         upslope_basins = self._validate(upslope_basins, "upslope_basins")
         return self._summary(upslope_basins, self._stats["basins"])
+
+    def catchment_mean(
+        self, total_area: VectorArray, flow_directions: Raster, raster: Raster
+    ) -> SegmentValues:
+        """
+        catchment_mean  Returns mean values computed over the catchment area of each stream segment
+        ----------
+        self.catchment_mean(total_area, flow_directions, raster)
+        Computes the mean value over all pixels in the catchment (usplope) area
+        for each stream segment. Calculates mean values over an input values raster.
+        Returns mean values as a numpy 1D array. The order of mean values matches
+        the order of segment IDs in the object.
+        ----------
+        Inputs:
+            total_area: The total upslope area for each stream segment. Must have
+                one element per stream segment. (See the "area" method for generating
+                these values).
+            flow_directions: TauDEM-style D8 flow directions for the DEM pixels.
+            raster: A raster of data values for the DEM pixels over which to
+                calculate catchment means.
+
+        Outputs:
+            numpy 1D array: The catchment mean for each stream segment.
+        """
+
+        # Validate inputs
+        total_area = validate.vector(
+            total_area, "total_area", dtype=real, length=len(self)
+        )
+        raster = self._validate(raster, "values raster")
+        flow_directions = self._validate(flow_directions, "flow_directions")
+        self._validate_flow(flow_directions)
+
+        # Compute mean values
+        upslope_sums = dem.upslope_sum(flow_directions, raster)
+        segment_sums = self._summary(upslope_sums, np.amax)
+        return segment_sums / total_area
 
     def confinement(
         self,
