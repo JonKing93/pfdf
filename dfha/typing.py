@@ -60,3 +60,7 @@ Raster = Union[str, Path, DatasetReader, RasterArray]
 SegmentsShape = Shape['Segments']
 SegmentValues = Union[NDArray[SegmentsShape, Integer], NDArray[SegmentsShape, Floating]]
 
+# Staley 2017
+DurationShape = Shape['Durations']
+Durations = Union[NDArray[DurationShape, Integer], NDArray[DurationShape, Floating]]
+DurationValues = NDArray[DurationShape, Floating]

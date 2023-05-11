@@ -6,38 +6,169 @@ import numpy as np
 from abc import ABC, abstractmethod
 from dhfa import validate
 from dhfa.utils import real
+from dfha.segments import Segments
+from typing import NoReturn, Dict
+from nptyping import NDArray, Shape, Boolean
+from dfha.typing import Raster, SegmentValues, VectorArray, Durations, DurationValues
 
+# Type aliases
+ParameterDict = Dict[str, DurationValues]
+VariableDict = Dict[str, SegmentValues]
 
 #####
 # Variables
 #####
 
 
-def ruggedness(segments, area, relief):
+def ruggedness(
+    segments: Segments, segment_areas: SegmentValues, relief: Raster
+) -> SegmentValues:
+    """
+    ruggedness  Computes topographic ruggedness for a set of stream segments
+    ----------
+    ruggedness(segments, segment_areas, relief)
+    Computes topographic ruggedness for a set of stream segments. Ruggedness
+    is calculated via:
+
+        Ruggedness = vertical relief / sqrt(upslope area)
+
+    Returns the ruggedness values as a numpy 1D array.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        segment_areas: The total upslope area of each stream segment (as determined
+            for the most downstream pixel). All values must be positive.
+        relief: A raster holding the vertical relief of the DEM pixels. (See
+            the "dem.relief" function to calculate this raster). Must have the
+            same shape as the raster used to derive the stream segments.
+
+    Outputs:
+        numpy 1D array: The ruggedness of each stream segment.
+    """
+    validate.vector(segment_areas, "segment_areas", dtype=real, length=len(segments))
+    validate.positive(segment_areas, "segment_areas")
     relief = segments.summary("max", relief)
-    return relief / np.sqrt(area)
+    return relief / np.sqrt(segment_areas)
 
 
-def burn_ratio(segments, npixels, flow_directions, isburned):
+def burn_ratio(
+    segments: Segments,
+    npixels: SegmentValues,
+    flow_directions: Raster,
+    isburned: Raster,
+) -> SegmentValues:
+    """
+    burn_ratio  Computes the ratio of upslope pixels burned at a particular severity
+    ----------
+    burn_ratio(segments, npixels, flow_directions, isburned)
+    Given a set of stream segments, computes the ratio:
+
+        Ratio = Burned upslope pixels / Total upslope pixels
+
+    Note that this function is for a generic burn severity level. The input raster
+    "isburned" indicates which DEM pixels are burned at the desired level. Pixels
+    considered burned should have a value of 1. All other pixels should be 0.
+
+    For example, to compute the ratio of moderate-or-high burn severity, "isburned"
+    should be 1 for pixels with moderate or high burn severity, but 0 for pixels
+    with low or no burn.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        npixels: The number of upslope pixels for each stream segment.
+        flow_directions: A raster holding TauDEM-style D8 flow directions for the
+            DEM pixels. Must have the same shape as the raster used to derive
+            the stream segments.
+        isburned: A raster indicating which pixels are burned at the desired
+            severity level. Must have the same shape as the raster used to derive
+            the stream segments.
+
+    Outputs:
+        numpy 1D array: The burn ratio for each stream segment
+    """
     return segments.catchment_mean(npixels, flow_directions, isburned)
 
 
-def scaled_dnbr(segments, npixels, flow_directions, dNBR):
+def scaled_dnbr(
+    segments: Segments, npixels: SegmentValues, flow_directions: Raster, dNBR: Raster
+) -> SegmentValues:
+    """
+    scaled_dnbr  Computes mean dNBR/1000 for a set of stream segment catchments
+    ----------
+    scaled_dnbr(segments, npixels, flow_directions, dNBR)
+    Computes mean scaled dNBR for a set of stream segments. Mean dNBR is calculated
+    over the full catchment area of each stream segment. This value is then scaled
+    by 1000 to place the final value roughly on an interval from 0 to 1.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        npixels: The number of upslope pixels for each stream segment.
+        flow_directions: A raster holding TauDEM-style D8 flow directions for the
+            DEM pixels. Must have the same shape as the raster used to derive
+            the stream segments.
+        dNBR: A raster holding dNBR values for the DEM pixels. Must have the same
+            shape as the raster used to derive the stream segments.
+
+    Outputs:
+        numpy 1D array: The scaled dNBR values for the stream segments
+    """
     dNBR = segments.catchment_mean(npixels, flow_directions, dNBR)
     return dNBR / 1000
 
 
 def kf_factor(segments, npixels, flow_directions, kf_factor):
+    """
+    kf_factor  Returns the mean KF-Factor for a set of stream segment catchments
+    ----------
+    kf_factor(segments, npixels, flow_directions, kf_factor)
+    Computes the mean KF-factors for a set of stream segments. Mean KF-factor is
+    calculated over the full catchment area of each stream segment.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        npixels: The number of upslope pixels for each stream segment
+        flow_directions: A raster holding TauDEM-style D8 flow directions for the
+            DEM pixels. Must have the same shape as the raster used to derive
+            the stream segments.
+        kf_factor: A raster holding KF-factor values for the DEM pixels. Must have
+            the same shape as the raster used to derive the stream segments.
+
+    Outputs:
+        numpy 1D array: The mean KF-factor for each stream segment.
+    """
     return segments.catchment_mean(npixels, flow_directions, kf_factor)
 
 
 def scaled_thickness(segments, npixels, flow_directions, soil_thickness):
+    """
+    scaled_thickness  Returns mean soil thickness / 100 for a set of stream segments
+    ----------
+    scaled_thickness(segments, npixels, flow_directions, soil_thickness)
+    Computes mean scaled soil thickness for a set of stream segments. Mean soil
+    thickness is computed over the full catchment area of each stream segment.
+    These values are then scaled by 100 to place them roughly on the interval
+    from 0 to 1.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        npixels: The number of upslope pixels for each stream segment
+        flow_directions: A raster holding TauDEM-style D8 flow directions for the
+            DEM pixels. Must have the same shape as the raster used to derive
+            the stream segments.
+        soil_thickness: A raster holding the soil thickness for the DEM pixels.
+            Must have the same shape as the raster used to derive the stream segments.
+
+    Outputs:
+        numpy 1D array: The mean scaled soil thickness for each stream segment
+    """
     thickness = segments.catchment_mean(npixels, flow_directions, soil_thickness)
     return thickness / 100
 
 
 def _kf_factor(*args, **kwargs):
-    # Alias to permit both variables and functions to be named kf_factor
+    """This function is just an alias to kf_factor. It exists so that users can
+    use kf_factor to refer to variables in functions that also call the
+    kf_factor function."""
     return kf_factor(*args, **kwargs)
 
 
@@ -47,14 +178,51 @@ def _kf_factor(*args, **kwargs):
 
 
 class Model(ABC):
+    """
+    Model  An abstract base class for the 4 logistic models from Staley et al., 2017
+    ----------
+    The class provides an interface for some of the common patterns between the
+    the 4 logistic models. It defines the rainfall durations used to calibrate
+    parameters, and provides a function to query model parameters for a given
+    set of durations. The class also requires each concrete model to define a
+    "variables" function that calculates the (T)errain, (F)ire, and (S)oil
+    variables required to run the model.
+    ----------
+    Properties:
+        durations       - Rainfall durations used to calibrate model parameters
+
+    Abstract Properties:
+        B               - Logistic Model intercepts
+        Ct              - Coefficients for the (t)errain variable
+        Cf              - Coefficients for the (f)ire variable
+        Cs              - Coefficients for the (s)oil variable
+
+    Methods:
+        parameters      - Returns the model parameters for a queried set of durations
+
+    Abstract Methods:
+        variables       - Returns the terrain, fire, and soil variables for a set of stream segments
+
+    Exceptions:
+        DurationsError  - When a queried duration is not a valid duration
+    """
+
+    # The rainfall durations used to calibrate model parameters
     durations = [15, 30, 60]
-    B = None
-    Ct = None
-    Cf = None
-    Cs = None
+
+    # Model parameters: Each concrete model should define these. Each property
+    # should have 3 elements and follow the order of the above durations
+    B = None  # Logistic model intercepts
+    Ct = None  # Terrain coefficients
+    Cf = None  # Fire coefficients
+    Cs = None  # Soil coefficients
 
     @classmethod
-    def DurationsError(cls, durations, valid):
+    def DurationsError(
+        cls, durations: VectorArray, valid: NDArray[Shape["Durations"], Boolean]
+    ) -> NoReturn:
+        """An exception for invalid rainfall durations. Notes the invalid duration
+        in the error message and informs the user of valid values."""
         bad = np.argwhere(valid == 0)[0]
         allowed = ", ".join([str(value) for value in cls.durations])
         return ValueError(
@@ -62,7 +230,31 @@ class Model(ABC):
         )
 
     @classmethod
-    def parameters(cls, durations=durations):
+    def parameters(cls, durations: Durations = durations) -> ParameterDict:
+        """
+        parameters  Return model parameters for the queried durations.
+        ----------
+        Model.parameters()
+        Returns a dict with the logistic model intercepts (B), terrain coefficients (Ct),
+        fire coefficients (Cf), and soil coefficients (Cs) for a model. Each
+        value in the dict is a numpy 1D array with 3 elements. The three elements
+        are for 15-minute, 30-minute, and 60-minute rainfall durations (in that order).
+
+        Model.parameters(durations)
+        Returns values for the queried rainfall durations. Each value in the dict
+        will have one element per queried duration, in the same order as the queries.
+        Valid durations to query are 15, 30, and 60.
+        ----------
+        Inputs:
+            durations: A list of rainfall durations for which to return model parameters
+
+        Outputs:
+            Dict[str, numpy 1D array]: The queried coefficients for the model.
+                'B': Logistic model intercepts
+                'Ct': Terrain coefficients
+                'Cf': Fire coefficients
+                'Cs': Soil coefficients
+        """
         # Validate durations
         durations = validate.vector(durations, "durations", real)
         valid = np.isin(durations, cls.durations)
@@ -77,24 +269,112 @@ class Model(ABC):
 
         # Get parameters at the specified duration indices
         parameters = [cls.B, cls.Ct, cls.Cf, cls.Cs]
-        for p, values in enumerate(parameters):
-            parameters[p] = np.array(values)[indices]
-        return parameters
+        names = ["B", "Ct", "Cf", "Cs"]
+        return {
+            name: np.array(values)[indices] for name, values in zip(names, parameters)
+        }
 
+    @staticmethod
     @abstractmethod
-    def variables(*args, **kwargs):
+    def variables(segments: Segments, *args, **kwargs) -> VariableDict:
+        """
+        variables  Returns terrain, fire, and soil variables for a model
+        ----------
+        Model.variables(segments, ...)
+        Given a set of stream segments, returns a dict with the terrain (T),
+        fire (F), and soil (S) variables needed to run the model. Each value in
+        the dict is a numpy 1D array with one element per stream segment.
+        ----------
+        Inputs:
+            segments: A set of stream segments
+            *args, **kwargs: These will vary by model.
+
+        Outputs:
+            Dict[str, numpy 1D array]: The variables needed to run the model
+                for the stream segments.
+                'T': The terrain variable for each stream segment
+                'F': The fire variable for each stream segment
+                'S': The soil variable for each stream segment
+        """
         pass
 
 
 class M1(Model):
+    """
+    M1  Implements the M1 model from Staley et al., 2017
+    ----------
+    This model's variables are as follows:
+
+    Terrain: The ratio of pixels with both high-or-moderate severity AND slopes
+        greater than 23 degrees.
+
+    Fire: Mean catchment dNBR / 1000
+
+    Soil: Mean catchment KF-factor
+    ----------
+    Properties:
+        durations       - Rainfall durations used to calibrate model parameters
+        B               - Logistic Model intercepts
+        Ct              - Terrain coefficients
+        Cf              - Fire coefficients
+        Cs              - Soil coefficients
+
+    Methods:
+        parameters      - Returns model parameters for the queried rainfall durations
+        variables       - Returns the terrain, fire, and soil variables for a set of stream segments
+    """
+
+    # Model parameters
     B = [-3.63, -3.61, -3.21]
     Ct = [0.41, 0.26, 0.17]
     Cf = [0.67, 0.39, 0.20]
     Cs = [0.70, 0.50, 0.220]
 
+    @staticmethod
     def variables(
-        segments, npixels, flow_directions, high_moderate_23, dNBR, kf_factor
-    ):
+        segments: Segments,
+        npixels: SegmentValues,
+        flow_directions: Raster,
+        high_moderate_23: Raster,
+        dNBR: Raster,
+        kf_factor: Raster,
+    ) -> VariableDict:
+        """
+        variables  Returns the M1 terrain, fire, and soil variables for a set of stream segments
+        ----------
+        M1.variables(segments, npixels, flow_directions,
+                                              high_moderate_23, dNBR, kf_factor)
+        Returns the terrain, fire, and soil variables required to run the M1 model
+        for a set of stream segments. The terrain variable is the ratio of upslope
+        pixels that have both moderate-or-high burn severity, and slopes greater
+        than 23 degrees. The fire variable is mean catchment dNBR / 1000, and
+        the soil variable is the mean catchment KF-factor. Returns a dict mapping
+        each variable to a numpy 1D array with the values of the variable for the
+        stream segments.
+        ----------
+        Inputs:
+            segments: A set of stream segments
+            npixels: The number of upslope pixels for each stream segment.
+            flow_directions: A raster holding TauDEM-style D8 flow directions for the
+                DEM pixels. Must have the same shape as the raster used to derive
+                the stream segments.
+            high_moderate_23: A raster indicating DEM pixels that have both
+                high-or-moderate burn severity, and slopes >= 23 degrees. Pixels
+                that meet this criteria should have a value of 1. All other pixels
+                should be 0. Must have the same shape as the raster used to derive
+                the stream segments.
+            dNBR: A raster holding dNBR values for the DEM pixels. Must have the
+                same shape as the raster used to derive the stream segments.
+            kf_factor: A raster holding KF-factor values for the DEM pixels. Must
+                have the same shape as the raster used to derive the stream segments.
+
+        Output:
+            Dict[str, numpy 1D array]: The values of the model variables for the
+                input stream segments.
+                'T': The terrain variable for each stream segment
+                'F': The fire variable for each stream segment
+                'S': The soil vairable for each stream segment
+        """
         T = burn_ratio(npixels, flow_directions, high_moderate_23)
         F = scaled_dnbr(segments, npixels, flow_directions, dNBR)
         S = _kf_factor(segments, npixels, flow_directions, kf_factor)
