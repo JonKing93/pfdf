@@ -632,19 +632,6 @@ class Test_Summary:
 #####
 
 
-class TestArea:
-    def test(_, segments3, values3):
-        expected = np.array([-8, 4, 2.2])
-        output = segments3.area(values3)
-        assert np.array_equal(output, expected)
-
-    def test_invalid(_, segments3, values3):
-        values3 = np.concatenate((values3, values3), axis=1)
-        with pytest.raises(segments.RasterShapeError) as error:
-            segments3.area(values3)
-        assert_contains(error, "upslope_area")
-
-
 class TestBasins:
     def test(_, segments3, values3):
         expected = np.array([-8, 4, 2.2])
@@ -716,6 +703,19 @@ class TestDevelopment:
         with pytest.raises(segments.RasterShapeError) as error:
             segments3.development(values3)
         assert_contains(error, "upslope_development")
+
+
+class TestPixels:
+    def test(_, segments3, values3):
+        expected = np.array([-8, 4, 2.2])
+        output = segments3.pixels(values3)
+        assert np.array_equal(output, expected)
+
+    def test_invalid(_, segments3, values3):
+        values3 = np.concatenate((values3, values3), axis=1)
+        with pytest.raises(segments.RasterShapeError) as error:
+            segments3.pixels(values3)
+        assert_contains(error, "upslope_area")
 
 
 class TestRemove:
@@ -1052,8 +1052,8 @@ class TestFilter:  # This is the user-facing function
         )
         assert np.array_equal(ids, expected)
 
-    def test_area(_, stream):
-        ids = segments.filter(stream, maximum_area=3, upslope_area=stream)
+    def test_pixels(_, stream):
+        ids = segments.filter(stream, maximum_pixels=3, upslope_pixels=stream)
         expected = np.array([1, 2, 3])
         assert np.array_equal(ids, expected)
 
@@ -1074,7 +1074,11 @@ class TestFilter:  # This is the user-facing function
 
     def test_multiple(_, stream):
         ids = segments.filter(
-            stream, minimum_slope=2, slopes=stream, maximum_area=4, upslope_area=stream
+            stream,
+            minimum_slope=2,
+            slopes=stream,
+            maximum_pixels=4,
+            upslope_pixels=stream,
         )
         expected = np.array([2, 3, 4])
         assert np.array_equal(ids, expected)

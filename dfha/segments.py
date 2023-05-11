@@ -62,7 +62,6 @@ from dfha.typing import (
     ints,
     ScalarArray,
     VectorShape,
-    VectorArray,
     SegmentsShape,
     SegmentValues,
 )
