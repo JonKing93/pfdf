@@ -715,7 +715,7 @@ class TestPixels:
         values3 = np.concatenate((values3, values3), axis=1)
         with pytest.raises(segments.RasterShapeError) as error:
             segments3.pixels(values3)
-        assert_contains(error, "upslope_area")
+        assert_contains(error, "upslope_pixels")
 
 
 class TestRemove:

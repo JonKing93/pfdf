@@ -471,7 +471,7 @@ class Segments:
         ----------
         self.basins(upslope_basins)
         Computes the maximum number of upslope debris retention basins for each
-        stream segment. Returns this count as a numpy 1D array. The order of 
+        stream segment. Returns this count as a numpy 1D array. The order of
         basin counts in the output array will match the order of segment IDs for
         the object.
         ----------
@@ -499,8 +499,8 @@ class Segments:
         the order of segment IDs in the object.
         ----------
         Inputs:
-            npixels: The number of upslope pixels for each stream segment. Must
-                have one element per stream segment.
+            npixels: The number of upslope pixels for each stream segment. Values
+                must be positive.
             flow_directions: A raster with TauDEM-style D8 flow directions for
                 the DEM pixels.
             raster: A raster of data values for the DEM pixels over which to
@@ -512,6 +512,7 @@ class Segments:
 
         # Validate inputs
         npixels = validate.vector(npixels, "npixels", dtype=real, length=len(self))
+        validate.positive(npixels, "npixels")
         raster = self._validate(raster, "values raster")
         flow_directions = self._validate(flow_directions, "flow_directions")
         self._validate_flow(flow_directions)
@@ -600,7 +601,7 @@ class Segments:
         development  Returns the mean number of developed upslope pixels for each stream segment
         ----------
         self.development(upslope_development)
-        Computes the mean number of developed upslope pixels for each stream segment. 
+        Computes the mean number of developed upslope pixels for each stream segment.
         Returns these counts as a numpy 1D array. The pixel counts in the output
         array will match the order of segment IDs in the object.
         ----------
@@ -621,7 +622,7 @@ class Segments:
         ----------
         self.pixels(upslope_pixels)
         Computes the maximum number of upslope pixels for each stream segment.
-        Returns the pixel counts as a numpy 1D array. The order of pixel counts 
+        Returns the pixel counts as a numpy 1D array. The order of pixel counts
         in the output array will match the order of segment IDs in the object.
 
         Note that you can use pixel counts to determine the total upslope area
@@ -635,7 +636,7 @@ class Segments:
         Outputs:
             numpy 1D array: The maximum number of upslope pixels for each stream segment.
         """
-        upslope_pixels = self._validate(upslope_pixels, 'upslope_pixels')
+        upslope_pixels = self._validate(upslope_pixels, "upslope_pixels")
         return self._summary(upslope_pixels, self._stats["pixels"])
 
     def remove(self, segments: IDs) -> None:
@@ -820,10 +821,10 @@ def filter(
     removes stream segments whose confinement angle is above a maximum threshold.
     Segments with angles above the threshold should be too confined to support
     the flow of debris. Segment confinement is set as the mean confinement of
-    all associated pixels. 
-    
-    Requires the DEM, DEM resolution, and D8 flow directions as input. D8 flow 
-    directions should follow the TauDEM convention, wherein flow directions are 
+    all associated pixels.
+
+    Requires the DEM, DEM resolution, and D8 flow directions as input. D8 flow
+    directions should follow the TauDEM convention, wherein flow directions are
     numbered from 1 to 8, traveling clockwise from right. Also, the DEM resolution
     should use the same units as the DEM data. For example, if a DEM expresses
     elevation in meters, then the DEM resolution should also be in meters.
@@ -844,7 +845,7 @@ def filter(
     ----------
     Inputs:
         stream_raster: A stream link raster. Stream segment pixels should have a
-            value matching the ID of the associated stream segment. All other 
+            value matching the ID of the associated stream segment. All other
             pixels should be 0.
         minimum_slope: A minimum slope. Segments with slopes below this threshold
             will be removed.
