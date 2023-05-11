@@ -9,7 +9,17 @@ from dhfa.utils import real
 from dfha.segments import Segments
 from typing import NoReturn, Dict
 from nptyping import NDArray, Shape, Boolean
-from dfha.typing import Raster, SegmentValues, VectorArray, Durations, DurationValues
+from dfha.typing import (
+    Raster, 
+    SegmentValues, 
+    VectorArray, 
+    Durations, 
+    DurationValues, 
+    Pvalues, 
+    Parameters, 
+    Variables,
+    Intensities,
+)
 
 # Type aliases
 ParameterDict = Dict[str, DurationValues]
@@ -19,6 +29,149 @@ VariableDict = Dict[str, SegmentValues]
 #####
 # Logistic model solver
 #####
+
+
+def solve(
+    p: Pvalues,
+    B: Parameters,
+    Ct: Parameters,
+    T: Variables,
+    Cf: Parameters,
+    F: Variables,
+    Cs: Parameters,
+    S: Variables,
+    always_3d: bool = False,
+) -> Intensities:
+    """
+    solve  Computes rainfall intensities by solving the logistic model from Staley et al., 2017
+    ----------
+    solve(p, B, Ct, T, Cf, F, Cs, S)
+    Solves the logistic model from Staley et al., 2017 (Equation 5). Returns
+    the rainfall intensities required to achieve the specified p-values.
+    This function is agnostic to the actual model being run, and thus can
+    implement any of the 4 models presented in the paper (or any other model
+    following the form of Equation 5).
+
+    All of the inputs to this function should be real-valued numpy arrays.
+    The three variables - V, F, and S - represent the terrain steepness,
+    wildfire intensity, and surface properties variables for the model. In
+    most cases, these are 1D arrays with one element per stream segment
+    being assessed. Variables can also be 2D arrays - see below for details
+    for this less common use case.
+
+    The four parameters - B, Ct, Cf, and Cs - are the parameters of the logistic
+    model link equation (Equation 4). B is the intercept, and each C parameter
+    is the coefficient of the associated variable. The parameters should be
+    numpy 1D arrays with one element per run of the hazard assessment model.
+    Here, we define a "run" as an implementation of the hazard model using a
+    unique set of logistic model parameters. A common use case is solving the
+    model for multiple rainfall intensities (for example, 15, 30, and 60 minute
+    intervals). In the example with 3 intensities, each parameter should have
+    3 elements with each element corresponding to the parameter value appropriate
+    for a particular rainfall intensity. Another use case for multiple runs
+    is for Monte Carlo validation of one or more model parameters.
+
+    The p-values - p - are the probabilities for which the model should be solved.
+    For example, p=0.5 solves for the rainfall intensities that cause a 50%
+    likelihood of a debris-flow. p should be a 1D array listing all the
+    probabilities that should be solved for.
+
+    This function solves the rainfall intensities for all stream segments,
+    parameter runs, and p-values provided. The output will be a 3D numpy array.
+    The first dimension is stream segments, second dimension is parameter runs,
+    and third dimension is p-values. If only a single p-value is provided, the
+    output is returned as a 2D array. If there is a single parameter run and
+    a single p-value, then output is returned as a 1D array. (And see below
+    for an option that always returns a 3D array).
+
+    As mentioned, one or more variable can also be a 2D array. In this case
+    each row is a stream segment, and each column is a parameter run. Each
+    column will be used to solve the model for (only) the associated parameter
+    run. This allows use of different values for a variable. An example use
+    case could be testing the model using different datasets to derive one or
+    more variables.
+
+    solve(..., always_3d = True)
+    Always returns the output as a 3D numpy array, regardless of the number
+    of p-values and parameter runs.
+    ----------
+    Inputs:
+        p: The probabilities for which to solve the model
+        B: The intercepts of the link equation
+        Ct: The coefficients for the terrain steepness variable
+        T: The terrain steepness variable
+        Cf: The coefficients for the wildfire intensity variable
+        F: The wildfire intensity variable
+        Cs: The coefficients for the surface properties variable
+        S: The surface properties variable
+        always_3d: True to always return a 3D numpy array. If false (default),
+            returns a 2D array when there is 1 p-value, and a 1D array if there
+            is 1 p-value and 1 parameter run.
+
+    Outputs:
+        numpy 3D array (Segments x Parameter Runs x P-values): The rainfall
+            intensities required to achieve the specified p-values.
+    """
+
+    # Validate vectors
+    vectors = {"p": p, "B": B, "Ct": Ct, "Cf": Cf, "Cs": Cs}
+    for name, value in vectors.items():
+        vectors[name] = validate.vector(value, name, dtype=real)
+
+    # Validate variable matrices
+    variables = {"T": T, "F": F, "S": S}
+    for name, value in variables.items():
+        variables[name] = validate.matrix(value, name, dtype=real)
+
+    # Get sizes
+    nPvalues = p.size
+    nRuns = B.size
+    nSegments = T.shape[0]
+
+    # Process vectors. Reshape p for broadcasting....
+    for name, value in vectors.items():
+        if name == "p":
+            vectors[name] = value.reshape(1, 1, nPvalues)
+
+        # Check parameters have the same number of runs
+        elif value.size != nRuns:
+            raise ValueError(
+                f"Model parameters (B, Ct, Cf, Cs) must have the same number of elements (runs). "
+                f"But B has {B.size} element(s), whereas {name} has {value.size}."
+            )
+
+        # Reshape parameters for broadcasting
+        else:
+            vectors[name] = value.reshape(1, nRuns)
+
+    # Check that variables have the same number of rows, and either 1 or nRuns columns
+    for name, value in variables.items():
+        if value.shape[0] != nSegments:
+            raise ValueError(
+                f"Variables (T, F, S) must have the same number of rows (stream segments). "
+                f"But T has {nSegments} row(s), whereas {name} has {value.shape[0]}."
+            )
+        elif value.shape[1] != nRuns:
+            raise ValueError(
+                f"Variables (T, F, S) must have either 1 or {nRuns} columns. "
+                f"But {name} has {value.shape[1]} column(s)."
+            )
+
+    # Get direct references to variables (makes the math look nicer)
+    p, B, Ct, Cf, Cs = tuple(vectors.values())
+    T, F, S = tuple(variables.values())
+
+    # Solve the model
+    numerator = np.log(p / (1 - p)) - B
+    denominator = Ct * T + Cf * F + Cs * S
+    rainfall = numerator / denominator
+
+    # Optionally remove trailing singletons
+    if not always_3d:
+        rainfall = np.atleast_1d(np.squeeze(rainfall))
+    return rainfall
+
+
 
 
 #####
