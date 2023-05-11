@@ -59,7 +59,7 @@ from dfha.typing import (
     ScalarArray,
     VectorArray,
     MatrixArray,
-    RasterArray,
+    ValidatedRaster,
 )
 
 
@@ -333,7 +333,7 @@ def raster(
     nodata: Optional[scalar] = None,
     shape: Optional[shape2d] = None,
     load: bool = True,
-) -> Union[Path, RasterArray]:
+) -> ValidatedRaster:
     """
     raster  Check input is valid raster and return as numpy 2D array
     ----------
