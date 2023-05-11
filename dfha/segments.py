@@ -41,7 +41,7 @@ Functions:
 Classes:
     Segments            - Defines a stream segment network and calculates values for the segments
 
-Custom Exceptions:
+Exceptions:
     RasterShapeError    - When a values raster does not match the shape of the stream segment raster
 
 Internal:
@@ -63,17 +63,19 @@ from dfha.typing import (
     ScalarArray,
     VectorShape,
     VectorArray,
+    SegmentsShape,
+    SegmentValues,
 )
 from nptyping import NDArray, Shape, Integer, Number, Bool
 
 
 # Type aliases
-PixelValues = NDArray[Shape["Pixels"], Integer]
-indices = Dict[int, Tuple[PixelValues, PixelValues]]
-SegmentValues = NDArray[Shape["Segments"], Number]
+PixelIndices = NDArray[Shape["Pixels"], Integer]
+PixelIndices = Tuple[PixelIndices, PixelIndices]
+indices = Dict[int, PixelIndices]
 Statistic = Literal["min", "max", "mean", "median", "std"]
 StatFunction = Callable[[np.ndarray], np.ndarray]
-IDs = Union[ints, NDArray[VectorShape, Integer], NDArray[Shape["Segments"], Bool]]
+IDs = Union[ints, NDArray[VectorShape, Integer], NDArray[SegmentsShape, Bool]]
 FlowNumber = Literal[1, 2, 3, 4, 5, 6, 7, 8]
 KernelIndices = Tuple[List[int], List[int]]
 
@@ -85,7 +87,7 @@ class Segments:
     The Segments class is used to manage a set of stream segments derived from a
     stream link raster. The class provides a number of functions that compute
     a summary statistic for each stream segment in the set. For example, the
-    mean slope of each stream segment, or the segment's confinement angles.
+    mean slope of each stream segment, or each segment's confinement angle.
     Note that summary statistics are only calculated using stream segment
     pixels (roughly, the river bed), and NOT using all the pixels in the segment's
     catchment area. The one exception is the "catchment_mean" method, which
@@ -96,21 +98,25 @@ class Segments:
     typical workflow is to:
         1. Define an initial set of segments by calling Segments() on a stream
            segment raster.*
-        2. Use the "area", "basins", "confinement", "development", "slope",
-           and/or "summary" methods to return summary values for the segments.
+        2. Use the "basins", "confinement", "development", "pixels", "slope",
+           and/or "summary", and "catchment_mean" methods to return summary values
+           for the segments.
         3. Use the "remove" method to filter out segments whose values don't meet
            the criteria for hazard assessment modeling.
-        4. Inspect the "ids" property to get a list of final stream segments
 
     *See the help for Segments.__init__ for instructions on creating a Segments object
 
-    The "area", "basins", "confinement", "development", and "slope" represent
-    standard filters for hazard assessment analysis. However, some users may be
-    interested in computing other values for the stream segments. The "summary"
+    The "basins", "confinement", "development", and "slope" methods represent
+    standard filters for hazard assessment. The "pixels" method can be used to
+    determine total upslope area (another standard filter) by multiplying pixel
+    counts by the area of each DEM pixel. Some users may also be interested in
+    computing other values for the stream segments. The "summary"
     method is intended for this case. Given a raster of data values, this
     function allows users to calculate common statistical values for the stream
     segments in the network. For example, the mean value of the raster values in
-    each segment, or the maximum value from the raster in each segment.
+    each segment, or the maximum value from the raster in each segment. See also
+    the "catchment_mean" method for computing generic mean values over the pixels
+    in each stream segment's catchment area.
 
     It is worth noting that most methods require input rasters with the same shape
     as the stream segment raster used to derive the initial set of stream segments
@@ -135,10 +141,10 @@ class Segments:
         copy            - Returns a deep copy of the current object
 
     Specific Values:
-        area            - Returns the maximum upslope area of each segment
         basins          - Returns the maximum number of upslope debris basins of each segment
         confinement     - Returns the mean confinement angle of each segment
         development     - Returns the mean upslope developed area for each segment
+        pixels          - Returns the maximum number of upslope pixels for each stream segment
         slope           - Returns the mean slope for each segment
 
     Generic Values:
@@ -158,6 +164,7 @@ class Segments:
 
     Validation:
         _validate                   - Validates an input raster
+        _validate_area              - Validates the area of DEM pixels
         _validate_flow              - Validates flow direction numbers
         _validate_confinement_args  - Validate kernel size (N) and DEM resolution
 
@@ -173,10 +180,10 @@ class Segments:
 
     # The statistical function for each type of summary value
     _stats = {
-        "area": np.amax,
         "basins": np.amax,
         "confinement": np.mean,
         "development": np.mean,
+        "pixels": np.amax,
         "slope": np.mean,
     }
 
@@ -459,36 +466,19 @@ class Segments:
     #####
     # User Methods
     #####
-    def area(self, upslope_area: Raster) -> SegmentValues:
-        """
-        area  Returns the maximum upslope area for each stream segment
-        ----------
-        self.area(upslope_area)
-        Computes the maximum upslope area for each stream segment. Returns the areas
-        as a numpy 1D array. The order of slopes in the output array will match the
-        order of segment IDs in the object.
-        ----------
-        Inputs:
-            upslope_area: The total upslope area (also known as contributing area
-                or flow accumulation) for the DEM pixels.
-
-        Outputs:
-            numpy 1D array: The maximum upslope area of each stream segment.
-        """
-        upslope_area = self._validate(upslope_area, "upslope_area")
-        return self._summary(upslope_area, self._stats["area"])
-
     def basins(self, upslope_basins: Raster) -> SegmentValues:
         """
         basins  Returns the maximum number of upslope basins for each stream segment
         ----------
         self.basins(upslope_basins)
         Computes the maximum number of upslope debris retention basins for each
-        stream segment. Returns this count as a numpy 1D array. The order of slopes
-        in the output array will match the order of segment IDs for the object.
+        stream segment. Returns this count as a numpy 1D array. The order of 
+        basin counts in the output array will match the order of segment IDs for
+        the object.
         ----------
         Inputs:
-            upslope_basins: The number of upslope debris basins for the DEM pixels
+            upslope_basins: A raster holding the number of upslope debris basins
+                for the DEM pixels.
 
         Outputs:
             numpy 1D array: The maximum number of upslope debris basins for each
@@ -498,22 +488,22 @@ class Segments:
         return self._summary(upslope_basins, self._stats["basins"])
 
     def catchment_mean(
-        self, total_area: VectorArray, flow_directions: Raster, raster: Raster
+        self, npixels: SegmentValues, flow_directions: Raster, raster: Raster
     ) -> SegmentValues:
         """
-        catchment_mean  Returns mean values computed over the catchment area of each stream segment
+        catchment_mean  Computes mean values over all pixels in stream segment catchment areas
         ----------
-        self.catchment_mean(total_area, flow_directions, raster)
-        Computes the mean value over all pixels in the catchment (usplope) area
+        self.catchment_mean(npixels, flow_directions, raster)
+        Computes the mean value over all pixels in the catchment (upslope) area
         for each stream segment. Calculates mean values over an input values raster.
         Returns mean values as a numpy 1D array. The order of mean values matches
         the order of segment IDs in the object.
         ----------
         Inputs:
-            total_area: The total upslope area for each stream segment. Must have
-                one element per stream segment. (See the "area" method for generating
-                these values).
-            flow_directions: TauDEM-style D8 flow directions for the DEM pixels.
+            npixels: The number of upslope pixels for each stream segment. Must
+                have one element per stream segment.
+            flow_directions: A raster with TauDEM-style D8 flow directions for
+                the DEM pixels.
             raster: A raster of data values for the DEM pixels over which to
                 calculate catchment means.
 
@@ -522,9 +512,7 @@ class Segments:
         """
 
         # Validate inputs
-        total_area = validate.vector(
-            total_area, "total_area", dtype=real, length=len(self)
-        )
+        npixels = validate.vector(npixels, "npixels", dtype=real, length=len(self))
         raster = self._validate(raster, "values raster")
         flow_directions = self._validate(flow_directions, "flow_directions")
         self._validate_flow(flow_directions)
@@ -532,7 +520,7 @@ class Segments:
         # Compute mean values
         upslope_sums = dem.upslope_sum(flow_directions, raster)
         segment_sums = self._summary(upslope_sums, np.amax)
-        return segment_sums / total_area
+        return segment_sums / npixels
 
     def confinement(
         self,
@@ -548,6 +536,12 @@ class Segments:
         Computes the mean confinement angle for each stream segment. Returns these
         angles as a numpy 1D array. The order of angles matches the order of
         segment IDs in the object.
+
+        This method requires the resolution of the DEM as input. Note that this
+        resolution should be provided in the same units as the DEM data. For example,
+        if the DEM records elevations in meters, then the DEM resolution should
+        also be in meters. Also note that the DEM should be a raw DEM, and not
+        a pitfilled version.
 
         The confinement angle for a given pixel is calculated using the slopes in the
         two directions perpendicular to stream flow. A given slope is calculated using
@@ -568,10 +562,12 @@ class Segments:
         and the mean confinement angle is taken over the pixels in each stream segment.
         ----------
         Inputs:
-            dem: The digital elevation model (DEM) data
-            flow_directions: TauDEM-style D8 flow directions for the DEM pixels
+            dem: A raster of digital elevation model (DEM) data.
+            flow_directions: A raster with TauDEM-style D8 flow directions for
+                the DEM pixels
             N: The number of raster pixels to search for maximum heights
-            resolution: The resolution of the DEM
+            resolution: The resolution of the DEM. Should use the same units as
+                the DEM data.
 
         Outputs:
             numpy 1D array: The mean confinement angle for each stream segment.
@@ -602,22 +598,46 @@ class Segments:
 
     def development(self, upslope_development: Raster) -> SegmentValues:
         """
-        development  Returns the mean upslope developed area for each stream segments
+        development  Returns the mean number of developed upslope pixels for each stream segment
         ----------
         self.development(upslope_development)
-        Computes the mean developed upslope area for each stream segment. Returns
-        these areas as a numpy 1D array. The order of slopes in the output array will
-        match the order of segment IDs in the object.
+        Computes the mean number of developed upslope pixels for each stream segment. 
+        Returns these counts as a numpy 1D array. The pixel counts in the output
+        array will match the order of segment IDs in the object.
         ----------
         Inputs:
-            upslope_development: A numpy 2D array holding the developed upslope area
-                fot the DEM pixels.
+            upslope_development: A raster indicating the number of developed
+                upslope pixels for the DEM pixels.
 
         Outputs:
-            numpy 1D array: The mean developed upslope area of each stream segment.
+            numpy 1D array: The mean number of developed upslope pixels for each
+                stream segment.
         """
         upslope_development = self._validate(upslope_development, "upslope_development")
         return self._summary(upslope_development, self._stats["development"])
+
+    def pixels(self, upslope_pixels: Raster) -> SegmentValues:
+        """
+        pixels  Returns the maximum number of upslope pixels for each stream segment
+        ----------
+        self.pixels(upslope_pixels)
+        Computes the maximum number of upslope pixels for each stream segment.
+        Returns the pixel counts as a numpy 1D array. The order of pixel counts 
+        in the output array will match the order of segment IDs in the object.
+
+        Note that you can use pixel counts to determine the total upslope area
+        (contributing area) for each stream segment by multiplying pixel counts
+        by the area of a DEM pixel.
+        ----------
+        Inputs:
+            upslope_pixels: A raster holding the number of upslope pixels for
+                the DEM pixels.
+
+        Outputs:
+            numpy 1D array: The maximum number of upslope pixels for each stream segment.
+        """
+        upslope_pixels = self._validate(upslope_pixels, 'upslope_pixels')
+        return self._summary(upslope_pixels, self._stats["pixels"])
 
     def remove(self, segments: IDs) -> None:
         """
@@ -687,7 +707,7 @@ class Segments:
         order of segment IDs in the object.
         ----------
         Inputs:
-            slopes: A numpy 2D array holding the slopes (rise/run) of the DEM pixels
+            slopes: A raster holding the slopes (rise/run) of the DEM pixels
 
         Outputs:
             numpy 1D array: The mean slope (rise/run) of each stream segment.
@@ -744,8 +764,8 @@ def filter(
     *,
     slopes: Optional[Raster] = None,
     minimum_slope: Optional[scalar] = None,
-    upslope_area: Optional[Raster] = None,
-    maximum_area: Optional[scalar] = None,
+    upslope_pixels: Optional[Raster] = None,
+    maximum_pixels: Optional[scalar] = None,
     upslope_development: Optional[Raster] = None,
     maximum_development: Optional[scalar] = None,
     dem: Optional[Raster] = None,
@@ -781,12 +801,14 @@ def filter(
     Requires the slopes of the DEM pixels as input. Segment slopes are set as
     the mean slope from all associated pixels.
 
-    filter(..., *, maximum_area, upslope_area, ...)
-    Removes stream segments whose upslope area is above a maximum threshold.
-    Segments with an upslope area over the threshold should exhibit flood-like
-    behavior, and are often tagged as watchstreams. Requires the upslope areas
-    of the DEM pixels as input. Segment areas are set as the area from the most
-    downstream pixel.
+    filter(..., *, maximum_pixels, upslope_pixels, ...)
+    Removes stream segments whose number of upslope pixels is above a maxmimum
+    threshold. Pixel counts are a stand-in for a maximum upslope area - divide the
+    maximum upslope area by the area of a DEM pixel to get the maximum number of
+    pixels. Segments with an upslope area over the threshold should exhibit
+    flood-like behavior, and are often tagged as watchstream. Requires the upslope
+    pixels of the DEM as input. Pixel counts are determined from the most downstream
+    pixel in each stream segment.
 
     filter(..., *, maximum_development, upslope_development, ...)
     Removes stream segments whose upslope development is above a maximum threshold.
@@ -799,9 +821,13 @@ def filter(
     removes stream segments whose confinement angle is above a maximum threshold.
     Segments with angles above the threshold should be too confined to support
     the flow of debris. Segment confinement is set as the mean confinement of
-    all associated pixels. Requires the DEM, DEM resolution, and D8 flow
-    directions as input. D8 flow directions should follow the TauDEM convention,
-    wherein flow directions are numbered from 1 to 8, traveling clockwise from right.
+    all associated pixels. 
+    
+    Requires the DEM, DEM resolution, and D8 flow directions as input. D8 flow 
+    directions should follow the TauDEM convention, wherein flow directions are 
+    numbered from 1 to 8, traveling clockwise from right. Also, the DEM resolution
+    should use the same units as the DEM data. For example, if a DEM expresses
+    elevation in meters, then the DEM resolution should also be in meters.
 
     This filter also requires N, which specifies the number of pixels from the
     processing pixel to search when calculating confinement slopes (the slopes
@@ -818,29 +844,27 @@ def filter(
     pixel.
     ----------
     Inputs:
-        stream_raster (2D int numpy.ndarray): A numpy.ndarray representing the
-            pixels of a stream link raster. Should be a 2D int array. Stream
-            segment pixels should have a value matching the ID of the associated
-            stream segment. All other pixels should be 0.
+        stream_raster: A stream link raster. Stream segment pixels should have a
+            value matching the ID of the associated stream segment. All other 
+            pixels should be 0.
         minimum_slope: A minimum slope. Segments with slopes below this threshold
             will be removed.
-        slopes: A numpy 2D array holding the slopes of the DEM pixels
-        maximum_area: A maximum upslope area. Segments with upslope areas above
-            this threshold will be removed.
-        upslope_area: A numpy 2D array holding the total upslope area (also known
-            as contributing area or flow accumulation) for the DEM pixels.
-        maximum_development: A maximum amount of upslope development. Segments
-            with upslope development above this threshold will be removed.
+        slopes: A raster holding the slopes of the DEM pixels
+        maximum_pixels: A maximum number of upslope pixels. Segments with upslope
+            pixel counts above this threshold will be removed.
+        upslope_pixels: A raster holding the total upslope pixel counts for the DEM.
+        maximum_development: A maximum number of developed upslope pixels. Segments
+            with developed pixel counts above this threshold will be removed.
         upslope_development: A numpy 2D array holding the developed upslope area
             fot the DEM pixels.
         maximum_basins: A maximum number of upslope debris basins. Segments with
-            a number of debris basins exceeding this threshold will be removed.
-        upslope_basins: A numpy 2D array holding the number of upslope debris basins
+            debris basin counts exceeding this threshold will be removed.
+        upslope_basins: A raster holding the number of upslope debris basins
             for the DEM pixels.
         maximum_confinement: A maximum confinement angle. Segments with a mean
             confinement angle above this threshold will be removed.
-        dem: A numpy 2D array holding the DEM data
-        resolution: The resolution of the DEM
+        dem: A raster holding the DEM data
+        resolution: The resolution of the DEM in the same units as the DEM data.
         flow_directions: A numpy 2D array holding the flow directions for the
             DEM pixels
         N: The number of raster pixels to search for maximum heights when
@@ -863,7 +887,7 @@ def filter(
             "N": N,
             "resolution": resolution,
         },
-        "area": {"maximum_area": maximum_area, "upslope_area": upslope_area},
+        "pixels": {"maximum_pixels": maximum_pixels, "upslope_pixels": upslope_pixels},
         "basins": {"maximum_basins": maximum_basins, "upslope_basins": upslope_basins},
         "development": {
             "maximum_development": maximum_development,
