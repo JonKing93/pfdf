@@ -10,14 +10,12 @@ This module implements DEM analyses using the TauDEM package (specifically, the
 TauDEM command-line interface). Documentation of TauDEM is available here:
 https://hydrology.usu.edu/taudem/taudem5/documentation.html
 
-We recommend operational users begin with the "analyze" functions, which implements
-a number of DEM analyses required for a basic hazard assessment. Other users may
-be interested in the "pitfill", "flow_directions", "upslope_pixels", "upslope_sum",
-and "relief" functions, which implement specific DEM analyses. Note that the
-output of the "upslope_pixels" function can be combined with the DEM resolution
-to give the total upslope (contributing) area. Also, the "upslope_sum" function
-can be used to compute a variety of values, including the number of burned upslope
-pixels, and the number of upslope debris basins.
+We recommend users work with the "pitfill", "flow_directions", "upslope_pixels",
+"upslope_sum", and "relief" functions, which implement specific DEM analyses.
+Note that the "upslope_sum" function is generalizable to a number of analyses
+useful for hazard assessment - for example, to compute the number of burned upslope
+pixels, or the number of upslope debris basins. We also note that the "relief"
+analysis is typically only needed when running the M3 model from Staley et al., 2017.
 
 In general, these functions operate on raster datasets, and users may provide 
 input rasters in a variety of formats. Currently, the module supports:
@@ -26,8 +24,10 @@ input rasters in a variety of formats. Currently, the module supports:
     * A rasterio.DatasetReader object, or
     * A 2D numpy array (integer or floating)
 Note that file-based rasters are loaded using rasterio, and so support nearly all
-common raster file formats. You can find a complete list of supported formats
-here: https://gdal.org/drivers/raster/index.html
+common raster file formats. When possible, we recommend working with GeoTIFF formats,
+but you can find a complete list of supported formats here: https://gdal.org/drivers/raster/index.html
+When providing rasters as numpy arrays, it may be necessary to indicate a NoData
+value in the array. See the NoData options for each function to provide these values.
 
 Output rasters are returned as a numpy 2D by default, or are saved to a GeoTIFF
 file if a path is provided. The module ensures that the output path always ends
@@ -76,7 +76,7 @@ Utilities:
 """
 
 import rasterio
-from numpy import ndarray, empty
+from numpy import ndarray
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -94,7 +94,6 @@ save = bool
 SaveType = Union[None, save]  # (None is for inputs)
 OutputPath = Union[None, Path]
 nodata = Union[None, scalar]
-ValidatedRasters = Union[ValidatedRaster, Sequence[ValidatedRaster]]
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
@@ -757,7 +756,7 @@ def _nodata(
     nodata: List[Any],
     names: Sequence[str],
     rasters: Sequence[ValidatedRaster],
-) -> Sequence[nodata]:
+) -> List[nodata]:
     """
     _nodata  Validates and parses NoData values for input numpy rasters
     ----------
