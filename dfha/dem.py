@@ -362,8 +362,8 @@ def upslope_sum(
     upslope_sum  Computes a weighted sum of upslope pixels
     ----------
     upslope_sum(flow_directions, weights)
-    Computes a weighted sum of upslope pixels. Each pixel is given a weight
-    denoted by an associated weights raster. Returns the sum as a numpy 2D array.
+    Computes a sum over upslope pixels. Each pixel is given a weight denoted by
+    an associated weights raster. Returns the sum as a numpy 2D array.
 
     upslope_sum(..., *, path)
     upslope_sum(..., *, path, overwrite)
