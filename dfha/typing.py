@@ -40,7 +40,7 @@ ScalarShape = Shape["1"]
 VectorShape = Shape["Elements"]
 MatrixShape = Shape["Rows, Columns"]
 
-# Real-valued arrays
+# Generic real-valued arrays
 RealArray = Union[NDArray[Any, Integer], NDArray[Any, Floating]]
 ScalarArray = Union[NDArray[ScalarShape, Integer], NDArray[ScalarShape, Floating]]
 VectorArray = Union[NDArray[VectorShape, Integer], NDArray[VectorShape, Floating]]
@@ -55,3 +55,8 @@ matrix = Union[ints, floats, MatrixArray]
 RasterArray = MatrixArray  # alias for clarity
 ValidatedRaster = Union[Path, RasterArray]
 Raster = Union[str, Path, DatasetReader, RasterArray]
+
+# Segments
+SegmentsShape = Shape['Segments']
+SegmentValues = Union[NDArray[SegmentsShape, Integer], NDArray[SegmentsShape, Floating]]
+
