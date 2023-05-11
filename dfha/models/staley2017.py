@@ -305,8 +305,8 @@ class M1(Model):
     ----------
     This model's variables are as follows:
 
-    Terrain: The ratio of pixels with both high-or-moderate severity AND slopes
-        greater than 23 degrees.
+    Terrain: The proportion of upslope area with both high-or-moderate severity
+        burn AND slopes greater than 23 degree.
 
     Fire: Mean catchment dNBR / 1000
 
@@ -382,6 +382,30 @@ class M1(Model):
 
 
 class M2(Model):
+    """
+    M2  Implements the M2 model from Staley et al., 2017
+    ----------
+    This model's variables are as follows:
+
+    Terrain: The mean gradient of upslope area burned with high-or-moderate severity
+
+    Fire: Mean catchment dNBR / 1000
+
+    Soil: Mean catchment KF-factor
+    ----------
+    Properties:
+        durations       - Rainfall durations used to calibrate model parameters
+        B               - Logistic model intercepts
+        Ct              - Terrain coefficients
+        Cf              - Fire coefficients
+        Cs              - Soil coefficients
+
+    Methods:
+        parameters      - Returns model parameters for the queried rainfall durations
+        variables       - Returns the terrain, fire, and soil variables for a set of stream segments
+    """
+
+    # Model parameters
     B = [-3.62, -3.61, -3.22]
     Ct = [0.64, 0.42, 0.27]
     Cf = [0.65, 0.38, 0.19]
@@ -390,6 +414,43 @@ class M2(Model):
     def variables(
         segments, npixels, flow_directions, high_moderate, slope, dNBR, kf_factor
     ):
+        """
+        variables  Returns the M2 terrain, fire, and soil variables for a set of stream segments
+        ----------
+        M2.variables(segments, npixels, flow_directions,
+                                              high_moderate, slope, dNBR, kf_factor)
+        Returns the terrain, fire, and soil variables required to run the M1 model
+        for a set of stream segments. The terrain variable is the mean gradient of
+        upslope pixels burned with high-or-moderate severity. The fire variable
+        is mean catchment dNBR / 1000. The soil variable is mean catchment KF-factor.
+        Returns a dict mapping each variable to a numpy 1D array with the values
+        of the variable for the stream segments.
+        ----------
+        Inputs:
+            segments: A set of stream segments
+            npixels: The number of upslope pixels for each stream segment.
+            flow_directions: A raster holding TauDEM-style D8 flow directions for the
+                DEM pixels. Must have the same shape as the raster used to derive
+                the stream segments.
+            high_moderate: A raster indicating DEM pixels that have high-or-moderate
+                burn severity. Pixels that meet this criteria should have a value
+                of 1. All other pixels should be 0. Must have the same shape as 
+                the raster used to derive the stream segments.
+            slopes: A raster indicating the slopes of the DEM pixels. Must have the
+                same shape as the raster used to derive the stream segments.
+            dNBR: A raster holding dNBR values for the DEM pixels. Must have the
+                same shape as the raster used to derive the stream segments.
+            kf_factor: A raster holding KF-factor values for the DEM pixels. Must
+                have the same shape as the raster used to derive the stream segments.
+
+        Output:
+            Dict[str, numpy 1D array]: The values of the model variables for the
+                input stream segments.
+                'T': The terrain variable for each stream segment
+                'F': The fire variable for each stream segment
+                'S': The soil vairable for each stream segment
+        """
+
         T = burn_gradient(segments, npixels, flow_directions, high_moderate, slope)
         F = scaled_dnbr(segments, npixels, flow_directions, dNBR)
         S = _kf_factor(segments, npixels, flow_directions, kf_factor)
