@@ -26,7 +26,9 @@ VariableDict = Dict[str, SegmentValues]
 #####
 
 
-def burn_gradient(segments, flow_directions, gradients, isburned):
+def burn_gradient(
+    segments: Segments, flow_directions: Raster, gradient: Raster, isburned: Raster
+):
     """
     burn_gradient  Returns the mean gradient of upslope pixels burned at a given severity
     ----------
@@ -42,7 +44,7 @@ def burn_gradient(segments, flow_directions, gradients, isburned):
         gradients: A raster holding the gradients - sin(theta) - for the DEM
             pixels. Must have the same shape as the raster use to derive the
             stream segments.
-        isburned: A raster indicating the DEM pixels that are burned at the 
+        isburned: A raster indicating the DEM pixels that are burned at the
             desired severity level. Pixels meeting the criteria should have a
             value of 1. All other pixels should be 0. Must have the same shape
             as the raster used to derive the stream segments.
@@ -51,7 +53,7 @@ def burn_gradient(segments, flow_directions, gradients, isburned):
         numpy 1D array: The mean gradients for the stream segments.
     """
 
-    return segments.masked_catchment_mean(flow_directions, gradients, isburned)
+    return segments.masked_catchment_mean(flow_directions, gradient, isburned)
 
 
 def _kf_factor(*args, **kwargs):
@@ -462,8 +464,8 @@ class M2(Model):
         segments: Segments,
         npixels: SegmentValues,
         flow_directions: Raster,
+        gradient: Raster,
         high_moderate: Raster,
-        slope: Raster,
         dNBR: Raster,
         kf_factor: Raster,
     ):
@@ -471,7 +473,7 @@ class M2(Model):
         variables  Returns the M2 terrain, fire, and soil variables for a set of stream segments
         ----------
         M2.variables(segments, npixels, flow_directions,
-                                          high_moderate, slope, dNBR, kf_factor)
+                                        gradient, high_moderate, dNBR, kf_factor)
         Returns the terrain, fire, and soil variables required to run the M1 model
         for a set of stream segments. The terrain variable is the mean gradient of
         upslope pixels burned with high-or-moderate severity. The fire variable
@@ -485,12 +487,13 @@ class M2(Model):
             flow_directions: A raster holding TauDEM-style D8 flow directions for the
                 DEM pixels. Must have the same shape as the raster used to derive
                 the stream segments.
+            gradient: A raster indicating the gradients - sin(theta) - of the DEM
+                pixels. Must have the same shape as the raster use to derive the
+                stream segments.
             high_moderate: A raster indicating DEM pixels that have high-or-moderate
                 burn severity. Pixels that meet this criteria should have a value
                 of 1. All other pixels should be 0. Must have the same shape as
                 the raster used to derive the stream segments.
-            slopes: A raster indicating the slopes of the DEM pixels. Must have the
-                same shape as the raster used to derive the stream segments.
             dNBR: A raster holding dNBR values for the DEM pixels. Must have the
                 same shape as the raster used to derive the stream segments.
             kf_factor: A raster holding KF-factor values for the DEM pixels. Must
@@ -504,7 +507,7 @@ class M2(Model):
                 'S': Mean catchment KF-factor
         """
 
-        T = burn_gradient(segments, npixels, flow_directions, high_moderate, slope)
+        T = burn_gradient(segments, flow_directions, gradient, high_moderate)
         F = scaled_dnbr(segments, npixels, flow_directions, dNBR)
         S = _kf_factor(segments, npixels, flow_directions, kf_factor)
         return Model._variable_dict(T, F, S)
