@@ -15,9 +15,73 @@ from dfha.typing import Raster, SegmentValues, VectorArray, Durations, DurationV
 ParameterDict = Dict[str, DurationValues]
 VariableDict = Dict[str, SegmentValues]
 
+
+#####
+# Logistic model solver
+#####
+
+
 #####
 # Variables
 #####
+
+
+def burn_gradient(segments, flow_directions, gradients, isburned):
+    """
+    burn_gradient  Returns the mean gradient of upslope pixels burned at a given severity
+    ----------
+    burn_gradient(segments, flow_directions, gradients, isburned)
+    Computes the mean gradient of upslope pixels burned at a given severity for
+    each stream segment. Returns a numpy 1D array with the gradient for each segment.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        flow_directions: A raster holding TauDEM-style D8 flow directions for the
+            DEM pixels. Must have the same shape as the raster used to derive
+            the stream segments.
+        gradients: A raster holding the gradients - sin(theta) - for the DEM
+            pixels. Must have the same shape as the raster use to derive the
+            stream segments.
+        isburned: A raster indicating the DEM pixels that are burned at the 
+            desired severity level. Pixels meeting the criteria should have a
+            value of 1. All other pixels should be 0. Must have the same shape
+            as the raster used to derive the stream segments.
+
+    Outputs:
+        numpy 1D array: The mean gradients for the stream segments.
+    """
+
+    return segments.masked_catchment_mean(flow_directions, gradients, isburned)
+
+
+def _kf_factor(*args, **kwargs):
+    """This function is just an alias to kf_factor. It exists so that users can
+    use kf_factor to refer to variables in functions that also call the
+    kf_factor function."""
+    return kf_factor(*args, **kwargs)
+
+
+def kf_factor(segments, npixels, flow_directions, kf_factor):
+    """
+    kf_factor  Returns the mean KF-Factor for a set of stream segment catchments
+    ----------
+    kf_factor(segments, npixels, flow_directions, kf_factor)
+    Computes the mean KF-factors for a set of stream segments. Mean KF-factor is
+    calculated over the full catchment area of each stream segment.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        npixels: The number of upslope pixels for each stream segment
+        flow_directions: A raster holding TauDEM-style D8 flow directions for the
+            DEM pixels. Must have the same shape as the raster used to derive
+            the stream segments.
+        kf_factor: A raster holding KF-factor values for the DEM pixels. Must have
+            the same shape as the raster used to derive the stream segments.
+
+    Outputs:
+        numpy 1D array: The mean KF-factor for each stream segment.
+    """
+    return segments.catchment_mean(npixels, flow_directions, kf_factor)
 
 
 def ruggedness(
@@ -49,6 +113,59 @@ def ruggedness(
     validate.positive(segment_areas, "segment_areas")
     relief = segments.summary("max", relief)
     return relief / np.sqrt(segment_areas)
+
+
+def scaled_dnbr(
+    segments: Segments, npixels: SegmentValues, flow_directions: Raster, dNBR: Raster
+) -> SegmentValues:
+    """
+    scaled_dnbr  Computes mean dNBR/1000 for a set of stream segment catchments
+    ----------
+    scaled_dnbr(segments, npixels, flow_directions, dNBR)
+    Computes mean scaled dNBR for a set of stream segments. Mean dNBR is calculated
+    over the full catchment area of each stream segment. This value is then scaled
+    by 1000 to place the final value roughly on an interval from 0 to 1.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        npixels: The number of upslope pixels for each stream segment.
+        flow_directions: A raster holding TauDEM-style D8 flow directions for the
+            DEM pixels. Must have the same shape as the raster used to derive
+            the stream segments.
+        dNBR: A raster holding dNBR values for the DEM pixels. Must have the same
+            shape as the raster used to derive the stream segments.
+
+    Outputs:
+        numpy 1D array: The scaled dNBR values for the stream segments
+    """
+    dNBR = segments.catchment_mean(npixels, flow_directions, dNBR)
+    return dNBR / 1000
+
+
+def scaled_thickness(segments, npixels, flow_directions, soil_thickness):
+    """
+    scaled_thickness  Returns mean soil thickness / 100 for a set of stream segments
+    ----------
+    scaled_thickness(segments, npixels, flow_directions, soil_thickness)
+    Computes mean scaled soil thickness for a set of stream segments. Mean soil
+    thickness is computed over the full catchment area of each stream segment.
+    These values are then scaled by 100 to place them roughly on the interval
+    from 0 to 1.
+    ----------
+    Inputs:
+        segments: A set of stream segments
+        npixels: The number of upslope pixels for each stream segment
+        flow_directions: A raster holding TauDEM-style D8 flow directions for the
+            DEM pixels. Must have the same shape as the raster used to derive
+            the stream segments.
+        soil_thickness: A raster holding the soil thickness for the DEM pixels.
+            Must have the same shape as the raster used to derive the stream segments.
+
+    Outputs:
+        numpy 1D array: The mean scaled soil thickness for each stream segment
+    """
+    thickness = segments.catchment_mean(npixels, flow_directions, soil_thickness)
+    return thickness / 100
 
 
 def upslope_ratio(
@@ -89,89 +206,6 @@ def upslope_ratio(
         numpy 1D array: The burn ratio for each stream segment
     """
     return segments.catchment_mean(npixels, flow_directions, meets_criteria)
-
-
-def scaled_dnbr(
-    segments: Segments, npixels: SegmentValues, flow_directions: Raster, dNBR: Raster
-) -> SegmentValues:
-    """
-    scaled_dnbr  Computes mean dNBR/1000 for a set of stream segment catchments
-    ----------
-    scaled_dnbr(segments, npixels, flow_directions, dNBR)
-    Computes mean scaled dNBR for a set of stream segments. Mean dNBR is calculated
-    over the full catchment area of each stream segment. This value is then scaled
-    by 1000 to place the final value roughly on an interval from 0 to 1.
-    ----------
-    Inputs:
-        segments: A set of stream segments
-        npixels: The number of upslope pixels for each stream segment.
-        flow_directions: A raster holding TauDEM-style D8 flow directions for the
-            DEM pixels. Must have the same shape as the raster used to derive
-            the stream segments.
-        dNBR: A raster holding dNBR values for the DEM pixels. Must have the same
-            shape as the raster used to derive the stream segments.
-
-    Outputs:
-        numpy 1D array: The scaled dNBR values for the stream segments
-    """
-    dNBR = segments.catchment_mean(npixels, flow_directions, dNBR)
-    return dNBR / 1000
-
-
-def kf_factor(segments, npixels, flow_directions, kf_factor):
-    """
-    kf_factor  Returns the mean KF-Factor for a set of stream segment catchments
-    ----------
-    kf_factor(segments, npixels, flow_directions, kf_factor)
-    Computes the mean KF-factors for a set of stream segments. Mean KF-factor is
-    calculated over the full catchment area of each stream segment.
-    ----------
-    Inputs:
-        segments: A set of stream segments
-        npixels: The number of upslope pixels for each stream segment
-        flow_directions: A raster holding TauDEM-style D8 flow directions for the
-            DEM pixels. Must have the same shape as the raster used to derive
-            the stream segments.
-        kf_factor: A raster holding KF-factor values for the DEM pixels. Must have
-            the same shape as the raster used to derive the stream segments.
-
-    Outputs:
-        numpy 1D array: The mean KF-factor for each stream segment.
-    """
-    return segments.catchment_mean(npixels, flow_directions, kf_factor)
-
-
-def scaled_thickness(segments, npixels, flow_directions, soil_thickness):
-    """
-    scaled_thickness  Returns mean soil thickness / 100 for a set of stream segments
-    ----------
-    scaled_thickness(segments, npixels, flow_directions, soil_thickness)
-    Computes mean scaled soil thickness for a set of stream segments. Mean soil
-    thickness is computed over the full catchment area of each stream segment.
-    These values are then scaled by 100 to place them roughly on the interval
-    from 0 to 1.
-    ----------
-    Inputs:
-        segments: A set of stream segments
-        npixels: The number of upslope pixels for each stream segment
-        flow_directions: A raster holding TauDEM-style D8 flow directions for the
-            DEM pixels. Must have the same shape as the raster used to derive
-            the stream segments.
-        soil_thickness: A raster holding the soil thickness for the DEM pixels.
-            Must have the same shape as the raster used to derive the stream segments.
-
-    Outputs:
-        numpy 1D array: The mean scaled soil thickness for each stream segment
-    """
-    thickness = segments.catchment_mean(npixels, flow_directions, soil_thickness)
-    return thickness / 100
-
-
-def _kf_factor(*args, **kwargs):
-    """This function is just an alias to kf_factor. It exists so that users can
-    use kf_factor to refer to variables in functions that also call the
-    kf_factor function."""
-    return kf_factor(*args, **kwargs)
 
 
 #####
