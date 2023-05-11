@@ -51,27 +51,29 @@ def ruggedness(
     return relief / np.sqrt(segment_areas)
 
 
-def burn_ratio(
+def upslope_ratio(
     segments: Segments,
     npixels: SegmentValues,
     flow_directions: Raster,
-    isburned: Raster,
+    meets_criteria: Raster,
 ) -> SegmentValues:
     """
-    burn_ratio  Computes the ratio of upslope pixels burned at a particular severity
+    upslope_ratio  Computes the proportion of upslope pixels that meet some criteria
     ----------
-    burn_ratio(segments, npixels, flow_directions, isburned)
-    Given a set of stream segments, computes the ratio:
+    upslope_ratio(segments, npixels, flow_directions, meets_criteria)
+    Computes the proportion of upslope pixels that meet a criterion. This function
+    is generalizable to a number of model variables. The "meets_criteria" input
+    is a raster indicating which DEM pixels meet the desired criteria. Pixels
+    meeting the criteria should have a value of 1. All others should be 0.
 
-        Ratio = Burned upslope pixels / Total upslope pixels
+    Note that this function is generalizable to a number of model variables.
+    For example it can be used to compute:
 
-    Note that this function is for a generic burn severity level. The input raster
-    "isburned" indicates which DEM pixels are burned at the desired level. Pixels
-    considered burned should have a value of 1. All other pixels should be 0.
-
-    For example, to compute the ratio of moderate-or-high burn severity, "isburned"
-    should be 1 for pixels with moderate or high burn severity, but 0 for pixels
-    with low or no burn.
+        M1, T: The proportion of upslope pixels burned at high-or-moderate severity
+               with slopes greater than 23 degrees.
+        M3, F: The proportion of upslope pixels burned at high-or-moderate severity
+        M4, T: The proportion of upslope pixels burned at low-moderate-high severity
+               with slopes greater than 30 degrees.
     ----------
     Inputs:
         segments: A set of stream segments
@@ -79,14 +81,14 @@ def burn_ratio(
         flow_directions: A raster holding TauDEM-style D8 flow directions for the
             DEM pixels. Must have the same shape as the raster used to derive
             the stream segments.
-        isburned: A raster indicating which pixels are burned at the desired
-            severity level. Must have the same shape as the raster used to derive
-            the stream segments.
+        meets_criteria: A raster indicating which DEM pixels meet the desired
+            criteria. Must have the same shape as the raster used to derive the
+            stream segments.
 
     Outputs:
         numpy 1D array: The burn ratio for each stream segment
     """
-    return segments.catchment_mean(npixels, flow_directions, isburned)
+    return segments.catchment_mean(npixels, flow_directions, meets_criteria)
 
 
 def scaled_dnbr(
@@ -203,6 +205,9 @@ class Model(ABC):
     Abstract Methods:
         variables       - Returns the terrain, fire, and soil variables for a set of stream segments
 
+    Utilities:
+        _variable_dict  - Returns a dict holding terrain, fire, and soil variables
+
     Exceptions:
         DurationsError  - When a queried duration is not a valid duration
     """
@@ -298,6 +303,11 @@ class Model(ABC):
         """
         pass
 
+    @staticmethod
+    def _variable_dict(T: SegmentValues, F: SegmentValues, S: SegmentValues) -> VariableDict:
+        "Groups models variables into a dict"
+        return {'T': T, 'F': F, 'S': S}
+
 
 class M1(Model):
     """
@@ -375,10 +385,10 @@ class M1(Model):
                 'F': The fire variable for each stream segment
                 'S': The soil vairable for each stream segment
         """
-        T = burn_ratio(npixels, flow_directions, high_moderate_23)
+        T = upslope_ratio(npixels, flow_directions, high_moderate_23)
         F = scaled_dnbr(segments, npixels, flow_directions, dNBR)
         S = _kf_factor(segments, npixels, flow_directions, kf_factor)
-        return T, F, S
+        return Model._variable_dict(T, F, S)
 
 
 class M2(Model):
@@ -412,13 +422,19 @@ class M2(Model):
     Cs = [0.68, 0.49, 0.22]
 
     def variables(
-        segments, npixels, flow_directions, high_moderate, slope, dNBR, kf_factor
+        segments: Segments, 
+        npixels: SegmentValues, 
+        flow_directions: Raster, 
+        high_moderate: Raster, 
+        slope: Raster, 
+        dNBR: Raster, 
+        kf_factor: Raster,
     ):
         """
         variables  Returns the M2 terrain, fire, and soil variables for a set of stream segments
         ----------
         M2.variables(segments, npixels, flow_directions,
-                                              high_moderate, slope, dNBR, kf_factor)
+                                          high_moderate, slope, dNBR, kf_factor)
         Returns the terrain, fire, and soil variables required to run the M1 model
         for a set of stream segments. The terrain variable is the mean gradient of
         upslope pixels burned with high-or-moderate severity. The fire variable
@@ -454,32 +470,170 @@ class M2(Model):
         T = burn_gradient(segments, npixels, flow_directions, high_moderate, slope)
         F = scaled_dnbr(segments, npixels, flow_directions, dNBR)
         S = _kf_factor(segments, npixels, flow_directions, kf_factor)
-        return T, F, S
+        return Model._variable_dict(T, F, S)
 
 
 class M3(Model):
+    """
+    M3  Implements the M3 model from Staley et al., 2017
+    ----------
+    This model's variables are as follows:
+
+    Terrain: Topographic ruggedness
+
+    Fire: The proportion of upslope area burned at high-or-moderate severity
+
+    Soil: Mean catchment soil-thickness / 100
+    ----------
+    Properties:
+        durations       - Rainfall durations used to calibrate model parameters
+        B               - Logistic model intercepts
+        Ct              - Terrain coefficients
+        Cf              - Fire coefficients
+        Cs              - Soil coefficients
+
+    Methods:
+        parameters      - Returns model parameters for the queried rainfall durations
+        variables       - Returns the terrain, fire, and soil variables for a set of stream segments
+    """
+
+    # Model parameters
     B = [-3.71, -3.79, -3.46]
     Ct = [0.32, 0.21, 0.14]
     Cf = [0.33, 0.19, 0.10]
     Cs = [0.47, 0.36, 0.18]
 
     def variables(
-        segments, npixels, flow_directions, relief, high_moderate_burn, soil_thickness
-    ):
-        T = ruggedness(segments, npixels, relief)
-        F = burn_ratio(segments, npixels, flow_directions, high_moderate_burn)
+        segments: Segments,
+        npixels: SegmentValues,
+        flow_directions: Raster,
+        relief: Raster,
+        areas: SegmentValues,
+        high_moderate: Raster,
+        soil_thickness: Raster,
+    ) -> VariableDict:
+        """
+        variables  Returns the M2 terrain, fire, and soil variables for a set of stream segments
+        ----------
+        M3.variables(segments, npixels, flow_directions,
+                                   relief, areas, high_moderate, soil_thickness)
+        Returns the terrain, fire, and soil variables required to run the M3 model
+        for a set of stream segments. The terrain variable is topographic ruggedness.
+        The fire variable is the proportion of upslope area burned at high-or-moderate
+        severity. The soil variable is mean catchment soil thickness / 100.
+        Returns a dict mapping each variable to a numpy 1D array with the values
+        of the variable for the stream segments.
+        ----------
+        Inputs:
+            segments: A set of stream segments
+            npixels: The number of upslope pixels for each stream segment.
+            flow_directions: A raster holding TauDEM-style D8 flow directions for the
+                DEM pixels. Must have the same shape as the raster used to derive
+                the stream segments
+            relief: A raster holding the vertical relief of the DEM pixels. Must
+                have the same shape as the raster used to derive the stream segments.
+            areas: The total upslope area for each stream segment. Should be in the
+                same units as the data in the vertical relief raster.
+            high_moderate: A raster indicating DEM pixels that have high-or-moderate
+                burn severity. Pixels that meet this criteria should have a value
+                of 1. All other pixels should be 0. Must have the same shape as 
+                the raster used to derive the stream segments.
+            soil_thickness: A raster holding the soil thickness of the DEM pixels.
+                Must have the same shape as the raster used to derive the stream
+                segments.
+
+        Output:
+            Dict[str, numpy 1D array]: The values of the model variables for the
+                input stream segments.
+                'T': The terrain variable for each stream segment
+                'F': The fire variable for each stream segment
+                'S': The soil vairable for each stream segment
+        """
+
+        T = ruggedness(segments, areas, relief)
+        F = upslope_ratio(segments, npixels, flow_directions, high_moderate)
         S = scaled_thickness(segments, npixels, flow_directions, soil_thickness)
-        return T, F, S
+        return Model._variable_dict(T, F, S)
 
 
 class M4(Model):
+    """
+    M4  Implements the M4 model from Staley et al., 2017
+    ----------
+    This model's variables are as follows:
+
+    Terrain: The proportion of upslope area burned at any severity (low-moderate-high)
+        with slopes greater than 30 degrees.
+
+    Fire: Mean catchment dNBR / 1000
+
+    Soil: Mean catchment soil-thickness / 100
+    ----------
+    Properties:
+        durations       - Rainfall durations used to calibrate model parameters
+        B               - Logistic model intercepts
+        Ct              - Terrain coefficients
+        Cf              - Fire coefficients
+        Cs              - Soil coefficients
+
+    Methods:
+        parameters      - Returns model parameters for the queried rainfall durations
+        variables       - Returns the terrain, fire, and soil variables for a set of stream segments
+    """
+
+    # Model parameters
     B = [-3.60, -3.64, -3.30]
     Ct = [0.51, 0.33, 0.20]
     Cf = [0.82, 0.46, 0.24]
     Cs = [0.27, 0.26, 0.13]
 
-    def variables(segments, npixels, flow_directions, burned_30, dNBR, soil_thickness):
-        T = burn_ratio(segments, npixels, flow_directions, burned_30)
+    def variables(
+        segments: Segments, 
+        npixels: SegmentValues, 
+        flow_directions: Raster, 
+        burned_30: Raster, 
+        dNBR: Raster, 
+        soil_thickness: Raster,
+        ) -> VariableDict:
+        """
+        variables  Returns the M4 terrain, fire, and soil variables for a set of stream segments
+        ----------
+        M4.variables(segments, npixels, flow_directions,
+                                                burned_30, dNBR, soil_thickness)
+        Returns the terrain, fire, and soil variables required to run the M3 model
+        for a set of stream segments. The terrain variable is the proportion of
+        upslope area burned at any severity (low-moderate-high) with slopes 
+        greater than 30. The fire variable is mean catchment dNBR / 1000. The 
+        soil variable is mean catchment soil thickness / 100. Returns a dict 
+        mapping each variable to a numpy 1D array with the values of the variable
+        for the stream segments.
+        ----------
+        Inputs:
+            segments: A set of stream segments
+            npixels: The number of upslope pixels for each stream segment.
+            flow_directions: A raster holding TauDEM-style D8 flow directions for the
+                DEM pixels. Must have the same shape as the raster used to derive
+                the stream segments
+            burned_30: A raster indicating DEM pixels that are both burned at
+                any level of severity (low-moderate-high) and have slopes greater
+                than 30 degrees. Pixels that meet this criteria should have a value
+                of 1. All other pixels should be 0. Must have the same shape as
+                the raster used to derive the stream segments.
+            dNBR: A raster holding dNBR values for the DEM pixels. Must have the
+                same shape as the raster used to derive the stream segments.
+            soil_thickness: A raster holding the soil thickness of the DEM pixels.
+                Must have the same shape as the raster used to derive the stream
+                segments.
+
+        Output:
+            Dict[str, numpy 1D array]: The values of the model variables for the
+                input stream segments.
+                'T': The terrain variable for each stream segment
+                'F': The fire variable for each stream segment
+                'S': The soil vairable for each stream segment
+        """
+
+        T = upslope_ratio(segments, npixels, flow_directions, burned_30)
         F = scaled_dnbr(segments, npixels, flow_directions, dNBR)
         S = scaled_thickness(segments, npixels, flow_directions, soil_thickness)
-        return T, F, S
+        return Model._variable_dict(T, F, S)
