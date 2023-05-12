@@ -16,11 +16,11 @@ Rasters:
     write_raster    - Writes a 2D numpy array (raster) to a GeoTIFF file
 """
 
-from numpy import ndarray, integer, floating, bool_
+from numpy import ndarray, integer, floating, bool_, isnan, nan
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
-from dfha.typing import RasterArray, ValidatedRaster, scalar
+from dfha.typing import RealArray, RasterArray, ValidatedRaster, scalar
 
 
 # Combination numpy dtypes
@@ -68,7 +68,12 @@ def astuple(input: Any) -> Tuple:
     return input
 
 
-def load_raster(raster: ValidatedRaster, band: Optional[int] = 1) -> RasterArray:
+def load_raster(
+        raster: ValidatedRaster,
+        *,
+        band: int = 1,
+        nodata_to: Optional[scalar] = None
+    ) -> RasterArray:
     """
     load_raster  Returns a raster as a numpy.ndarray
     ----------
@@ -79,17 +84,50 @@ def load_raster(raster: ValidatedRaster, band: Optional[int] = 1) -> RasterArray
     the loading of validated raster file at a later point. If given a numpy array,
     returns the array back as output. If given a raster Path, uses rasterio to
     load the first band.
+
+    load_raster(raster, *, band)
+    Loads the indicated raster band. The band option is ignored is the input is
+    a numpy array.
+
+    load_raster(..., *, nodata_to)
+    Converts NoData values to the indicated value. This option is ignored if the
+    input is a numpy array.
     ----------
     Inputs:
         raster: The Path to a raster file or a raster as a 2D numpy array
+        band: The raster band to load from file. Default is band 1.
+        nodata_to: The value to which NoData values will be converted
 
     Outputs:
         numpy 2D array: The raster as a numpy.ndarray
     """
+
     if not isinstance(raster, ndarray):
-        with rasterio.open(raster) as raster:
-            raster = raster.read(band)
+        with rasterio.open(raster) as file:
+            raster = file.read(band)
+            if nodata_to is not None:
+                replace_nodata(raster, file.nodata, nodata_to)
     return raster
+
+
+def replace_nodata(array: RealArray, nodata: Union[None, scalar], value: scalar) -> None:
+    """
+    replace_nodata  Replaces NoData values in a numpy array
+    ----------
+    replace_nodata(array, nodata, value)
+    Given a numpy array, replaces NoData values with the indicated value.
+    ----------
+    Inputs:
+        raster: A numpy array raster
+        nodata: The current NoData value
+        value: The value that NoData should be replaced with
+    """
+    if nodata is not None:
+        if isnan(nodata):
+            nodata = isnan(array)
+        else:
+            nodata = array == nodata
+        array[nodata] = value
 
 
 def save_raster(
