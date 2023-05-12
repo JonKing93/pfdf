@@ -29,7 +29,8 @@ Numeric arrays:
     inrange         - Checks that all elements are within a given range (inclusive)
 
 Rasters:
-    raster          - Check that an input is a raster and return it as a numpy 2D array
+    raster          - Check that an input is a valid raster
+    output_path     - Check that an input is a valid path for an output raster
 
 Low-level:
     shape_          - Check that array shape is valid
@@ -63,58 +64,9 @@ from dfha.typing import (
 )
 
 
-def _check_bound(input, name, operator, bound):
-    """
-    _check_bound  Checks that elements of a numpy array are valid relative to a bound
-    ----------
-    _check_bound(input, name, operator, bound)
-    Checks that the elements of the input numpy array are valid relative to a
-    bound. Valid comparisons are >, <, >=, and <=. Raises a ValueError if the
-    criterion is not met.
-    ----------
-    Inputs:
-        input: The input being checked
-        name: A name for the input for use in error messages
-        operator: The comparison operator to apply. Options are '<', '>', '<=',
-            and '>='. Elements must satisfy: (input operator bound) to be valid.
-            For example, input < bound.
-        bound: The bound being compared to the elements of the array.
-
-    Raises:
-        ValueError: If any element fails the comparison
-    """
-
-    # Only compare if bounds were specified
-    if bound is not None:
-        # Get the operator for the comparison. Note that we are testing for failed
-        # elements, so actually need the *inverse* of the input operator.
-        if operator == "<":
-            description = "less than"
-            operator = np.greater_equal
-        elif operator == "<=":
-            description = "less than or equal to"
-            operator = np.greater
-        elif operator == ">=":
-            description = "greater than or equal to"
-            operator = np.less
-        elif operator == ">":
-            description = "greater than"
-            operator = np.less_equal
-
-        # Test elements. Raise ValueError if any fail
-        failed = operator(input, bound)
-        if np.any(failed):
-            bad = np.argwhere(failed)[0]
-            raise ValueError(
-                f"The elements of {name} must be {description} {bound}, but element {bad} is not."
-            )
-
-
-class DimensionError(Exception):
-    "When a numpy array has invalid non-singleton dimensions"
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
+#####
+# Low Level
+#####
 
 
 def dtype_(name: str, allowed: dtypes, actual: type) -> None:
@@ -151,63 +103,155 @@ def dtype_(name: str, allowed: dtypes, actual: type) -> None:
         )
 
 
-def inrange(
-    input: RealArray,
+def shape_(name: str, axes: strs, required: shape, actual: shape) -> None:
+    """
+    shape_  Checks that a numpy ndarray shape is valid
+    ----------
+    shape_(name, axes, required, actual)
+    Checks that an input shape is valid. Raises an exception if not. Setting
+    required=None disables shape checking altogether. If an element of required
+    is -1, disables shape checking for that dimension.
+    ----------
+    Inputs:
+        name: The name of the array being tested for use in error messages
+        axes: The names of the elements of each dimension being tested. Should
+            have one string per element of the required shape.
+        shape: The required shape of the numpy array. If an element of shape is
+            -1, disables shape checking for that dimension.
+        actual: The actual shape of the numpy array
+
+    Raises:
+        ShapeError: If the array does not have the required shape.
+    """
+    # Convert inputs to sequences
+    if required is not None:
+        axes = aslist(axes)
+        required = astuple(required)
+        actual = astuple(actual)
+
+        # Check the length of each dimension
+        indices = range(0, len(axes))
+        for axis, index, required_, actual_ in zip(axes, indices, required, actual):
+            if required_ != -1 and required_ != actual_:
+                raise ShapeError(name, axis, index, required, actual)
+
+
+def nonsingleton(array: np.ndarray) -> List[bool]:
+    """
+    nonsingleton  Finds the non-singleton dimensions of a numpy array
+    ----------
+    nonsingleton(array)
+    Returns a bool list with one element per dimension of the input array.
+    True indicates a nonsingleton dimensions (length > 1). False is singleton.
+    ----------
+    Inputs:
+        array: The ndarray being inspected
+
+    Returns:
+        List[bool]: Indicates the non-singleton dimensions.
+    """
+    return [shape > 1 for shape in array.shape]
+
+
+#####
+# Array shapes and types
+#####
+
+
+def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray:
+    """
+    scalar  Validate an input represents a scalar
+    ----------
+    scalar(input, name)
+    Checks that an input represents a scalar. Raises an exception if not. Returns
+    the input as a 1D numpy array.
+
+    scalar(input, name, dtype)
+    Also check that the input is derived from one of the listed dtypes.
+    ----------
+    Inputs:
+        input: The input being checked
+        name: A name for the input for use in error messages.
+        dtype: A list of allowed dtypes
+
+    Outputs:
+        numpy 1D array: The input as a 1D numpy array.
+
+    Raises:
+        ShapeError: If the input has more than one element
+        TypeError: If the input does not have an allowed dtype
+    """
+
+    # Optionally check dtype
+    input = np.array(input)
+    dtype_(name, allowed=dtype, actual=input.dtype)
+
+    # No non-singleton dimensions
+    if input.size != 1:
+        raise DimensionError(
+            f"{name} must have exactly 1 element, but it has {input.size} elements instead."
+        )
+
+    # Return as 1D array
+    return input.reshape(1)
+
+
+def vector(
+    input: Any,
     name: str,
-    min: Optional[scalar] = None,
-    max: Optional[scalar] = None,
-) -> None:
+    *,
+    dtype: Optional[dtypes] = None,
+    length: Optional[int] = None,
+) -> VectorArray:
     """
-    inrange  Checks the elements of a numpy array are within a given range
+    vector  Validate an input represents a 1D numpy array
     ----------
-    inrange(input, name, min, max)
-    Checks that the elements of a real-valued numpy array are all within a
-    specified range. min and max are optional arguments, you can specify a single
-    one to only check an upper or a lower bound. Use both to check elements are
-    within a range. Uses an inclusive comparison (values equal to a bound will
-    pass validation).
+    vector(input, name)
+    Checks the input represents a 1D numpy array. Valid inputs may only have a
+    single non-singleton dimension. Raises an exception if this criteria is not
+    met. Otherwise, returns the array as a numpy 1D array.
+
+    vector(..., *, dtype)
+    Also checks that the vector has an allowed dtype. Raises a TypeError if not.
+
+    vector(..., *, length)
+    Also checks that the vector has the specified length. Raises a ShapeError if
+    this criteria is not met.
     ----------
-    Inputs:
-        input: The ndarray being checked
-        name: The name of the array for use in error messages
-        min: An optional lower bound (inclusive)
-        max: An optional upper bound (inclusive)
+    Input:
+        input: The input being checked
+        name: A name for the input for use in error messages.
+        dtype: A list of allowed dtypes
+        length: A required length for the vector
+
+    Outputs:
+        numpy 1D array: The input as a 1D numpy array
 
     Raises:
-        ValueError: If any element is not within the bounds
+        TypeError: If the input does not have an allowed dtype
+        DimensionError: If the input does not have exactly 1 dimension
+        ShapeError: If the input does not have the specified length
     """
 
-    _check_bound(input, name, ">=", min)
-    _check_bound(input, name, "<=", max)
+    # Optionally check dtype
+    input = np.array(input)
+    input = np.atleast_1d(input)
+    dtype_(name, allowed=dtype, actual=input.dtype)
 
+    # Can't be empty
+    if input.size == 0:
+        raise DimensionError(f"{name} does not have any elements.")
 
-def integers(input: RealArray, name: str) -> None:
-    """
-    integers  Checks the elements of a numpy array are all integers
-    ----------
-    integers(input, name)
-    Checks that the elements of the input numpy array are all integers. Raises a
-    ValueError if not.
+    # Only 1 non-singleton dimension
+    nonsingletons = nonsingleton(input)
+    if sum(nonsingletons) > 1:
+        raise DimensionError(
+            f"{name} can only have 1 dimension with a length greater than 1."
+        )
 
-    Note that this function *IS NOT* checking the dtype of the input array. Rather
-    it checks that each element is an integer. Thus, arrays of floating-point
-    integers (e.g. 1.0, 2.000, -3.0) will pass the test.
-    ----------
-    Inputs:
-        input: The numeric ndarray being checked.
-        name: A name of the input for use in error messages.
-
-    Raises:
-        ValueError: If the array contains non-integer elements
-    """
-
-    if not np.issubdtype(input.dtype, np.integer):
-        noninteger = input % 1 != 0
-        if np.any(noninteger):
-            bad = np.argwhere(noninteger)[0]
-            raise ValueError(
-                f"The elements of {name} must be integers, but element {bad} is not an integer."
-            )
+    # Optionally check length
+    shape_(name, "element(s)", required=length, actual=input.size)
+    return input.reshape(-1)
 
 
 def matrix(
@@ -274,56 +318,6 @@ def matrix(
     input = input.reshape(nrows, ncols)
     shape_(name, ["row(s)", "column(s)"], required=shape, actual=input.shape)
     return input
-
-
-def nonsingleton(array: np.ndarray) -> List[bool]:
-    """
-    nonsingleton  Finds the non-singleton dimensions of a numpy array
-    ----------
-    nonsingleton(array)
-    Returns a bool list with one element per dimension of the input array.
-    True indicates a nonsingleton dimensions (length > 1). False is singleton.
-    ----------
-    Inputs:
-        array: The ndarray being inspected
-
-    Returns:
-        List[bool]: Indicates the non-singleton dimensions.
-    """
-    return [shape > 1 for shape in array.shape]
-
-
-def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
-    """
-    positive  Checks the elements of a numpy array are all positive
-    ----------
-    positive(input, name)
-    Checks that the elements of the input numpy array are all greater than zero.
-    Raises a ValueError if not.
-
-    positive(..., *, allow_zero=True)
-    Checks that elements are greater than or equal to zero.
-    ----------
-    Inputs:
-        input: The numeric ndarray being checked.
-        name: A name for the input for use in error messages.
-        allow_zero: Set to True to allow elements equal to zero.
-            False (default) to only allow elements greater than zero.
-
-    Raises:
-        ValueError: If the array contains negative elements
-    """
-
-    # Exit immediately if unsigned integers (all are positive).
-    if not np.issubdtype(input.dtype, np.unsignedinteger):
-        # Determine the comparison type
-        if allow_zero:
-            operator = ">="
-        else:
-            operator = ">"
-
-        # Check for elements below the 0 bound
-        _check_bound(input, name, operator, 0)
 
 
 def raster(
@@ -438,75 +432,186 @@ def raster(
         return raster
 
 
-def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray:
-    """
-    scalar  Validate an input represents a scalar
-    ----------
-    scalar(input, name)
-    Checks that an input represents a scalar. Raises an exception if not. Returns
-    the input as a 1D numpy array.
+#####
+# Loaded arrays
+#####
 
-    scalar(input, name, dtype)
-    Also check that the input is derived from one of the listed dtypes.
+
+def mask(input: MaskArray, name: str) -> None:
+    """
+    mask  Validates a boolean-like mask
+    ----------
+    mask(input, name)
+    Checks that the elements in an array are all 0 or 1. Raises a ValueError if
+    not. If the array is valid, returns it as a boolean dtype.
+    ----------
+    Inputs:
+        input: The ndarray being validated
+        name: A name for the array for use in error messages.
+
+    Outputs:
+        boolean numpy array: The mask array with a boolean dtype.
+    """
+
+    # Exit immediately if already boolean
+    if input.dtype != bool:
+        invalid = np.isin(input, [0, 1], invert=True)
+        if np.any(invalid):
+            bad = np.argwhere(invalid)[0]
+            raise ValueError(
+                f"The elements of {name} must all be 0 or 1, but element {bad} is not."
+            )
+
+
+def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
+    """
+    positive  Checks the elements of a numpy array are all positive
+    ----------
+    positive(input, name)
+    Checks that the elements of the input numpy array are all greater than zero.
+    Raises a ValueError if not.
+
+    positive(..., *, allow_zero=True)
+    Checks that elements are greater than or equal to zero.
+    ----------
+    Inputs:
+        input: The numeric ndarray being checked.
+        name: A name for the input for use in error messages.
+        allow_zero: Set to True to allow elements equal to zero.
+            False (default) to only allow elements greater than zero.
+
+    Raises:
+        ValueError: If the array contains negative elements
+    """
+
+    # Exit immediately if unsigned integers (all are positive).
+    if not np.issubdtype(input.dtype, np.unsignedinteger):
+        # Determine the comparison type
+        if allow_zero:
+            operator = ">="
+        else:
+            operator = ">"
+
+        # Check for elements below the 0 bound
+        _check_bound(input, name, operator, 0)
+
+
+def integers(input: RealArray, name: str) -> None:
+    """
+    integers  Checks the elements of a numpy array are all integers
+    ----------
+    integers(input, name)
+    Checks that the elements of the input numpy array are all integers. Raises a
+    ValueError if not.
+
+    Note that this function *IS NOT* checking the dtype of the input array. Rather
+    it checks that each element is an integer. Thus, arrays of floating-point
+    integers (e.g. 1.0, 2.000, -3.0) will pass the test.
+    ----------
+    Inputs:
+        input: The numeric ndarray being checked.
+        name: A name of the input for use in error messages.
+
+    Raises:
+        ValueError: If the array contains non-integer elements
+    """
+
+    if not np.issubdtype(input.dtype, np.integer):
+        noninteger = input % 1 != 0
+        if np.any(noninteger):
+            bad = np.argwhere(noninteger)[0]
+            raise ValueError(
+                f"The elements of {name} must be integers, but element {bad} is not an integer."
+            )
+
+
+def inrange(
+    input: RealArray,
+    name: str,
+    min: Optional[scalar] = None,
+    max: Optional[scalar] = None,
+) -> None:
+    """
+    inrange  Checks the elements of a numpy array are within a given range
+    ----------
+    inrange(input, name, min, max)
+    Checks that the elements of a real-valued numpy array are all within a
+    specified range. min and max are optional arguments, you can specify a single
+    one to only check an upper or a lower bound. Use both to check elements are
+    within a range. Uses an inclusive comparison (values equal to a bound will
+    pass validation).
+    ----------
+    Inputs:
+        input: The ndarray being checked
+        name: The name of the array for use in error messages
+        min: An optional lower bound (inclusive)
+        max: An optional upper bound (inclusive)
+
+    Raises:
+        ValueError: If any element is not within the bounds
+    """
+
+    _check_bound(input, name, ">=", min)
+    _check_bound(input, name, "<=", max)
+
+
+def _check_bound(input, name, operator, bound):
+    """
+    _check_bound  Checks that elements of a numpy array are valid relative to a bound
+    ----------
+    _check_bound(input, name, operator, bound)
+    Checks that the elements of the input numpy array are valid relative to a
+    bound. Valid comparisons are >, <, >=, and <=. Raises a ValueError if the
+    criterion is not met.
     ----------
     Inputs:
         input: The input being checked
-        name: A name for the input for use in error messages.
-        dtype: A list of allowed dtypes
-
-    Outputs:
-        numpy 1D array: The input as a 1D numpy array.
-
-    Raises:
-        ShapeError: If the input has more than one element
-        TypeError: If the input does not have an allowed dtype
-    """
-
-    # Optionally check dtype
-    input = np.array(input)
-    dtype_(name, allowed=dtype, actual=input.dtype)
-
-    # No non-singleton dimensions
-    if input.size != 1:
-        raise DimensionError(
-            f"{name} must have exactly 1 element, but it has {input.size} elements instead."
-        )
-
-    # Return as 1D array
-    return input.reshape(1)
-
-
-def shape_(name: str, axes: strs, required: shape, actual: shape) -> None:
-    """
-    shape_  Checks that a numpy ndarray shape is valid
-    ----------
-    shape_(name, axes, required, actual)
-    Checks that an input shape is valid. Raises an exception if not. Setting
-    required=None disables shape checking altogether. If an element of required
-    is -1, disables shape checking for that dimension.
-    ----------
-    Inputs:
-        name: The name of the array being tested for use in error messages
-        axes: The names of the elements of each dimension being tested. Should
-            have one string per element of the required shape.
-        shape: The required shape of the numpy array. If an element of shape is
-            -1, disables shape checking for that dimension.
-        actual: The actual shape of the numpy array
+        name: A name for the input for use in error messages
+        operator: The comparison operator to apply. Options are '<', '>', '<=',
+            and '>='. Elements must satisfy: (input operator bound) to be valid.
+            For example, input < bound.
+        bound: The bound being compared to the elements of the array.
 
     Raises:
-        ShapeError: If the array does not have the required shape.
+        ValueError: If any element fails the comparison
     """
-    # Convert inputs to sequences
-    if required is not None:
-        axes = aslist(axes)
-        required = astuple(required)
-        actual = astuple(actual)
 
-        # Check the length of each dimension
-        indices = range(0, len(axes))
-        for axis, index, required_, actual_ in zip(axes, indices, required, actual):
-            if required_ != -1 and required_ != actual_:
-                raise ShapeError(name, axis, index, required, actual)
+    # Only compare if bounds were specified
+    if bound is not None:
+        # Get the operator for the comparison. Note that we are testing for failed
+        # elements, so actually need the *inverse* of the input operator.
+        if operator == "<":
+            description = "less than"
+            operator = np.greater_equal
+        elif operator == "<=":
+            description = "less than or equal to"
+            operator = np.greater
+        elif operator == ">=":
+            description = "greater than or equal to"
+            operator = np.less
+        elif operator == ">":
+            description = "greater than"
+            operator = np.less_equal
+
+        # Test elements. Raise ValueError if any fail
+        failed = operator(input, bound)
+        if np.any(failed):
+            bad = np.argwhere(failed)[0]
+            raise ValueError(
+                f"The elements of {name} must be {description} {bound}, but element {bad} is not."
+            )
+
+
+#####
+# Errors
+#####
+
+
+class DimensionError(Exception):
+    "When a numpy array has invalid non-singleton dimensions"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
 
 class ShapeError(Exception):
@@ -527,61 +632,3 @@ class ShapeError(Exception):
         self.required = required
         self.actual = actual
         super().__init__(message)
-
-
-def vector(
-    input: Any,
-    name: str,
-    *,
-    dtype: Optional[dtypes] = None,
-    length: Optional[int] = None,
-) -> VectorArray:
-    """
-    vector  Validate an input represents a 1D numpy array
-    ----------
-    vector(input, name)
-    Checks the input represents a 1D numpy array. Valid inputs may only have a
-    single non-singleton dimension. Raises an exception if this criteria is not
-    met. Otherwise, returns the array as a numpy 1D array.
-
-    vector(..., *, dtype)
-    Also checks that the vector has an allowed dtype. Raises a TypeError if not.
-
-    vector(..., *, length)
-    Also checks that the vector has the specified length. Raises a ShapeError if
-    this criteria is not met.
-    ----------
-    Input:
-        input: The input being checked
-        name: A name for the input for use in error messages.
-        dtype: A list of allowed dtypes
-        length: A required length for the vector
-
-    Outputs:
-        numpy 1D array: The input as a 1D numpy array
-
-    Raises:
-        TypeError: If the input does not have an allowed dtype
-        DimensionError: If the input does not have exactly 1 dimension
-        ShapeError: If the input does not have the specified length
-    """
-
-    # Optionally check dtype
-    input = np.array(input)
-    input = np.atleast_1d(input)
-    dtype_(name, allowed=dtype, actual=input.dtype)
-
-    # Can't be empty
-    if input.size == 0:
-        raise DimensionError(f"{name} does not have any elements.")
-
-    # Only 1 non-singleton dimension
-    nonsingletons = nonsingleton(input)
-    if sum(nonsingletons) > 1:
-        raise DimensionError(
-            f"{name} can only have 1 dimension with a length greater than 1."
-        )
-
-    # Optionally check length
-    shape_(name, "element(s)", required=length, actual=input.size)
-    return input.reshape(-1)
