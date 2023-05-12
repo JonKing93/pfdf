@@ -49,19 +49,23 @@ import numpy as np
 from pathlib import Path
 import rasterio
 from dfha.utils import aslist, astuple, real
-from typing import Any, Optional, List, Union
+from typing import Any, Optional, List, Union, Sequence, Tuple
 from dfha.typing import (
     strs,
     dtypes,
-    shape,
-    shape2d,
     scalar,
     RealArray,
     ScalarArray,
     VectorArray,
     MatrixArray,
     ValidatedRaster,
+    MaskArray,
+    ValidatedMask,
 )
+
+# Type aliases
+shape = Union[int, Sequence[int]]
+shape2d = Tuple[int, int]
 
 
 #####
@@ -437,7 +441,7 @@ def raster(
 #####
 
 
-def mask(input: MaskArray, name: str) -> None:
+def mask(input: MaskArray, name: str) -> ValidatedMask:
     """
     mask  Validates a boolean-like mask
     ----------

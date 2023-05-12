@@ -18,7 +18,7 @@ nptyping Primer:
 """
 
 from typing import Any, Union, Sequence, Dict, Tuple
-from nptyping import NDArray, Shape, Integer, Floating
+from nptyping import NDArray, Shape, Integer, Floating, Boolean
 from pathlib import Path
 from rasterio import DatasetReader
 import numpy as np
@@ -34,8 +34,6 @@ Pathlike = Union[str, Path]
 Pathdict = Dict[str, Path]
 
 # Numpy shapes
-shape = Union[int, Sequence[int]]
-shape2d = Tuple[int, int]
 ScalarShape = Shape["1"]
 VectorShape = Shape["Elements"]
 MatrixShape = Shape["Rows, Columns"]
@@ -55,6 +53,11 @@ matrix = Union[ints, floats, MatrixArray]
 RasterArray = MatrixArray  # alias for clarity
 ValidatedRaster = Union[Path, RasterArray]
 Raster = Union[str, Path, DatasetReader, RasterArray]
+
+# Raster Masks
+Mask = Union[NDArray[MatrixShape, Integer], NDArray[MatrixShape, Floating], NDArray[MatrixShape, Boolean]]
+MaskArray = Union[NDArray[Any, Integer], NDArray[Any, Floating], NDArray[Any, Boolean]]
+ValidatedMask = NDArray[Any, Boolean]
 
 # Segments
 SegmentsShape = Shape['Segments']
