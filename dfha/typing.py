@@ -21,7 +21,6 @@ from typing import Any, Union, Sequence, Dict, Tuple
 from nptyping import NDArray, Shape, Integer, Floating, Boolean
 from pathlib import Path
 from rasterio import DatasetReader
-import numpy as np
 
 # Singular / plural
 strs = Union[str, Sequence[str]]
@@ -33,7 +32,11 @@ dtypes = Union[type, Sequence[type]]
 Pathlike = Union[str, Path]
 Pathdict = Dict[str, Path]
 
-# Numpy shapes
+# Inputs that are literally shapes
+shape = ints
+shape2d = Tuple[int, int]
+
+# Generic array shapes
 ScalarShape = Shape["1"]
 VectorShape = Shape["Elements"]
 MatrixShape = Shape["Rows, Columns"]
@@ -53,11 +56,12 @@ matrix = Union[ints, floats, MatrixArray]
 RasterArray = MatrixArray  # alias for clarity
 ValidatedRaster = Union[Path, RasterArray]
 Raster = Union[str, Path, DatasetReader, RasterArray]
+OutputRaster = Union[Path, RasterArray]
 
 # Raster Masks
 Mask = Union[NDArray[MatrixShape, Integer], NDArray[MatrixShape, Floating], NDArray[MatrixShape, Boolean]]
 MaskArray = Union[NDArray[Any, Integer], NDArray[Any, Floating], NDArray[Any, Boolean]]
-ValidatedMask = NDArray[Any, Boolean]
+BooleanMask = NDArray[Any, Boolean]
 
 # Segments
 SegmentsShape = Shape['Segments']
