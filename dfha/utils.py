@@ -16,15 +16,16 @@ Rasters:
     write_raster    - Writes a 2D numpy array (raster) to a GeoTIFF file
 """
 
-from numpy import ndarray, integer, floating, array
+from numpy import ndarray, integer, floating, bool_
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
 from dfha.typing import RasterArray, ValidatedRaster, scalar
 
 
-# Real-valued numpy dtypes
+# Combination numpy dtypes
 real = [integer, floating]
+mask = [integer, floating, bool_]
 
 
 def any_defined(*args: Any) -> bool:
@@ -91,21 +92,22 @@ def load_raster(raster: ValidatedRaster, band: Optional[int] = 1) -> RasterArray
     return raster
 
 
-def write_raster(
+def save_raster(
     raster: RasterArray, path: Path, nodata: Optional[scalar] = None
-) -> Path:
+) -> None:
     """
-    write_raster  Writes a numpy array (raster) to a GeoTIFF file
+    save_raster  Saves a numpy array (raster) to a GeoTIFF file
     ----------
-    write_raster(raster, path)
-    Writes a 2D numpy array to a GeoTIFF file.
+    save_raster(raster, path)
+    Saves a 2D numpy array to the indicated GeoTIFF file. If the array is boolean,
+    saves as an int8 dtype.
 
-    write_raster(raster, path, nodata)
+    save_raster(raster, path, nodata)
     Also specifies a nodata value for the raster. The nodata value is saved in
     the GeoTIFF metadata (rather than as a nodata mask).
     ----------
     Inputs:
-        raster: A numpy 2D array. Should have an integer or floating dtype.
+        raster: A numpy 2D array. Should be an integer, floating, or boolean dtype
         path: The path to the file in which to write the raster
         nodata: A nodata value that should be saved in the GeoTIFF metadata.
 
@@ -113,8 +115,15 @@ def write_raster(
         A GeoTIFF file matching the "path" input.
     """
 
+    # Use a placeholder until the package supports projections
     placeholder_transform = (0.03, 0, -4, 0, 0.03, -3)
     placeholder_crs = "+proj=latlon"
+
+    # Rasterio does not accept boolean dtype, so convert to (equivalent) int8
+    if raster.dtype==bool:
+        raster = raster.astype('int8')
+
+    # Save the raster
     with rasterio.open(
         path,
         "w",
