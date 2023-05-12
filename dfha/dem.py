@@ -91,9 +91,7 @@ Option = Union[None, bool]  # None: Default, bool: User-specified
 Output = Union[RasterArray, Path]
 FlowSlopes = Tuple[Output, Output]
 FlowOutput = Union[Output, FlowSlopes]
-save = bool
-SaveType = Union[None, save]  # (None is for inputs)
-OutputPath = Union[None, Path]
+SaveType = Union[None, bool]  # (None is for inputs)
 nodata = Union[None, scalar]
 
 # Configuration
@@ -781,60 +779,6 @@ def _nodata(
             value = validate.scalar(value, name, real)
             nodata[k] = value.astype(raster.dtype)
     return nodata
-
-
-def _validate_output(path: Any, overwrite: bool) -> Tuple[OutputPath, save]:
-    """
-    _validate_output  Validate and parse options for an output raster
-    ----------
-    _validate_output(path)
-    Validates the Path for an output raster. A valid path may either be None (for
-    returning the raster directly as an array), or convertible to a Path object.
-    Returns the Path to the output file (which may be None), and a bool indicating
-    whether the output raster should be saved to file.
-
-    When a file path is provided, ensures the output file ends with a ".tif"
-    extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
-    to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
-
-    If the file already exists and overwrite is set to False, raises a FileExistsError.
-    ----------
-    Inputs:
-        path: The user-provided Path to an output raster.
-
-    Outputs:
-        (None|pathlib.Path, bool): A 2-tuple. First element is the Path for the
-            output raster - this may be None if not saving. Second element
-            indicates whether the output raster should be saved to file.
-
-    Raises:
-        FileExistsError: If the file exists and overwrite=False
-    """
-
-    # Note whether saving to file
-    if path is None:
-        save = False
-    else:
-        save = True
-
-        # If saving, get an absolute Path
-        path = Path(path).resolve()
-
-        # Optionally prevent overwriting
-        if not overwrite and path.is_file():
-            raise FileExistsError(
-                "Output file already exists:\n\t{path}\n"
-                'If you want to replace existing files, use the "overwrite" option.'
-            )
-
-        # Ensure a .tif extension
-        extension = path.suffix
-        if extension.lower() in [".tiff", ".tif"]:
-            path = path.with_suffix(".tif")
-        else:
-            name = path.name + ".tif"
-            path = path.with_name(name)
-    return path, save
 
 
 def _paths(

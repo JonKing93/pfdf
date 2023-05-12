@@ -58,6 +58,10 @@ from dfha.typing import (
     BooleanMask,
 )
 
+# Type aliases
+OutputPath = Union[None, Path]
+save = bool
+
 
 #####
 # Low Level
@@ -315,6 +319,10 @@ def matrix(
     return input
 
 
+#####
+# Rasters
+#####
+
 def raster(
     raster: Any,
     name: str,
@@ -425,6 +433,60 @@ def raster(
 
         # Return the array or Path
         return raster
+
+
+def output_path(path: Any, overwrite: bool) -> Tuple[OutputPath, save]:
+    """
+    output_path  Validate and parse options for an output raster path
+    ----------
+    output_path(path, overwrite)
+    Validates the Path for an output raster. A valid path may either be None (for
+    returning the raster directly as an array), or convertible to a Path object.
+    Returns the Path to the output file (which may be None), and a bool indicating
+    whether the output raster should be saved to file.
+
+    When a file path is provided, ensures the output file ends with a ".tif"
+    extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
+    to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
+
+    If the file already exists and overwrite is set to False, raises a FileExistsError.
+    ----------
+    Inputs:
+        path: The user-provided Path to an output raster.
+
+    Outputs:
+        (None|pathlib.Path, bool): A 2-tuple. First element is the Path for the
+            output raster - this may be None if not saving. Second element
+            indicates whether the output raster should be saved to file.
+
+    Raises:
+        FileExistsError: If the file exists and overwrite=False
+    """
+
+    # Note whether saving to file
+    if path is None:
+        save = False
+    else:
+        save = True
+
+        # If saving, get an absolute Path
+        path = Path(path).resolve()
+
+        # Optionally prevent overwriting
+        if not overwrite and path.is_file():
+            raise FileExistsError(
+                f"Output file already exists:\n\t{path}\n"
+                'If you want to replace existing files, use the "overwrite" option.'
+            )
+
+        # Ensure a .tif extension
+        extension = path.suffix
+        if extension.lower() in [".tiff", ".tif"]:
+            path = path.with_suffix(".tif")
+        else:
+            name = path.name + ".tif"
+            path = path.with_name(name)
+    return path, save
 
 
 #####
