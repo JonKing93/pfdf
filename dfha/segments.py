@@ -41,9 +41,6 @@ Functions:
 Classes:
     Segments            - Defines a stream segment network and calculates values for the segments
 
-Exceptions:
-    RasterShapeError    - When a values raster does not match the shape of the stream segment raster
-
 Internal:
     _Kernel             - Locates raster pixels required for confinement angle focal statistics
     _validate_raster    - Validates a raster for a filter
@@ -1210,13 +1207,3 @@ class _Kernel:
         slopes = slopes / length
         return slopes
 
-
-class RasterShapeError(Exception):
-    "When the shape of a values raster does not match the shape of the stream segment raster"
-
-    def __init__(self, name: str, cause: validate.ShapeError) -> None:
-        message = (
-            f"The shape of the {name} raster {cause.actual} does not match the "
-            f"shape of the stream segment raster used to derive the segments {cause.required}."
-        )
-        super().__init__(message)

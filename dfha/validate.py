@@ -6,10 +6,7 @@ if the inputs are not valid. Some functions allow user inputs to be in multiple
 different formats. When this is the case, the function will return the input in 
 a standard format for internal processing. For example, the "raster"
 function accepts both file paths and numpy 2D arrays, but will return the
-validated raster as a numpy 2D array. 
-
-The module also defines several custom exceptions relating to the shape of input
-numpy arrays.
+validated raster as a numpy 2D array.
 
 Note on dtypes:
     In general, it is best to use numpy scalar types to indicate the allowed
@@ -35,11 +32,7 @@ Rasters:
 Low-level:
     shape_          - Check that array shape is valid
     dtype_          - Checks that array dtype is valid
-    nonsingleton    - Locate nonsingleton dimensions   
-
-Exceptions:
-    DimensionError  - Raised when an input has invalid nonsingleton dimensions or no elements
-    ShapeError      - Raised when an input has an incorrect shape
+    nonsingleton    - Locate nonsingleton dimensions
 
 Internal:
     _check_bound    - Compares the elements of an ndarray to a bound
@@ -53,6 +46,8 @@ from typing import Any, Optional, List, Union, Sequence, Tuple
 from dfha.typing import (
     strs,
     dtypes,
+    shape,
+    shape2d,
     scalar,
     RealArray,
     ScalarArray,
@@ -60,12 +55,8 @@ from dfha.typing import (
     MatrixArray,
     ValidatedRaster,
     MaskArray,
-    ValidatedMask,
+    BooleanMask,
 )
-
-# Type aliases
-shape = Union[int, Sequence[int]]
-shape2d = Tuple[int, int]
 
 
 #####
@@ -441,7 +432,7 @@ def raster(
 #####
 
 
-def mask(input: MaskArray, name: str) -> ValidatedMask:
+def mask(input: MaskArray, name: str) -> BooleanMask:
     """
     mask  Validates a boolean-like mask
     ----------
@@ -605,34 +596,3 @@ def _check_bound(input, name, operator, bound):
                 f"The elements of {name} must be {description} {bound}, but element {bad} is not."
             )
 
-
-#####
-# Errors
-#####
-
-
-class DimensionError(Exception):
-    "When a numpy array has invalid non-singleton dimensions"
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-
-
-class ShapeError(Exception):
-    """
-    When a numpy axis has the wrong shape
-    ----------
-    Properties:
-        required: The required shape of the numpy array
-        actual: The actual shape of the numpy array
-        index: The index of the bad axis
-    """
-
-    def __init__(
-        self, name: str, axis: str, index: int, required: shape, actual: shape
-    ) -> None:
-        message = f"{name} must have {required[index]} {axis}, but it has {actual[index]} {axis} instead."
-        self.index = index
-        self.required = required
-        self.actual = actual
-        super().__init__(message)
