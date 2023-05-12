@@ -35,6 +35,7 @@ def fraster(tmp_path, band1, band2):
         width=band1.shape[1],
         count=2,
         dtype=band1.dtype,
+        nodata=1,
         crs="+proj=latlong",
         transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
     ) as file:
@@ -103,7 +104,7 @@ class TestLoadRaster:
     # Band should be ignored when given an ndarray as input
     @pytest.mark.parametrize("band", [(1), (2), (3)])
     def test_array_band(_, band1, band):
-        output = utils.load_raster(band1, band)
+        output = utils.load_raster(band1, band=band)
         assert np.array_equal(output, band1)
 
     def test_path(_, fraster, band1):
@@ -114,10 +115,39 @@ class TestLoadRaster:
         output = utils.load_raster(fraster, band=2)
         assert np.array_equal(output, band2)
 
+    def test_nodata_array(_, band1):
+        output = utils.load_raster(band1, nodata_to=-999)
+        assert np.array_equal(output, band1)
 
-class TestWriteRaster:
+    def test_nodata_file(_, fraster, band1):
+        output = utils.load_raster(fraster, nodata_to=-999)
+        band1[0, 0] = -999
+        assert np.array_equal(output, band1)
+
+
+class TestReplaceNodata:
+    def test_number(_, band1):
+        expected = band1.copy()
+        expected[0, 3] = -999
+        utils.replace_nodata(band1, 4, -999)
+        assert np.array_equal(band1, expected)
+
+    def test_nan(_, band1):
+        expected = band1.copy()
+        expected[0, 3] = -999
+        band1[0, 3] = np.nan
+        utils.replace_nodata(band1, np.nan, -999)
+        assert np.array_equal(band1, expected)
+
+    def test_none(_, band1):
+        expected = band1.copy()
+        utils.replace_nodata(band1, None, -999)
+        assert np.array_equal(band1, expected)
+
+
+class TestSaveRaster:
     def test(_, band1, output_path):
-        utils.write_raster(band1, output_path)
+        utils.save_raster(band1, output_path)
         with rasterio.open(output_path) as file:
             assert file.count == 1
             raster = file.read(1)
@@ -125,9 +155,17 @@ class TestWriteRaster:
 
     @pytest.mark.parametrize("nodata", (np.nan, 0, -999))
     def test_nodata(_, band1, output_path, nodata):
-        utils.write_raster(band1, output_path, nodata)
+        utils.save_raster(band1, output_path, nodata)
         with rasterio.open(output_path) as file:
             assert file.count == 1
             assert np.array_equal(file.nodata, nodata, equal_nan=True)
+            raster = file.read(1)
+            assert np.array_equal(raster, band1)
+
+    def test_bool(_, band1, output_path):
+        band1 = band1.astype(bool)
+        utils.save_raster(band1, output_path)
+        with rasterio.open(output_path) as file:
+            assert file.count == 1
             raster = file.read(1)
             assert np.array_equal(raster, band1)
