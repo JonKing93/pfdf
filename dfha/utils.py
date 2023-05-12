@@ -3,6 +3,7 @@ utils  Low-level utility functions used throughout the package
 ----------
 Numpy dtypes:
     real            - A list of numpy dtypes considered to be real-valued numbers
+    mask            - A list of numpy dtypes suitable for raster masks
 
 Sequence conversion:
     aslist          - Returns an input as a list
@@ -13,10 +14,11 @@ Argument Parsing:
 
 Rasters:
     load_raster     - Returns a pre-validated raster as a numpy array
-    write_raster    - Writes a 2D numpy array (raster) to a GeoTIFF file
+    save_raster     - Saves a 2D numpy array raster to a GeoTIFF file
+    replace_nodata  - Replaces NoData values in a raster with a specified value
 """
 
-from numpy import ndarray, integer, floating, bool_, isnan, nan
+from numpy import ndarray, integer, floating, bool_, isnan
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
@@ -69,11 +71,8 @@ def astuple(input: Any) -> Tuple:
 
 
 def load_raster(
-        raster: ValidatedRaster,
-        *,
-        band: int = 1,
-        nodata_to: Optional[scalar] = None
-    ) -> RasterArray:
+    raster: ValidatedRaster, *, band: int = 1, nodata_to: Optional[scalar] = None
+) -> RasterArray:
     """
     load_raster  Returns a raster as a numpy.ndarray
     ----------
@@ -110,7 +109,9 @@ def load_raster(
     return raster
 
 
-def replace_nodata(array: RealArray, nodata: Union[None, scalar], value: scalar) -> None:
+def replace_nodata(
+    array: RealArray, nodata: Union[None, scalar], value: scalar
+) -> None:
     """
     replace_nodata  Replaces NoData values in a numpy array
     ----------
@@ -158,8 +159,8 @@ def save_raster(
     placeholder_crs = "+proj=latlon"
 
     # Rasterio does not accept boolean dtype, so convert to (equivalent) int8
-    if raster.dtype==bool:
-        raster = raster.astype('int8')
+    if raster.dtype == bool:
+        raster = raster.astype("int8")
 
     # Save the raster
     with rasterio.open(
