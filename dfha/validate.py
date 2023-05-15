@@ -25,6 +25,7 @@ Loaded arrays:
     integers        - Checks that all elements are integers (NOT that the dtype is an int)
     inrange         - Checks that all elements are within a given range (inclusive)
     mask            - Checks that an array is boolean-like (all 1s and 0s)
+    flow            - Checks that an array consists of TauDEM-style D8 flow directions
 
 Rasters:
     raster          - Check that an input is a valid raster
@@ -57,6 +58,7 @@ from dfha.typing import (
     MatrixArray,
     ValidatedRaster,
     MaskArray,
+    BooleanArray,
     BooleanMask,
 )
 
@@ -527,38 +529,12 @@ def output_path(path: Any, overwrite: bool) -> Tuple[OutputPath, save]:
 #####
 
 
-def mask(input: MaskArray, name: str) -> BooleanMask:
-    """
-    mask  Validates a boolean-like mask
-    ----------
-    mask(input, name)
-    Checks that the elements in an array are all 0 or 1. Raises a ValueError if
-    not. If the array is valid, returns it as a boolean dtype.
-    ----------
-    Inputs:
-        input: The ndarray being validated
-        name: A name for the array for use in error messages.
 
-    Outputs:
-        boolean numpy array: The mask array with a boolean dtype.
-    """
-
-    # Exit immediately if already boolean
-    if input.dtype != bool:
-        invalid = np.isin(input, [0, 1], invert=True)
-        if np.any(invalid):
-            bad = np.argwhere(invalid)[0]
-            raise ValueError(
-                f"The elements of {name} must all be 0 or 1, but element {bad} is not."
-            )
-    return input.astype(bool)
-
-
-def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
+def positive(array: RealArray, name: str, *, allow_zero: bool = False) -> None:
     """
     positive  Checks the elements of a numpy array are all positive
     ----------
-    positive(input, name)
+    positive(array, name)
     Checks that the elements of the input numpy array are all greater than zero.
     Raises a ValueError if not.
 
@@ -566,7 +542,7 @@ def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
     Checks that elements are greater than or equal to zero.
     ----------
     Inputs:
-        input: The numeric ndarray being checked.
+        array: The numeric ndarray being checked.
         name: A name for the input for use in error messages.
         allow_zero: Set to True to allow elements equal to zero.
             False (default) to only allow elements greater than zero.
@@ -576,7 +552,7 @@ def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
     """
 
     # Exit immediately if unsigned integers (all are positive).
-    if not np.issubdtype(input.dtype, np.unsignedinteger):
+    if not np.issubdtype(array.dtype, np.unsignedinteger):
         # Determine the comparison type
         if allow_zero:
             operator = ">="
@@ -584,14 +560,14 @@ def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
             operator = ">"
 
         # Check for elements below the 0 bound
-        _check_bound(input, name, operator, 0)
+        _check_bound(array, name, operator, 0)
 
 
-def integers(input: RealArray, name: str) -> None:
+def integers(array: RealArray, name: str) -> None:
     """
     integers  Checks the elements of a numpy array are all integers
     ----------
-    integers(input, name)
+    integers(array, name)
     Checks that the elements of the input numpy array are all integers. Raises a
     ValueError if not.
 
@@ -600,15 +576,15 @@ def integers(input: RealArray, name: str) -> None:
     integers (e.g. 1.0, 2.000, -3.0) will pass the test.
     ----------
     Inputs:
-        input: The numeric ndarray being checked.
+        array: The numeric ndarray being checked.
         name: A name of the input for use in error messages.
 
     Raises:
         ValueError: If the array contains non-integer elements
     """
 
-    if not np.issubdtype(input.dtype, np.integer):
-        noninteger = input % 1 != 0
+    if not np.issubdtype(array.dtype, np.integer):
+        noninteger = array % 1 != 0
         if np.any(noninteger):
             bad = np.argwhere(noninteger)[0]
             raise ValueError(
@@ -617,7 +593,7 @@ def integers(input: RealArray, name: str) -> None:
 
 
 def inrange(
-    input: RealArray,
+    array: RealArray,
     name: str,
     min: Optional[scalar] = None,
     max: Optional[scalar] = None,
@@ -625,7 +601,7 @@ def inrange(
     """
     inrange  Checks the elements of a numpy array are within a given range
     ----------
-    inrange(input, name, min, max)
+    inrange(array, name, min, max)
     Checks that the elements of a real-valued numpy array are all within a
     specified range. min and max are optional arguments, you can specify a single
     one to only check an upper or a lower bound. Use both to check elements are
@@ -633,7 +609,7 @@ def inrange(
     pass validation).
     ----------
     Inputs:
-        input: The ndarray being checked
+        array: The ndarray being checked
         name: The name of the array for use in error messages
         min: An optional lower bound (inclusive)
         max: An optional upper bound (inclusive)
@@ -642,21 +618,21 @@ def inrange(
         ValueError: If any element is not within the bounds
     """
 
-    _check_bound(input, name, ">=", min)
-    _check_bound(input, name, "<=", max)
+    _check_bound(array, name, ">=", min)
+    _check_bound(array, name, "<=", max)
 
 
-def _check_bound(input, name, operator, bound):
+def _check_bound(array, name, operator, bound):
     """
     _check_bound  Checks that elements of a numpy array are valid relative to a bound
     ----------
-    _check_bound(input, name, operator, bound)
+    _check_bound(array, name, operator, bound)
     Checks that the elements of the input numpy array are valid relative to a
     bound. Valid comparisons are >, <, >=, and <=. Raises a ValueError if the
     criterion is not met.
     ----------
     Inputs:
-        input: The input being checked
+        array: The input being checked
         name: A name for the input for use in error messages
         operator: The comparison operator to apply. Options are '<', '>', '<=',
             and '>='. Elements must satisfy: (input operator bound) to be valid.
@@ -685,9 +661,53 @@ def _check_bound(input, name, operator, bound):
             operator = np.less_equal
 
         # Test elements. Raise ValueError if any fail
-        failed = operator(input, bound)
+        failed = operator(array, bound)
         if np.any(failed):
             bad = np.argwhere(failed)[0]
             raise ValueError(
                 f"The elements of {name} must be {description} {bound}, but element {bad} is not."
             )
+
+
+def mask(array: MaskArray, name: str) -> BooleanArray:
+    """
+    mask  Validates a boolean-like mask
+    ----------
+    mask(array, name)
+    Checks that the elements in an array are all 0 or 1. Raises a ValueError if
+    not. If the array is valid, returns it as a boolean dtype.
+    ----------
+    Inputs:
+        array: The ndarray being validated
+        name: A name for the array for use in error messages.
+
+    Outputs:
+        boolean numpy array: The mask array with a boolean dtype.
+    """
+
+    # Exit immediately if already boolean
+    if array.dtype != bool:
+        invalid = np.isin(array, [0, 1], invert=True)
+        if np.any(invalid):
+            bad = np.argwhere(invalid)[0]
+            raise ValueError(
+                f"The elements of {name} must all be 0 or 1, but element {bad} is not."
+            )
+    return array.astype(bool)
+
+
+def flow(array: RealArray, name: str):
+    """
+    flow  Checks that an array represents TauDEM-style D8 flow directions
+    ----------
+    flow(array, name)
+    Checks that all elements of the input array are integers on the interval 1 to 8.
+    Raises a ValueError if not.
+    ----------
+    Inputs:
+        array: The input array being checked
+        name: A name for the array for use in error messages    
+    """
+
+    integers(array, name)
+    inrange(array, name, min=1, max=8)
