@@ -20,10 +20,11 @@ Array shape and type:
     vector          - Validates an input vector
     matrix          - Validates an input matrix
 
-Numeric arrays:
+Loaded arrays:
     positive        - Checks that all elements are positive
     integers        - Checks that all elements are integers (NOT that the dtype is an int)
     inrange         - Checks that all elements are within a given range (inclusive)
+    mask            - Checks that an array is boolean-like (all 1s and 0s)
 
 Rasters:
     raster          - Check that an input is a valid raster
@@ -41,7 +42,8 @@ Internal:
 import numpy as np
 from pathlib import Path
 import rasterio
-from dfha.utils import aslist, astuple, real
+from dfha.utils import aslist, astuple, real, replace_nodata
+from dfha.errors import DimensionError, ShapeError
 from typing import Any, Optional, List, Union, Sequence, Tuple
 from dfha.typing import (
     strs,
@@ -59,6 +61,7 @@ from dfha.typing import (
 )
 
 # Type aliases
+RasterAndMask = Tuple[ValidatedRaster, BooleanMask]
 OutputPath = Union[None, Path]
 save = bool
 
@@ -327,12 +330,14 @@ def raster(
     raster: Any,
     name: str,
     *,
-    nodata: Optional[scalar] = None,
     shape: Optional[shape2d] = None,
     load: bool = True,
-) -> ValidatedRaster:
+    numpy_nodata: Optional[scalar] = None,
+    nodata_to: Optional[scalar] = None,
+    return_mask: bool = False,
+) -> Union[ValidatedRaster, RasterAndMask]:
     """
-    raster  Check input is valid raster and return as numpy 2D array
+    raster  Check input is valid raster and return in requested format
     ----------
     raster(raster, name)
     Checks that the input is a valid raster. Valid rasters may be:
@@ -352,11 +357,6 @@ def raster(
         * a numpy array dtype is not a numpy.integer or numpy.floating
         * the input is some other type
 
-    raster(..., *, nodata)
-    Specify a value for NoData elements when reading a raster from file. All
-    NoData elements will be replaced with this value. This option has no effect
-    when a numpy array is provided.
-
     raster(..., *, shape)
     Require the raster to have the specified shape. Raises a ShapeError if this
     condition is not met.
@@ -367,6 +367,21 @@ def raster(
     validating. If the input was a file-based raster, returns a pathlib.Path
     object for the validated raster file instead of a numpy array. Input numpy
     arrays are not affected and still return a numpy array.
+
+    raster(..., *, numpy_nodata)
+    Specifies a value to treat as NoData when the input raster is a numpy array.
+    This option is typically combined with the "nodata_to" and/or "return_mask"
+    options (see below).
+       
+    raster(..., *, nodata_to)
+    Converts NoData values to the indicated value. If the input raster is file-based,
+    determines the NoData value from the file metadata. If the input is a numpy
+    array, determines the NoData value from the "numpy_nodata" option (if provided).
+    This option is ignored if load=False, but see utils.load_raster for similar
+    functionality.
+
+    raster(..., *, return_mask=True)
+    Also returns the NoData mask for the array. This option is ignored if load=False.
     ----------
     Inputs:
         raster: The input being checked
@@ -384,6 +399,12 @@ def raster(
         pathlib.Path: If load=False and the input is a file-based raster
     """
 
+    # Note whether replacing nodata
+    if nodata_to is None or load == False:
+        replace = False
+    else:
+        replace = True
+
     # Convert str to Path
     if isinstance(raster, str):
         raster = Path(raster)
@@ -391,6 +412,7 @@ def raster(
     # If Path, require file exists
     if isinstance(raster, Path):
         raster = raster.resolve(strict=True)
+        isfile = True
 
     # If DatasetReader, check that the associated file exists. Get the
     # associated Path to allow loading within a context manager without closing
@@ -402,36 +424,46 @@ def raster(
                 f"The raster file associated with the input rasterio.DatasetReader "
                 f"object no longer exists.\nFile: {raster}"
             )
+        isfile = True
 
-    # Anything else should be a numpy array. Validate and return the array
+    # Anything else should be a numpy matrix. Validate this
     else:
         if not isinstance(raster, np.ndarray):
             raise TypeError(
                 f"{name} is not a recognized raster type. Allowed types are: "
                 "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray"
             )
-        return matrix(raster, name, shape=shape, dtype=real)
+        raster = matrix(raster, name, shape=shape, dtype=real)
+        isfile = False
 
     # Validate band 1 of file-based rasters
-    band = 1
-    with rasterio.open(raster) as data:
-        dtype_(name, allowed=real, actual=data.dtypes[band - 1])
-        if shape is not None:
-            nrows = data.height
-            ncols = data.width
-            shape_(name, ["rows", "columns"], required=shape, actual=(nrows, ncols))
-            shape = None
+    if isfile:
+        band = 1
+        with rasterio.open(raster) as file:
+            dtype_(name, allowed=real, actual=file.dtypes[band - 1])
+            if shape is not None:
+                nrows = file.height
+                ncols = file.width
+                shape_(name, ["rows", "columns"], required=shape, actual=(nrows, ncols))
 
-        # Optionally load into memory. Optionally convert NoData values
-        if load:
-            if nodata is None:
-                raster = data.read(band)
-            else:
-                mask = data.read_masks(band)
-                raster = data.read(band)
-                raster[mask == 0] = nodata
+            # Optionally load into memory.
+            if load:
+                raster = file.read(band)
 
-        # Return the array or Path
+            # Get NoData values if needed
+            if replace:
+                nodata = file.nodata
+    elif replace:
+        nodata = numpy_nodata
+
+    # Optionally replace nodata
+    if replace:
+        mask = replace_nodata(raster, nodata, nodata_to, return_mask)
+
+    # Return raster and optionally NoData mask
+    if return_mask:
+        return raster, mask
+    else:
         return raster
 
 
