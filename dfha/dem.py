@@ -367,7 +367,7 @@ def upslope_sum(
     values: Raster,
     *,
     flow_nodata: Optional[scalar] = None,
-    weights_nodata: Optional[scalar] = None,
+    values_nodata: Optional[scalar] = None,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
@@ -431,26 +431,26 @@ def upslope_sum(
 
     # Validate
     verbose, overwrite = _options(verbose, overwrite)
-    names = ["flow_directions", "weights", "upslope_sum"]
-    [flow, weights] = _validate_inputs([flow_directions, weights], names[0:2])
+    names = ["flow_directions", "values", "upslope_sum"]
+    [flow, values] = _validate_inputs([flow_directions, values], names[0:2])
     nodata = _nodata(
-        [flow_nodata, weights_nodata],
-        ["flow_nodata", "weights_nodata"],
-        [flow, weights],
+        [flow_nodata, values_nodata],
+        ["flow_nodata", "values_nodata"],
+        [flow, values],
     )
     sum, save = validate.output_path(path, overwrite)
     _validate_d8(check, flow, nodata[0])
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
-        flow, weights, sum = _paths(
+        flow, values, sum = _paths(
             temp,
-            [flow, weights, sum],
+            [flow, values, sum],
             [None, None, save],
             names,
             nodata,
         )
-        area_d8(flow, weights, sum, verbose)
+        area_d8(flow, values, sum, verbose)
         return _output(sum, save)
 
 
