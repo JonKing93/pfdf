@@ -58,6 +58,11 @@ def check_equal(array1, array2):
     assert np.array_equal(array1, array2)
 
 
+@pytest.fixture
+def mask():
+    return np.array([True, False, False, True]).reshape(2, 2)
+
+
 ###
 # Low-level
 ###
@@ -92,7 +97,6 @@ class TestCheckBound:
         with pytest.raises(ValueError) as error:
             validate._check_bound(array, "test name", ">", min)
             assert_contains(error, name, "greater than")
-
 
 
 class TestNonsingleton:
@@ -147,7 +151,7 @@ class TestDtype:
 
 
 #####
-# Numeric Arrays
+# Loaded Arrays
 #####
 
 
@@ -223,6 +227,22 @@ class TestInRange:
     def test_only_lower(self, array):
         min, _ = self.bounds(array)
         validate.inrange(array, self.name, min=min)
+
+
+class TestMask:
+    @pytest.mark.parametrize("type", (bool, int, float))
+    def test_valid(_, mask, type):
+        input = mask.astype(type)
+        output = validate.mask(input, "test name")
+        assert np.array_equal(output, mask)
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, -999, 3))
+    def test_invalid(_, mask, value):
+        mask = mask.astype(float)
+        mask[0, 0] = value
+        with pytest.raises(ValueError) as error:
+            validate.mask(mask, "test name")
+            assert_contains(error, "test name")
 
 
 #####
@@ -518,19 +538,19 @@ class TestRaster:
     def test_shape_failed_numpy(self):
         raster = np.arange(0, 10).reshape(2, 5)
         with pytest.raises(validate.ShapeError) as error:
-            validate.raster(raster, self.name, shape=(3,6))
+            validate.raster(raster, self.name, shape=(3, 6))
         assert_contains(error, self.name)
 
     def test_shape_failed_file(self, raster):
         with pytest.raises(validate.ShapeError) as error:
-            validate.raster(raster, self.name, shape=(1000,1000))
+            validate.raster(raster, self.name, shape=(1000, 1000))
         assert_contains(error, self.name)
 
     def test_noload(self, raster):
-        output = validate.raster(raster, '', load=False)
+        output = validate.raster(raster, "", load=False)
         assert output == raster
 
     def test_noload_numpy(self):
-        raster = np.arange(0,10).reshape(2,5)
-        output = validate.raster(raster, '', load=False)
+        raster = np.arange(0, 10).reshape(2, 5)
+        output = validate.raster(raster, "", load=False)
         check_equal(raster, output)

@@ -326,6 +326,7 @@ def matrix(
 # Rasters
 #####
 
+
 def raster(
     raster: Any,
     name: str,
@@ -372,7 +373,7 @@ def raster(
     Specifies a value to treat as NoData when the input raster is a numpy array.
     This option is typically combined with the "nodata_to" and/or "return_mask"
     options (see below).
-       
+
     raster(..., *, nodata_to)
     Converts NoData values to the indicated value. If the input raster is file-based,
     determines the NoData value from the file metadata. If the input is a numpy
@@ -550,6 +551,7 @@ def mask(input: MaskArray, name: str) -> BooleanMask:
             raise ValueError(
                 f"The elements of {name} must all be 0 or 1, but element {bad} is not."
             )
+    return input.astype(bool)
 
 
 def positive(input: RealArray, name: str, *, allow_zero: bool = False) -> None:
@@ -689,4 +691,3 @@ def _check_bound(input, name, operator, bound):
             raise ValueError(
                 f"The elements of {name} must be {description} {bound}, but element {bad} is not."
             )
-
