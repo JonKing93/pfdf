@@ -130,17 +130,19 @@ class TestReplaceNodata:
     def test_number(_, band1):
         expected = band1.copy()
         expected[0, 3] = -999
+        expected_mask = band1==4
         mask = utils.replace_nodata(band1, 4, -999)
         assert np.array_equal(band1, expected)
-        assert np.array_equal(mask, band1==4)
+        assert np.array_equal(mask, expected_mask)
 
     def test_nan(_, band1):
         expected = band1.copy()
         expected[0, 3] = -999
         band1[0, 3] = np.nan
+        expected_mask = np.isnan(band1)
         mask = utils.replace_nodata(band1, np.nan, -999)
         assert np.array_equal(band1, expected)
-        assert np.array_equal(mask, np.isnan(band1))
+        assert np.array_equal(mask, expected_mask)
 
 
 class TestSaveRaster:
