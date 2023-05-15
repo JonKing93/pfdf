@@ -44,6 +44,7 @@ def raster(tmp_path, band1, band2):
         height=band1.shape[0],
         width=band1.shape[1],
         count=2,
+        nodata=4,
         dtype=band1.dtype,
         crs="+proj=latlong",
         transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
@@ -516,16 +517,6 @@ class TestRaster:
             "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray",
         )
 
-    def test_nodata(self, raster, band1):
-        output = validate.raster(raster, "", nodata=9)
-        band1[-1, -1] = 9
-        check_equal(output, band1)
-
-    def test_nodata_numpy(self):
-        raster = np.full((4, 2), np.nan)
-        output = validate.raster(raster, "", nodata=9)
-        assert np.array_equal(output, raster, equal_nan=True)
-
     def test_shape_numpy(self):
         raster = np.arange(0, 10).reshape(2, 5)
         output = validate.raster(raster, "", shape=(2, 5))
@@ -554,3 +545,39 @@ class TestRaster:
         raster = np.arange(0, 10).reshape(2, 5)
         output = validate.raster(raster, "", load=False)
         check_equal(raster, output)
+
+    def test_nodata_array(_, band1):
+        expected = band1.copy()
+        expected[0, 3] = -999
+        output = validate.raster(band1, "", numpy_nodata=4, nodata_to=-999)
+        assert np.array_equal(output, expected)
+
+    def test_nodata_file(_, raster, band1):
+        expected = band1.copy()
+        expected[0, 3] = -999
+        output = validate.raster(raster, "", nodata_to=-999)
+        assert np.array_equal(output, expected)
+
+    def test_array_mask(_, band1):
+        expected = band1.copy()
+        expected[0, 3] = -999
+        expected_mask = band1 == 4
+        output = validate.raster(
+            band1, "", numpy_nodata=4, nodata_to=-999, return_mask=True
+        )
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        assert np.array_equal(output[0], expected)
+        assert np.array_equal(output[1], expected_mask)
+
+    def test_file_mask(_, raster, band1):
+        expected = band1.copy()
+        expected[0, 3] = -999
+        expected_mask = band1 == 4
+        output = validate.raster(
+            raster, "", numpy_nodata=4, nodata_to=-999, return_mask=True
+        )
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        assert np.array_equal(output[0], expected)
+        assert np.array_equal(output[1], expected_mask)
