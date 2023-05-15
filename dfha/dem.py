@@ -129,7 +129,8 @@ def pitfill(
     Optionally indicates a NoData value when the DEM is a numpy array. Without
     this option, all values in a numpy array are treated as valid. The nodata
     value will be converted to the same dtype as the DEM. If the DEM is a file-based
-    raster, this option is ignored.
+    raster, this option is ignored and the NoData value is instead determined from
+    the file metadata.
 
     pitfill(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -208,7 +209,8 @@ def flow_directions(
     Optionally indicates a NoData value for when the pitfilled DEM is a numpy array.
     Without this option, all values in an input numpy array are treated as valid.
     The nodata value will be converted to the dtype of the pitfilled DEM. If
-    the pitfilled DEM is a file-based raster, this option is ignored.
+    the pitfilled DEM is a file-based raster, this option is ignored and the NoData
+    value is instead determined from the file metadata.
 
     flow_directions(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -286,6 +288,7 @@ def upslope_pixels(
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
+    check: bool = True,
 ) -> Output:
     """
     upslope_pixels  Computes the number of upslope pixels over a DEM
@@ -308,9 +311,17 @@ def upslope_pixels(
     Optionally indicates a NoData value for when the flow directions are a numpy array.
     Without this option, all values in an input numpy array are treated as valid.
     The nodata value will be converted to the dtype of the flow directions. If
-    the flow directions are a file-based raster, this option is ignored.
+    the flow directions are a file-based raster, this option is ignored and the
+    NoData value is instead determined from the file metadata.
 
-    upslope_area(..., *, verbose)
+    upslope_pixels(..., *, check=False)
+    Disables the validation of D8 flow directions. When enabled, the validation
+    checks that flow directions are integers on the interval from 1 to 8 (excepting
+    NoData values). Disabling this check can speed up processing of large rasters,
+    but may give unexpected results if the flow-directions raster contains
+    invalid values.
+
+    upslope_pixels(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
     the console. If verbose=False, suppresses the messages. If unspecified, uses
     the default verbosity setting for the module (initially set as False).
@@ -320,6 +331,7 @@ def upslope_pixels(
             pixels. Flow numbers should proceed from 1 to 8, clockwise from right.
         path: The path to a file in which to save the upslope area.
         nodata: A NoData value for the flow directions when they are a numpy array.
+        check: True to validate flow-direction numbers. False to disable this check.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
@@ -339,6 +351,11 @@ def upslope_pixels(
     nodata = _nodata([nodata], ["nodata"], [flow])
     area, save = validate.output_path(path, overwrite)
 
+    # Validate flow direction values
+    if check:
+        raster = load_raster(flow, numpy_nodata=nodata[0], nodata_to=1)
+        validate.flow(raster, "flow_directions")
+
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
         flow, area = _paths(temp, [flow, area], [None, save], names, nodata)
@@ -348,20 +365,21 @@ def upslope_pixels(
 
 def upslope_sum(
     flow_directions: Raster,
-    weights: Raster,
+    values: Raster,
     *,
     flow_nodata: Optional[scalar] = None,
     weights_nodata: Optional[scalar] = None,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
+    check: bool = True,
 ) -> Output:
     """
     upslope_sum  Computes a weighted sum of upslope pixels
     ----------
-    upslope_sum(flow_directions, weights)
-    Computes a sum over upslope pixels. Each pixel is given a weight denoted by
-    an associated weights raster. Returns the sum as a numpy 2D array.
+    upslope_sum(flow_directions, values)
+    Computes a sum over upslope pixels. Each pixel is given a value denoted by
+    the "values" raster. Returns the sum raster as a numpy 2D array.
 
     upslope_sum(..., *, path)
     upslope_sum(..., *, path, overwrite)
@@ -372,12 +390,19 @@ def upslope_sum(
     then "overwrite" is ignored.
 
     upslope_sum(..., *, flow_nodata)
-    upslope_sum(..., *, weights_nodata)
-    Optionally indicate NoData values for when the flow directions or pixel weights
+    upslope_sum(..., *, values_nodata)
+    Optionally indicate NoData values for when the flow directions or pixel values
     are a numpy array. Without these options, all values in an input numpy array
     are treated as valid. The nodata value will be converted to the dtype of
-    associated raster. If an input raster is a file-based, the associated nodata
-    value is ignored.
+    associated raster. If an input raster is file-based, the associated nodata
+    value is ignored and NoData values are determined from the file metadata.
+
+    upslope_sum(..., *, check=False)
+    Disables the validation of D8 flow directions. When enabled, the validation
+    checks that flow directions are integers on the interval from 1 to 8 (excepting
+    NoData values). Disabling this check can speed up processing of large rasters,
+    but may give unexpected results if the flow-directions raster contains
+    invalid values.
 
     upslope_sum(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -387,11 +412,12 @@ def upslope_sum(
     Inputs:
         flow_directions: D8 flow directions used to determine upslope sums. Flow
             numbers should proceed from 1 to 8, clockwise from right.
-        weights: A weights raster, must have the same shape as the flow directions
-            raster. Assigns a value to each pixel for the weighted sum.
+        values: A raster indicating the value of each pixel to use in the sum.
+            Must have the same shape as the flow directions raster.
         path: The path to a file in which to save the upslope sum.
         flow_nodata: A NoData value for the flow directions when they are a numpy array.
         weights_nodata: A NoData value for the pixels weights when they are a numpy array.
+        check: True to validate flow-direction numbers. False to disable this check.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
@@ -414,6 +440,11 @@ def upslope_sum(
         [flow, weights],
     )
     sum, save = validate.output_path(path, overwrite)
+
+    # Validate flow values
+    if check:
+        raster = load_raster(flow, numpy_nodata=nodata[0], nodata=1)
+        validate.flow(raster, "flow_directions")
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -439,6 +470,7 @@ def relief(
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
+    check: bool = True,
 ) -> Output:
     """
     relief  Computes the vertical relief along the longest flow path
@@ -464,6 +496,13 @@ def relief(
     converted to the dtype of the associated input raster. If an input raster
     is file-based, the associated nodata value is ignored.
 
+    relief(..., *, check=False)
+    Disables validation of flow-directions and slopes. When enabled, the validation
+    checks that (1) flow directions are on the interval from 0 to 2*pi, and
+    (2) flow slopes are positive. (Excepting NoData values). Disabling this check
+    can speed the processing of large rasters, but may give unexpected results
+    if the rasters contain invalid values.
+
     relief(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
     the console. If verbose=False, suppresses the messages. If unspecified, uses
@@ -479,6 +518,7 @@ def relief(
         pitfilled_nodata: A NoData value for the pitfilled DEM when it is a numpy array.
         flow_nodata: A NoData value for the flow_directions when they are a numpy array.
         slopes_nodata: A NoData value for the flow slopes when they are a numpy array.
+        check: True to validate flow-directions and slopes. False to disable the checks.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
@@ -503,6 +543,13 @@ def relief(
         [pitfilled, flow, slopes],
     )
     relief, save = validate.output_path(path, overwrite)
+
+    # Validate flow directions and slopes
+    if check:
+        raster = load_raster(flow, numpy_nodata=nodata[1], nodata_to=0)
+        validate.flow(raster, "flow_directions")
+        raster = load_raster(slopes, numpy_nodata=nodata[2], nodata_to=0)
+        validate.positive(raster, "flow slopes", allow_zero=True)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
