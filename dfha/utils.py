@@ -18,11 +18,11 @@ Rasters:
     replace_nodata  - Replaces NoData values in a raster with a specified value
 """
 
-from numpy import ndarray, integer, floating, bool_, isnan
+from numpy import ndarray, integer, floating, bool_, isnan, full
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
-from dfha.typing import RealArray, RasterArray, ValidatedRaster, scalar
+from dfha.typing import RasterArray, ValidatedRaster, scalar, BooleanMask
 
 
 # Combination numpy dtypes
@@ -135,17 +135,20 @@ def load_raster(
 
 
 def replace_nodata(
-    array: RealArray,
-    nodata: scalar,
+    raster: RasterArray,
+    nodata: Union[None, scalar],
     value: scalar,
-) -> None:
+    return_mask: bool = False
+) -> Union[None, BooleanMask]:
     """
     replace_nodata  Replaces NoData values in a numpy array
     ----------
-    replace_nodata(array, nodata, value)
+    replace_nodata(raster, nodata, value)
     Given a numpy array, replaces NoData values with the indicated value. Returns
-    the NoData mask for the updated array. (Note that the array itself will be
-    updated in place).
+    None, as the array is updated in place.
+
+    replace_nodata(..., return_mask = True)
+    Returns the NoData mask for the raster.
     ----------
     Inputs:
         raster: A numpy array raster
@@ -153,16 +156,22 @@ def replace_nodata(
         value: The value that NoData should be replaced with
 
     Outputs:
-        numpy array: The umpy array with replaced NoData values
-        numpy bool array: The NoData mask for the array.
+        None | numpy bool array: If not None, then the NoData mask for the array
     """
-    
-    if isnan(nodata):
-        nodata = isnan(array)
-    else:
-        nodata = array == nodata
-    array[nodata] = value
-    return nodata
+
+    # Replace NoData values
+    if nodata is not None:
+        if isnan(nodata):
+            nodata = isnan(raster)
+        else:
+            nodata = raster == nodata
+        raster[nodata] = value
+
+    # Optionally return the NoData mask
+        if return_mask:
+            return nodata
+    elif return_mask:
+        return full(raster.shape, False)
 
 
 def save_raster(
