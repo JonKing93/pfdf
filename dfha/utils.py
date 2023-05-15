@@ -129,7 +129,7 @@ def load_raster(
         nodata = numpy_nodata
 
     # Optionally replace NoData
-    if replace and nodata is not None:
+    if replace:
         replace_nodata(raster, nodata, nodata_to)
     return raster
 
@@ -138,7 +138,7 @@ def replace_nodata(
     raster: RasterArray,
     nodata: Union[None, scalar],
     value: scalar,
-    return_mask: bool = False
+    return_mask: bool = False,
 ) -> Union[None, BooleanMask]:
     """
     replace_nodata  Replaces NoData values in a numpy array
@@ -167,7 +167,7 @@ def replace_nodata(
             nodata = raster == nodata
         raster[nodata] = value
 
-    # Optionally return the NoData mask
+        # Optionally return the NoData mask
         if return_mask:
             return nodata
     elif return_mask:
