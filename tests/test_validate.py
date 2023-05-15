@@ -247,6 +247,21 @@ class TestMask:
             assert_contains(error, "test name")
 
 
+class TestFlow:
+    @pytest.mark.parametrize('type', (int, float))
+    def test_valid(_, type):
+        a = np.array([1,2,5,4,8,6,7,2,4,3,5,4,6,7,8]).astype(type)
+        validate.flow(a, 'test name')
+
+    @pytest.mark.parametrize('value', (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
+    def test_invalid(_, value):
+        a = np.array([1,2,5,4,8,6,7,2,4,3,5,4,6,7,8]).astype(type)
+        a[5] = value
+        with pytest.raises(ValueError) as error:
+            validate.flow(a, 'test name')
+            assert_contains(error, 'test name')
+
+
 #####
 # Shape and Type
 #####
