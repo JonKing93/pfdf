@@ -5,6 +5,7 @@ test_validate  Unit tests for user-input validation functions
 import pytest
 import numpy as np
 import rasterio
+from pathlib import Path
 from dfha import validate
 
 #####
@@ -581,3 +582,33 @@ class TestRaster:
         assert len(output) == 2
         assert np.array_equal(output[0], expected)
         assert np.array_equal(output[1], expected_mask)
+
+
+class TestOutputPath:
+    @pytest.mark.parametrize("input", (True, 5, np.arange(0, 100)))
+    def test_invalid(_, input):
+        with pytest.raises(TypeError):
+            validate.output_path(input, True)
+
+    def test_invalid_overwrite(_, raster):
+        with pytest.raises(FileExistsError):
+            validate.output_path(raster, overwrite=False)
+
+    @pytest.mark.parametrize("overwrite", (True, False))
+    def test_none(_, overwrite):
+        path, save = validate.output_path(None, overwrite)
+        assert path is None
+        assert save == False
+
+    @pytest.mark.parametrize(
+        "path", ("some-file", "some-file.tif", "some-file.tiff", "some-file.TiFf")
+    )
+    def test_valid(_, path):
+        output, save = validate.output_path(path, True)
+        assert output == Path("some-file.tif")
+        assert save == True
+
+    def test_valid_overwrite(_, raster):
+        output, save = validate.output_path(raster, True)
+        assert output == raster
+        assert save == True

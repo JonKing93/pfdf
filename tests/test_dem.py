@@ -271,35 +271,6 @@ class TestNoData:
             assert_contains(error, "test2")
 
 
-class TestValidateOutput:
-    @pytest.mark.parametrize("input", (True, 5, np.arange(0, 100)))
-    def test_invalid(_, input):
-        with pytest.raises(TypeError):
-            dem._validate_output(input, True)
-
-    def test_invalid_overwrite(_, fraster):
-        with pytest.raises(FileExistsError):
-            dem._validate_output(fraster, overwrite=False)
-
-    @pytest.mark.parametrize("overwrite", (True, False))
-    def test_none(_, overwrite):
-        path, save = dem._validate_output(None, overwrite)
-        assert path is None
-        assert save == False
-
-    @pytest.mark.parametrize(
-        "path", ("some-file", "some-file.tif", "some-file.tiff", "some-file.TiFf")
-    )
-    def test_valid(_, path):
-        output, save = dem._validate_output(path, True)
-        assert output == Path("some-file.tif")
-        assert save == True
-
-    def test_valid_overwrite(_, fraster):
-        output, save = dem._validate_output(fraster, True)
-        assert output == fraster
-        assert save == True
-
 
 class TestPaths:
     def test(_, tmp_path, araster, fraster):
