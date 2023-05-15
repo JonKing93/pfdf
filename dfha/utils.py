@@ -71,9 +71,9 @@ def astuple(input: Any) -> Tuple:
 
 
 def load_raster(
-    raster: ValidatedRaster, 
-    *, 
-    band: int = 1, 
+    raster: ValidatedRaster,
+    *,
+    band: int = 1,
     numpy_nodata: Optional[scalar] = None,
     nodata_to: Optional[scalar] = None
 ) -> RasterArray:
@@ -122,7 +122,7 @@ def load_raster(
         with rasterio.open(raster) as file:
             raster = file.read(band)
 
-    # Determine NoData value if appropriate
+            # Determine NoData value if appropriate
             if replace:
                 nodata = file.nodata
     elif replace:
@@ -131,21 +131,30 @@ def load_raster(
     # Optionally replace NoData
     if replace and nodata is not None:
         replace_nodata(raster, nodata, nodata_to)
+    return raster
 
 
 def replace_nodata(
-    array: RealArray, nodata: Union[None, scalar], value: scalar
+    array: RealArray,
+    nodata: Union[None, scalar],
+    value: scalar,
 ) -> None:
     """
     replace_nodata  Replaces NoData values in a numpy array
     ----------
     replace_nodata(array, nodata, value)
-    Given a numpy array, replaces NoData values with the indicated value.
+    Given a numpy array, replaces NoData values with the indicated value. Returns
+    the NoData mask for the updated array. (Note that the array itself will be
+    updated in place).
     ----------
     Inputs:
         raster: A numpy array raster
         nodata: The current NoData value
         value: The value that NoData should be replaced with
+
+    Outputs:
+        numpy array: The umpy array with replaced NoData values
+        numpy bool array: The NoData mask for the array.
     """
     if nodata is not None:
         if isnan(nodata):
@@ -153,6 +162,7 @@ def replace_nodata(
         else:
             nodata = array == nodata
         array[nodata] = value
+    return nodata
 
 
 def save_raster(
