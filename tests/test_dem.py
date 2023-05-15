@@ -271,6 +271,30 @@ class TestNoData:
             assert_contains(error, "test2")
 
 
+class TestValidateD8:
+    def test_disable(_):
+        a = np.arange(0, 100).reshape(10, 10)
+        dem._validate_d8(False, a, 0)
+
+    def test_valid(_):
+        a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2)
+        dem._validate_d8(True, a, 0)
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 2.2, -1, 9))
+    def test_invalid(_, value):
+        a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2).astype(float)
+        a[0, 0] = value
+        with pytest.raises(ValueError) as error:
+            dem._validate_d8(True, a, 0)
+            assert_contains(error, "flow_directions")
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 2.2, -1, 9))
+    def test_nodata(_, value):
+        a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2).astype(float)
+        a[0, 0] = value
+        dem._validate_d8(True, a, value)
+
+
 class TestPaths:
     def test(_, tmp_path, araster, fraster):
         output = dem._paths(
