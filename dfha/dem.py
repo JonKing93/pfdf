@@ -70,13 +70,16 @@ Low-level functions:
 Utilities:
     _options            - Determine verbosity and overwrite permissions for a routine
     _validate_inputs    - Validate user-provided input rasters
-    _paths              - Return paths the rasters used by a TauDEM routine
+    _nodata             - Parses NoData values for numpy rasters
+    _validate_d8        - Optionally validates D8 flow directions
+    _validate_dinf      - Optionally validates D-infinity flow directions and slopes
+    _paths              - Return paths for the rasters used by a TauDEM routine
     _run_taudem         - Runs a TauDEM routine as a subprocess
     _output             - Returns an output raster as a numpy 2D array or Path
 """
 
 import rasterio
-from numpy import ndarray
+from numpy import ndarray, pi
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -350,11 +353,7 @@ def upslope_pixels(
     [flow] = _validate_inputs([flow_directions], names[0:1])
     nodata = _nodata([nodata], ["nodata"], [flow])
     area, save = validate.output_path(path, overwrite)
-
-    # Validate flow direction values
-    if check:
-        raster = load_raster(flow, numpy_nodata=nodata[0], nodata_to=1)
-        validate.flow(raster, "flow_directions")
+    _validate_d8(check, flow, nodata[0])
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -440,11 +439,7 @@ def upslope_sum(
         [flow, weights],
     )
     sum, save = validate.output_path(path, overwrite)
-
-    # Validate flow values
-    if check:
-        raster = load_raster(flow, numpy_nodata=nodata[0], nodata=1)
-        validate.flow(raster, "flow_directions")
+    _validate_d8(check, flow, nodata[0])
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -543,13 +538,7 @@ def relief(
         [pitfilled, flow, slopes],
     )
     relief, save = validate.output_path(path, overwrite)
-
-    # Validate flow directions and slopes
-    if check:
-        raster = load_raster(flow, numpy_nodata=nodata[1], nodata_to=0)
-        validate.flow(raster, "flow_directions")
-        raster = load_raster(slopes, numpy_nodata=nodata[2], nodata_to=0)
-        validate.positive(raster, "flow slopes", allow_zero=True)
+    _validate_dinf(check, flow, nodata[1], slopes, nodata[2])
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -825,6 +814,55 @@ def _nodata(
             value = validate.scalar(value, name, real)
             nodata[k] = value.astype(raster.dtype)
     return nodata
+
+
+def _validate_d8(check: bool, flow: ValidatedRaster, nodata: nodata) -> None:
+    """
+    _validate_d8  Optionally validates D8 flow directions
+    ----------
+    _validate_d8(check, flow, nodata)
+    Optionally checks that D8 flow direction values are valid. Valid D8 flow
+    directions are integers from 1 to 8.  Set check=False to disable validation.
+    Raises a ValueError if the validation fails.
+    ----------
+    Inputs:
+        check: True to validate. False to skip validation
+        flow: A D8 flow-directions raster
+        nodata: The NoData value for numpy arrays
+    """
+    if check:
+        flow = load_raster(flow, numpy_nodata=nodata, nodata_to=1)
+        validate.flow(flow, "flow_directions")
+
+
+def _validate_dinf(
+    check: bool,
+    flow: ValidatedRaster,
+    flow_nodata: nodata,
+    slopes: ValidatedRaster,
+    slopes_nodata: nodata,
+) -> None:
+    """
+    _validate_dinf  Optionally validates D-Infinity flow directions and slopes
+    ----------
+    _validate_dinf(check, flow, flow_nodata, slopes, slopes_nodata)
+    Optionally checks that D-Infinity flow directions and slopes are valid.
+    Valid flow directions are on the interval from 0 to 2pi. Valid slopes are
+    positive. Set check=False to disable validation. Raises a ValueError if
+    validation fails.
+    ----------
+    Inputs:
+        check: True to validate. False to skip validation
+        flow: A D-infinity flow directions raster
+        flow_nodata: NoData value for numpy flow directions
+        slopes: A D-infinity flow slopes raster
+        slopes_nodata: NoData value for numpy flow slopes
+    """
+    if check:
+        flow = load_raster(flow, numpy_nodata=flow_nodata, nodata_to=0)
+        validate.inrange(flow, "flow_directions", min=0, max=2 * pi)
+        slopes = load_raster(slopes, numpy_nodata=slopes_nodata, nodata_to=0)
+        validate.positive(slopes, "slopes", allow_zero=True)
 
 
 def _paths(
