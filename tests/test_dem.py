@@ -21,7 +21,7 @@ import pytest, subprocess
 import numpy as np
 from pathlib import Path
 from dfha import dem, validate
-from dfha.utils import write_raster, load_raster
+from dfha.utils import save_raster, load_raster
 
 #####
 # Testing Utilities
@@ -44,7 +44,7 @@ def araster():
 @pytest.fixture
 def fraster(araster, tmp_path):
     path = tmp_path / "raster.tif"
-    write_raster(araster, path)
+    save_raster(araster, path)
     return path
 
 
@@ -52,7 +52,7 @@ def fraster(araster, tmp_path):
 def file_raster(raster, dtype, folder, name, nodata=None):
     path = folder / (name + ".tif")
     raster = raster.astype(dtype)
-    write_raster(raster, path, nodata)
+    save_raster(raster, path, nodata)
     return path
 
 
@@ -271,7 +271,6 @@ class TestNoData:
             assert_contains(error, "test2")
 
 
-
 class TestPaths:
     def test(_, tmp_path, araster, fraster):
         output = dem._paths(
@@ -437,7 +436,7 @@ class TestPitfill:
 
     def test_overwrite(_, fdem, fpitfilled, tmp_path):
         pitfilled = tmp_path / "output.tif"
-        write_raster(existing_raster, pitfilled)
+        save_raster(existing_raster, pitfilled)
         dem.pitfill(fdem, path=pitfilled, overwrite=True)
         output = load_raster(pitfilled)
         expected = load_raster(fpitfilled)
@@ -445,7 +444,7 @@ class TestPitfill:
 
     def test_invalid_overwrite(_, fdem, tmp_path):
         pitfilled = tmp_path / "output.tif"
-        write_raster(existing_raster, pitfilled)
+        save_raster(existing_raster, pitfilled)
         with pytest.raises(FileExistsError):
             dem.pitfill(fdem, path=pitfilled, overwrite=False)
 
@@ -496,7 +495,7 @@ class TestFlowDirections:
 
     def test_overwrite(_, fpitfilled, fflow8, tmp_path):
         flow = tmp_path / "output.tif"
-        write_raster(existing_raster, flow)
+        save_raster(existing_raster, flow)
         dem.flow_directions("D8", fpitfilled, path=flow, overwrite=True)
         output = load_raster(flow)
         expected = load_raster(fflow8)
@@ -504,7 +503,7 @@ class TestFlowDirections:
 
     def test_invalid_overwrite(_, fpitfilled, tmp_path):
         flow = tmp_path / "output.tif"
-        write_raster(existing_raster, flow)
+        save_raster(existing_raster, flow)
         with pytest.raises(FileExistsError):
             dem.upslope_pixels(fpitfilled, path=flow, overwrite=False)
 
@@ -645,7 +644,7 @@ class TestUpslopePixels:
 
     def test_overwrite(_, fflow8, fareau, tmp_path):
         area = tmp_path / "output.tif"
-        write_raster(existing_raster, area)
+        save_raster(existing_raster, area)
         dem.upslope_pixels(fflow8, path=area, overwrite=True)
         output = load_raster(area)
         expected = load_raster(fareau)
@@ -653,7 +652,7 @@ class TestUpslopePixels:
 
     def test_invalid_overwrite(_, fflow8, tmp_path):
         area = tmp_path / "output.tif"
-        write_raster(existing_raster, area)
+        save_raster(existing_raster, area)
         with pytest.raises(FileExistsError):
             dem.upslope_pixels(fflow8, path=area, overwrite=False)
 
@@ -704,7 +703,7 @@ class TestUpslopeSum:
 
     def test_overwrite(_, fflow8, fweights, fareaw, tmp_path):
         area = tmp_path / "output.tif"
-        write_raster(existing_raster, area)
+        save_raster(existing_raster, area)
         dem.upslope_sum(fflow8, fweights, path=area, overwrite=True)
         output = load_raster(area)
         expected = load_raster(fareaw)
@@ -712,7 +711,7 @@ class TestUpslopeSum:
 
     def test_invalid_overwrite(_, fflow8, fweights, tmp_path):
         area = tmp_path / "output.tif"
-        write_raster(existing_raster, area)
+        save_raster(existing_raster, area)
         with pytest.raises(FileExistsError):
             dem.upslope_sum(fflow8, fweights, path=area, overwrite=False)
 
@@ -770,7 +769,7 @@ class TestRelief:
 
     def test_overwrite(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path):
         relief = tmp_path / "output.tif"
-        write_raster(existing_raster, relief)
+        save_raster(existing_raster, relief)
         dem.relief(
             fpitfilled,
             fflowi,
@@ -786,7 +785,7 @@ class TestRelief:
 
     def test_invalid_overwrite(_, fpitfilled, fflowi, fslopesi, tmp_path):
         relief = tmp_path / "output.tif"
-        write_raster(existing_raster, relief)
+        save_raster(existing_raster, relief)
         with pytest.raises(FileExistsError):
             dem.relief(
                 fpitfilled,

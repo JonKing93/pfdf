@@ -70,7 +70,6 @@ Low-level functions:
 Utilities:
     _options            - Determine verbosity and overwrite permissions for a routine
     _validate_inputs    - Validate user-provided input rasters
-    _validate_output    - Validate the path for a saved output raster
     _paths              - Return paths the rasters used by a TauDEM routine
     _run_taudem         - Runs a TauDEM routine as a subprocess
     _output             - Returns an output raster as a numpy 2D array or Path
@@ -82,7 +81,7 @@ import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from dfha import validate
-from dfha.utils import write_raster, load_raster, real, astuple
+from dfha.utils import save_raster, load_raster, real
 from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
 from dfha.typing import Pathlike, Raster, RasterArray, scalar, strs, ValidatedRaster
 
@@ -161,7 +160,7 @@ def pitfill(
     names = ["dem", "pitfilled"]
     [dem] = _validate_inputs([dem], names[0:1])
     nodata = _nodata([nodata], ["nodata"], [dem])
-    pitfilled, save = _validate_output(path, overwrite)
+    pitfilled, save = validate.output_path(path, overwrite)
 
     # Run using temporary files as necessary
     with TemporaryDirectory() as temp:
@@ -249,11 +248,11 @@ def flow_directions(
     names = ["pitfilled", "flow_directions", "slopes"]
     [pitfilled] = _validate_inputs([pitfilled], names[0:1])
     nodata = _nodata([nodata], ["nodata"], [pitfilled])
-    flow, save = _validate_output(path, overwrite)
+    flow, save = validate.output_path(path, overwrite)
 
     # Get flow-slope options and path
     if return_slopes:
-        slopes, save_slopes = _validate_output(slopes_path, overwrite)
+        slopes, save_slopes = validate.output_path(slopes_path, overwrite)
     else:
         slopes = None
         save_slopes = False
@@ -338,7 +337,7 @@ def upslope_pixels(
     names = ["flow_directions", "upslope_pixels"]
     [flow] = _validate_inputs([flow_directions], names[0:1])
     nodata = _nodata([nodata], ["nodata"], [flow])
-    area, save = _validate_output(path, overwrite)
+    area, save = validate.output_path(path, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -414,7 +413,7 @@ def upslope_sum(
         ["flow_nodata", "weights_nodata"],
         [flow, weights],
     )
-    sum, save = _validate_output(path, overwrite)
+    sum, save = validate.output_path(path, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -503,7 +502,7 @@ def relief(
         ["pitfilled_nodata", "flow_nodata", "slopes_nodata"],
         [pitfilled, flow, slopes],
     )
-    relief, save = _validate_output(path, overwrite)
+    relief, save = validate.output_path(path, overwrite)
 
     # Run using temp files as needed
     with TemporaryDirectory() as temp:
@@ -820,7 +819,7 @@ def _paths(
 
         # Write input arrays to a temp file.
         if save is None and not isinstance(raster, Path):
-            write_raster(raster, tempfile, nodata)
+            save_raster(raster, tempfile, nodata)
             rasters[r] = tempfile
 
         # Use a temp file for output rasters returned as arrays
