@@ -15,10 +15,14 @@ nptyping Primer:
     Dimensions may be represented as "<Dimension Name>" for a dimension of
     unspecified size (for example, "Rows"). Or as "<N> <label>" for a dimension
     of specific length (for example, "2 columns").
+
+    Unfortunately, there is currently no way to combine int and float dtypes
+    without also including complex numbers. So you'll see some long Unions designed
+    to permit an int or float array with a particular shape.
 """
 
 from typing import Any, Union, Sequence, Dict, Tuple
-from nptyping import NDArray, Shape, Integer, Floating, Boolean
+from nptyping import NDArray, Shape, Integer, Floating, Bool
 from pathlib import Path
 from rasterio import DatasetReader
 
@@ -59,20 +63,25 @@ Raster = Union[str, Path, DatasetReader, RasterArray]
 OutputRaster = Union[Path, RasterArray]
 
 # Raster Masks
-Mask = Union[NDArray[MatrixShape, Integer], NDArray[MatrixShape, Floating], NDArray[MatrixShape, Boolean]]
-MaskArray = Union[NDArray[Any, Integer], NDArray[Any, Floating], NDArray[Any, Boolean]]
-BooleanMask = NDArray[Any, Boolean]
+Mask = Union[
+    NDArray[MatrixShape, Integer],
+    NDArray[MatrixShape, Floating],
+    NDArray[MatrixShape, Bool],
+]
+MaskArray = Union[NDArray[Any, Integer], NDArray[Any, Floating], NDArray[Any, Bool]]
+BooleanArray = NDArray[Any, Bool]
+BooleanMask = NDArray[MatrixShape, Bool]
 
 # Segments
-SegmentsShape = Shape['Segments']
+SegmentsShape = Shape["Segments"]
 SegmentValues = Union[NDArray[SegmentsShape, Integer], NDArray[SegmentsShape, Floating]]
 
 # Staley 2017 Shapes
-DurationShape = Shape['Durations']
-PvalShape = Shape['Pvalues']
-ParameterShape = Shape['Runs']
-VariableShape = Shape['Segments, Runs']
-IntensityShape = Shape['Segments, Runs, Pvalues']
+DurationShape = Shape["Durations"]
+PvalShape = Shape["Pvalues"]
+ParameterShape = Shape["Runs"]
+VariableShape = Shape["Segments, Runs"]
+IntensityShape = Shape["Segments, Runs, Pvalues"]
 
 # Staley 2017 arrays
 Durations = Union[NDArray[DurationShape, Integer], NDArray[DurationShape, Floating]]
