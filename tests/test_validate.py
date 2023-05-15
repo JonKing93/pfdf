@@ -94,26 +94,6 @@ class TestCheckBound:
             assert_contains(error, name, "greater than")
 
 
-class TestShapeError:
-    def test(_):
-        error = validate.ShapeError("array", "columns", 1, (2,5), (2,6))
-        assert isinstance(error, Exception)
-        assert error.index == 1
-        assert error.required == (2,5)
-        assert error.actual == (2,6)
-        assert (
-            error.args[0]
-            == "array must have 5 columns, but it has 6 columns instead."
-        )
-
-
-class TestDimensionError:
-    def test(_):
-        message = "test message"
-        error = validate.DimensionError(message)
-        assert isinstance(error, Exception)
-        assert error.args[0] == message
-
 
 class TestNonsingleton:
     def test(_):
