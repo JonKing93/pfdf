@@ -136,7 +136,7 @@ def load_raster(
 
 def replace_nodata(
     array: RealArray,
-    nodata: Union[None, scalar],
+    nodata: scalar,
     value: scalar,
 ) -> None:
     """
@@ -156,12 +156,12 @@ def replace_nodata(
         numpy array: The umpy array with replaced NoData values
         numpy bool array: The NoData mask for the array.
     """
-    if nodata is not None:
-        if isnan(nodata):
-            nodata = isnan(array)
-        else:
-            nodata = array == nodata
-        array[nodata] = value
+    
+    if isnan(nodata):
+        nodata = isnan(array)
+    else:
+        nodata = array == nodata
+    array[nodata] = value
     return nodata
 
 
