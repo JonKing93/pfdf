@@ -415,7 +415,7 @@ def upslope_sum(
             Must have the same shape as the flow directions raster.
         path: The path to a file in which to save the upslope sum.
         flow_nodata: A NoData value for the flow directions when they are a numpy array.
-        weights_nodata: A NoData value for the pixels weights when they are a numpy array.
+        values_nodata: A NoData value for the pixel values when they are a numpy array.
         check: True to validate flow-direction numbers. False to disable this check.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
