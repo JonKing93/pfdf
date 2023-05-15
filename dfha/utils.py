@@ -71,7 +71,11 @@ def astuple(input: Any) -> Tuple:
 
 
 def load_raster(
-    raster: ValidatedRaster, *, band: int = 1, nodata_to: Optional[scalar] = None
+    raster: ValidatedRaster, 
+    *, 
+    band: int = 1, 
+    numpy_nodata: Optional[scalar] = None,
+    nodata_to: Optional[scalar] = None
 ) -> RasterArray:
     """
     load_raster  Returns a raster as a numpy.ndarray
@@ -81,32 +85,52 @@ def load_raster(
     given a raster file. This function is intended to be used in conjunction
     with the validate.raster function with the load=False option, and enables
     the loading of validated raster file at a later point. If given a numpy array,
-    returns the array back as output. If given a raster Path, uses rasterio to
+    returns the array back as output. If given a file-based raster, uses rasterio to
     load the first band.
 
-    load_raster(raster, *, band)
+    load_raster(..., *, band)
     Loads the indicated raster band. The band option is ignored is the input is
     a numpy array.
 
+    load_raster(..., *, numpy_nodata)
+    Indicates a value representing NoData for when the input raster is a numpy
+    array. This option is typically combined with the "nodata_to" option (see below).
+
     load_raster(..., *, nodata_to)
-    Converts NoData values to the indicated value. This option is ignored if the
-    input is a numpy array.
+    Converts NoData values to the indicated value. If the input raster is file-based,
+    determines the NoData value from the file metadata. If the input is a numpy
+    array, determines the NoData value from the "numpy_nodata" option (if provided).
     ----------
     Inputs:
         raster: The Path to a raster file or a raster as a 2D numpy array
         band: The raster band to load from file. Default is band 1.
+        numpy_nodata: Indicates a value to treat as NoData for input numpy arrays.
         nodata_to: The value to which NoData values will be converted
 
     Outputs:
         numpy 2D array: The raster as a numpy.ndarray
     """
 
+    # Note whether replacing nodata
+    if nodata_to is not None:
+        replace = True
+    else:
+        replace = False
+
+    # Load file based rasters
     if not isinstance(raster, ndarray):
         with rasterio.open(raster) as file:
             raster = file.read(band)
-            if nodata_to is not None:
-                replace_nodata(raster, file.nodata, nodata_to)
-    return raster
+
+    # Determine NoData value if appropriate
+            if replace:
+                nodata = file.nodata
+    elif replace:
+        nodata = numpy_nodata
+
+    # Optionally replace NoData
+    if replace and nodata is not None:
+        replace_nodata(raster, nodata, nodata_to)
 
 
 def replace_nodata(
