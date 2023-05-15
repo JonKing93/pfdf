@@ -116,7 +116,8 @@ class TestLoadRaster:
         assert np.array_equal(output, band2)
 
     def test_nodata_array(_, band1):
-        output = utils.load_raster(band1, nodata_to=-999)
+        output = utils.load_raster(band1, numpy_nodata=1, nodata_to=-999)
+        band1[0,0] = -999
         assert np.array_equal(output, band1)
 
     def test_nodata_file(_, fraster, band1):
