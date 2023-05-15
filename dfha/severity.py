@@ -7,17 +7,33 @@ severity  Functions that estimate and locate burn severity
 import numpy as np
 from dfha import validate
 from dfha.utils import real, save_raster
-from dfha.typing import Raster, OutputRaster, DNBRThresholds, Pathlike, scalar
+from typing import Dict
+from dfha.typing import Raster, OutputRaster, DNBRThresholds, Pathlike, scalar, strs, ints
 
 
-# Reports the BARC4 classification scheme used in the module.
-classification = {
-    0: "nodata",
+# The classification scheme used in the module
+_classification = {
     1: "unburned",
     2: "low",
     3: "moderate",
     4: "high",
 }
+
+
+def classification() -> Dict[int, str]:
+    """
+    classification  Returns the BARC4 burn severity classification scheme
+    ----------
+    classification()
+    Returns a dict reporting the BARC4 burn severity classification scheme used
+    by the module. Keys are the integers in the classification scheme. Each value
+    is a key describing the burn severity associated with the class.
+    ----------
+    Outputs:
+        Dict[int, str]: Maps the burn severity classification integers to their
+            descriptions.
+    """
+    return _classification
 
 
 def estimate(
@@ -98,6 +114,48 @@ def estimate(
         return path
     else:
         return severity
+
+
+def locate(severity: Raster, descriptions: strs, *, path, overwrite):
+    """
+    locate  Returns a burn severity mask
+    ----------
+    locate(severity, descriptions)
+    Given a BARC4 burn severity raster, locates pixels that match any of the 
+    specified burn severity levels. Returns a numpy 2D array holding the mask of
+    matching pixels. Pixels that match one of the specified burn severities will
+    have a value of 1. All other pixels will be 0.
+
+    locate(..., *, path)
+    locate(..., *, path, overwrite)
+    Saves the burn severity mask to the indicated path and returns the Path to
+    the saved raster mask. Raises an error if this would overwrite an existing 
+    file. Set overwrite=True to allow saved output to replace existing files.
+    ----------
+    """
+
+    # Validate inputs
+    descriptions = _validate_descriptions(descriptions)
+    severity = validate.raster(severity, 'severity', numpy_nodata=nodata, nodata_to=0)
+    path, save = validate.output_path(path, overwrite)
+
+
+    # ...
+
+    mask = np.isin(severity, classes)
+
+    # Optionally save
+    if save:
+        save_raster(mask, path)
+        return path
+    else:
+        
+
+
+
+
+
+
 
 
 def _validate_thresholds(thresholds):
