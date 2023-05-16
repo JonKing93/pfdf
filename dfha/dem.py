@@ -79,6 +79,7 @@ Utilities:
 """
 
 import rasterio
+from warnings import catch_warnings, simplefilter
 from numpy import ndarray, pi
 import subprocess
 from pathlib import Path
@@ -779,8 +780,10 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[Validated
         # Get the shape from the first raster
         if nrasters > 1 and r == 0:
             if isinstance(raster, Path):
-                with rasterio.open(raster) as data:
-                    shape = (data.height, data.width)
+                with catch_warnings():
+                    simplefilter('ignore', rasterio.errors.NotGeoreferencedWarning)
+                    with rasterio.open(raster) as data:
+                        shape = (data.height, data.width)
             else:
                 shape = raster.shape
     return rasters
