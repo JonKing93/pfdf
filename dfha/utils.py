@@ -18,7 +18,7 @@ Rasters:
     replace_nodata  - Replaces NoData values in a raster with a specified value
 """
 
-from numpy import ndarray, integer, floating, bool_, isnan, full
+from numpy import ndarray, integer, floating, bool_, isnan, full, any
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
@@ -144,40 +144,57 @@ def replace_nodata(
     raster: RasterArray,
     nodata: Union[None, scalar],
     value: scalar,
+    copy: bool,
     return_mask: bool = False,
 ) -> Union[None, BooleanMask]:
     """
     replace_nodata  Replaces NoData values in a numpy array
     ----------
-    replace_nodata(raster, nodata, value)
-    Given a numpy array, replaces NoData values with the indicated value. Returns
-    None, as the array is updated in place.
+    replace_nodata(raster, nodata, value, copy)
+    Given a numpy raster array, returns an array in which NoData values have 
+    been replaced with the indicated value. If copy=True, copies the raster
+    before replacing values - this is best used for input numpy arrays so that
+    the originating array is not altered. If copy=False, replaces values
+    directly - this is best for file based rasters, as the saved file remains
+    unaltered.
 
     replace_nodata(..., return_mask = True)
-    Returns the NoData mask for the raster.
+    Also returns the NoData mask for the raster.
     ----------
     Inputs:
         raster: A numpy array raster
         nodata: The current NoData value
         value: The value that NoData should be replaced with
+        copy: True to replace values for a copy of the array. False to update
+            the array directly.
 
     Outputs:
-        None | numpy bool array: If not None, then the NoData mask for the array
+        numpy 2D array: The raster with replaced NoData values
+        numpy 2D bool array: (Only when return_mask=True) The NoData mask for
+            the array.
     """
 
-    # Replace NoData values
+    # Locate NoData values
     if nodata is not None:
         if isnan(nodata):
             nodata = isnan(raster)
         else:
             nodata = raster == nodata
+
+        # Replace values. Optionally use a copy of the array
+        if copy and any(nodata):
+            raster = raster.copy()
         raster[nodata] = value
 
-        # Optionally return the NoData mask
-        if return_mask:
-            return nodata
+    # Get NoData mask if requested, but there isn't a NoData value
     elif return_mask:
-        return full(raster.shape, False)
+        nodata = full(raster.shape, False)
+
+    # Return the raster and optionally the NoData mask
+    if return_mask:
+        return raster, nodata
+    else:
+        return raster
 
 
 def save_raster(
