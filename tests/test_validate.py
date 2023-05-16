@@ -200,11 +200,13 @@ class TestIntegers:
             validate.integers(array, self.name)
         assert_contains(error, self.name)
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_nan(self):
         a = np.array([np.nan, np.nan])
         with pytest.raises(ValueError) as error:
             validate.integers(a, self.name)
         assert_contains(error, self.name)
+
 
 class TestInRange:
     name = "test name"
@@ -248,7 +250,6 @@ class TestInRange:
         assert_contains(error, self.name)
 
 
-
 class TestMask:
     @pytest.mark.parametrize("type", (bool, int, float))
     def test_valid(_, mask, type):
@@ -266,26 +267,26 @@ class TestMask:
 
     def test_nan(_, mask):
         mask = mask.astype(float)
-        mask[0,0] = np.nan
+        mask[0, 0] = np.nan
         with pytest.raises(ValueError) as error:
-            validate.mask(mask, 'test name')
-            assert_contains(error, 'test name')
+            validate.mask(mask, "test name")
+            assert_contains(error, "test name")
 
 
 class TestFlow:
-    @pytest.mark.parametrize('type', (int, float))
+    @pytest.mark.parametrize("type", (int, float))
     def test_valid(_, type):
-        a = np.array([1,2,5,4,8,6,7,2,4,3,5,4,6,7,8]).astype(type)
-        validate.flow(a, 'test name')
+        a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
+        validate.flow(a, "test name")
 
-    @pytest.mark.parametrize('value', (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    @pytest.mark.parametrize("value", (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
     def test_invalid(_, value):
-        a = np.array([1,2,5,4,8,6,7,2,4,3,5,4,6,7,8]).astype(type)
+        a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
         a[5] = value
         with pytest.raises(ValueError) as error:
-            validate.flow(a, 'test name')
-            assert_contains(error, 'test name')
-
+            validate.flow(a, "test name")
+            assert_contains(error, "test name")
 
 
 #####
