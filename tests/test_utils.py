@@ -130,7 +130,7 @@ class TestLoadRaster:
 class TestReplaceNodata:
     def test_number(_, band1):
         output = utils.replace_nodata(band1, 4, -999, copy=True)
-        band1[0,3] == -999
+        band1[0,3] = -999
         assert np.array_equal(output, band1)
 
     def test_number_mask(_, band1):
