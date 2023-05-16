@@ -280,7 +280,7 @@ class TestValidateD8:
         a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2)
         dem._validate_d8(True, a, 0)
 
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, 2.2, -1, 9))
     def test_invalid(_, value):
         a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2).astype(float)
@@ -747,10 +747,18 @@ class TestUpslopePixels:
 
     def test_nodata(_, fflow8, fareau):
         flow = load_raster(fflow8)
-        output = dem.upslope_pixels(flow, nodata=0)
+        print(flow)
+        output = dem.upslope_pixels(flow, nodata=-32768)
+        print(output)
+        assert False
+
+
         expected = load_raster(fareau)
         expected[expected == -1] = 1
         expected[2, 1] = 3
+
+        print(output)
+        print(expected)
         assert np.array_equal(output, expected)
 
     def test_ignore_nodata(_, fflow8, fareau):
@@ -760,15 +768,16 @@ class TestUpslopePixels:
 
     @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
     def test_check(_, fflow8, value):
-        flow = load_raster(fflow8)
+        flow = load_raster(fflow8).astype(float)
         flow[0, 0] = value
         with pytest.raises(ValueError) as error:
-            dem.upslope_pixels(fflow8)
-            assert_contains(error, "flow_directions")
+            dem.upslope_pixels(flow)
+        assert_contains(error, "flow_directions")
 
     @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
     def test_nocheck(_, fflow8, value):
-        flow = load_raster(fflow8)
+        flow = load_raster(fflow8).astype(float)
+        flow[0,0] = value
         dem.upslope_pixels(flow, check=False)
 
 
@@ -836,6 +845,20 @@ class TestUpslopeSum:
         output = dem.upslope_sum(fflow8, fweights, flow_nodata=0, weights_nodata=2)
         expected = load_raster(fareaw)
         assert np.array_equal(output, expected)
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
+    def test_check(_, fflow8, fweights, value):
+        flow = load_raster(fflow8).astype(float)
+        flow[0, 0] = value
+        with pytest.raises(ValueError) as error:
+            dem.upslope_sum(fflow8, fweights)
+            assert_contains(error, "flow_directions")
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
+    def test_nocheck(_, fflow8, value, fweights):
+        flow = load_raster(fflow8).astype(float)
+        flow[0,0] = value
+        dem.upslope_sum(flow, fweights, check=False)
 
 
 class TestRelief:
