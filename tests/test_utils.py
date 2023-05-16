@@ -129,48 +129,48 @@ class TestLoadRaster:
 
 class TestReplaceNodata:
     def test_number(_, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        output = utils.replace_nodata(band1, 4, -999)
-        assert np.array_equal(band1, expected)
-        assert output is None
+        output = utils.replace_nodata(band1, 4, -999, copy=True)
+        band1[0,3] == -999
+        assert np.array_equal(output, band1)
 
     def test_number_mask(_, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        expected_mask = band1 == 4
-        mask = utils.replace_nodata(band1, 4, -999, return_mask=True)
-        assert np.array_equal(band1, expected)
-        assert np.array_equal(mask, expected_mask)
+        output, mask = utils.replace_nodata(band1, 4, -999, copy=True, return_mask=True)
+        expected = band1==4
+        band1[0,3] = -999
+        assert np.array_equal(output, band1)
+        assert np.array_equal(mask, expected)
 
     def test_nan(_, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        band1[0, 3] = np.nan
-        output = utils.replace_nodata(band1, np.nan, -999)
-        assert np.array_equal(band1, expected)
-        assert output is None
+        band1[0,3] = np.nan
+        output = utils.replace_nodata(band1, np.nan, -999, copy=True)
+        band1[0,3] = -999
+        assert np.array_equal(output, band1)
 
     def test_nan_mask(_, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        band1[0, 3] = np.nan
-        expected_mask = np.isnan(band1)
-        mask = utils.replace_nodata(band1, np.nan, -999, return_mask=True)
-        assert np.array_equal(band1, expected)
-        assert np.array_equal(mask, expected_mask)
+        band1[0,3] = np.nan
+        output, mask = utils.replace_nodata(band1, np.nan, -999, copy=True, return_mask=True)
+        expected = np.isnan(band1)
+        band1[0,3] = -999
+        assert np.array_equal(output, band1)
+        assert np.array_equal(mask, expected)
 
     def test_none(_, band1):
-        expected = band1.copy()
-        output = utils.replace_nodata(band1, None, -999)
-        assert output is None
-        assert np.array_equal(band1, expected)
+        output = utils.replace_nodata(band1, None, -999, copy=True)
+        assert np.array_equal(output, band1)
 
     def test_none_mask(_, band1):
+        output, mask = utils.replace_nodata(band1, None, -999, copy=True, return_mask=True)
+        expected = np.full(band1.shape, False)
+        assert np.array_equal(output, band1)
+        assert np.array_equal(mask, expected)
+
+    def test_copy(_, band1):
         expected = band1.copy()
-        mask = utils.replace_nodata(band1, None, -999, return_mask=True)
-        assert np.array_equal(mask, np.full(band1.shape, False))
-        assert np.array_equal(band1, expected)
+        expected[0,3] = -999
+        output = utils.replace_nodata(band1, 4, -999, copy=False)
+        assert output is band1
+        assert np.array_equal(output, expected)
+        
 
 
 @pytest.mark.filterwarnings("ignore::rasterio.errors.NotGeoreferencedWarning")
