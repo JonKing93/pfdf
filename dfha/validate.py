@@ -459,9 +459,10 @@ def raster(
     elif replace:
         nodata = numpy_nodata
 
-    # Optionally replace nodata
+    # Optionally replace nodata. Use copies of input numpy arrays
     if replace:
-        mask = replace_nodata(raster, nodata, nodata_to, return_mask)
+        copy = not isfile
+        raster, mask = replace_nodata(raster, nodata, nodata_to, copy, return_mask)
 
     # Return raster and optionally NoData mask
     if return_mask:
@@ -529,7 +530,6 @@ def output_path(path: Any, overwrite: bool) -> Tuple[OutputPath, save]:
 #####
 
 
-
 def positive(array: RealArray, name: str, *, allow_zero: bool = False) -> None:
     """
     positive  Checks the elements of a numpy array are all positive
@@ -551,15 +551,12 @@ def positive(array: RealArray, name: str, *, allow_zero: bool = False) -> None:
         ValueError: If the array contains negative elements
     """
 
-    # Exit immediately if unsigned integers (all are positive).
+    # (unsignedintegers are treated as all positive)
     if not np.issubdtype(array.dtype, np.unsignedinteger):
-        # Determine the comparison type
         if allow_zero:
             operator = ">="
         else:
             operator = ">"
-
-        # Check for elements below the 0 bound
         _check_bound(array, name, operator, 0)
 
 
@@ -683,7 +680,6 @@ def mask(array: MaskArray, name: str) -> BooleanArray:
         boolean numpy array: The mask array with a boolean dtype.
     """
 
-    # Exit immediately if already boolean
     if array.dtype != bool:
         invalid = np.isin(array, [0, 1], invert=True)
         if np.any(invalid):
@@ -704,7 +700,7 @@ def flow(array: RealArray, name: str):
     ----------
     Inputs:
         array: The input array being checked
-        name: A name for the array for use in error messages    
+        name: A name for the array for use in error messages
     """
 
     integers(array, name)
