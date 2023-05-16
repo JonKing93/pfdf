@@ -643,27 +643,25 @@ def _check_bound(array, name, operator, bound):
         ValueError: If any element fails the comparison
     """
 
-    # Only compare if bounds were specified
+    # Only compare if bounds were specified. Get the comparison operator
     if bound is not None:
-        # Get the operator for the comparison. Note that we are testing for failed
-        # elements, so actually need the *inverse* of the input operator.
         if operator == "<":
             description = "less than"
-            operator = np.greater_equal
+            operator = np.less
         elif operator == "<=":
             description = "less than or equal to"
-            operator = np.greater
+            operator = np.less_equal
         elif operator == ">=":
             description = "greater than or equal to"
-            operator = np.less
+            operator = np.greater_equal
         elif operator == ">":
             description = "greater than"
-            operator = np.less_equal
+            operator = np.greater
 
         # Test elements. Raise ValueError if any fail
-        failed = operator(array, bound)
-        if np.any(failed):
-            bad = np.argwhere(failed)[0]
+        passed = operator(array, bound)
+        if not np.all(passed):
+            bad = np.argwhere(~passed)[0]
             raise ValueError(
                 f"The elements of {name} must be {description} {bound}, but element {bad} is not."
             )
