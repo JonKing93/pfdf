@@ -280,6 +280,7 @@ class TestValidateD8:
         a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2)
         dem._validate_d8(True, a, 0)
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     @pytest.mark.parametrize("value", (np.nan, np.inf, 2.2, -1, 9))
     def test_invalid(_, value):
         a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2).astype(float)
@@ -293,6 +294,50 @@ class TestValidateD8:
         a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2).astype(float)
         a[0, 0] = value
         dem._validate_d8(True, a, value)
+
+class TestValidateDinf:
+    def test_disable(_):
+        flow = np.arange(0,100).reshape(10,10)
+        slopes = np.arange(-100, 0).reshape(10,10)
+        dem._validate_dinf(False, flow, 0, slopes, 0)
+
+    def test_valid(_):
+        flow = np.array([0,1,np.pi,1.5,2,2*np.pi]).reshape(2,3)
+        slopes = np.array([0,10,100,1000,10000,np.inf]).reshape(2,3)
+        dem._validate_dinf(True, flow, -999, slopes, -999)
+
+    @pytest.mark.parametrize('value', (np.nan, np.inf, -3, 7))
+    def test_invalid_flow(_, value):
+        flow = np.array([0,1,np.pi,1.5,2,2*np.pi]).reshape(2,3)
+        slopes = np.array([0,10,100,1000,10000,np.inf]).reshape(2,3)
+        flow[0,0] = value
+        with pytest.raises(ValueError) as error:
+            dem._validate_dinf(True, flow, 0, slopes, 0)
+        assert_contains(error, 'flow_directions')
+
+    @pytest.mark.parametrize('value', (np.nan, -3))
+    def test_invalid_slopes(_, value):
+        flow = np.array([0,1,np.pi,1.5,2,2*np.pi]).reshape(2,3)
+        slopes = np.array([0,10,100,1000,10000,np.inf]).reshape(2,3)
+        slopes[0,0] = value
+        with pytest.raises(ValueError) as error:
+            dem._validate_dinf(True, flow, 0, slopes, 0)
+            assert_contains(error, 'slopes')
+
+    @pytest.mark.parametrize('value', (np.nan, np.inf, -3, 7))
+    def test_nodata_flow(_, value):
+        flow = np.array([0,1,np.pi,1.5,2,2*np.pi]).reshape(2,3)
+        slopes = np.array([0,10,100,1000,10000,np.inf]).reshape(2,3)
+        flow[0,0] = value
+        dem._validate_dinf(True, flow, value, slopes, 0)
+
+    @pytest.mark.parametrize('value', (np.nan, -3))
+    def test_nodata_slopes(_, value):
+        flow = np.array([0,1,np.pi,1.5,2,2*np.pi]).reshape(2,3)
+        slopes = np.array([0,10,100,1000,10000,np.inf]).reshape(2,3)
+        slopes[0,0] = value
+        dem._validate_dinf(True, flow, 0, slopes, value)
+
 
 
 class TestPaths:
@@ -712,6 +757,19 @@ class TestUpslopePixels:
         output = dem.upslope_pixels(fflow8, nodata=0)
         expected = load_raster(fareau)
         assert np.array_equal(output, expected)
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
+    def test_check(_, fflow8, value):
+        flow = load_raster(fflow8)
+        flow[0, 0] = value
+        with pytest.raises(ValueError) as error:
+            dem.upslope_pixels(fflow8)
+            assert_contains(error, "flow_directions")
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
+    def test_nocheck(_, fflow8, value):
+        flow = load_raster(fflow8)
+        dem.upslope_pixels(flow, check=False)
 
 
 class TestUpslopeSum:
