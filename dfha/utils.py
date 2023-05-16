@@ -23,6 +23,7 @@ import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
 from dfha.typing import RasterArray, ValidatedRaster, scalar, BooleanMask
+from warnings import simplefilter, catch_warnings
 
 
 # Combination numpy dtypes
@@ -182,7 +183,8 @@ def save_raster(
     ----------
     save_raster(raster, path)
     Saves a 2D numpy array to the indicated GeoTIFF file. If the array is boolean,
-    saves as an int8 dtype.
+    saves as an int8 dtype. Note that this function does not currently support
+    geotransform options.
 
     save_raster(raster, path, nodata)
     Also specifies a nodata value for the raster. The nodata value is saved in
@@ -197,25 +199,24 @@ def save_raster(
         A GeoTIFF file matching the "path" input.
     """
 
-    # Use a placeholder until the package supports projections
-    placeholder_transform = (0.03, 0, -4, 0, 0.03, -3)
-    placeholder_crs = "+proj=latlon"
-
     # Rasterio does not accept boolean dtype, so convert to (equivalent) int8
     if raster.dtype == bool:
         raster = raster.astype("int8")
 
-    # Save the raster
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=raster.shape[0],
-        width=raster.shape[1],
-        count=1,
-        dtype=raster.dtype,
-        nodata=nodata,
-        transform=placeholder_transform,
-        crs=placeholder_crs,
-    ) as file:
-        file.write(raster, 1)
+    # Temporarily disable the NotGeoreferencedWarning. This should eventually be
+    # replaced with functionality for crs and transform options.
+    with catch_warnings():
+        simplefilter('ignore', rasterio.errors.NotGeoreferencedWarning)
+
+        # Save the raster
+        with rasterio.open(
+            path,
+            'w',
+            driver='GTiff',
+            height=raster.shape[0],
+            width=raster.shape[1],
+            count=1,
+            dtype=raster.dtype,
+            nodata=nodata,
+        ) as file:
+            file.write(raster, 1)
