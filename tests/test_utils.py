@@ -8,6 +8,7 @@ Requirements:
 import pytest
 import numpy as np
 import rasterio
+import warnings
 from dfha import utils
 
 
@@ -27,20 +28,20 @@ def band2(band1):
 @pytest.fixture
 def fraster(tmp_path, band1, band2):
     raster = tmp_path / "raster.tif"
-    with rasterio.open(
-        raster,
-        "w",
-        driver="GTiff",
-        height=band1.shape[0],
-        width=band1.shape[1],
-        count=2,
-        dtype=band1.dtype,
-        nodata=1,
-        crs="+proj=latlong",
-        transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
-    ) as file:
-        file.write(band1, 1)
-        file.write(band2, 2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
+        with rasterio.open(
+            raster,
+            "w",
+            driver="GTiff",
+            height=band1.shape[0],
+            width=band1.shape[1],
+            count=2,
+            dtype=band1.dtype,
+            nodata=1,
+        ) as file:
+            file.write(band1, 1)
+            file.write(band2, 2)
     return raster
 
 
@@ -117,7 +118,7 @@ class TestLoadRaster:
 
     def test_nodata_array(_, band1):
         output = utils.load_raster(band1, numpy_nodata=1, nodata_to=-999)
-        band1[0,0] = -999
+        band1[0, 0] = -999
         assert np.array_equal(output, band1)
 
     def test_nodata_file(_, fraster, band1):
@@ -137,7 +138,7 @@ class TestReplaceNodata:
     def test_number_mask(_, band1):
         expected = band1.copy()
         expected[0, 3] = -999
-        expected_mask = band1==4
+        expected_mask = band1 == 4
         mask = utils.replace_nodata(band1, 4, -999, return_mask=True)
         assert np.array_equal(band1, expected)
         assert np.array_equal(mask, expected_mask)
@@ -172,6 +173,7 @@ class TestReplaceNodata:
         assert np.array_equal(band1, expected)
 
 
+@pytest.mark.filterwarnings("ignore::rasterio.errors.NotGeoreferencedWarning")
 class TestSaveRaster:
     def test(_, band1, output_path):
         utils.save_raster(band1, output_path)
