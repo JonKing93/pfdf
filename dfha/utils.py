@@ -138,7 +138,7 @@ def load_raster(
 
     # Optionally replace NoData
     if replace:
-        replace_nodata(raster, nodata, nodata_to, copy=isarray)
+        raster, _ = replace_nodata(raster, nodata, nodata_to, copy=isarray)
     return raster
 
 
@@ -153,15 +153,21 @@ def replace_nodata(
     replace_nodata  Replaces NoData values in a numpy array
     ----------
     replace_nodata(raster, nodata, value, copy)
-    Given a numpy raster array, returns an array in which NoData values have 
-    been replaced with the indicated value. If copy=True, copies the raster
-    before replacing values - this is best used for input numpy arrays so that
-    the originating array is not altered. If copy=False, replaces values
-    directly - this is best for file based rasters, as the saved file remains
-    unaltered.
+    Given a numpy raster array, returns an array in which NoData values have
+    been replaced with the indicated value. Also returns the NoData mask for the
+    array - however, the NoData mask may be None and should not be relied upon
+    with this syntax. Use the return_mask option for details if the NoData mask
+    is required for later processing.
+
+    If copy=True, copies the raster before replacing values - this is recommended
+    for for input numpy arrays so that the originating array is not altered.
+    If copy=False, replaces values directly - this is recommended for file based
+    rasters, as it is more efficient and the saved file remains unaltered.
 
     replace_nodata(..., return_mask = True)
-    Also returns the NoData mask for the raster.
+    Also returns a valid NoData mask for the raster. The second output will always
+    be a numpy 2D boolean array indicating the locations of the NoData values in
+    the original array. The mask is never None with this syntax.
     ----------
     Inputs:
         raster: A numpy array raster
@@ -169,11 +175,13 @@ def replace_nodata(
         value: The value that NoData should be replaced with
         copy: True to replace values for a copy of the array. False to update
             the array directly.
+        return_mask: True to always return a valid NoData mask. False if the
+            NoData mask is not required and may be None.
 
     Outputs:
         numpy 2D array: The raster with replaced NoData values
-        numpy 2D bool array: (Only when return_mask=True) The NoData mask for
-            the array.
+        None | numpy 2D bool array: The NoData mask for the array. Setting
+            return_mask=True guarantees a numpy array.
     """
 
     # Locate NoData values
@@ -188,15 +196,10 @@ def replace_nodata(
             raster = raster.copy()
         raster[nodata] = value
 
-    # Get NoData mask if requested, but there isn't a NoData value
+    # Get NoData masks for when there isn't a NoData value
     elif return_mask:
         nodata = full(raster.shape, False)
-
-    # Return the raster and optionally the NoData mask
-    if return_mask:
-        return raster, nodata
-    else:
-        return raster
+    return raster, nodata
 
 
 def save_raster(
