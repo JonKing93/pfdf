@@ -180,6 +180,12 @@ class TestPositive:
             validate.positive(array, self.name)
         assert_contains(error, self.name)
 
+    def test_nan(self):
+        a = np.array([np.nan, np.nan])
+        with pytest.raises(ValueError) as error:
+            validate.positive(a, self.name)
+        assert_contains(error, self.name)
+
 
 class TestIntegers:
     name = "test name"
@@ -194,6 +200,11 @@ class TestIntegers:
             validate.integers(array, self.name)
         assert_contains(error, self.name)
 
+    def test_nan(self):
+        a = np.array([np.nan, np.nan])
+        with pytest.raises(ValueError) as error:
+            validate.integers(a, self.name)
+        assert_contains(error, self.name)
 
 class TestInRange:
     name = "test name"
@@ -230,6 +241,13 @@ class TestInRange:
         min, _ = self.bounds(array)
         validate.inrange(array, self.name, min=min)
 
+    def test_nan(self):
+        a = np.array([np.nan, np.nan])
+        with pytest.raises(ValueError) as error:
+            validate.inrange(a, self.name, min=-np.inf, max=np.inf)
+        assert_contains(error, self.name)
+
+
 
 class TestMask:
     @pytest.mark.parametrize("type", (bool, int, float))
@@ -246,6 +264,13 @@ class TestMask:
             validate.mask(mask, "test name")
             assert_contains(error, "test name")
 
+    def test_nan(_, mask):
+        mask = mask.astype(float)
+        mask[0,0] = np.nan
+        with pytest.raises(ValueError) as error:
+            validate.mask(mask, 'test name')
+            assert_contains(error, 'test name')
+
 
 class TestFlow:
     @pytest.mark.parametrize('type', (int, float))
@@ -260,6 +285,7 @@ class TestFlow:
         with pytest.raises(ValueError) as error:
             validate.flow(a, 'test name')
             assert_contains(error, 'test name')
+
 
 
 #####
