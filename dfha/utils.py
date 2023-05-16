@@ -118,9 +118,10 @@ def load_raster(
     else:
         replace = False
 
-    # If not a numpy array, going to laod from file. Temporarily suppress
+    # If not a numpy array, going to load from file. Temporarily suppress
     # rasterios georeferencing warnings
     if not isinstance(raster, ndarray):
+        isarray = False
         with catch_warnings():
             simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
 
@@ -132,11 +133,12 @@ def load_raster(
                 if replace:
                     nodata = file.nodata
     elif replace:
+        isarray = True
         nodata = numpy_nodata
 
     # Optionally replace NoData
     if replace:
-        replace_nodata(raster, nodata, nodata_to)
+        replace_nodata(raster, nodata, nodata_to, copy=isarray)
     return raster
 
 
