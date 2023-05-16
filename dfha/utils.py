@@ -118,14 +118,19 @@ def load_raster(
     else:
         replace = False
 
-    # Load file based rasters
+    # If not a numpy array, going to laod from file. Temporarily suppress
+    # rasterios georeferencing warnings
     if not isinstance(raster, ndarray):
-        with rasterio.open(raster) as file:
-            raster = file.read(band)
+        with catch_warnings():
+            simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
 
-            # Determine NoData value if appropriate
-            if replace:
-                nodata = file.nodata
+            # Load the raster from file
+            with rasterio.open(raster) as file:
+                raster = file.read(band)
+
+                # Determine NoData value if appropriate
+                if replace:
+                    nodata = file.nodata
     elif replace:
         nodata = numpy_nodata
 
@@ -206,13 +211,13 @@ def save_raster(
     # Temporarily disable the NotGeoreferencedWarning. This should eventually be
     # replaced with functionality for crs and transform options.
     with catch_warnings():
-        simplefilter('ignore', rasterio.errors.NotGeoreferencedWarning)
+        simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
 
         # Save the raster
         with rasterio.open(
             path,
-            'w',
-            driver='GTiff',
+            "w",
+            driver="GTiff",
             height=raster.shape[0],
             width=raster.shape[1],
             count=1,
