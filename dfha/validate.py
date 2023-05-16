@@ -43,6 +43,7 @@ Internal:
 import numpy as np
 from pathlib import Path
 import rasterio
+from warnings import catch_warnings, simplefilter
 from dfha.utils import aslist, astuple, real, replace_nodata
 from dfha.errors import DimensionError, ShapeError
 from typing import Any, Optional, List, Union, Sequence, Tuple
@@ -442,20 +443,26 @@ def raster(
     # Validate band 1 of file-based rasters
     if isfile:
         band = 1
-        with rasterio.open(raster) as file:
-            dtype_(name, allowed=real, actual=file.dtypes[band - 1])
-            if shape is not None:
-                nrows = file.height
-                ncols = file.width
-                shape_(name, ["rows", "columns"], required=shape, actual=(nrows, ncols))
 
-            # Optionally load into memory.
-            if load:
-                raster = file.read(band)
+        # Suppress georeferencing warnings
+        with catch_warnings():
+            simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
 
-            # Get NoData values if needed
-            if replace:
-                nodata = file.nodata
+            # Get file metadata, use to validate the raster
+            with rasterio.open(raster) as file:
+                dtype_(name, allowed=real, actual=file.dtypes[band - 1])
+                if shape is not None:
+                    nrows = file.height
+                    ncols = file.width
+                    shape_(name, ["rows", "columns"], required=shape, actual=(nrows, ncols))
+
+                # Optionally load into memory.
+                if load:
+                    raster = file.read(band)
+
+                # Get NoData values if needed
+                if replace:
+                    nodata = file.nodata
     elif replace:
         nodata = numpy_nodata
 
