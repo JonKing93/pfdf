@@ -334,6 +334,7 @@ def raster(
     raster: Any,
     name: str,
     *,
+    dtype: dtypes = real,
     shape: Optional[shape2d] = None,
     load: bool = True,
     numpy_nodata: Optional[scalar] = None,
@@ -360,6 +361,10 @@ def raster(
         * a numpy array does not have 2 dimensions
         * a numpy array dtype is not a numpy.integer or numpy.floating
         * the input is some other type
+
+    raster(..., *, dtype)
+    Requires the raster to be one of the specified dtypes. Default is to allow
+    integer and floating dtypes. Raises a TypeError if the condition is not met.
 
     raster(..., *, shape)
     Require the raster to have the specified shape. Raises a ShapeError if this
@@ -437,7 +442,7 @@ def raster(
                 f"{name} is not a recognized raster type. Allowed types are: "
                 "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray"
             )
-        raster = matrix(raster, name, shape=shape, dtype=real)
+        raster = matrix(raster, name, shape=shape, dtype=dtype)
         isfile = False
 
     # Validate band 1 of file-based rasters
@@ -450,11 +455,14 @@ def raster(
 
             # Get file metadata, use to validate the raster
             with rasterio.open(raster) as file:
-                dtype_(name, allowed=real, actual=file.dtypes[band - 1])
+                dtype_(name, allowed=dtype, actual=file.dtypes[band - 1])
                 if shape is not None:
-                    nrows = file.height
-                    ncols = file.width
-                    shape_(name, ["rows", "columns"], required=shape, actual=(nrows, ncols))
+                    shape_(
+                        name,
+                        ["rows", "columns"],
+                        required=shape,
+                        actual=(file.height, file.width),
+                    )
 
                 # Optionally load into memory.
                 if load:
