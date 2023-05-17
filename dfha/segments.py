@@ -51,6 +51,7 @@ from math import sqrt
 from copy import deepcopy
 from dfha import validate, dem
 from dfha.utils import any_defined, load_raster, real
+from dfha.erros import ShapeError, RasterShapeError
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
     Raster,
@@ -211,7 +212,7 @@ class Segments:
     #####
     # Dunders
     #####
-    def __init__(self, stream_raster: Raster) -> None:
+    def __init__(self, stream_raster: Raster, nodata: Optional[scalar] = None) -> None:
         """
         Segments  Returns an object defining a set of stream segments
         ----------
@@ -225,6 +226,11 @@ class Segments:
         stream segment. The "ids" property of the returned object lists the stream
         segment IDs in the set. The "indices" property is a dict that maps each
         ID to the indices of associated pixels in the stream segment raster.
+
+        Segments(stream_raster, nodata)
+        Specifies a NoData value for when the stream raster is a numpy array.
+        If the stream raster is a file-based raster, this option is ignored and
+        the NoData value is instead determined from the file metadata
         ----------
         Inputs:
             stream_raster: A stream segment raster used to define the set of stream
@@ -236,8 +242,8 @@ class Segments:
                 The data in the raster should consist of integers. The value of
                 each stream segment pixel should be a positive integer matching
                 the ID of the associated strea segment. All other pixels should
-                be 0. If reading data from a raster file or a rasterio.DatasetReader,
-                NoData values will be converted to 0 before processing.
+                be 0. NoData values are converted to 0 before processing.
+            nodata: A NoData value for when the stream raster is a numpy array.
 
         Outputs:
             Segments: A Segments object defining a set of stream segments
@@ -245,7 +251,9 @@ class Segments:
 
         # Get raster array. Check values are valid
         name = "stream_raster"
-        stream_raster = validate.raster(stream_raster, name, nodata=0)
+        stream_raster = validate.raster(
+            stream_raster, name, numpy_nodata=nodata, nodata_to=0
+        )
         validate.positive(stream_raster, name, allow_zero=True)
         validate.integers(stream_raster, name)
 
@@ -302,12 +310,13 @@ class Segments:
                 as a numpy array. False to return the Path to file-based rasters.
 
         Outputs:
-            numpy 2D array: The raster as a numpy array
+            numpy 2D array | pathlib.Path: The raster as a numpy array or Path
+                to a file-based raster.
         """
 
         try:
             return validate.raster(raster, name, shape=self.raster_shape, load=load)
-        except validate.ShapeError as error:
+        except ShapeError as error:
             raise RasterShapeError(name, error)
 
     @staticmethod
@@ -322,12 +331,6 @@ class Segments:
         resolution = validate.scalar(resolution, "resolution", real)
         validate.positive(resolution, "resolution")
         return (N, resolution)
-
-    @staticmethod
-    def _validate_flow(flow_directions) -> None:
-        "Checks that flow directions conform to the TauDEM style"
-        validate.inrange(flow_directions, "flow_directions", min=1, max=8)
-        validate.integers(flow_directions, "flow_directions")
 
     #####
     # Confinement angle calculations
@@ -484,17 +487,59 @@ class Segments:
         return self._summary(upslope_basins, self._stats["basins"])
 
     def catchment_mean(
-        self, npixels: SegmentValues, flow_directions: Raster, values: Raster
+        self,
+        flow_directions: Raster,
+        values: Raster,
+        *,
+        mask: Optional[Raster] = None,
+        npixels: Optional[SegmentValues] = None,
     ) -> SegmentValues:
         """
         catchment_mean  Computes mean values over all pixels in stream segment catchment areas
         ----------
-        self.catchment_mean(npixels, flow_directions, values)
+        self.catchment_mean(flow_directions, values)
         Computes the mean value over all pixels in the catchment (upslope) area
         for each stream segment. Calculates mean values over an input values raster.
-        and returns the mean values as a numpy 1D array. The order of mean values 
+        and returns the mean values as a numpy 1D array. The order of mean values
         matches the order of segment IDs in the object. Note that the values raster
         cannot include negative values.
+
+        Note that this syntax requires computing (1) upslope sums, and (2) pixel
+        counts for each stream segment. However, many workflows already use pixel
+        counts to filter the stream network and implement other processing. If
+        you are using pixel counts for multiple purposes, see below for a more
+        efficient sytnax.
+
+        self.catchment_mean(flow_directions, values, *, npixels)
+        Specifies the number of pixels for each stream segment. This syntax only
+        requires computing upslope sums, so is more efficient when pixels counts
+        are already known.
+
+        self.catchment_mean(flow_directions, values, *, mask)
+        Computes a catchment means using only the pixels indicated by a valid
+        data mask. True pixels in the mask are included in the means. False
+        pixels are excluded. This procedure computes (1) masked upslope sums, and
+        (2) masked pixel counts for each stream segment. If there are no valid
+        pixels in a stream segment's catchment area, then the mean value for the
+        stream segment is set to NaN.
+
+        self.catchment_mean(flow_directions, values, *, mask, npixels)
+        Specifies the number of masked pixels for each stream segment. Note that
+        these masked pixel counts are not the same as the total pixel counts
+        often used to filter stream segments. Rather, they are the number of valid
+        pixels in the data mask for each stream segment catchment. If the masked
+        pixel count for a stream segment is 0, then the mean value for the segment
+        is set to NaN.
+
+        Masked pixel counts can be generated via:
+
+            >>> npixels = dem.upslope_sum(flow_directions, values=mask)
+            >>> npixels = self.pixels(npixels)
+
+        However, these masked pixel counts are often less reusable than total
+        pixel counts, and so this syntax may not be necessary for many cases.
+        If you are not reusing the masked pixel counts for a later computation,
+        we recommend using the previous syntax instead.
         ----------
         Inputs:
             npixels: The number of upslope pixels for each stream segment. Values
@@ -503,61 +548,38 @@ class Segments:
                 the DEM pixels.
             values: A raster of data values for the DEM pixels over which to
                 calculate catchment means. All values must be positive.
+            mask: An optional valid data mask used to include/exclude pixels from
+                the catchment means. True pixels are included, False are excluded.
 
         Outputs:
             numpy 1D array: The catchment mean for each stream segment.
         """
 
-        # Validate inputs
+        # Validate inputs. Metadata first, then loaded arrays
         npixels = validate.vector(npixels, "npixels", dtype=real, length=len(self))
-        validate.positive(npixels, "npixels")
+        validate.positive(npixels, "npixels", allow_zero=True)
         values = self._validate(values, "values raster")
-        validate.positive(values, 'values_raster', allow_zero=True)
         flow_directions = self._validate(flow_directions, "flow_directions")
-        self._validate_flow(flow_directions)
+        if mask is not None:
+            mask = self._validate(mask, "mask")
+            mask = validate.mask(mask, "mask")
+        validate.flow(flow_directions, "flow_directions")
+        validate.positive(values, "values raster", allow_zero=True)
 
-        # Compute mean values. (Note that np.amax gives us the sum from the most
-        # downstream pixel).
-        upslope_sums = dem.upslope_sum(flow_directions, values)
+        # Compute the number of pixels if not provided
+        if npixels is None:
+            if mask is None:
+                npixels = dem.upslope_pixels(flow_directions, check=False)
+            else:
+                npixels = dem.upslope_sum(flow_directions, values=mask, check=False)
+            npixels = self._summary(npixels, np.amax)
+        npixels[npixels == 0] = np.nan
+
+        # Compute mean values. (Note that since values are positive, np.amax
+        # gives the sum from the most downstream pixel).
+        upslope_sums = dem.upslope_sum(flow_directions, values, mask, check=False)
         segment_sums = self._summary(upslope_sums, np.amax)
         return segment_sums / npixels
-    
-
-    def masked_catchment_mean(self, flow_directions: Raster, values: Raster, use: Raster):
-        """
-        masked_catchment_mean  Computes mean values over indicated pixels in stream segment catchment areas
-        ----------
-        self.masked_catchment_mean(flow_directions, values, use)
-        Computes mean values over the catchment areas of the stream segments. Only
-        computes means using indicated pixels in the values raster. Returns values
-        as a numpy 1D array. The order of mean values will match the order of IDs
-        in the Segments object. Note that all values used in the mean must be 
-        positive.
-        ----------
-        Inputs:
-            flow_directions: A raster with TauDEM-style D8 flow directions for
-                the DEM pixels.
-            values: A raster of data values for the DEM pixels over which to
-                calculate catchment means. All values must be positive.
-            use: A raster indicating which DEM pixels should be used to calculate means.
-
-        Outputs:
-            numpy 1D array: The mean value for each stream segment
-        """
-
-        # Validate inputs
-        flow_directions = self._validate(flow_directions, 'flow_directions')
-        self._validate_flow(flow_directions)
-        values = self._validate(values, 'values')
-        validate.positive(values, 'values', allow_zero=True)
-        use = self._validate(use, 'use')
-
-        # Compute the masked mean. (np.amax gives the sum in the most downstream pixel)
-        npixels = dem.upslope_sum(flow_directions, use)
-        values = values * use
-        sums = self._summary(values, np.amax)
-        return sums / npixels
-
 
     def confinement(
         self,
@@ -1206,4 +1228,3 @@ class _Kernel:
         slopes = slopes - dem[self.row, self.col]
         slopes = slopes / length
         return slopes
-
