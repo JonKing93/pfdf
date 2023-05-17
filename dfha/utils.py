@@ -15,7 +15,7 @@ Argument Parsing:
 Rasters:
     load_raster     - Returns a pre-validated raster as a numpy array
     save_raster     - Saves a 2D numpy array raster to a GeoTIFF file
-    replace_nodata  - Replaces NoData values in a raster with a specified value
+    replace_nodata  - Replaces NoData values in a raster array with a specified value
     raster_shape    - Returns the shape of a raster
 """
 
@@ -28,8 +28,7 @@ from warnings import simplefilter, catch_warnings
 
 
 # Combination numpy dtypes
-real = [integer, floating]
-mask_dtypes = [integer, floating, bool_]
+real = [integer, floating, bool_]
 
 
 def any_defined(*args: Any) -> bool:

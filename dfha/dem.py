@@ -86,7 +86,7 @@ import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from dfha import validate
-from dfha.utils import save_raster, load_raster, raster_shape, real, mask_dtypes
+from dfha.utils import save_raster, load_raster, raster_shape, real
 from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
 from dfha.typing import (
     Pathlike,
@@ -437,6 +437,8 @@ def upslope_sum(
             numbers should proceed from 1 to 8, clockwise from right.
         values: A raster indicating the value of each pixel to use in the sum.
             Must have the same shape as the flow directions raster.
+        mask: An optional valid data mask used to include/exclude pixels from
+            the upslope sum. True pixels are included, False are excluded.
         path: The path to a file in which to save the upslope sum.
         flow_nodata: A NoData value for the flow directions when they are a numpy array.
         values_nodata: A NoData value for the pixel values when they are a numpy array.
@@ -832,7 +834,7 @@ def _validate_mask(
         numpy 2D bool array: The loaded valid data mask
     """
     mask = validate.raster(
-        raster, "mask", shape=shape, dtype=mask_dtypes, numpy_nodata=nodata, nodata_to=0
+        raster, "mask", shape=shape, numpy_nodata=nodata, nodata_to=0
     )
     if check:
         mask = validate.mask(mask, "mask")
