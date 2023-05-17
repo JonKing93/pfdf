@@ -16,6 +16,7 @@ Rasters:
     load_raster     - Returns a pre-validated raster as a numpy array
     save_raster     - Saves a 2D numpy array raster to a GeoTIFF file
     replace_nodata  - Replaces NoData values in a raster with a specified value
+    raster_shape    - Returns the shape of a raster
 """
 
 from numpy import ndarray, integer, floating, bool_, isnan, full, any
@@ -141,6 +142,30 @@ def load_raster(
         raster, _ = replace_nodata(raster, nodata, nodata_to, copy=isarray)
     return raster
 
+
+def raster_shape(raster: ValidatedRaster):
+    """
+    raster_shape  Returns the 2D shape of a file-based or numpy raster
+    ----------
+    raster_shape(raster)
+    Returns the 2D shape of a validated raster. Supports both file-based and
+    numpy rasters.
+    ----------
+    Inputs:
+        raster: The raster to return the shape of
+
+    Outputs:
+        (int, int): The 2D shape of the raster
+    """
+
+    if isinstance(raster, ndarray):
+        return raster.shape
+    else:
+        with catch_warnings():
+            simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
+            with rasterio.open(raster) as raster:
+                return (raster.height, raster.width)
+        
 
 def replace_nodata(
     raster: RasterArray,
