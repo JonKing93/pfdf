@@ -625,6 +625,14 @@ class TestRaster:
         assert np.array_equal(output[0], expected)
         assert np.array_equal(output[1], expected_mask)
 
+    def test_array_dtype(_, band1):
+        with pytest.raises(TypeError):
+            validate.raster(band1, "test name", dtype=np.floating)
+
+    def test_file_dtype(_, raster):
+        with pytest.raises(TypeError):
+            validate.raster(raster, "test name", dtype=np.floating)
+
 
 class TestOutputPath:
     @pytest.mark.parametrize("input", (True, 5, np.arange(0, 100)))
