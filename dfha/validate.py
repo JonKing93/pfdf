@@ -46,7 +46,7 @@ import rasterio
 from warnings import catch_warnings, simplefilter
 from dfha.utils import aslist, astuple, real, replace_nodata
 from dfha.errors import DimensionError, ShapeError
-from typing import Any, Optional, List, Union, Sequence, Tuple
+from typing import Any, Optional, List, Union, Tuple
 from dfha.typing import (
     strs,
     dtypes,
@@ -359,7 +359,7 @@ def raster(
         * a raster file does not exist
         * a raster file cannot be opened by rasterio
         * a numpy array does not have 2 dimensions
-        * a numpy array dtype is not a numpy.integer or numpy.floating
+        * a numpy array dtype is not an integer, floating, or boolean dtype
         * the input is some other type
 
     raster(..., *, dtype)
