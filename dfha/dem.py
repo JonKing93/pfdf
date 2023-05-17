@@ -78,14 +78,12 @@ Utilities:
     _output             - Returns an output raster as a numpy 2D array or Path
 """
 
-import rasterio
-from warnings import catch_warnings, simplefilter
 from numpy import ndarray, pi
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from dfha import validate
-from dfha.utils import save_raster, load_raster, real
+from dfha.utils import save_raster, load_raster, raster_shape, real
 from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
 from dfha.typing import Pathlike, Raster, RasterArray, scalar, strs, ValidatedRaster
 
@@ -455,6 +453,29 @@ def upslope_sum(
         return _output(sum, save)
 
 
+def msum(flow_directions, values, mask):
+    verbose, overwrite = _options(verbose, overwrite)
+    names = ['flow_directions', 'values', 'mask']
+    [flow, values] = _validate_inputs([flow_directions, values], names[0:2])
+    nodata = _nodata(
+        [flow_nodata, values_nodata, mask_nodata],
+        ["flow_nodata", "values_nodata", "mask_nodata"],
+        [flow, values, mask],
+    )
+    sum, save = validate.output_path(path, overwrite)
+
+    mask = validate.raster(mask, 'mask', shape=flow.shape, dtype=mask_dtypes, load=False)
+    if check:
+        mask = load_raster(mask, numpy_nodata=nodata[2], nodata_to=0)
+        mask = validate.mask(mask, 'mask')
+    _validate_d8(check, flow, nodata[0])
+
+    values = values * mask
+
+
+
+
+
 def relief(
     pitfilled: Pathlike,
     flow_directions: Pathlike,
@@ -779,13 +800,7 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[Validated
 
         # Get the shape from the first raster
         if nrasters > 1 and r == 0:
-            if isinstance(raster, Path):
-                with catch_warnings():
-                    simplefilter('ignore', rasterio.errors.NotGeoreferencedWarning)
-                    with rasterio.open(raster) as data:
-                        shape = (data.height, data.width)
-            else:
-                shape = raster.shape
+            shape = raster_shape(raster)
     return rasters
 
 
