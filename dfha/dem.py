@@ -367,9 +367,11 @@ def upslope_pixels(
 def upslope_sum(
     flow_directions: Raster,
     values: Raster,
+    mask: Optional[Raster] = None,
     *,
     flow_nodata: Optional[scalar] = None,
     values_nodata: Optional[scalar] = None,
+    mask_nodata: Optional[scalar] = None,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
@@ -382,6 +384,11 @@ def upslope_sum(
     Computes a sum over upslope pixels. Each pixel is given a value denoted by
     the "values" raster. Returns the sum raster as a numpy 2D array.
 
+    upslope_sum(flow_directions, values, mask)
+    Computes sums using only the pixels indicated by a valid data mask. True
+    pixels in the mask are included in the sum. False pixels are given a value
+    of 0, effectively removing them from the sum.
+
     upslope_sum(..., *, path)
     upslope_sum(..., *, path, overwrite)
     Saves the upslope sum raster to file. Returns the absolute Path to the saved file
@@ -392,18 +399,24 @@ def upslope_sum(
 
     upslope_sum(..., *, flow_nodata)
     upslope_sum(..., *, values_nodata)
-    Optionally indicate NoData values for when the flow directions or pixel values
-    are a numpy array. Without these options, all values in an input numpy array
-    are treated as valid. The nodata value will be converted to the dtype of
-    associated raster. If an input raster is file-based, the associated nodata
-    value is ignored and NoData values are determined from the file metadata.
+    upslope_sum(..., *, mask_nodata)
+    Optionally indicate NoData values for input rasters that are numpy arrays.
+    If an input raster is a numpy array and the associated nodata option is not
+    specified, then all values in the input numpy array are treated as valid.
+    With the option, numpy elements matching the nodata value are processed as
+    NoData. Note that the provided nodata value will be converted to the dtype of
+    the associated raster before matching. If an input raster is file-based, then
+    the associated nodata option is ignored and NoData values are instead determined
+    from the file metadata.
 
     upslope_sum(..., *, check=False)
-    Disables the validation of D8 flow directions. When enabled, the validation
-    checks that flow directions are integers on the interval from 1 to 8 (excepting
-    NoData values). Disabling this check can speed up processing of large rasters,
-    but may give unexpected results if the flow-directions raster contains
-    invalid values.
+    Disables the validation of D8 flow directions and (if provided) the valid 
+    data mask. When enabled, the validation checks that flow directions are integers
+    on the interval from 1 to 8. If a data mask is provided, the validation also
+    checks that its elements are boolean-like (all 0s or 1s). Both validations
+    exclude NoData elements from the checks. Disabling these validations can
+    speed up the processing of large rasters, but may give unexpected results
+    if the flow-directions or valid data mask contain invalid values.
 
     upslope_sum(..., *, verbose)
     Indicate how to treat TauDEM messages. If verbose=True, prints messages to
@@ -418,7 +431,9 @@ def upslope_sum(
         path: The path to a file in which to save the upslope sum.
         flow_nodata: A NoData value for the flow directions when they are a numpy array.
         values_nodata: A NoData value for the pixel values when they are a numpy array.
-        check: True to validate flow-direction numbers. False to disable this check.
+        mask_nodata: A NoData value for the valid data mask when it is a numpy array
+        check: True to validate flow-direction numbers and valid data mask. 
+            False to disable this check.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
             the module (initially set as False).
@@ -431,19 +446,28 @@ def upslope_sum(
         Optionally saves the upslope sum raster to a path matching the "path" input.
     """
 
-    # Validate
+    # Initial validation
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "values", "upslope_sum"]
     [flow, values] = _validate_inputs([flow_directions, values], names[0:2])
     nodata = _nodata(
-        [flow_nodata, values_nodata],
-        ["flow_nodata", "values_nodata"],
-        [flow, values],
+        [flow_nodata, values_nodata, mask_nodata],
+        ["flow_nodata", "values_nodata", "mask_nodata"],
+        [flow, values, mask],
     )
     sum, save = validate.output_path(path, overwrite)
+
+    # Validate the data mask (if provided) and the D8 flow directions
+    if mask is not None:
+        mask = _validate_mask(check, mask, nodata[2], raster_shape(flow))
     _validate_d8(check, flow, nodata[0])
 
-    # Run using temp files as needed
+    # Optionally mask the pixel values
+    if mask is not None:
+        values = load_raster(values)
+        values = values * mask
+
+    # Compute sum using temp files as needed
     with TemporaryDirectory() as temp:
         flow, values, sum = _paths(
             temp,
@@ -454,38 +478,6 @@ def upslope_sum(
         )
         area_d8(flow, values, sum, verbose)
         return _output(sum, save)
-
-
-def msum(flow_directions, values, mask):
-    verbose, overwrite = _options(verbose, overwrite)
-    names = ['flow_directions', 'values', 'mask']
-    [flow, values] = _validate_inputs([flow_directions, values], names[0:2])
-    nodata = _nodata(
-        [flow_nodata, values_nodata, mask_nodata],
-        ["flow_nodata", "values_nodata", "mask_nodata"],
-        [flow, values, mask],
-    )
-    sum, save = validate.output_path(path, overwrite)
-
-    shape = raster_shape(flow)
-    mask = _validate_mask(check, mask, nodata[2], raster_shape(flow))
-    mask = validate.raster(mask, 'mask', shape=shape, dtype=mask_dtypes, numpy_nodata=nodata[2], nodata_to=0)
-    if check:
-        mask = validate.mask(mask, 'mask')
-    _validate_d8(check, flow, nodata[0])
-    
-    values = load_raster(values)
-
-
-    mask = validate.raster(mask, 'mask', shape=flow.shape, dtype=mask_dtypes, load=False)
-    if check:
-        mask = load_raster(mask, numpy_nodata=nodata[2], nodata_to=0)
-        mask = validate.mask(mask, 'mask')
-    _validate_d8(check, flow, nodata[0])
-
-    values = values * mask
-
-
 
 
 
