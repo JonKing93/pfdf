@@ -12,18 +12,21 @@ Sequence conversion:
 Argument Parsing:
     any_defined     - True if any input is not None
 
-Rasters:
+Raster IO:
     load_raster     - Returns a pre-validated raster as a numpy array
     save_raster     - Saves a 2D numpy array raster to a GeoTIFF file
     replace_nodata  - Replaces NoData values in a raster array with a specified value
+
+Raster Metadata:
     raster_shape    - Returns the shape of a raster
+    raster_nodata   - Returns the NoData value of a raster
 """
 
 from numpy import ndarray, integer, floating, bool_, isnan, full, any
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
-from dfha.typing import RasterArray, ValidatedRaster, scalar, BooleanMask
+from dfha.typing import RasterArray, ValidatedRaster, scalar, BooleanMask, nodata
 from warnings import simplefilter, catch_warnings
 
 
@@ -142,6 +145,32 @@ def load_raster(
     return raster
 
 
+def raster_nodata(raster: ValidatedRaster, numpy_nodata: nodata):
+    """
+    raster_nodata  Returns the NoData value for a file-based or numpy raster
+    ----------
+    raster_nodata(raster, numpy_nodata)
+    Returns the NoData value for a validated raster. If the raster is file-based,
+    this value is derived from the file metadata. If the raster is a numpy array,
+    the NoData value is the input "numpy_nodata" variable.
+    ----------
+    Inputs:
+        raster: The raster for which to return a NoData value
+        numpy_nodata: The NoData value if the raster is a numpy array
+
+    Outputs:
+        numpy 1D array: The NoData value for the raster
+    """
+
+    if isinstance(raster, ndarray):
+        return numpy_nodata
+    else:
+        with catch_warnings():
+            simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
+            with rasterio.open(raster) as raster:
+                return raster.nodata
+
+
 def raster_shape(raster: ValidatedRaster):
     """
     raster_shape  Returns the 2D shape of a file-based or numpy raster
@@ -164,11 +193,11 @@ def raster_shape(raster: ValidatedRaster):
             simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
             with rasterio.open(raster) as raster:
                 return (raster.height, raster.width)
-        
+
 
 def replace_nodata(
     raster: RasterArray,
-    nodata: Union[None, scalar],
+    nodata: nodata,
     value: scalar,
     copy: bool,
     return_mask: bool = False,

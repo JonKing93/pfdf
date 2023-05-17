@@ -55,6 +55,7 @@ from dfha.errors import ShapeError, RasterShapeError
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
     Raster,
+    ValidatedRaster,
     RasterArray,
     scalar,
     ints,
@@ -289,16 +290,20 @@ class Segments:
     #####
     # Validation methods
     #####
-    def _validate(self, raster: Any, name: str, load: bool = True) -> RasterArray:
+    def _validate(self, raster: Any, name: str, nodata: Any, load: bool = True) -> Tuple(ValidatedRaster, nodata):
         """
         _validate  Check input raster if compatible with stream segment pixel indices
         ----------
-        self._validate(raster, name)
-        Validates the input raster and returns it as a numpy 2D array. A valid
-        raster must meet the criteria described in validate.raster AND must have
-        a shape matching the shape of the raster used to define the stream segments.
+        self._validate(raster, name, nodata)
+        Validates the input raster. If the raster is a numpy array, also validates
+        the NoData value. Returns a 2-tuple whose first element is the raster as
+        numpy 2D array. The second element is the NoData value for the array (which
+        may either derive from the input nodata option, or from file-based raster
+        metadata). Note that a valid raster must both (1) meet the criteria 
+        described in validate.raster, and (2) have a shape matching the shape of
+        the raster used to define the stream segments.
 
-        self._validate(raster, name, load=False)
+        self._validate(..., load=False)
         Returns the Path for file-based rasters, rather than loading and returning
         as a numpy 2D array. Will still return a numpy array when a numpy array
         is provided as the raster input.
@@ -312,8 +317,17 @@ class Segments:
         Outputs:
             numpy 2D array | pathlib.Path: The raster as a numpy array or Path
                 to a file-based raster.
+            numpy 1D array: The NoData value for a loaded array. 
         """
 
+        if nodata is not None:
+            nodata = validate.scalar(nodata, nodata_name, real)
+
+
+
+
+
+        nodata = validate.nodata()
         try:
             return validate.raster(raster, name, shape=self.raster_shape, load=load)
         except ShapeError as error:
@@ -695,7 +709,7 @@ class Segments:
         upslope_development = self._validate(upslope_development, "upslope_development")
         return self._summary(upslope_development, self._stats["development"])
 
-    def pixels(self, upslope_pixels: Raster) -> SegmentValues:
+    def pixels(self, upslope_pixels: Raster, nodata: Optional[scalar] = None) -> SegmentValues:
         """
         pixels  Returns the maximum number of upslope pixels for each stream segment
         ----------
@@ -708,16 +722,32 @@ class Segments:
         Note that you can use pixel counts to determine the total upslope area
         (contributing area) for each stream segment by multiplying pixel counts
         by the area of a DEM pixel.
+
+        self.pixels(upslope_pixels, nodata)
+        Specifies a NoData value for when the upslope_pixels raster is a numpy
+        array. Without this option, all values of an input numpy array are treated
+        as valid. If upslope_pixels is a file-based raster, this value is ignored
+        and the NoData value is instead determined from file metadata.
         ----------
         Inputs:
             upslope_pixels: A raster holding the number of upslope pixels for
                 the DEM pixels.
+            nodata: A NoData value for when upslope_pixels is a numpy array.
 
         Outputs:
             numpy 1D array: The maximum number of upslope pixels for each stream segment.
         """
-        upslope_pixels, nodata = self._validate(upslope_pixels, "upslope_pixels")
-        return self._summary(upslope_pixels, self._stats["pixels"])
+        upslope_pixels, nodata = self._validate(upslope_pixels, "upslope_pixels", nodata, "nodata")
+        
+
+
+
+
+
+
+
+        upslope_pixels, nodata = self._validate(upslope_pixels, "upslope_pixels", nodata, "nodata")
+        return self._summary(upslope_pixels, self._stats["pixels"], nodata)
 
     def remove(self, segments: IDs) -> None:
         """
