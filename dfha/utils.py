@@ -3,7 +3,7 @@ utils  Low-level utility functions used throughout the package
 ----------
 Numpy dtypes:
     real            - A list of numpy dtypes considered to be real-valued numbers
-    mask            - A list of numpy dtypes suitable for raster masks
+    mask_dtypes     - A list of numpy dtypes suitable for raster masks
 
 Sequence conversion:
     aslist          - Returns an input as a list
@@ -29,7 +29,7 @@ from warnings import simplefilter, catch_warnings
 
 # Combination numpy dtypes
 real = [integer, floating]
-mask = [integer, floating, bool_]
+mask_dtypes = [integer, floating, bool_]
 
 
 def any_defined(*args: Any) -> bool:

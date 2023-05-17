@@ -67,12 +67,15 @@ Low-level functions:
     area_d8             - Computes D8 upslope area
     relief_dinf         - Computes vertical components of the longest flow path
 
+Loaded Array Validation:
+    _validate_d8        - Optionally validates D8 flow directions
+    _validate_dinf      - Optionally validates D-infinity flow directions and slopes
+    _validate_mask      - Validates and returns a valid data mask
+
 Utilities:
     _options            - Determine verbosity and overwrite permissions for a routine
     _validate_inputs    - Validate user-provided input rasters
     _nodata             - Parses NoData values for numpy rasters
-    _validate_d8        - Optionally validates D8 flow directions
-    _validate_dinf      - Optionally validates D-infinity flow directions and slopes
     _paths              - Return paths for the rasters used by a TauDEM routine
     _run_taudem         - Runs a TauDEM routine as a subprocess
     _output             - Returns an output raster as a numpy 2D array or Path
@@ -83,9 +86,9 @@ import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from dfha import validate
-from dfha.utils import save_raster, load_raster, raster_shape, real
+from dfha.utils import save_raster, load_raster, raster_shape, real, mask_dtypes
 from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
-from dfha.typing import Pathlike, Raster, RasterArray, scalar, strs, ValidatedRaster
+from dfha.typing import Pathlike, Raster, RasterArray, scalar, strs, ValidatedRaster, shape2d, BooleanMask
 
 # Type aliases
 Option = Union[None, bool]  # None: Default, bool: User-specified
@@ -464,6 +467,16 @@ def msum(flow_directions, values, mask):
     )
     sum, save = validate.output_path(path, overwrite)
 
+    shape = raster_shape(flow)
+    mask = _validate_mask(check, mask, nodata[2], raster_shape(flow))
+    mask = validate.raster(mask, 'mask', shape=shape, dtype=mask_dtypes, numpy_nodata=nodata[2], nodata_to=0)
+    if check:
+        mask = validate.mask(mask, 'mask')
+    _validate_d8(check, flow, nodata[0])
+    
+    values = load_raster(values)
+
+
     mask = validate.raster(mask, 'mask', shape=flow.shape, dtype=mask_dtypes, load=False)
     if check:
         mask = load_raster(mask, numpy_nodata=nodata[2], nodata_to=0)
@@ -745,6 +758,87 @@ def relief_dinf(
 
 
 #####
+# Loaded Arrays
+#####
+
+
+def _validate_d8(check: bool, flow: ValidatedRaster, nodata: nodata) -> None:
+    """
+    _validate_d8  Optionally validates D8 flow directions
+    ----------
+    _validate_d8(check, flow, nodata)
+    Optionally checks that D8 flow direction values are valid. Valid D8 flow
+    directions are integers from 1 to 8.  Set check=False to disable validation.
+    Raises a ValueError if the validation fails.
+    ----------
+    Inputs:
+        check: True to validate. False to skip validation
+        flow: A D8 flow-directions raster
+        nodata: The NoData value for numpy arrays
+    """
+    if check:
+        flow = load_raster(flow, numpy_nodata=nodata, nodata_to=1)
+        validate.flow(flow, "flow_directions")
+
+
+def _validate_dinf(
+    check: bool,
+    flow: ValidatedRaster,
+    flow_nodata: nodata,
+    slopes: ValidatedRaster,
+    slopes_nodata: nodata,
+) -> None:
+    """
+    _validate_dinf  Optionally validates D-Infinity flow directions and slopes
+    ----------
+    _validate_dinf(check, flow, flow_nodata, slopes, slopes_nodata)
+    Optionally checks that D-Infinity flow directions and slopes are valid.
+    Valid flow directions are on the interval from 0 to 2pi. Valid slopes are
+    positive. Set check=False to disable validation. Raises a ValueError if
+    validation fails.
+    ----------
+    Inputs:
+        check: True to validate. False to skip validation
+        flow: A D-infinity flow directions raster
+        flow_nodata: NoData value for numpy flow directions
+        slopes: A D-infinity flow slopes raster
+        slopes_nodata: NoData value for numpy flow slopes
+    """
+    if check:
+        flow = load_raster(flow, numpy_nodata=flow_nodata, nodata_to=0)
+        validate.inrange(flow, "flow_directions", min=0, max=2 * pi)
+        slopes = load_raster(slopes, numpy_nodata=slopes_nodata, nodata_to=0)
+        validate.positive(slopes, "slopes", allow_zero=True)
+
+
+def _validate_mask(check: bool, raster: Any, nodata: nodata, shape: shape2d) -> BooleanMask:
+    """
+    _validate_mask  Validates and returns a valid data mask
+    ----------
+    _validate_mask(check, raster, nodata, shape)
+    Checks that an input raster is a valid data mask raster. Optionally checks
+    that the elements of the mask are boolean-like. Converts the mask to a
+    boolean dtype and returns the converted array.
+    ----------
+    Inputs:
+        check: True to check that elements are boolean-like. False to disable the check
+        raster: The user-provided raster mask
+        nodata: A nodata value is the raster is a numpy array
+        shape: The required shape of the raster
+
+    Outputs:
+        numpy 2D bool array: The loaded valid data mask
+    """
+    mask = validate.raster(raster, 'mask', shape=shape, dtype=mask_dtypes, numpy_nodata=nodata, nodata_to=0)
+    if check:
+        mask = validate.mask(mask, 'mask')
+    else:
+        mask = mask.astype(bool)
+    return mask
+
+
+
+#####
 # Utilities
 #####
 
@@ -833,54 +927,6 @@ def _nodata(
             nodata[k] = value.astype(raster.dtype)
     return nodata
 
-
-def _validate_d8(check: bool, flow: ValidatedRaster, nodata: nodata) -> None:
-    """
-    _validate_d8  Optionally validates D8 flow directions
-    ----------
-    _validate_d8(check, flow, nodata)
-    Optionally checks that D8 flow direction values are valid. Valid D8 flow
-    directions are integers from 1 to 8.  Set check=False to disable validation.
-    Raises a ValueError if the validation fails.
-    ----------
-    Inputs:
-        check: True to validate. False to skip validation
-        flow: A D8 flow-directions raster
-        nodata: The NoData value for numpy arrays
-    """
-    if check:
-        flow = load_raster(flow, numpy_nodata=nodata, nodata_to=1)
-        validate.flow(flow, "flow_directions")
-
-
-def _validate_dinf(
-    check: bool,
-    flow: ValidatedRaster,
-    flow_nodata: nodata,
-    slopes: ValidatedRaster,
-    slopes_nodata: nodata,
-) -> None:
-    """
-    _validate_dinf  Optionally validates D-Infinity flow directions and slopes
-    ----------
-    _validate_dinf(check, flow, flow_nodata, slopes, slopes_nodata)
-    Optionally checks that D-Infinity flow directions and slopes are valid.
-    Valid flow directions are on the interval from 0 to 2pi. Valid slopes are
-    positive. Set check=False to disable validation. Raises a ValueError if
-    validation fails.
-    ----------
-    Inputs:
-        check: True to validate. False to skip validation
-        flow: A D-infinity flow directions raster
-        flow_nodata: NoData value for numpy flow directions
-        slopes: A D-infinity flow slopes raster
-        slopes_nodata: NoData value for numpy flow slopes
-    """
-    if check:
-        flow = load_raster(flow, numpy_nodata=flow_nodata, nodata_to=0)
-        validate.inrange(flow, "flow_directions", min=0, max=2 * pi)
-        slopes = load_raster(slopes, numpy_nodata=slopes_nodata, nodata_to=0)
-        validate.positive(slopes, "slopes", allow_zero=True)
 
 
 def _paths(
