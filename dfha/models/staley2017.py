@@ -53,7 +53,7 @@ def solve(
     following the form of Equation 5).
 
     All of the inputs to this function should be real-valued numpy arrays.
-    The three variables - V, F, and S - represent the terrain steepness,
+    The three variables - T, F, and S - represent the terrain steepness,
     wildfire intensity, and surface properties variables for the model. In
     most cases, these are 1D arrays with one element per stream segment
     being assessed. Variables can also be 2D arrays - see below for details
@@ -67,7 +67,7 @@ def solve(
     unique set of logistic model parameters. A common use case is solving the
     model for multiple rainfall intensities (for example, 15, 30, and 60 minute
     intervals). In the example with 3 intensities, each parameter should have
-    3 elements with each element corresponding to the parameter value appropriate
+    3 elements - each element corresponds to the parameter value appropriate
     for a particular rainfall intensity. Another use case for multiple runs
     is for Monte Carlo validation of one or more model parameters.
 
@@ -333,10 +333,10 @@ def upslope_ratio(
     upslope_ratio  Computes the proportion of upslope pixels that meet some criteria
     ----------
     upslope_ratio(segments, npixels, flow_directions, meets_criteria)
-    Computes the proportion of upslope pixels that meet a criterion. This function
-    is generalizable to a number of model variables. The "meets_criteria" input
-    is a raster indicating which DEM pixels meet the desired criteria. Pixels
-    meeting the criteria should have a value of 1. All others should be 0.
+    Computes the proportion of upslope pixels that meet a criterion. The 
+    "meets_criteria" input is a raster indicating which DEM pixels meet the 
+    desired criteria. Pixels meeting the criteria should have a value of 1. All 
+    others should be 0.
 
     Note that this function is generalizable to a number of model variables.
     For example it can be used to compute:
