@@ -51,7 +51,7 @@ from math import sqrt
 from copy import deepcopy
 from dfha import validate, dem
 from dfha.utils import any_defined, load_raster, real
-from dfha.erros import ShapeError, RasterShapeError
+from dfha.errors import ShapeError, RasterShapeError
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
     Raster,
@@ -62,6 +62,7 @@ from dfha.typing import (
     VectorShape,
     SegmentsShape,
     SegmentValues,
+    nodata,
 )
 from nptyping import NDArray, Shape, Integer, Number, Bool
 
@@ -145,7 +146,7 @@ class Segments:
         slope           - Returns the mean slope for each segment
 
     Generic Values:
-        summary         - Returns a generic statistical summary value for each segment
+        summary         - Returns a statistical summary value for each segment
         catchment_mean  - Returns a mean computed over the catchment area for each segment
 
     Filtering:
@@ -162,7 +163,6 @@ class Segments:
     Validation:
         _validate                   - Validates an input raster
         _validate_area              - Validates the area of DEM pixels
-        _validate_flow              - Validates flow direction numbers
         _validate_confinement_args  - Validate kernel size (N) and DEM resolution
 
     Confinement:
@@ -438,19 +438,24 @@ class Segments:
                 failed = values < threshold
             self.remove(failed)
 
-    def _summary(self, raster: RasterArray, statistic: StatFunction) -> SegmentValues:
+    def _summary(
+        self, raster: RasterArray, statistic: StatFunction, nodata: nodata
+    ) -> SegmentValues:
         """
         _summary  Returns a summary value for each stream segment
         ----------
-        self._summary(raster, statistic)
+        self._summary(raster, statistic, nodata)
         Given a raster of data values, computes a summary statistic for each
-        stream segment.
+        stream segment. If a stream segment contains NoData values, then the
+        statistic for the stream segment is set to NaN.
         ----------
         Inputs:
             raster: A raster of data values. Should have the same size as the
                 raster used to derive the stream segments
             statistic: A numpy function used to compute a statistic over an array.
                 Options are amin, amax, mean, median, and std
+            nodata: A NoData value for the raster. Segments that contain this
+                value will receive a NaN value.
 
         Outputs:
             numpy 1D array: The summary statistic for each stream segment
@@ -459,13 +464,19 @@ class Segments:
         summary = np.empty(len(self))
         for i, id in enumerate(self.ids):
             pixels = self.indices[id]
-            summary[i] = statistic(raster[pixels])
+            values = raster[pixels]
+            if nodata in values:
+                summary[i] = np.nan
+            else:
+                summary[i] = statistic(raster[pixels])
         return summary
 
     #####
     # User Methods
     #####
-    def basins(self, upslope_basins: Raster) -> SegmentValues:
+    def basins(
+        self, upslope_basins: Raster, nodata: Optional[scalar] = None
+    ) -> SegmentValues:
         """
         basins  Returns the maximum number of upslope basins for each stream segment
         ----------
@@ -474,16 +485,25 @@ class Segments:
         stream segment. Returns this count as a numpy 1D array. The order of
         basin counts in the output array will match the order of segment IDs for
         the object.
+
+        self.basins(upslope_basins, nodata)
+        Specifies a NoData value for when the input raster is a numpy array.
+        Without this option, all elements of an input numpy array are treated as
+        valid. If upslope_basins is a file-based raster, this option is ignored
+        and the NoData value is instead determined from the file metadata.
         ----------
         Inputs:
             upslope_basins: A raster holding the number of upslope debris basins
                 for the DEM pixels.
+            nodata: A NoData value for when the upslope_basins raster is a numpy array.
 
         Outputs:
             numpy 1D array: The maximum number of upslope debris basins for each
                 stream segment.
         """
-        upslope_basins = self._validate(upslope_basins, "upslope_basins")
+        upslope_basins = self._validate(
+            upslope_basins, "upslope_basins", numpy_nodata=nodata, nodata_to=0
+        )
         return self._summary(upslope_basins, self._stats["basins"])
 
     def catchment_mean(
@@ -634,9 +654,9 @@ class Segments:
 
         # Check user inputs
         (N, resolution) = self._validate_confinement_args(N, resolution)
-        flow_directions = self._validate(flow_directions, "flow_directions")
-        self._validate_flow(flow_directions)
         dem = self._validate(dem, "dem")
+        flow_directions = self._validate(flow_directions, "flow_directions")
+        validate.flow(flow_directions, "flow_direction")
 
         # Compute mean confinement angle
         return self._confinement(dem, flow_directions, N, resolution)
@@ -681,8 +701,9 @@ class Segments:
         ----------
         self.pixels(upslope_pixels)
         Computes the maximum number of upslope pixels for each stream segment.
-        Returns the pixel counts as a numpy 1D array. The order of pixel counts
-        in the output array will match the order of segment IDs in the object.
+        Stream segments with NoData values are given a value of NaN. Returns the
+        pixel counts as a numpy 1D array. The order of pixel counts in the output
+        array will match the order of segment IDs in the object.
 
         Note that you can use pixel counts to determine the total upslope area
         (contributing area) for each stream segment by multiplying pixel counts
@@ -695,7 +716,7 @@ class Segments:
         Outputs:
             numpy 1D array: The maximum number of upslope pixels for each stream segment.
         """
-        upslope_pixels = self._validate(upslope_pixels, "upslope_pixels")
+        upslope_pixels, nodata = self._validate(upslope_pixels, "upslope_pixels")
         return self._summary(upslope_pixels, self._stats["pixels"])
 
     def remove(self, segments: IDs) -> None:
@@ -1224,7 +1245,7 @@ class _Kernel:
         length: The lateral or diagonal flow length across 1 pixel"""
         clockwise = self.max_height(flow - 7, dem)
         counterclock = self.max_height(flow - 3, dem)
-        slopes = np.array([clockwise, counterclock]).reshape(1, 2)
-        slopes = slopes - dem[self.row, self.col]
-        slopes = slopes / length
+        heights = np.array([clockwise, counterclock]).reshape(1, 2)
+        rise = heights - dem[self.row, self.col]
+        slopes = rise / length
         return slopes
