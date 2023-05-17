@@ -1,5 +1,5 @@
 """
-utils  Low-level utility functions used throughout the package
+utils  Low-level utilities used throughout the package
 ----------
 Numpy dtypes:
     real            - A list of numpy dtypes considered to be real-valued numbers
