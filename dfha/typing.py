@@ -72,6 +72,9 @@ MaskArray = Union[NDArray[Any, Integer], NDArray[Any, Floating], NDArray[Any, Bo
 BooleanArray = NDArray[Any, Bool]
 BooleanMask = NDArray[MatrixShape, Bool]
 
+# Raster NoData values
+nodata = Union[None, scalar]
+
 # Segments
 SegmentsShape = Shape["Segments"]
 SegmentValues = Union[NDArray[SegmentsShape, Integer], NDArray[SegmentsShape, Floating]]

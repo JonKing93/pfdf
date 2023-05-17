@@ -97,6 +97,7 @@ from dfha.typing import (
     ValidatedRaster,
     shape2d,
     BooleanMask,
+    nodata
 )
 
 # Type aliases
@@ -105,7 +106,6 @@ Output = Union[RasterArray, Path]
 FlowSlopes = Tuple[Output, Output]
 FlowOutput = Union[Output, FlowSlopes]
 SaveType = Union[None, bool]  # (None is for inputs)
-nodata = Union[None, scalar]
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
