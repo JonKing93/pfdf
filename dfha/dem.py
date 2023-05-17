@@ -88,7 +88,16 @@ from tempfile import TemporaryDirectory
 from dfha import validate
 from dfha.utils import save_raster, load_raster, raster_shape, real, mask_dtypes
 from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
-from dfha.typing import Pathlike, Raster, RasterArray, scalar, strs, ValidatedRaster, shape2d, BooleanMask
+from dfha.typing import (
+    Pathlike,
+    Raster,
+    RasterArray,
+    scalar,
+    strs,
+    ValidatedRaster,
+    shape2d,
+    BooleanMask,
+)
 
 # Type aliases
 Option = Union[None, bool]  # None: Default, bool: User-specified
@@ -410,7 +419,7 @@ def upslope_sum(
     from the file metadata.
 
     upslope_sum(..., *, check=False)
-    Disables the validation of D8 flow directions and (if provided) the valid 
+    Disables the validation of D8 flow directions and (if provided) the valid
     data mask. When enabled, the validation checks that flow directions are integers
     on the interval from 1 to 8. If a data mask is provided, the validation also
     checks that its elements are boolean-like (all 0s or 1s). Both validations
@@ -432,7 +441,7 @@ def upslope_sum(
         flow_nodata: A NoData value for the flow directions when they are a numpy array.
         values_nodata: A NoData value for the pixel values when they are a numpy array.
         mask_nodata: A NoData value for the valid data mask when it is a numpy array
-        check: True to validate flow-direction numbers and valid data mask. 
+        check: True to validate flow-direction numbers and valid data mask.
             False to disable this check.
         verbose: Set to True to print TauDEM messages to the console. False to
             suppress these messages. If unset, uses the default verbosity for
@@ -478,7 +487,6 @@ def upslope_sum(
         )
         area_d8(flow, values, sum, verbose)
         return _output(sum, save)
-
 
 
 def relief(
@@ -803,7 +811,9 @@ def _validate_dinf(
         validate.positive(slopes, "slopes", allow_zero=True)
 
 
-def _validate_mask(check: bool, raster: Any, nodata: nodata, shape: shape2d) -> BooleanMask:
+def _validate_mask(
+    check: bool, raster: Any, nodata: nodata, shape: shape2d
+) -> BooleanMask:
     """
     _validate_mask  Validates and returns a valid data mask
     ----------
@@ -821,13 +831,14 @@ def _validate_mask(check: bool, raster: Any, nodata: nodata, shape: shape2d) -> 
     Outputs:
         numpy 2D bool array: The loaded valid data mask
     """
-    mask = validate.raster(raster, 'mask', shape=shape, dtype=mask_dtypes, numpy_nodata=nodata, nodata_to=0)
+    mask = validate.raster(
+        raster, "mask", shape=shape, dtype=mask_dtypes, numpy_nodata=nodata, nodata_to=0
+    )
     if check:
-        mask = validate.mask(mask, 'mask')
+        mask = validate.mask(mask, "mask")
     else:
         mask = mask.astype(bool)
     return mask
-
 
 
 #####
@@ -918,7 +929,6 @@ def _nodata(
             value = validate.scalar(value, name, real)
             nodata[k] = value.astype(raster.dtype)
     return nodata
-
 
 
 def _paths(

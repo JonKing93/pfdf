@@ -93,9 +93,7 @@ def fflow8(tmp_path):
 
 @pytest.fixture
 def fslopes8(tmp_path):
-    return filled_raster(
-        "float32", tmp_path, "slopes8", center=[0, 2], fill=-1
-    )
+    return filled_raster("float32", tmp_path, "slopes8", center=[0, 2], fill=-1)
 
 
 # D-infinity flow directions
@@ -124,10 +122,22 @@ def fweights(tmp_path):
     return filled_raster("float32", tmp_path, "weights", center=[2, 6], fill=-999)
 
 
+# Valid data mask for upslope sums
+@pytest.fixture
+def fmask(tmp_path):
+    return filled_raster("int8", tmp_path, "mask", center=[1, 0], fill=-1)
+
+
 # Weighted area
 @pytest.fixture
 def fareaw(tmp_path):
     return filled_raster("float32", tmp_path, "area_weighted", center=[8, 6], fill=-1)
+
+
+# Masked upslope sum
+@pytest.fixture
+def faream(tmp_path):
+    return filled_raster("float32", tmp_path, "area_masked", center=[2, 0], fill=-1)
 
 
 # Vertical relief
@@ -341,7 +351,7 @@ class TestValidateDinf:
 
 
 class TestPaths:
-    @pytest.mark.filterwarnings('ignore::rasterio.errors.NotGeoreferencedWarning')
+    @pytest.mark.filterwarnings("ignore::rasterio.errors.NotGeoreferencedWarning")
     def test(_, tmp_path, araster, fraster):
         output = dem._paths(
             tmp_path,
@@ -704,7 +714,6 @@ class TestFlowDirections:
 
 
 class TestUpslopePixels:
-
     def test_warnings(_, fflow8, capfd):
         load_raster(fflow8)
         dem.upslope_pixels(fflow8)
@@ -772,7 +781,7 @@ class TestUpslopePixels:
         expected = load_raster(fareau)
         assert np.array_equal(output, expected)
 
-    @pytest.mark.filterwarnings('ignore::RuntimeWarning:dfha.validate')
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
     def test_check(_, fflow8, value):
         flow = load_raster(fflow8).astype(float)
@@ -850,7 +859,7 @@ class TestUpslopeSum:
         expected = load_raster(fareaw)
         assert np.array_equal(output, expected)
 
-    @pytest.mark.filterwarnings('ignore::RuntimeWarning:dfha.validate')
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
     def test_check(_, fflow8, fweights, value):
         flow = load_raster(fflow8).astype(float)
@@ -864,6 +873,37 @@ class TestUpslopeSum:
         flow = load_raster(fflow8).astype(float)
         flow[0, 0] = value
         dem.upslope_sum(flow, fweights, check=False)
+
+    @pytest.mark.parametrize("load_mask", (True, False))
+    def test_mask(_, fflow8, fweights, fmask, faream, load_mask):
+        if load_mask:
+            fmask = load_raster(fmask)
+            fmask[fmask == -1] = 0
+        output = dem.upslope_sum(fflow8, fweights, fmask)
+        expected = load_raster(faream)
+        assert np.array_equal(output, expected)
+
+    def test_mask_nodata(_, fflow8, fweights, fmask, faream):
+        mask = load_raster(fmask)
+        output = dem.upslope_sum(fflow8, fweights, mask, mask_nodata=-1)
+        expected = load_raster(faream)
+        assert np.array_equal(output, expected)
+
+    def test_mask_ignore_nodata(_, fflow8, fweights, fmask, faream):
+        output = dem.upslope_sum(fflow8, fweights, fmask, mask_nodata=-999)
+        expected = load_raster(faream)
+        assert np.array_equal(output, expected)
+
+    def test_mask_check(_, fflow8, fweights, fmask):
+        mask = load_raster(fmask)
+        with pytest.raises(ValueError) as error:
+            dem.upslope_sum(fflow8, fweights, mask)
+        assert_contains(error, "mask")
+
+    # Only need to test it runs. Output values are unconstrained when check=False
+    def test_mask_nocheck(_, fflow8, fweights, fmask):
+        mask = load_raster(fmask)
+        dem.upslope_sum(fflow8, fweights, mask, check=False)
 
 
 class TestRelief:
