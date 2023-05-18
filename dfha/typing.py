@@ -16,9 +16,19 @@ nptyping Primer:
     unspecified size (for example, "Rows"). Or as "<N> <label>" for a dimension
     of specific length (for example, "2 columns").
 
-    Unfortunately, there is currently no way to combine int and float dtypes
-    without also including complex numbers. So you'll see some long Unions designed
-    to permit an int or float array with a particular shape.
+    In this package, all user-facing functions that operate on numpy arrays 
+    allow float, int, and boolean dtypes. Unfortunately, there is currently no 
+    good way to indicate this combination of types, so we use the following 
+    conventions:
+
+    * An array typed with a float dtype is a numeric dataset - typically a raster
+      of some sort. Although only the float dtype is listed, the array may also
+      be an integer or boolean dtype.
+
+    * An array typed with a boolean dtype is usually a data mask - such as a
+      valid-data/NoData mask. Although a boolean dtype is recommended, the
+      function will accept float and integer dtypes, so long as all valid
+      data elements are either 1 or 0.
 """
 
 from typing import Any, Union, Sequence, Dict, Tuple
@@ -46,10 +56,10 @@ VectorShape = Shape["Elements"]
 MatrixShape = Shape["Rows, Columns"]
 
 # Generic real-valued arrays
-RealArray = Union[NDArray[Any, Integer], NDArray[Any, Floating]]
-ScalarArray = Union[NDArray[ScalarShape, Integer], NDArray[ScalarShape, Floating]]
-VectorArray = Union[NDArray[VectorShape, Integer], NDArray[VectorShape, Floating]]
-MatrixArray = Union[NDArray[MatrixShape, Integer], NDArray[MatrixShape, Floating]]
+RealArray = NDArray[Any, Floating]
+ScalarArray = NDArray[ScalarShape, Floating]
+VectorArray = NDArray[VectorShape, Floating]
+MatrixArray = NDArray[MatrixShape, Floating]
 
 # Real-valued array inputs
 scalar = Union[int, float, ScalarArray]
@@ -62,34 +72,24 @@ ValidatedRaster = Union[Path, RasterArray]
 Raster = Union[str, Path, DatasetReader, RasterArray]
 OutputRaster = Union[Path, RasterArray]
 
-# Raster Masks
-Mask = Union[
+# Generic Masks
+Mask = Union[     # This is for user-provided masks
     NDArray[MatrixShape, Integer],
     NDArray[MatrixShape, Floating],
     NDArray[MatrixShape, Bool],
 ]
-MaskArray = Union[NDArray[Any, Integer], NDArray[Any, Floating], NDArray[Any, Bool]]
+BooleanMask = NDArray[MatrixShape, Bool]  # This is a validated mask for internal use
 BooleanArray = NDArray[Any, Bool]
-BooleanMask = NDArray[MatrixShape, Bool]
 
-# Raster NoData values
+# NoData values
 nodata = Union[None, scalar]
+DataMask = Union[None, BooleanArray]
 
-# Segments
-SegmentsShape = Shape["Segments"]
-SegmentValues = Union[NDArray[SegmentsShape, Integer], NDArray[SegmentsShape, Floating]]
+# Segments and Staley 2017 models
+SegmentValues = NDArray[Shape['Segments'], Floating]
+Durations = NDArray[Shape['Durations'], Floating]
+Pvalues = NDArray[Shape['Pvalues'], Floating]
+Parameters = NDArray[Shape['Runs'], Floating]
+Variables = NDArray[Shape['Parameters, Runs'], Floating]
+Intensities = NDArray[Shape['Segments, Runs, Pvalues'], Floating]
 
-# Staley 2017 Shapes
-DurationShape = Shape["Durations"]
-PvalShape = Shape["Pvalues"]
-ParameterShape = Shape["Runs"]
-VariableShape = Shape["Segments, Runs"]
-IntensityShape = Shape["Segments, Runs, Pvalues"]
-
-# Staley 2017 arrays
-Durations = Union[NDArray[DurationShape, Integer], NDArray[DurationShape, Floating]]
-DurationValues = NDArray[DurationShape, Floating]
-Pvalues = Union[NDArray[PvalShape, Integer], NDArray[PvalShape, Floating]]
-Parameters = Union[NDArray[ParameterShape, Integer], NDArray[ParameterShape, Floating]]
-Variables = Union[NDArray[VariableShape, Integer], NDArray[VariableShape, Floating]]
-Intensities = Union[NDArray[IntensityShape, Integer], NDArray[IntensityShape, Floating]]
