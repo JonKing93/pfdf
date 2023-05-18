@@ -74,8 +74,7 @@ Loaded Array Validation:
 
 Utilities:
     _options            - Determine verbosity and overwrite permissions for a routine
-    _validate_inputs    - Validate user-provided input rasters
-    _nodata             - Parses NoData values for numpy rasters
+    _validate_inputs    - Validate user-provided input rasters and NoData values
     _paths              - Return paths for the rasters used by a TauDEM routine
     _run_taudem         - Runs a TauDEM routine as a subprocess
     _output             - Returns an output raster as a numpy 2D array or Path
@@ -97,7 +96,7 @@ from dfha.typing import (
     ValidatedRaster,
     shape2d,
     BooleanMask,
-    nodata
+    nodata,
 )
 
 # Type aliases
@@ -173,8 +172,7 @@ def pitfill(
     # Validate
     verbose, overwrite = _options(verbose, overwrite)
     names = ["dem", "pitfilled"]
-    [dem] = _validate_inputs([dem], names[0:1])
-    nodata = _nodata([nodata], ["nodata"], [dem])
+    [dem], nodata = _validate_inputs([dem], names[0:1], [nodata], ["nodata"])
     pitfilled, save = validate.output_path(path, overwrite)
 
     # Run using temporary files as necessary
@@ -874,63 +872,54 @@ def _options(verbose: Option, overwrite: Option) -> Tuple[bool, bool]:
     return verbose, overwrite
 
 
-def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[ValidatedRaster]:
+def _validate_inputs(
+    rasters: List[Any],
+    names: Sequence[str],
+    nodata: List[nodata],
+    nodata_names: Sequence[str],
+) -> Tuple[List[ValidatedRaster], List[nodata]]:
     """
-    _validate_inputs  Validates user provided input rasters
+    _validate_inputs  Validates user provided input rasters and NoData values
     ----------
-    _validate_inputs(rasters, names)
-    Checks that inputs are valid rasters. If multiple rasters are provided,
-    checks that all rasters have the same shape. Does not load file-based rasters
-    into memory.
+    _validate_inputs(rasters, names, nodata, nodata_names)
+    Checks that inputs are valid rasters. If a raster is a numpy array, also
+    validates the associated NoData value. If multiple rasters are provided,
+    checks that all have the same shape. Does not load file-based rasters into
+    memory.
     ----------
     Inputs:
         rasters: The user-provided input rasters
         names: The names of the rasters for use in error messages.
+        nodata: NoData values for the rasters for when they are numpy arrays.
+        nodata_names: The names of the NoData variables for use in error messages.
 
     Outputs:
         List[numpy 2D array | Path]: The validated rasters.
+        List[scalar | None]: The NoData value for each raster
     """
 
-    # Validate each raster. First raster may be any shape
-    shape = None
+    # Setup. Get number of rasters and indices. First raster may be any shape
     nrasters = len(rasters)
-    for r, raster, name in zip(range(0, nrasters), rasters, names):
-        rasters[r] = validate.raster(raster, name, shape=shape, load=False)
+    indices = range(0, nrasters)
+    shape = None
 
-        # Get the shape from the first raster
+    # Validate each raster and NoData value
+    for r, raster, name, nodata, nodata_name in zip(
+        indices, rasters, names, nodata, nodata_names
+    ):
+        rasters[r], nodata[r] = validate.raster(
+            raster,
+            name,
+            shape=shape,
+            load=False,
+            numpy_nodata=nodata,
+            nodata_name=nodata_name,
+        )
+
+        # Additional rasters must match the shape of the first
         if nrasters > 1 and r == 0:
-            shape = raster_shape(raster)
+            shape = raster_shape(rasters[r])
     return rasters
-
-
-def _nodata(
-    nodata: List[Any],
-    names: Sequence[str],
-    rasters: Sequence[ValidatedRaster],
-) -> List[nodata]:
-    """
-    _nodata  Validates and parses NoData values for input numpy rasters
-    ----------
-    _nodata(nodata, names, rasters)
-    Validates nodata values for input rasters that are numpy arrays. Ensures each
-    NoData value is the same dtype as the associated raster. Returns the validated
-    NoData values as a list.
-    ----------
-    Inputs:
-        nodata: User-provided nodata values for the input rasters
-        names: The names of the nodata variables for use in error messages
-        rasters: The validated input rasters
-
-    Outputs:
-        List[None | real-valued scalar]: The validated NoData values
-    """
-
-    indices = range(0, len(nodata))
-    for k, value, name, raster in zip(indices, nodata, names, rasters):
-        if isinstance(raster, ndarray) and value is not None:
-            value = validate.scalar(value, name, real)
-            nodata[k] = value.astype(raster.dtype)
-    return nodata
 
 
 def _paths(
