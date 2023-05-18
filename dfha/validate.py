@@ -646,14 +646,7 @@ def integers(
         isdata = _isdata(array, isdata, nodata)
         data = _data_elements(array, isdata)
         isinteger = np.mod(data, 1) == 0
-
-        # Indicate first bad element if failed
-        if not np.all(isinteger):
-            index, value = _first_failure(array, isdata, isinteger)
-            raise ValueError(
-                f"The data elements of {name} must be integers, "
-                f"but element {index} ({value}) is not."
-            )
+        _check(isinteger, "integers", array, name, isdata)
 
 
 def inrange(
@@ -732,21 +725,13 @@ def mask(
         boolean numpy array: The mask array with a boolean dtype.
     """
 
-    # Boolean dtype is always valid. Otherwise, test the valid data elements
+    # Boolean dtype is always valid. Otherwise, test the valid data elements.
+    # Always return as a boolean array.
     if array.dtype != bool:
         isdata = _isdata(array, isdata, nodata)
         data = _data_elements(array, isdata)
         valid = np.isin(data, [0, 1])
-
-        # If invalid, indicate first failed element
-        if not np.all(valid):
-            index, value = _first_failure(array, isdata, valid)
-            raise ValueError(
-                f"The data elements of {name} must be 0 or 1, "
-                f"but element {index} ({value}) is not."
-            )
-
-    # Always return as a boolean array
+        _check(valid, "0 or 1", array, name, isdata)
     return array.astype(bool)
 
 
@@ -790,6 +775,24 @@ def flow(
 #####
 # Loaded Array Utilities
 #####
+
+
+def _check(
+    passed: BooleanArray,
+    description: str,
+    array: RealArray,
+    name: str,
+    isdata: DataMask,
+):
+    """Checks that all data elements passed a validation check. Raises a
+    ValueError indicating the first failed element if not."""
+
+    if not np.all(passed):
+        index, value = _first_failure(array, isdata, passed)
+        raise ValueError(
+            f"The data elements of {name} must be {description}, "
+            f"but element {index} ({value}) is not."
+        )
 
 
 def _check_bound(
@@ -838,14 +841,7 @@ def _check_bound(
         # Test the valid data elements.
         data = _data_elements(array, isdata)
         passed = operator(data, bound)
-
-        # Indicate first bad element if failed
-        if not np.all(passed):
-            index, value = _first_failure(array, isdata, passed)
-            raise ValueError(
-                f"The data elements of {name} must be {description} {bound}, "
-                f"but element {index} ({value}) is not."
-            )
+        _check(passed, f"{description} {bound}", array, name, isdata)
 
 
 def _isdata(array: RealArray, isdata: BooleanArray, nodata: nodata) -> DataMask:
