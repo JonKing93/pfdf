@@ -591,18 +591,18 @@ def positive(
     """
 
     # If allowing zero, then unsigned integers and booleans are all valid.
-    # Otherwise, get the valid data elements
     dtype = array.dtype
     skip = allow_zero and (istype(dtype, uint_) or array.dtype == bool)
     if not skip:
-        data, isdata = _isdata(raster, isdata, nodata)
-
-        # Get the appropriate operator and validate
+        # Otherwise, get the appropriate operator
         if allow_zero:
             operator = ">="
         else:
             operator = ">"
-        _check_bound(data, name, isdata, operator, bound=0)
+
+        # Validate the data elements
+        isdata = _isdata(raster, isdata, nodata)
+        _check_bound(array, name, isdata, operator, bound=0)
 
 
 def integers(
@@ -643,7 +643,8 @@ def integers(
 
     # Integer and boolean dtype always pass. If not one of these, test the data elements
     if not istype(array.dtype, int_) and array.dtype != bool:
-        data, isdata = _isdata(array, isdata, nodata)
+        isdata = _isdata(array, isdata, nodata)
+        data = _data_elements(array, isdata)
         isinteger = np.mod(data, 1) == 0
 
         # Indicate first bad element if failed
@@ -695,8 +696,8 @@ def inrange(
     """
 
     isdata = _isdata(array, isdata, nodata)
-    _check_bound(array, name, ">=", min, where=isdata)
-    _check_bound(array, name, "<=", max, where=isdata)
+    _check_bound(array, name, isdata, ">=", min)
+    _check_bound(array, name, isdata, "<=", max)
 
 
 def mask(
@@ -731,15 +732,19 @@ def mask(
         boolean numpy array: The mask array with a boolean dtype.
     """
 
-    # Boolean dtype is always valid. Otherwise, get the valid data mask
+    # Boolean dtype is always valid. Otherwise, test the valid data elements
     if array.dtype != bool:
-        data, isdata = _isdata(array, isdata, nodata)
+        isdata = _isdata(array, isdata, nodata)
+        data = _data_elements(array, isdata)
+        valid = np.isin(data, [0, 1])
 
-        # Validate
-        invalid = np.isin()
-        valid = np.isin(array[isdata], [0, 1])
+        # If invalid, indicate first failed element
         if not np.all(valid):
-            raise ValueError(f"The data elements of {name} must all be 0 or 1.")
+            index, value = _first_failure(array, isdata, valid)
+            raise ValueError(
+                f"The data elements of {name} must be 0 or 1, "
+                f"but element {index} ({value}) is not."
+            )
 
     # Always return as a boolean array
     return array.astype(bool)
@@ -776,9 +781,10 @@ def flow(
     Raises:
     """
 
-    isdata = _isdata(array, isdata, flow)
+    isdata = _isdata(array, isdata, nodata)
+    _check_bound(array, name, isdata, ">=", 1)
+    _check_bound(array, name, isdata, "<=", 8)
     integers(array, name, isdata=isdata)
-    inrange(array, name, min=1, max=8, isdata=isdata)
 
 
 #####
@@ -830,7 +836,7 @@ def _check_bound(
             operator = np.greater
 
         # Test the valid data elements.
-        data, isdata = _isdata(array, isdata, None)
+        data = _data_elements(array, isdata)
         passed = operator(data, bound)
 
         # Indicate first bad element if failed
@@ -842,40 +848,21 @@ def _check_bound(
             )
 
 
-def _isdata(
-    array: RealArray, isdata: BooleanArray, nodata: nodata
-) -> Tuple[RealArray, DataMask]:
-    """
-    _isdata  Locate and return valid data elements in an array
-    ----------
-    _isdata(array, isdata, nodata)
-    Parses "isdata" and "nodata" options to locate the valid data elements in an
-    array. Returns two outputs: the first is a numpy array holding only the valid
-    data elements from the input array. The second output is the valid data mask
-    for the input array.
+def _isdata(array: RealArray, isdata: BooleanArray, nodata: nodata) -> DataMask:
+    """Parses isdata/nodata options and returns the data mask for the array
+    (i.e. the mask of element that are not NoData). Note that if both options are
+    None, then the data mask will be None, as no mask is necessary."""
+    if isdata is None and nodata is not None:
+        isdata = data_mask(array, nodata)
+    return isdata
 
-    If both isdata and nodata are None, then all array elements are treated as
-    valid. The output valid data mask will be None, since no masking is necessary.
-    If isdata is provided, it is used directly as the valid data mask. If only
-    a nodata option is provided, builds the valid data mask by checking if array
-    elements match the NoData value.
-    ----------
-    Inputs:
-        array: The array whose valid data elements should be located
-        isdata: A pre-existing valid data mask. None if this has not been built.
-        nodata: A NoData value for the array. None if not provided.
 
-    Outputs:
-        numpy array: The valid data elements of the array
-        None | numpy boolean array: The isdata mask for the input array
-    """
-
+def _data_elements(array: RealArray, isdata: DataMask) -> RealArray:
+    """Returns the data elements of an array. (The elements that are not NoData)"""
     if isdata is None:
-        if nodata is None:
-            return array, None
-        else:
-            isdata = data_mask(raster, nodata)
-    return array[isdata], isdata
+        return array
+    else:
+        return array[isdata]
 
 
 def _first_failure(
