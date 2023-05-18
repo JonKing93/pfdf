@@ -591,18 +591,18 @@ def positive(
     """
 
     # If allowing zero, then unsigned integers and booleans are all valid.
-    # Otherwise, get the valid data mask
+    # Otherwise, get the valid data elements
     dtype = array.dtype
     skip = allow_zero and (istype(dtype, uint_) or array.dtype == bool)
     if not skip:
-        isdata = _isdata(raster, isdata, nodata)
+        data, isdata = _isdata(raster, isdata, nodata)
 
         # Get the appropriate operator and validate
         if allow_zero:
             operator = ">="
         else:
             operator = ">"
-        _check_bound(array, name, operator, bound=0, where=isdata)
+        _check_bound(data, name, isdata, operator, bound=0)
 
 
 def integers(
@@ -787,12 +787,16 @@ def flow(
 
 
 def _check_bound(
-    array: RealArray, name: str, operator: str, bound: scalar, isdata: DataMask
+    array: RealArray,
+    name: str,
+    isdata: DataMask,
+    operator: str,
+    bound: scalar,
 ) -> None:
     """
     _check_bound  Checks that elements of a numpy array are valid relative to a bound
     ----------
-    _check_bound(array, name, operator, bound, isdata)
+    _check_bound(array, name, isdata, operator, bound)
     Checks that the elements of the input numpy array are valid relative to a
     bound. Valid comparisons are >, <, >=, and <=. Raises a ValueError if the
     criterion is not met.
@@ -800,11 +804,11 @@ def _check_bound(
     Inputs:
         array: The input being checked
         name: A name for the input for use in error messages
+        isdata: The valid data mask for the array.
         operator: The comparison operator to apply. Options are '<', '>', '<=',
             and '>='. Elements must satisfy: (input operator bound) to be valid.
             For example, input < bound.
         bound: The bound being compared to the elements of the array.
-        isdata: The valid data mask for the array.
 
     Raises:
         ValueError: If any element fails the comparison
