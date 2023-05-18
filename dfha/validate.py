@@ -707,7 +707,7 @@ def inrange(
 
 
 def mask(
-    array: MaskArray,
+    array: BooleanArray,
     name: str,
     *,
     isdata: Optional[BooleanArray] = None,
@@ -793,11 +793,13 @@ def flow(
 #####
 
 
-def _check_bound(array, name, operator, bound, where):
+def _check_bound(
+    array: RealArray, name: str, operator: str, bound: scalar, isdata: DataMask
+) -> None:
     """
     _check_bound  Checks that elements of a numpy array are valid relative to a bound
     ----------
-    _check_bound(array, name, operator, bound, where)
+    _check_bound(array, name, operator, bound, isdata)
     Checks that the elements of the input numpy array are valid relative to a
     bound. Valid comparisons are >, <, >=, and <=. Raises a ValueError if the
     criterion is not met.
@@ -809,6 +811,7 @@ def _check_bound(array, name, operator, bound, where):
             and '>='. Elements must satisfy: (input operator bound) to be valid.
             For example, input < bound.
         bound: The bound being compared to the elements of the array.
+        isdata: The valid data mask for the array.
 
     Raises:
         ValueError: If any element fails the comparison
@@ -828,6 +831,14 @@ def _check_bound(array, name, operator, bound, where):
         elif operator == ">":
             description = "greater than"
             operator = np.greater
+
+        # Test the valid data elements.
+        data, isdata = _isdata(array, isdata, None)
+        passed = operator(data, bound)
+
+        # Indicate first bad element if failed
+        if not np.all(passed):
+            index, value = _first_failure(array, isdata, failed=~passed)
 
         # Test elements. Raise ValueError if any fail
         passed = operator(array, bound, where=where)
@@ -875,31 +886,34 @@ def _isdata(
 
 
 def _first_failure(
-    array: RealArray, isdata: DataMask, failed: BooleanArray
+    array: RealArray,
+    isdata: DataMask,
+    passed: Optional[BooleanArray] = None,
 ) -> Tuple[index, scalar]:
     """
     _first_failure  Returns the indices and value of the first invalid data element
     ----------
-    _first_failure(array, isdata, failed)
-    Given an array, valid data mask, and results of a validation check - locates
-    the index of the first invalid data element in the full array. Returns the
-    index and associated value. The "failed" input is a boolean array that indicates
-    which *valid* data elements failed a validation check, so it's size is typically
-    smaller than the size of the input array.
+    _first_failure(array, isdata, passed)
+    Given an array, valid data mask, and results of a validation check (see below)
+    locates the index of the first invalid data element in the full array. Returns the
+    index and associated value.
+
+    The "passed" option should be a boolean array indicating which data elements
+    (i.e. elements that are not NoData) passed the validation check. As such, the
+    size of this array is often smaller than the size of the "array" input.
     ----------
     Inputs:
         array: An input array that failed a validation check
         isdata: The valid data mask for the array
-        failed: A logical array indicating which *valid* data elements of the
-            array failed the validation check. Should not include elements for
-            the array's NoData values.
+        passed: A logical array indicating which data elements of the array passed
+            the validation check
 
     Outputs:
         Tuple[int, ...]: The index of the first invalid data element in the array
         int | float | bool: The value of the invalid data element
     """
 
-    # Get the indices of valid data elements within the arary
+    # Get the indices of valid data elements within the array
     data_indices = np.arange(0, array.size)
     if isdata is not None:
         isdata = isdata.reshape(-1)
@@ -907,7 +921,7 @@ def _first_failure(
 
     # Locate the first failure within the set of data elements. Then locate
     # this data element with the full array and return the associated value.
-    first = np.argmax(failed)
+    first = np.argmin(passed)
     first = data_indices[first]
     first = np.unravel_index(first, array.shape)
     return first, array[first]
