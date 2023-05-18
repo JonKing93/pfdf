@@ -467,15 +467,13 @@ def upslope_sum(
         mask = _validate_mask(check, mask, shape, mask_nodata)
     _validate_d8(check, flow, nodata[0])
 
-    # Optionally mask the pixel values
+    # Optionally mask the pixel values. Ensure NoData values remain Nodata
     if mask is not None:
         values = load_raster(values)
+        nodatas = nodata_mask(values, nodata[1])
         values = values * mask
-
-        # Ensure NoData values remain NoData
-        if nodata[1] is not None:
-            mask = nodata_mask(values, nodata[1])
-            values[mask] = nodata[1]
+        if nodatas is not None:
+            values[nodatas] = nodata[1]
 
     # Compute sum using temp files as needed
     with TemporaryDirectory() as temp:
