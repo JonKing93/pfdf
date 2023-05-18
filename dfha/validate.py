@@ -24,23 +24,28 @@ Array shape and type:
     vector          - Validates an input vector
     matrix          - Validates an input matrix
 
-Loaded arrays:
+Rasters:
+    raster          - Check that an input is a valid raster. Returns raster and NoData value
+    output_path     - Check that an input is a valid path for an output raster
+
+Numeric arrays:
     positive        - Checks that all elements are positive
     integers        - Checks that all elements are integers (NOT that the dtype is an int)
     inrange         - Checks that all elements are within a given range (inclusive)
     mask            - Checks that an array is boolean-like (all 1s and 0s)
     flow            - Checks that an array consists of TauDEM-style D8 flow directions
 
-Rasters:
-    raster          - Check that an input is a valid raster
-    output_path     - Check that an input is a valid path for an output raster
-
 Low-level:
     shape_          - Check that array shape is valid
     dtype_          - Checks that array dtype is valid
     nonsingleton    - Locate nonsingleton dimensions
 
-Internal:
+Raster utilities:
+    _raster_type    - Checks that an input is a valid raster type
+    _raster_file    - Checks that a file-based raster is valid
+    _raster_array   - Checks that a raster array is valid.
+
+Array Utilities:
     _check_bound    - Compares the elements of an ndarray to a bound
     _isdata         - Returns the data mask for an ndarray
     _data_elements  - Returns the data elements of an ndarray
