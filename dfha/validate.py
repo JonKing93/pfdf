@@ -14,6 +14,10 @@ Note on dtypes:
     alias to a specific numpy scalar, rather than a more abstract type. For
     example, int may alias to numpy.int32, so would not be suitable to allow
     all integer types. Instead, use numpy.integer to enable all integer types.
+
+Note on loaded arrays:
+    As a rule, these tests only check the data elements of an array. That is,
+    NoData elements are not included in the tests.
 ----------
 Array shape and type:
     scalar          - Validates an input scalar
