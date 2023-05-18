@@ -838,14 +838,10 @@ def _check_bound(
 
         # Indicate first bad element if failed
         if not np.all(passed):
-            index, value = _first_failure(array, isdata, failed=~passed)
-
-        # Test elements. Raise ValueError if any fail
-        passed = operator(array, bound, where=where)
-        if not np.all(passed):
-            bad = np.argwhere(~passed)[0]
+            index, value = _first_failure(array, isdata, passed)
             raise ValueError(
-                f"The elements of {name} must be {description} {bound}, but element {bad} is not."
+                f"The data elements of {name} must be {description} {bound}, "
+                f"but element {index} ({value}) is not."
             )
 
 
