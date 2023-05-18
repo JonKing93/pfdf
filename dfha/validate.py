@@ -38,6 +38,10 @@ Low-level:
 
 Internal:
     _check_bound    - Compares the elements of an ndarray to a bound
+    _isdata         - Returns the data mask for an ndarray
+    _data_elements  - Returns the data elements of an ndarray
+    _check          - Ensures the elements of an ndarray passed a validation test
+    _first_failure  - Returns the index and value of the first element to fail a validation test
 """
 
 import numpy as np
@@ -777,24 +781,6 @@ def flow(
 #####
 
 
-def _check(
-    passed: BooleanArray,
-    description: str,
-    array: RealArray,
-    name: str,
-    isdata: DataMask,
-):
-    """Checks that all data elements passed a validation check. Raises a
-    ValueError indicating the first failed element if not."""
-
-    if not np.all(passed):
-        index, value = _first_failure(array, isdata, passed)
-        raise ValueError(
-            f"The data elements of {name} must be {description}, "
-            f"but element {index} ({value}) is not."
-        )
-
-
 def _check_bound(
     array: RealArray,
     name: str,
@@ -859,6 +845,24 @@ def _data_elements(array: RealArray, isdata: DataMask) -> RealArray:
         return array
     else:
         return array[isdata]
+
+
+def _check(
+    passed: BooleanArray,
+    description: str,
+    array: RealArray,
+    name: str,
+    isdata: DataMask,
+):
+    """Checks that all data elements passed a validation check. Raises a
+    ValueError indicating the first failed element if not."""
+
+    if not np.all(passed):
+        index, value = _first_failure(array, isdata, passed)
+        raise ValueError(
+            f"The data elements of {name} must be {description}, "
+            f"but element {index} ({value}) is not."
+        )
 
 
 def _first_failure(
