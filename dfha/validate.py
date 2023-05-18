@@ -641,21 +641,14 @@ def integers(
         ValueError: If the array contains non-integer elements
     """
 
-    # Integer and boolean dtype always pass. If not one of these, get the valid
-    # data mask
+    # Integer and boolean dtype always pass. If not one of these, test the data elements
     if not istype(array.dtype, int_) and array.dtype != bool:
-        isdata = _isdata(array, isdata, nodata)
+        data, isdata = _isdata(array, isdata, nodata)
+        isinteger = np.mod(data, 1) == 0
 
-        # Get the valid data elements
-        if isdata is None:
-            data = array
-        else:
-            data = array[isdata]
-
-        # Validate. Indicate the first bad element if failed
-        noninteger = np.mod(data, 1) != 0
-        if np.any(noninteger):
-            index, value = _first_failure(array, isdata, failed=noninteger)
+        # Indicate first bad element if failed
+        if not np.all(isinteger):
+            index, value = _first_failure(array, isdata, isinteger)
             raise ValueError(
                 f"The data elements of {name} must be integers, "
                 f"but element {index} ({value}) is not."
