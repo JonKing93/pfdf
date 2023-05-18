@@ -831,13 +831,11 @@ def _validate_mask(
     Outputs:
         numpy 2D bool array: The loaded valid data mask
     """
-    mask = validate.raster(
-        raster, "mask", shape=shape, numpy_nodata=nodata, nodata_to=0
+    mask, nodata = validate.raster(
+        raster, "mask", shape=shape, numpy_nodata=nodata, nodata_name='mask_nodata'
     )
     if check:
-        mask = validate.mask(mask, "mask")
-    else:
-        mask = mask.astype(bool)
+        validate.mask(mask, mask, nodata=nodata)
     return mask
 
 

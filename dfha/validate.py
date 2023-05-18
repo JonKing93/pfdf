@@ -72,9 +72,9 @@ from dfha.typing import (
     VectorArray,
     MatrixArray,
     ValidatedRaster,
-    MaskArray,
-    BooleanArray,
+    Mask,
     BooleanMask,
+    BooleanArray,
     nodata,
 )
 
@@ -347,15 +347,16 @@ def matrix(
 # Rasters
 #####
 
+
 def raster(
-    raster: Any, 
-    name: str, 
-    *, 
+    raster: Any,
+    name: str,
+    *,
     shape: Optional[shape2d] = None,
     load: bool = True,
     numpy_nodata: Optional[scalar] = None,
-    nodata_name: str = 'nodata',
-    ) -> Tuple[ValidatedRaster, nodata]:
+    nodata_name: str = "nodata",
+) -> Tuple[ValidatedRaster, nodata]:
     """
     raster  Check input is valid raster and return in requested format
     ----------
@@ -391,22 +392,22 @@ def raster(
     raster(..., *, numpy_nodata)
     raster(..., *, numpy_nodata, nodata_name)
     Specifies a value to treat as NoData when the input raster is a numpy array.
-    If the raster is a valid numpy array, also validates this NoData value. 
+    If the raster is a valid numpy array, also validates this NoData value.
     If the raster is file-based, this value is ignored and the NoData value is
-    instead determined from the file metadata. The "nodata_name" allows you to 
+    instead determined from the file metadata. The "nodata_name" allows you to
     customize the error message if the NoData value is not valid. The default
     name is 'nodata'.
     ----------
     Inputs:
         raster: The input being checked
         name: The name of the input for use in error messages
-        shape: (Optional) A required shape for the raster. A 2-tuple, first 
-            element is rows, second element is columns. If an element is -1, 
+        shape: (Optional) A required shape for the raster. A 2-tuple, first
+            element is rows, second element is columns. If an element is -1,
             disables shape checking for that axis.
         load: True (default) if validated file-based rasters should be loaded
             into memory and returned as a numpy array. If False, returns a
             pathlib.Path object for file-based rasters.
-        numpy_nodata: A value to treat as NoData in the case that the raster is 
+        numpy_nodata: A value to treat as NoData in the case that the raster is
             a numpy array.
         nodata_name: A name for the NoData value for use in error messages.
             Default is 'nodata'.
@@ -723,12 +724,12 @@ def inrange(
 
 
 def mask(
-    array: BooleanArray,
+    array: Mask,
     name: str,
     *,
     isdata: Optional[BooleanArray] = None,
     nodata: Optional[scalar] = None,
-) -> BooleanArray:
+) -> BooleanMask:
     """
     mask  Validates a boolean-like mask
     ----------
@@ -738,11 +739,13 @@ def mask(
 
     mask(..., *, isdata)
     Specifies a valid data mask for the array. Only the True elements of the
-    mask are checked.
+    mask are checked. False elements of the data mask are set as False in the
+    output array.
 
     mask(..., *, nodata)
     Specifies a NoData value for the array. Array elements matching this value
-    are not checked. This option is ignored if "isdata" is also provided.
+    are set to False in the output array. This option is ignored if "isdata" is
+    also provided.
     ----------
     Inputs:
         array: The ndarray being validated
@@ -755,13 +758,16 @@ def mask(
     """
 
     # Boolean dtype is always valid. Otherwise, test the valid data elements.
-    # Always return as a boolean array.
     if array.dtype != bool:
         isdata = _isdata(array, isdata, nodata)
         data = _data_elements(array, isdata)
         valid = np.isin(data, [0, 1])
         _check(valid, "0 or 1", array, name, isdata)
-    return array.astype(bool)
+
+        # Convert NoData values to 0. Return as boolean dtype
+        array = array.astype(bool)
+        array[~isdata] = False
+    return array
 
 
 def flow(
