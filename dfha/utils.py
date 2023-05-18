@@ -12,27 +12,29 @@ Sequence conversion:
 Argument Parsing:
     any_defined     - True if any input is not None
 
-Raster IO:
+Rasters:
     load_raster     - Returns a pre-validated raster as a numpy array
     save_raster     - Saves a 2D numpy array raster to a GeoTIFF file
+    raster_shape    - Returns the shape of a file-based or numpy raster
 
 NoData:
     nodata_mask     - Returns the NoData mask for a raster array
-
-
-
-    replace_nodata  - Replaces NoData values in a raster array with a specified value
-
-Raster Metadata:
-    raster_shape    - Returns the shape of a raster
-    raster_nodata   - Returns the NoData value of a raster
+    data_mask       - Returns the data mask for a raster array
 """
 
 from numpy import ndarray, integer, floating, bool_, isnan, full, any
 import rasterio
 from pathlib import Path
 from typing import List, Any, Tuple, Optional, Union
-from dfha.typing import RasterArray, ValidatedRaster, scalar, RealArray, DataMask, nodata, BooleanMask
+from dfha.typing import (
+    RasterArray,
+    ValidatedRaster,
+    scalar,
+    RealArray,
+    DataMask,
+    nodata,
+    BooleanMask,
+)
 from warnings import simplefilter, catch_warnings
 
 
@@ -208,36 +210,6 @@ def save_raster(
             file.write(raster, 1)
 
 
-#####
-# NoData
-#####
-
-def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
-    """
-    data_mask  Returns the valid data mask for a raster
-    ----------
-    data_mask(raster, nodata)
-    Given a NoData value, returns a mask that indicates the valid data elements
-    in the raster. True values indicate a valid data element, False values indicate
-    elements that are NoData. If the input NoData value is None, returns None,
-    as no masking is necessary.
-    ----------
-    Inputs:
-        raster: The raster whose valid data elements should be located
-        nodata: A NoData value for the raster
-
-    Outputs:
-        boolean numpy array | None: The valid data elements in the array, or 
-            None if there is not a NoData value.    
-    """
-    if nodata is None:
-        return None
-    elif isnan(nodata):
-        return ~isnan(raster)
-    else:
-        return raster != nodata
-
-
 def raster_shape(raster: ValidatedRaster):
     """
     raster_shape  Returns the 2D shape of a file-based or numpy raster
@@ -261,3 +233,59 @@ def raster_shape(raster: ValidatedRaster):
             with rasterio.open(raster) as raster:
                 return (raster.height, raster.width)
 
+
+#####
+# NoData
+#####
+
+
+def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
+    """
+    data_mask  Returns the valid data mask for a raster
+    ----------
+    data_mask(raster, nodata)
+    Given a NoData value, returns a mask that indicates the valid data elements
+    in the raster. True values indicate a valid data element, False values indicate
+    elements that are NoData. If the input NoData value is None, returns None,
+    as no masking is necessary.
+    ----------
+    Inputs:
+        raster: The raster whose valid data elements should be located
+        nodata: A NoData value for the raster
+
+    Outputs:
+        boolean numpy array | None: The valid data elements in the array, or
+            None if there is not a NoData value.
+    """
+    if nodata is None:
+        return None
+    elif isnan(nodata):
+        return ~isnan(raster)
+    else:
+        return raster != nodata
+
+
+def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
+    """
+    nodata_mask  Returns the NoData mask for a raster
+    ----------
+    data_mask(raster, nodata)
+    Given a NoData value, returns a mask that indicates the NoData elements
+    in the raster. True values indicate a NoData element, False values indicate
+    valid data elements. If the input NoData value is None, returns None,
+    as no masking is necessary.
+    ----------
+    Inputs:
+        raster: The raster whose valid data elements should be located
+        nodata: A NoData value for the raster
+
+    Outputs:
+        boolean numpy array | None: The NoData elements in the array, or
+            None if there is not a NoData value.
+    """
+    if nodata is None:
+        return None
+    elif isnan(nodata):
+        return isnan(raster)
+    else:
+        return raster == nodata
