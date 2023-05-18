@@ -85,7 +85,7 @@ import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from dfha import validate
-from dfha.utils import save_raster, load_raster, raster_shape
+from dfha.utils import save_raster, load_raster, raster_shape, nodata_mask
 from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
 from dfha.typing import (
     Pathlike,
@@ -459,24 +459,23 @@ def upslope_sum(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "values", "upslope_sum"]
     [flow, values], nodata = _validate_inputs([flow_directions, values], names[0:2], [flow_nodata, values_nodata], ['flow_nodata','values_nodata'])
-
-    nodata = _nodata(
-        [flow_nodata, values_nodata, mask_nodata],
-        ["flow_nodata", "values_nodata", "mask_nodata"],
-        [flow, values, mask],
-    )
     sum, save = validate.output_path(path, overwrite)
 
-    # Validate the data mask (if provided) and the D8 flow directions
+    # Validate the mask (if provided) and the D8 flow directions
     if mask is not None:
         shape = raster_shape(flow)
-        mask, mask_nodata = _validate_mask(check, mask, shape, mask_nodata)
+        mask = _validate_mask(check, mask, shape, mask_nodata)
     _validate_d8(check, flow, nodata[0])
 
     # Optionally mask the pixel values
     if mask is not None:
         values = load_raster(values)
         values = values * mask
+
+        # Ensure NoData values remain NoData
+        if nodata[1] is not None:
+            mask = nodata_mask(values, nodata[1])
+            values[mask] = nodata[1]
 
     # Compute sum using temp files as needed
     with TemporaryDirectory() as temp:
@@ -835,7 +834,7 @@ def _validate_mask(
         raster, "mask", shape=shape, numpy_nodata=nodata, nodata_name='mask_nodata'
     )
     if check:
-        validate.mask(mask, mask, nodata=nodata)
+        mask = validate.mask(mask, mask, nodata=nodata)
     return mask
 
 
