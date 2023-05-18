@@ -41,10 +41,11 @@ Internal:
 """
 
 import numpy as np
+from numpy import issubdtype as istype, unsignedinteger as uint_, integer as int_
 from pathlib import Path
 import rasterio
 from warnings import catch_warnings, simplefilter
-from dfha.utils import aslist, astuple, real, replace_nodata
+from dfha.utils import aslist, astuple, real, replace_nodata, data_mask
 from dfha.errors import DimensionError, ShapeError
 from typing import Any, Optional, List, Union, Tuple
 from dfha.typing import (
@@ -61,12 +62,15 @@ from dfha.typing import (
     MaskArray,
     BooleanArray,
     BooleanMask,
+    nodata,
 )
 
 # Type aliases
 RasterAndMask = Tuple[ValidatedRaster, BooleanMask]
 OutputPath = Union[None, Path]
 save = bool
+DataMask = Union[None, BooleanArray]
+index = Tuple[int, ...]
 
 
 #####
@@ -338,6 +342,7 @@ def raster(
     shape: Optional[shape2d] = None,
     load: bool = True,
     numpy_nodata: Optional[scalar] = None,
+    nodata_name: str = "nodata",
     nodata_to: Optional[scalar] = None,
     return_mask: bool = False,
 ) -> Union[ValidatedRaster, RasterAndMask]:
@@ -471,8 +476,10 @@ def raster(
                 # Get NoData values if needed
                 if replace:
                     nodata = file.nodata
+
+    # Validate NoData for numpy rasters
     elif replace:
-        nodata = numpy_nodata
+        nodata = scalar(numpy_nodata, nodata_name, real)
 
     # Optionally replace nodata. Use copies of input numpy arrays
     if replace:
@@ -545,37 +552,66 @@ def output_path(path: Any, overwrite: bool) -> Tuple[OutputPath, save]:
 #####
 
 
-def positive(array: RealArray, name: str, *, allow_zero: bool = False) -> None:
+def positive(
+    array: RealArray,
+    name: str,
+    *,
+    allow_zero: bool = False,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+) -> None:
     """
     positive  Checks the elements of a numpy array are all positive
     ----------
     positive(array, name)
-    Checks that the elements of the input numpy array are all greater than zero.
-    Raises a ValueError if not.
+    Checks that the data elements of the input numpy array are all greater than
+    zero. Raises a ValueError if not.
 
     positive(..., *, allow_zero=True)
     Checks that elements are greater than or equal to zero.
+
+    positive(..., *, isdata)
+    Specifies which elements of the array to check. True elements of isdata are
+    checked, False elements are not.
+
+    positive(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching this value
+    are not checked. This option is ignored if "isdata" is also provided.
     ----------
     Inputs:
         array: The numeric ndarray being checked.
         name: A name for the input for use in error messages.
         allow_zero: Set to True to allow elements equal to zero.
             False (default) to only allow elements greater than zero.
+        isdata: A valid data mask for the array. Only True elements are validated.
+        nodata: A NoData value for the array
 
     Raises:
         ValueError: If the array contains negative elements
     """
 
-    # (unsignedintegers are treated as all positive)
-    if not np.issubdtype(array.dtype, np.unsignedinteger):
+    # If allowing zero, then unsigned integers and booleans are all valid.
+    # Otherwise, get the valid data mask
+    dtype = array.dtype
+    skip = allow_zero and (istype(dtype, uint_) or array.dtype == bool)
+    if not skip:
+        isdata = _isdata(raster, isdata, nodata)
+
+        # Get the appropriate operator and validate
         if allow_zero:
             operator = ">="
         else:
             operator = ">"
-        _check_bound(array, name, operator, 0)
+        _check_bound(array, name, operator, bound=0, where=isdata)
 
 
-def integers(array: RealArray, name: str) -> None:
+def integers(
+    array: RealArray,
+    name: str,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+) -> None:
     """
     integers  Checks the elements of a numpy array are all integers
     ----------
@@ -586,21 +622,43 @@ def integers(array: RealArray, name: str) -> None:
     Note that this function *IS NOT* checking the dtype of the input array. Rather
     it checks that each element is an integer. Thus, arrays of floating-point
     integers (e.g. 1.0, 2.000, -3.0) will pass the test.
+
+    integers(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    data mask will be validated.
+
+    integers(..., *, nodata)
+    Specifies a NoData value for the array. Elements matching the NoData value
+    will not be checked. This option is ignored if "isdata" is also provided.
     ----------
     Inputs:
         array: The numeric ndarray being checked.
         name: A name of the input for use in error messages.
+        isdata: A valid data mask for the array
+        NoData: A NoData value for the array
 
     Raises:
         ValueError: If the array contains non-integer elements
     """
 
-    if not np.issubdtype(array.dtype, np.integer):
-        noninteger = array % 1 != 0
+    # Integer and boolean dtype always pass. If not one of these, get the valid
+    # data mask
+    if not istype(array.dtype, int_) and array.dtype != bool:
+        isdata = _isdata(array, isdata, nodata)
+
+        # Get the valid data elements
+        if isdata is None:
+            data = array
+        else:
+            data = array[isdata]
+
+        # Validate. Indicate the first bad element if failed
+        noninteger = np.mod(data, 1) != 0
         if np.any(noninteger):
-            bad = np.argwhere(noninteger)[0]
+            index, value = _first_failure(array, isdata, failed=noninteger)
             raise ValueError(
-                f"The elements of {name} must be integers, but element {bad} is not an integer."
+                f"The data elements of {name} must be integers, "
+                f"but element {index} ({value}) is not."
             )
 
 
@@ -609,6 +667,9 @@ def inrange(
     name: str,
     min: Optional[scalar] = None,
     max: Optional[scalar] = None,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
 ) -> None:
     """
     inrange  Checks the elements of a numpy array are within a given range
@@ -619,26 +680,124 @@ def inrange(
     one to only check an upper or a lower bound. Use both to check elements are
     within a range. Uses an inclusive comparison (values equal to a bound will
     pass validation).
+
+    inrange(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    data mask will be validated.
+
+    inrange(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching the NoData
+    value will not be validated. This option is ignored if "isdata" is also provided.
     ----------
     Inputs:
         array: The ndarray being checked
         name: The name of the array for use in error messages
         min: An optional lower bound (inclusive)
         max: An optional upper bound (inclusive)
+        isdata: A valid data mask for the array
+        nodata: A NoData value for the array.
 
     Raises:
         ValueError: If any element is not within the bounds
     """
 
-    _check_bound(array, name, ">=", min)
-    _check_bound(array, name, "<=", max)
+    isdata = _isdata(array, isdata, nodata)
+    _check_bound(array, name, ">=", min, where=isdata)
+    _check_bound(array, name, "<=", max, where=isdata)
 
 
-def _check_bound(array, name, operator, bound):
+def mask(
+    array: MaskArray,
+    name: str,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+) -> BooleanArray:
+    """
+    mask  Validates a boolean-like mask
+    ----------
+    mask(array, name)
+    Checks that the elements in an array are all 0 or 1. Raises a ValueError if
+    not. If the array is valid, returns it as a boolean dtype.
+
+    mask(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    mask are checked.
+
+    mask(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching this value
+    are not checked. This option is ignored if "isdata" is also provided.
+    ----------
+    Inputs:
+        array: The ndarray being validated
+        name: A name for the array for use in error messages.
+        isdata: A valid data mask for the array.
+        nodata: A NoData value for the array.
+
+    Outputs:
+        boolean numpy array: The mask array with a boolean dtype.
+    """
+
+    # Boolean dtype is always valid. Otherwise, get the valid data mask
+    if array.dtype != bool:
+        data, isdata = _isdata(array, isdata, nodata)
+
+        # Validate
+        invalid = np.isin()
+        valid = np.isin(array[isdata], [0, 1])
+        if not np.all(valid):
+            raise ValueError(f"The data elements of {name} must all be 0 or 1.")
+
+    # Always return as a boolean array
+    return array.astype(bool)
+
+
+def flow(
+    array: RealArray,
+    name: str,
+    *,
+    isdata: Optional[BooleanArray],
+    nodata: Optional[scalar],
+):
+    """
+    flow  Checks that an array represents TauDEM-style D8 flow directions
+    ----------
+    flow(array, name)
+    Checks that all elements of the input array are integers on the interval 1 to 8.
+    Raises a ValueError if not.
+
+    flow(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    valid data mask are checked.
+
+    flow(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching the NoData
+    value are not checked. This option is ignored if "isdata" is also provided.
+    ----------
+    Inputs:
+        array: The input array being checked
+        name: A name for the array for use in error messages
+        isdata: A valid data mask for the array
+        nodata: A NoData value for the array
+
+    Raises:
+    """
+
+    isdata = _isdata(array, isdata, flow)
+    integers(array, name, isdata=isdata)
+    inrange(array, name, min=1, max=8, isdata=isdata)
+
+
+#####
+# Loaded Array Utilities
+#####
+
+
+def _check_bound(array, name, operator, bound, where):
     """
     _check_bound  Checks that elements of a numpy array are valid relative to a bound
     ----------
-    _check_bound(array, name, operator, bound)
+    _check_bound(array, name, operator, bound, where)
     Checks that the elements of the input numpy array are valid relative to a
     bound. Valid comparisons are >, <, >=, and <=. Raises a ValueError if the
     criterion is not met.
@@ -671,7 +830,7 @@ def _check_bound(array, name, operator, bound):
             operator = np.greater
 
         # Test elements. Raise ValueError if any fail
-        passed = operator(array, bound)
+        passed = operator(array, bound, where=where)
         if not np.all(passed):
             bad = np.argwhere(~passed)[0]
             raise ValueError(
@@ -679,44 +838,76 @@ def _check_bound(array, name, operator, bound):
             )
 
 
-def mask(array: MaskArray, name: str) -> BooleanArray:
+def _isdata(
+    array: RealArray, isdata: BooleanArray, nodata: nodata
+) -> Tuple[RealArray, DataMask]:
     """
-    mask  Validates a boolean-like mask
+    _isdata  Locate and return valid data elements in an array
     ----------
-    mask(array, name)
-    Checks that the elements in an array are all 0 or 1. Raises a ValueError if
-    not. If the array is valid, returns it as a boolean dtype.
+    _isdata(array, isdata, nodata)
+    Parses "isdata" and "nodata" options to locate the valid data elements in an
+    array. Returns two outputs: the first is a numpy array holding only the valid
+    data elements from the input array. The second output is the valid data mask
+    for the input array.
+
+    If both isdata and nodata are None, then all array elements are treated as
+    valid. The output valid data mask will be None, since no masking is necessary.
+    If isdata is provided, it is used directly as the valid data mask. If only
+    a nodata option is provided, builds the valid data mask by checking if array
+    elements match the NoData value.
     ----------
     Inputs:
-        array: The ndarray being validated
-        name: A name for the array for use in error messages.
+        array: The array whose valid data elements should be located
+        isdata: A pre-existing valid data mask. None if this has not been built.
+        nodata: A NoData value for the array. None if not provided.
 
     Outputs:
-        boolean numpy array: The mask array with a boolean dtype.
+        numpy array: The valid data elements of the array
+        None | numpy boolean array: The isdata mask for the input array
     """
 
-    if array.dtype != bool:
-        invalid = np.isin(array, [0, 1], invert=True)
-        if np.any(invalid):
-            bad = np.argwhere(invalid)[0]
-            raise ValueError(
-                f"The elements of {name} must all be 0 or 1, but element {bad} is not."
-            )
-    return array.astype(bool)
+    if isdata is None:
+        if nodata is None:
+            return array, None
+        else:
+            isdata = data_mask(raster, nodata)
+    return array[isdata], isdata
 
 
-def flow(array: RealArray, name: str):
+def _first_failure(
+    array: RealArray, isdata: DataMask, failed: BooleanArray
+) -> Tuple[index, scalar]:
     """
-    flow  Checks that an array represents TauDEM-style D8 flow directions
+    _first_failure  Returns the indices and value of the first invalid data element
     ----------
-    flow(array, name)
-    Checks that all elements of the input array are integers on the interval 1 to 8.
-    Raises a ValueError if not.
+    _first_failure(array, isdata, failed)
+    Given an array, valid data mask, and results of a validation check - locates
+    the index of the first invalid data element in the full array. Returns the
+    index and associated value. The "failed" input is a boolean array that indicates
+    which *valid* data elements failed a validation check, so it's size is typically
+    smaller than the size of the input array.
     ----------
     Inputs:
-        array: The input array being checked
-        name: A name for the array for use in error messages
+        array: An input array that failed a validation check
+        isdata: The valid data mask for the array
+        failed: A logical array indicating which *valid* data elements of the
+            array failed the validation check. Should not include elements for
+            the array's NoData values.
+
+    Outputs:
+        Tuple[int, ...]: The index of the first invalid data element in the array
+        int | float | bool: The value of the invalid data element
     """
 
-    integers(array, name)
-    inrange(array, name, min=1, max=8)
+    # Get the indices of valid data elements within the arary
+    data_indices = np.arange(0, array.size)
+    if isdata is not None:
+        isdata = isdata.reshape(-1)
+        data_indices = data_indices[isdata]
+
+    # Locate the first failure within the set of data elements. Then locate
+    # this data element with the full array and return the associated value.
+    first = np.argmax(failed)
+    first = data_indices[first]
+    first = np.unravel_index(first, array.shape)
+    return first, array[first]
