@@ -71,6 +71,7 @@ from dfha.typing import (
     ScalarArray,
     VectorArray,
     MatrixArray,
+    RasterArray,
     ValidatedRaster,
     Mask,
     BooleanMask,
@@ -516,7 +517,7 @@ def _raster_array(
 
     # Validate NoData
     if nodata is not None:
-        nodata = validate.scalar(nodata, nodata_name, real)
+        nodata = scalar(nodata, nodata_name, real)
         nodata = nodata.astype(raster.dtype)
 
     # Return raster and NoData

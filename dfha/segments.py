@@ -402,7 +402,9 @@ class Segments:
     def _confinement(
         self,
         dem: RasterArray,
+        dem_nodata: nodata,
         flow_directions: RasterArray,
+        flow_nodata: nodata,
         N: ScalarArray,
         resolution: ScalarArray,
     ) -> SegmentValues:
@@ -423,14 +425,15 @@ class Segments:
             nPixels = pixels.shape[0]
             slopes = np.empty((nPixels, 2), dem.dtype)
 
-            # Iterate through pixels as processing cells. Update kernel
+            # Iterate through pixels as processing cells. Use a NaN confinement
+            # angle if flow-directions are NoData
             for p, [row, col] in enumerate(pixels):
                 kernel.update(row, col)
 
                 # Get flow direction and length. Compute orthogonal slopes
                 flow = flow_directions[row, col]
                 length = self._flow_length(flow, lateral_length, diagonal_length)
-                slopes[p, :] = kernel.orthogonal_slopes(flow, dem, length)
+                slopes[p, :] = kernel.orthogonal_slopes(flow, length, dem, dem_nodata)
 
             # Compute and return mean confinement angles
             theta[i] = self._confinement_angle(slopes)
@@ -739,17 +742,13 @@ class Segments:
         flow, flow_nodata = self._validate(
             flow_directions, "flow_directions", flow_nodata
         )
-        validate.flow(flow, "flow", nodata=flow_nodata)
+        validate.flow(flow, "flow_directions", nodata=flow_nodata)
         dem = self._validate(dem, "dem", dem_nodata)
 
-        # Check user inputs
-        (N, resolution) = self._validate_confinement_args(N, resolution)
-        dem = self._validate(dem, "dem", dem_nodata, "dem_nodata")
-        flow_directions = self._validate(flow_directions, "flow_directions")
-        validate.flow(flow_directions, "flow_direction")
-
-        # Compute mean confinement angle
-        return self._confinement(dem, flow_directions, N, resolution)
+        # Compute mean confinement angles
+        return self._confinement(
+            dem, dem_nodata, flow_directions, flow_nodata, N, resolution
+        )
 
     def copy(self) -> "Segments":
         """
@@ -1351,23 +1350,28 @@ class _Kernel:
             return indices[0:N]
 
     # Confinement angle slopes
-    def max_height(self, flow: int, dem: RasterArray) -> ScalarArray:
-        """Returns the maximum height in a particular direction
-        flow: Flow direction index
-        dem: DEM raster"""
+    def max_height(self, flow: int, dem: RasterArray, nodata: nodata) -> ScalarArray:
+        """Returns the maximum height in a particular direction or NaN if there
+        are NoData values.
+        flow: Flow direction *index* (flow number - 1)
+        dem: DEM raster
+        nodata: NoData value for the DEM"""
         direction = self.directions[flow]
         heights = dem[direction(self)]
-        return np.amax(heights)
+        if np.any(isnodata(heights, nodata)):
+            return np.nan
+        else:
+            return np.amax(heights)
 
     def orthogonal_slopes(
-        self, flow: FlowNumber, dem: RasterArray, length: scalar
+        self, flow: FlowNumber, length: scalar, dem: RasterArray, nodata: nodata
     ) -> NDArray[Shape["1 pixel, 2 rotations"], Number]:
         """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
-        dem: DEM raster
-        length: The lateral or diagonal flow length across 1 pixel"""
-        clockwise = self.max_height(flow - 7, dem)
-        counterclock = self.max_height(flow - 3, dem)
+        length: The lateral or diagonal flow length across 1 pixel
+        nodata: NoData value for the DEM"""
+        clockwise = self.max_height(flow - 7, dem, nodata)
+        counterclock = self.max_height(flow - 3, dem, nodata)
         heights = np.array([clockwise, counterclock]).reshape(1, 2)
         rise = heights - dem[self.row, self.col]
         slopes = rise / length
