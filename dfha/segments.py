@@ -318,6 +318,7 @@ class Segments:
         Inputs:
             raster: The input raster being checked
             name: A name for the raster for use in error messages
+            nodata: A NoData value for when the raster is a numpy array
             load: True (default) if file-based rasters should be loaded and returned
                 as a numpy array. False to return the Path to file-based rasters.
 
@@ -327,12 +328,10 @@ class Segments:
             numpy 1D array: The NoData value for a loaded array.
         """
 
-        if nodata is not None:
-            nodata = validate.scalar(nodata, nodata_name, real)
-
-        nodata = validate.nodata()
         try:
-            return validate.raster(raster, name, shape=self.raster_shape, load=load)
+            return validate.raster(
+                raster, name, shape=self._raster_shape, numpy_nodata=nodata, load=load
+            )
         except ShapeError as error:
             raise RasterShapeError(name, error)
 
