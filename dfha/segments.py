@@ -435,7 +435,7 @@ class Segments:
             slopes = np.empty((npixels, 2), dem.dtype)
 
             # Iterate through pixels and compute confinement slopes
-            for p, [row, col], flow in zip(range(0,npixels), pixels, flows):
+            for p, [row, col], flow in zip(range(0, npixels), pixels, flows):
                 kernel.update(row, col)
                 length = self._flow_length(flow, lateral_length, diagonal_length)
                 slopes[p, :] = kernel.orthogonal_slopes(flow, length, dem, dem_nodata)
@@ -580,7 +580,8 @@ class Segments:
         self.catchment_mean(flow_directions, values, *, npixels)
         Specifies the number of pixels for each stream segment. This syntax only
         requires computing upslope sums, so is more efficient when pixels counts
-        are already known.
+        are already known. If a pixel count is 0, the mean for the associated
+        segment is set to NaN.
 
         self.catchment_mean(flow_directions, values, *, mask)
         Computes a catchment means using only the pixels indicated by a valid
@@ -607,16 +608,26 @@ class Segments:
         pixel counts, so this syntax may not be necessary for many cases.
         If you are not reusing the masked pixel counts for a later computation,
         we recommend using the previous syntax instead.
+
+        self.catchment_mean(..., *, flow_nodata)
+        self.catchment_mean(..., *, values_nodata)
+        self.catchment_mean(..., *, mask_nodata)
+        Specify NoData values for when an input raster is a numpy array. Otherwise,
+        all elements of input arrays are treated as valid. Ignored if an input
+        raster is file-based.
         ----------
         Inputs:
-            npixels: The number of upslope pixels for each stream segment. Values
-                must be positive.
             flow_directions: A raster with TauDEM-style D8 flow directions for
                 the DEM pixels.
             values: A raster of data values for the DEM pixels over which to
                 calculate catchment means. All values must be positive.
+            npixels: The number of upslope pixels for each stream segment. Values
+                must be positive.
             mask: An optional valid data mask used to include/exclude pixels from
                 the catchment means. True pixels are included, False are excluded.
+            flow_nodata: A NoData value for when flow directions are a numpy array
+            values_nodata: A NoData value for when the values are a numpy array
+            mask_nodata: A NoData value for when the mask is a numpy array
 
         Outputs:
             numpy 1D array: The catchment mean for each stream segment.
@@ -626,47 +637,48 @@ class Segments:
         if npixels is not None:
             npixels = validate.vector(npixels, "npixels", dtype=real, length=len(self))
             validate.positive(npixels, "npixels", allow_zero=True)
-
-        flow_directions, flow_nodata = validate.raster(
+        flow, flow_nodata = self._validate(
             flow_directions,
             "flow_directions",
-            dtype=real,
-            shape=self.raster_shape,
+            nodata=flow_nodata,
+            nodata_name="flow_nodata",
             load=False,
         )
-        values, values_nodata = validate.raster(
-            values, "values", dtype=real, shape=self.raster_shape, load=False
+        values, values_nodata = self._validate(
+            values,
+            "values",
+            nodata=values_nodata,
+            nodata_name="values_nodata",
+            load=False,
         )
         if mask is not None:
             mask, mask_nodata = validate.raster(
-                mask, "mask", dtype=real, shape=self.raster_shape, load=False
+                mask, "mask", nodata=mask_nodata, nodata_name="mask_nodata", load=False
             )
 
-        # Optionally validate arrays
-        # (Give this a different scope for flow and mask. Mask should always be loaded)
+        # Optionally validate array elements
         if check:
-            flow = load_raster(flow_directions)
-            validate.flow(flow, "flow_directions", nodata=flow_nodata)
-            values = load_raster(values)
-            validate.positive(values, "values", allow_zero=True, nodata=values_nodata)
+            flow_array = load_raster(flow_directions)
+            validate.flow(flow_array, "flow_directions", nodata=flow_nodata)
+            values_array = load_raster(values)
+            validate.positive(
+                values_array, "values", allow_zero=True, nodata=values_nodata
+            )
             if mask is not None:
                 mask = load_raster(mask)
-                mask = validate.mask(mask, "mask", nodata=mask_nodata)
+                mask = validate.mask(mask, "mask", nodata="mask_nodata")
+                values = values_array  # Loaded array is fastest for a masked mean
 
         # Compute the number of pixels if not provided
         if npixels is None:
             if mask is None:
-                npixels = dem.upslope_pixels(
-                    flow_directions, nodata=flow_nodata, check=False
-                )
+                npixels = dem.upslope_pixels(flow, nodata=flow_nodata, check=False)
             else:
                 npixels = dem.upslope_sum(
-                    flow_directions,
-                    values,
-                    mask,
+                    flow,
+                    values=mask,
                     flow_nodata=flow_nodata,
                     values_nodata=values_nodata,
-                    mask_nodata=mask_nodata,
                     check=False,
                 )
             npixels = self._summary(npixels, np.amax)
@@ -674,7 +686,15 @@ class Segments:
 
         # Compute mean values. (Note that since values are positive, np.amax
         # gives the sum from the most downstream pixel).
-        upslope_sums = dem.upslope_sum(flow_directions, values, mask, check=False)
+        upslope_sums = dem.upslope_sum(
+            flow,
+            values,
+            mask,
+            flow_nodata=flow_nodata,
+            values_nodata=values_nodata,
+            mask_nodata=mask_nodata,
+            check=False,
+        )
         segment_sums = self._summary(upslope_sums, np.amax)
         return segment_sums / npixels
 
