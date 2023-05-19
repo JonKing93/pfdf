@@ -82,7 +82,7 @@ BooleanMask = NDArray[MatrixShape, Bool]  # This is a validated mask for interna
 BooleanArray = NDArray[Any, Bool]
 
 # NoData values
-nodata = Union[None, scalar]
+nodata = Union[None, ScalarArray]
 DataMask = Union[None, BooleanArray]
 
 # Segments and Staley 2017 models

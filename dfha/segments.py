@@ -308,7 +308,8 @@ class Segments:
         may either derive from the input nodata option, or from file-based raster
         metadata). Note that a valid raster must both (1) meet the criteria
         described in validate.raster, and (2) have a shape matching the shape of
-        the raster used to define the stream segments.
+        the raster used to define the stream segments. Raises a RasterShapeError
+        if the shape criterion is not met.
 
         self._validate(..., load=False)
         Returns the Path for file-based rasters, rather than loading and returning
@@ -326,6 +327,10 @@ class Segments:
             numpy 2D array | pathlib.Path: The raster as a numpy array or Path
                 to a file-based raster.
             numpy 1D array: The NoData value for a loaded array.
+
+        Raises:
+            RasterShapeError: If the shape of the input raster does not match
+                the shape of the stream raster used to derive the segments.
         """
 
         try:
@@ -346,7 +351,7 @@ class Segments:
         validate.integers(N, "N")
         resolution = validate.scalar(resolution, "resolution", real)
         validate.positive(resolution, "resolution")
-        return (N, resolution)
+        return N, resolution
 
     #####
     # Confinement angle calculations
@@ -355,9 +360,10 @@ class Segments:
     def _confinement_angle(
         slopes: NDArray[Shape["Pixels, 2 rotations"], Number]
     ) -> ScalarArray:
-        """Returns mean confinement angle given slopes for a set of pixels
-        slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise slopes
-            Each row holds the values for one pixel"""
+        """Returns mean confinement angle given slopes for a set of pixels.
+        Slopes should be rise/run - output angle is in degrees.
+        slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise 
+            slopes. Each row holds the values for one pixel"""
         theta = np.arctan(slopes)
         theta = np.mean(theta, axis=0)
         theta = np.sum(theta)
@@ -372,10 +378,9 @@ class Segments:
         lateral_length: Flow length up/down/right/left
         diagonal_length: Flow length upleft/upright/downleft/downright"""
         if flow_direction % 2 == 0:
-            length = diagonal_length
+            return diagonal_length
         else:
-            length = lateral_length
-        return length
+            return lateral_length
 
     #####
     # Low-level summary values (no error checking)
