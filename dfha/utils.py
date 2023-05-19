@@ -24,10 +24,10 @@ NoData:
     isnodata        - An alias for nodata_mask
 """
 
-from numpy import ndarray, integer, floating, bool_, isnan, full, any
+from numpy import ndarray, integer, floating, bool_, isnan
 import rasterio
 from pathlib import Path
-from typing import List, Any, Tuple, Optional, Union
+from typing import List, Any, Tuple, Optional
 from dfha.typing import (
     RasterArray,
     ValidatedRaster,
@@ -35,7 +35,6 @@ from dfha.typing import (
     RealArray,
     DataMask,
     nodata,
-    BooleanMask,
 )
 from warnings import simplefilter, catch_warnings
 
