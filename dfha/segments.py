@@ -50,7 +50,7 @@ import numpy as np
 from math import sqrt
 from copy import deepcopy
 from dfha import validate, dem
-from dfha.utils import any_defined, load_raster, real
+from dfha.utils import any_defined, load_raster, real, data_mask
 from dfha.errors import ShapeError, RasterShapeError
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
@@ -231,7 +231,7 @@ class Segments:
         Segments(stream_raster, nodata)
         Specifies a NoData value for when the stream raster is a numpy array.
         If the stream raster is a file-based raster, this option is ignored and
-        the NoData value is instead determined from the file metadata
+        the NoData value is instead determined from the file metadata.
         ----------
         Inputs:
             stream_raster: A stream segment raster used to define the set of stream
@@ -242,33 +242,38 @@ class Segments:
 
                 The data in the raster should consist of integers. The value of
                 each stream segment pixel should be a positive integer matching
-                the ID of the associated strea segment. All other pixels should
-                be 0. NoData values are converted to 0 before processing.
+                the ID of the associated strea segment. All other data pixels
+                should be 0. NoData pixels are also treated as 0.
             nodata: A NoData value for when the stream raster is a numpy array.
 
         Outputs:
             Segments: A Segments object defining a set of stream segments
         """
 
-        # Get raster array. Check values are valid
+        # Validate
         name = "stream_raster"
-        stream_raster = validate.raster(
-            stream_raster, name, numpy_nodata=nodata, nodata_to=0
+        stream_raster, nodata = validate.raster(
+            stream_raster, name, numpy_nodata=nodata
         )
-        validate.positive(stream_raster, name, allow_zero=True)
-        validate.integers(stream_raster, name)
+        isdata = data_mask(stream_raster, nodata)
+        validate.positive(stream_raster, name, allow_zero=True, isdata=isdata)
+        validate.integers(stream_raster, name, where=isdata)
 
-        # Get the indices of stream segment pixels. Organize as 1D vectors
-        (rows, cols) = np.nonzero(stream_raster)
+        # Locate stream segment pixels
+        pixels = stream_raster != 0
+        if isdata is not None:
+            pixels = pixels & isdata
+
+        # Get pixel indices for each dimension. Set as 1D arrays
+        (rows, cols) = np.nonzero(pixels)
         rows = rows.reshape(-1)
         cols = cols.reshape(-1)
 
-        # Reduce the stream link raster to just the segments. Get the segment IDs
+        # Reduce the raster to just the segment pixels. Get the segments IDs
         segments = stream_raster[rows, cols].reshape(-1)
         ids = np.unique(segments)
 
-        # Record a dict mapping segments IDs to the indices of their pixels
-        # Also record the raster shape
+        # Map each segment ID to its pixels. Also record the raster shape
         self._indices = {id: None for id in ids}
         for id in ids:
             pixels = np.nonzero(segments == id)
@@ -290,7 +295,9 @@ class Segments:
     #####
     # Validation methods
     #####
-    def _validate(self, raster: Any, name: str, nodata: Any, load: bool = True) -> Tuple(ValidatedRaster, nodata):
+    def _validate(
+        self, raster: Any, name: str, nodata: Any, load: bool = True
+    ) -> Tuple(ValidatedRaster, nodata):
         """
         _validate  Check input raster if compatible with stream segment pixel indices
         ----------
@@ -299,7 +306,7 @@ class Segments:
         the NoData value. Returns a 2-tuple whose first element is the raster as
         numpy 2D array. The second element is the NoData value for the array (which
         may either derive from the input nodata option, or from file-based raster
-        metadata). Note that a valid raster must both (1) meet the criteria 
+        metadata). Note that a valid raster must both (1) meet the criteria
         described in validate.raster, and (2) have a shape matching the shape of
         the raster used to define the stream segments.
 
@@ -317,15 +324,11 @@ class Segments:
         Outputs:
             numpy 2D array | pathlib.Path: The raster as a numpy array or Path
                 to a file-based raster.
-            numpy 1D array: The NoData value for a loaded array. 
+            numpy 1D array: The NoData value for a loaded array.
         """
 
         if nodata is not None:
             nodata = validate.scalar(nodata, nodata_name, real)
-
-
-
-
 
         nodata = validate.nodata()
         try:
@@ -571,7 +574,7 @@ class Segments:
             >>> npixels = self.pixels(npixels)
 
         However, these masked pixel counts are often less reusable than total
-        pixel counts, and so this syntax may not be necessary for many cases.
+        pixel counts, so this syntax may not be necessary for many cases.
         If you are not reusing the masked pixel counts for a later computation,
         we recommend using the previous syntax instead.
         ----------
@@ -589,23 +592,53 @@ class Segments:
             numpy 1D array: The catchment mean for each stream segment.
         """
 
-        # Validate inputs. Metadata first, then loaded arrays
-        npixels = validate.vector(npixels, "npixels", dtype=real, length=len(self))
-        validate.positive(npixels, "npixels", allow_zero=True)
-        values = self._validate(values, "values raster")
-        flow_directions = self._validate(flow_directions, "flow_directions")
+        # Initial validation
+        if npixels is not None:
+            npixels = validate.vector(npixels, "npixels", dtype=real, length=len(self))
+            validate.positive(npixels, "npixels", allow_zero=True)
+
+        flow_directions, flow_nodata = validate.raster(
+            flow_directions,
+            "flow_directions",
+            dtype=real,
+            shape=self.raster_shape,
+            load=False,
+        )
+        values, values_nodata = validate.raster(
+            values, "values", dtype=real, shape=self.raster_shape, load=False
+        )
         if mask is not None:
-            mask = self._validate(mask, "mask")
-            mask = validate.mask(mask, "mask")
-        validate.flow(flow_directions, "flow_directions")
-        validate.positive(values, "values raster", allow_zero=True)
+            mask, mask_nodata = validate.raster(
+                mask, "mask", dtype=real, shape=self.raster_shape, load=False
+            )
+
+        # Optionally validate arrays
+        # (Give this a different scope for flow and mask. Mask should always be loaded)
+        if check:
+            flow = load_raster(flow_directions)
+            validate.flow(flow, "flow_directions", nodata=flow_nodata)
+            values = load_raster(values)
+            validate.positive(values, "values", allow_zero=True, nodata=values_nodata)
+            if mask is not None:
+                mask = load_raster(mask)
+                mask = validate.mask(mask, "mask", nodata=mask_nodata)
 
         # Compute the number of pixels if not provided
         if npixels is None:
             if mask is None:
-                npixels = dem.upslope_pixels(flow_directions, check=False)
+                npixels = dem.upslope_pixels(
+                    flow_directions, nodata=flow_nodata, check=False
+                )
             else:
-                npixels = dem.upslope_sum(flow_directions, values=mask, check=False)
+                npixels = dem.upslope_sum(
+                    flow_directions,
+                    values,
+                    mask,
+                    flow_nodata=flow_nodata,
+                    values_nodata=values_nodata,
+                    mask_nodata=mask_nodata,
+                    check=False,
+                )
             npixels = self._summary(npixels, np.amax)
         npixels[npixels == 0] = np.nan
 
@@ -709,7 +742,9 @@ class Segments:
         upslope_development = self._validate(upslope_development, "upslope_development")
         return self._summary(upslope_development, self._stats["development"])
 
-    def pixels(self, upslope_pixels: Raster, nodata: Optional[scalar] = None) -> SegmentValues:
+    def pixels(
+        self, upslope_pixels: Raster, nodata: Optional[scalar] = None
+    ) -> SegmentValues:
         """
         pixels  Returns the maximum number of upslope pixels for each stream segment
         ----------
@@ -737,16 +772,13 @@ class Segments:
         Outputs:
             numpy 1D array: The maximum number of upslope pixels for each stream segment.
         """
-        upslope_pixels, nodata = self._validate(upslope_pixels, "upslope_pixels", nodata, "nodata")
-        
+        upslope_pixels, nodata = self._validate(
+            upslope_pixels, "upslope_pixels", nodata, "nodata"
+        )
 
-
-
-
-
-
-
-        upslope_pixels, nodata = self._validate(upslope_pixels, "upslope_pixels", nodata, "nodata")
+        upslope_pixels, nodata = self._validate(
+            upslope_pixels, "upslope_pixels", nodata, "nodata"
+        )
         return self._summary(upslope_pixels, self._stats["pixels"], nodata)
 
     def remove(self, segments: IDs) -> None:
@@ -928,7 +960,7 @@ def filter(
     the upslope developed area from the most downstream pixel.
 
     filter(..., *, maximum_confinement, dem, resolution, flow_directions, N, ...)
-    removes stream segments whose confinement angle is above a maximum threshold.
+    Removes stream segments whose confinement angle is above a maximum threshold.
     Segments with angles above the threshold should be too confined to support
     the flow of debris. Segment confinement is set as the mean confinement of
     all associated pixels.
@@ -982,7 +1014,7 @@ def filter(
 
     Outputs:
         List[int]: The IDs of the stream segments that passed all applied
-            filters. These is often the set of stream segments worthy of hazard
+            filters. These are typically the set of stream segments worthy of hazard
             assessment modeling.
     """
 
