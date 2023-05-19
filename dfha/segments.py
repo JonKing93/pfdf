@@ -419,19 +419,24 @@ class Segments:
         lateral_length = resolution * N
         diagonal_length = lateral_length * sqrt(2)
 
-        # Get pixels for each stream segment. Preallocate orthogonal slopes
+        # Get pixels for each stream segment.
         for i, id in enumerate(self.ids):
-            pixels = np.stack(self.indices[id], axis=-1)
-            nPixels = pixels.shape[0]
-            slopes = np.empty((nPixels, 2), dem.dtype)
+            pixels = self.indices[id]
 
-            # Iterate through pixels as processing cells. Use a NaN confinement
-            # angle if flow-directions are NoData
-            for p, [row, col] in enumerate(pixels):
+            # Get flow-directions. If any are NoData, set confinement to NaN
+            flows = flow_directions[pixels]
+            if np.any(isnodata(flows, nodata)):
+                theta[i] = np.nan
+                continue
+
+            # Group indices by pixel. Preallocate slopes
+            pixels = np.stack(pixels, axis=-1)
+            npixels = pixels.shape[0]
+            slopes = np.empty((npixels, 2), dem.dtype)
+
+            # Iterate through pixels and compute confinement slopes
+            for p, [row, col], flow in zip(range(0,npixels), pixels, flows):
                 kernel.update(row, col)
-
-                # Get flow direction and length. Compute orthogonal slopes
-                flow = flow_directions[row, col]
                 length = self._flow_length(flow, lateral_length, diagonal_length)
                 slopes[p, :] = kernel.orthogonal_slopes(flow, length, dem, dem_nodata)
 
