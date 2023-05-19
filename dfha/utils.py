@@ -26,6 +26,7 @@ NoData:
 
 from numpy import ndarray, integer, floating, bool_, isnan
 import rasterio
+from warnings import simplefilter, catch_warnings
 from pathlib import Path
 from typing import List, Any, Tuple, Optional
 from dfha.typing import (
@@ -36,7 +37,6 @@ from dfha.typing import (
     DataMask,
     nodata,
 )
-from warnings import simplefilter, catch_warnings
 
 
 # Combination numpy dtypes
@@ -264,7 +264,8 @@ def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return ~isnan(raster)
     else:
         return raster != nodata
-    
+
+
 def isdata(*args, **kwargs):
     "An alias for data mask"
     return data_mask(*args, **kwargs)
@@ -294,6 +295,7 @@ def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return isnan(raster)
     else:
         return raster == nodata
+
 
 def isnodata(*args, **kwargs):
     "An alias for nodata_mask"
