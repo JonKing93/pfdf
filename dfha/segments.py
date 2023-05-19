@@ -560,6 +560,10 @@ class Segments:
         *,
         mask: Optional[Raster] = None,
         npixels: Optional[SegmentValues] = None,
+        flow_nodata: Optional[scalar] = None,
+        values_nodata: Optional[scalar] = None,
+        mask_nodata: Optional[scalar] = None,
+        check: bool = True,
     ) -> SegmentValues:
         """
         catchment_mean  Computes mean values over all pixels in stream segment catchment areas
@@ -615,6 +619,11 @@ class Segments:
         Specify NoData values for when an input raster is a numpy array. Otherwise,
         all elements of input arrays are treated as valid. Ignored if an input
         raster is file-based.
+
+        self.catchment_mean(..., *, check=False)
+        Disables validation checks of input rasters. This can speed up the
+        processing of large rasters, but may produce unexpected results if any
+        of the input rasters contain invalid values. 
         ----------
         Inputs:
             flow_directions: A raster with TauDEM-style D8 flow directions for
@@ -628,6 +637,8 @@ class Segments:
             flow_nodata: A NoData value for when flow directions are a numpy array
             values_nodata: A NoData value for when the values are a numpy array
             mask_nodata: A NoData value for when the mask is a numpy array
+            check: True (default) to validate input rasters before processing.
+                False to disable these checks.
 
         Outputs:
             numpy 1D array: The catchment mean for each stream segment.
