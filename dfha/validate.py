@@ -58,7 +58,7 @@ from numpy import issubdtype as istype, unsignedinteger as uint_, integer as int
 from pathlib import Path
 import rasterio
 from warnings import catch_warnings, simplefilter
-from dfha.utils import aslist, astuple, real, replace_nodata, data_mask
+from dfha.utils import aslist, astuple, real, data_mask
 from dfha.errors import DimensionError, ShapeError
 from typing import Any, Optional, List, Union, Tuple
 from dfha.typing import (
