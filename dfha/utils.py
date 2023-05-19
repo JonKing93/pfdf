@@ -18,8 +18,10 @@ Rasters:
     raster_shape    - Returns the shape of a file-based or numpy raster
 
 NoData:
-    nodata_mask     - Returns the NoData mask for a raster array
     data_mask       - Returns the data mask for a raster array
+    nodata_mask     - Returns the NoData mask for a raster array
+    isdata          - An alias for data_mask
+    isnodata        - An alias for nodata_mask
 """
 
 from numpy import ndarray, integer, floating, bool_, isnan, full, any
@@ -263,6 +265,10 @@ def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return ~isnan(raster)
     else:
         return raster != nodata
+    
+def isdata(*args, **kwargs):
+    "An alias for data mask"
+    return data_mask(*args, **kwargs)
 
 
 def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
@@ -289,3 +295,7 @@ def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return isnan(raster)
     else:
         return raster == nodata
+
+def isnodata(*args, **kwargs):
+    "An alias for nodata_mask"
+    return nodata_mask(*args, **kwargs)
