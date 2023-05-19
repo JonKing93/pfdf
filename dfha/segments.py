@@ -296,12 +296,18 @@ class Segments:
     # Validation methods
     #####
     def _validate(
-        self, raster: Any, name: str, nodata: Any, load: bool = True
+        self,
+        raster: Any,
+        name: str,
+        nodata: Any,
+        nodata_name: str = "nodata",
+        *,
+        load: bool = True,
     ) -> Tuple(ValidatedRaster, nodata):
         """
         _validate  Check input raster if compatible with stream segment pixel indices
         ----------
-        self._validate(raster, name, nodata)
+        self._validate(raster, name, nodata, nodata_name)
         Validates the input raster. If the raster is a numpy array, also validates
         the NoData value. Returns a 2-tuple whose first element is the raster as
         numpy 2D array. The second element is the NoData value for the array (which
@@ -309,9 +315,10 @@ class Segments:
         metadata). Note that a valid raster must both (1) meet the criteria
         described in validate.raster, and (2) have a shape matching the shape of
         the raster used to define the stream segments. Raises a RasterShapeError
-        if the shape criterion is not met.
+        if the shape criterion is not met. Note that "nodata_name" is optional
+        and default to "nodata" if not set.
 
-        self._validate(..., load=False)
+        self._validate(..., *, load=False)
         Returns the Path for file-based rasters, rather than loading and returning
         as a numpy 2D array. Will still return a numpy array when a numpy array
         is provided as the raster input.
@@ -320,6 +327,8 @@ class Segments:
             raster: The input raster being checked
             name: A name for the raster for use in error messages
             nodata: A NoData value for when the raster is a numpy array
+            nodata_name: An optional name for the NoData value for use in error
+                messages. Defaults to "nodata"
             load: True (default) if file-based rasters should be loaded and returned
                 as a numpy array. False to return the Path to file-based rasters.
 
@@ -335,7 +344,12 @@ class Segments:
 
         try:
             return validate.raster(
-                raster, name, shape=self._raster_shape, numpy_nodata=nodata, load=load
+                raster,
+                name,
+                shape=self._raster_shape,
+                load=load,
+                numpy_nodata=nodata,
+                nodata_name=nodata_name,
             )
         except ShapeError as error:
             raise RasterShapeError(name, error)
@@ -730,7 +744,7 @@ class Segments:
 
         # Check user inputs
         (N, resolution) = self._validate_confinement_args(N, resolution)
-        dem = self._validate(dem, "dem")
+        dem = self._validate(dem, "dem", dem_nodata, "dem_nodata")
         flow_directions = self._validate(flow_directions, "flow_directions")
         validate.flow(flow_directions, "flow_direction")
 
@@ -898,7 +912,9 @@ class Segments:
         slopes, nodata = self._validate(slopes, "slopes", nodata)
         return self._summary(slopes, self._stats["slope"], nodata)
 
-    def summary(self, statistic: Statistic, raster: Raster) -> SegmentValues:
+    def summary(
+        self, statistic: Statistic, raster: Raster, nodata: Optional[scalar] = None
+    ) -> SegmentValues:
         """
         summary  Computes a summary statistic for each stream segment
         ----------
@@ -907,6 +923,10 @@ class Segments:
         for each stream segment. This function can be used to extend filtering
         beyond the built-in summary values. Statistic options include: mean,
         median, std, min, and max.
+
+        self.summary(statistic, raster, nodata)
+        Specifies a NoData value when the raster is a numpy array. Without the
+        nodata option, all elements of an input numpy array are treated
         ----------
         Inputs:
             statistic: 'mean', 'median', 'std', 'min', or 'max'
@@ -937,9 +957,9 @@ class Segments:
             )
 
         # Calculate the summary statistic
-        raster = self._validate(raster, "input raster")
+        raster, nodata = self._validate(raster, "input raster", nodata)
         statistic = stat_functions[statistic]
-        return self._summary(raster, statistic)
+        return self._summary(raster, statistic, nodata)
 
 
 def filter(
