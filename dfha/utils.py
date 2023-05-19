@@ -266,9 +266,9 @@ def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return raster != nodata
 
 
-def isdata(*args, **kwargs):
+def isdata(raster: RealArray, nodata: nodata) -> DataMask:
     "An alias for data mask"
-    return data_mask(*args, **kwargs)
+    return data_mask(raster, nodata)
 
 
 def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
@@ -278,8 +278,7 @@ def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
     data_mask(raster, nodata)
     Given a NoData value, returns a mask that indicates the NoData elements
     in the raster. True values indicate a NoData element, False values indicate
-    valid data elements. If the input NoData value is None, returns None,
-    as no masking is necessary.
+    valid data elements. If the input NoData value is None, returns None.
     ----------
     Inputs:
         raster: The raster whose valid data elements should be located
@@ -297,6 +296,6 @@ def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return raster == nodata
 
 
-def isnodata(*args, **kwargs):
+def isnodata(raster: RealArray, nodata: nodata) -> DataMask:
     "An alias for nodata_mask"
-    return nodata_mask(*args, **kwargs)
+    return nodata_mask(raster, nodata)
