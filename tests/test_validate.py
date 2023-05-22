@@ -483,16 +483,117 @@ class TestRaster:
         assert nodata==-999
 
 
+class TestOutputPath:
+    @pytest.mark.parametrize("input", (True, 5, np.arange(0, 100)))
+    def test_invalid(_, input):
+        with pytest.raises(TypeError):
+            validate.output_path(input, True)
 
+    def test_invalid_overwrite(_, raster):
+        with pytest.raises(FileExistsError):
+            validate.output_path(raster, overwrite=False)
+
+    @pytest.mark.parametrize("overwrite", (True, False))
+    def test_none(_, overwrite):
+        path, save = validate.output_path(None, overwrite)
+        assert path is None
+        assert save == False
+
+    @pytest.mark.parametrize(
+        "path", ("some-file", "some-file.tif", "some-file.tiff", "some-file.TiFf")
+    )
+    def test_valid(_, path):
+        output, save = validate.output_path(path, True)
+        assert output == Path("some-file.tif")
+        assert save == True
+
+    def test_valid_overwrite(_, raster):
+        output, save = validate.output_path(raster, True)
+        assert output == raster
+        assert save == True
+
+
+#####
+# Loaded Array Utilities
+#####
+
+
+class TestIsData:
+
+    def test_neither(_, band1):
+        assert validate._isdata(band1, None, None) is None
+
+    def test_both(_, band1):
+        isdata = band1>6
+        output = validate._isdata(band1, isdata, 4)
+        check_equal(output, isdata)
+
+    def test_isdata(_, band1):
+        isdata = band1>6
+        output = validate._isdata(band1, isdata, None)
+        check_equal(output, isdata)
+
+    def test_nodata(_, band1):
+        expected = band1!=4
+        output = validate._isdata(band1, None, nodata=4)
+        check_equal(output, expected)
+
+class TestDataElements:
+
+    def test(_, band1):
+        isdata = band1>6
+        output = validate._data_elements(band1, isdata)
+        check_equal(output, band1[isdata])
+
+    def test_none(_, band1):
+        output = validate._data_elements(band1, None)
+        check_equal(output, band1)
+
+
+class TestFirstFailure:
+
+    def test(_, band1):
+        isdata = band1<=6
+        data = band1[isdata]
+        passed = np.full(data.shape, True)
+        passed[-1] = False
+        index, value = validate._first_failure(band1, isdata, passed)
+        assert np.array_equal(index, [1,1])
+        assert value == 6
+
+
+    
+class TestCheck:
+
+    def test_passed(_, band1):
+        isdata = band1>6
+        data = band1[isdata]
+        passed = np.full(data.shape, True)
+        validate._check(passed, 'test description', band1, 'test name', isdata)
+
+
+    def test_failed(_, band1):
+        isdata = band1<=6
+        data = band1[isdata]
+        passed = np.full(data.shape, True)
+        passed[-1] = False
+        with pytest.raises(ValueError) as error:
+            validate._check(passed, 'test description', band1, 'test name', isdata)
+        assert_contains(error, 'test description', 'test name', '6', '1, 1')
+
+
+#####
+# Loaded Arrays
+#####
 
 class TestCheckBound:
     def test_pass(_, array):
         min = np.amin(array)
         max = np.amax(array)
-        validate._check_bound(array, "", "<", max + 1)
-        validate._check_bound(array, "", "<=", max)
-        validate._check_bound(array, "", ">=", min)
-        validate._check_bound(array, "", ">", min - 1)
+        validate._check_bound(array, "", None, "<", max + 1)
+        validate._check_bound(array, "", None, "<=", max)
+        validate._check_bound(array, "", None, ">=", min)
+        validate._check_bound(array, "", None, ">", min - 1)
 
     def test_fail(_, array):
         min = np.amin(array)
@@ -500,26 +601,20 @@ class TestCheckBound:
         name = "test name"
 
         with pytest.raises(ValueError) as error:
-            validate._check_bound(array, "test name", "<", max)
+            validate._check_bound(array, name, None, "<", max)
             assert_contains(error, name, "less than")
 
         with pytest.raises(ValueError) as error:
-            validate._check_bound(array, "test name", "<=", max - 1)
+            validate._check_bound(array, name, None, "<=", max - 1)
             assert_contains(error, name, "less than or equal to")
 
         with pytest.raises(ValueError) as error:
-            validate._check_bound(array, "test name", ">=", min + 1)
+            validate._check_bound(array, name, None, ">=", min + 1)
             assert_contains(error, name, "greater than or equal to")
 
         with pytest.raises(ValueError) as error:
-            validate._check_bound(array, "test name", ">", min)
+            validate._check_bound(array, name, None, ">", min)
             assert_contains(error, name, "greater than")
-
-
-#####
-# Loaded Arrays
-#####
-
 
 class TestPositive:
     name = "test name"
@@ -550,6 +645,16 @@ class TestPositive:
             validate.positive(a, self.name)
         assert_contains(error, self.name)
 
+    @pytest.mark.parametrize('nodata', (-999, np.nan))
+    def test_nodata(_, nodata):
+        a = np.array([nodata, nodata, 1, 2, 3])
+        validate.positive(a, '', nodata=nodata)
+
+    def test_isdata(_):
+        a = np.array([-3,-2,-1,0,1,2,3,4])
+        isdata = np.array([False]*4 + [True]*4)
+        validate.positive(a, '', isdata=isdata)
+
 
 class TestIntegers:
     name = "test name"
@@ -571,6 +676,15 @@ class TestIntegers:
             validate.integers(a, self.name)
         assert_contains(error, self.name)
 
+    @pytest.mark.parametrize('nodata', (3.3, np.nan))
+    def test_nodata(_, nodata):
+        a = np.array([nodata, nodata, 1, 2, 3])
+        validate.integers(a, '', nodata=nodata)        
+
+    def test_isdata(_):
+        a = np.array([-3.2,-2.4,-1.9,0,1,2,3,4])
+        isdata = np.array([False]*4 + [True]*4)
+        validate.positive(a, '', isdata=isdata)
 
 class TestInRange:
     name = "test name"
@@ -613,6 +727,16 @@ class TestInRange:
             validate.inrange(a, self.name, min=-np.inf, max=np.inf)
         assert_contains(error, self.name)
 
+    @pytest.mark.parametrize('nodata', (-999, np.nan))
+    def test_nodata(_, nodata):
+        a = np.array([nodata, nodata, 1, 2, 3])
+        validate.inrange(a, '', min=1, max=4, nodata=nodata)
+
+    def test_isdata(_):
+        a = np.array([-3,-2,-1,0,1,2,3,4])
+        isdata = np.array([False]*4 + [True]*4)
+        validate.inrange(a, '', min=1, max=4, isdata=isdata)
+
 
 class TestMask:
     @pytest.mark.parametrize("type", (bool, int, float))
@@ -627,15 +751,28 @@ class TestMask:
         mask[0, 0] = value
         with pytest.raises(ValueError) as error:
             validate.mask(mask, "test name")
-            assert_contains(error, "test name")
+        assert_contains(error, "test name")
 
     def test_nan(_, mask):
         mask = mask.astype(float)
         mask[0, 0] = np.nan
         with pytest.raises(ValueError) as error:
             validate.mask(mask, "test name")
-            assert_contains(error, "test name")
+        assert_contains(error, "test name")
 
+    @pytest.mark.parametrize('nodata', (-999, np.nan))
+    def test_nodata(_, nodata):
+        a = np.array([nodata, nodata, 1, 1, 0])
+        output = validate.mask(a, '', nodata=nodata)
+        expected = np.array([False, False, True, True, False])
+        check_equal(output, expected)
+
+    def test_isdata(_):
+        a = np.array([-3,-2,-1,0,1,1,0,0])
+        isdata = np.array([False]*4 + [True]*4)
+        output = validate.mask(a, '', isdata=isdata)
+        expected = np.array([False]*4 + [True, True, False, False])
+        check_equal(output, expected)
 
 class TestFlow:
     @pytest.mark.parametrize("type", (int, float))
@@ -650,37 +787,14 @@ class TestFlow:
         a[5] = value
         with pytest.raises(ValueError) as error:
             validate.flow(a, "test name")
-            assert_contains(error, "test name")
+        assert_contains(error, "test name")
 
+    @pytest.mark.parametrize('nodata', (-999, np.nan))
+    def test_nodata(_, nodata):
+        a = np.array([nodata, nodata, 1, 2, 3])
+        validate.flow(a, '', nodata=nodata)
 
-
-
-
-class TestOutputPath:
-    @pytest.mark.parametrize("input", (True, 5, np.arange(0, 100)))
-    def test_invalid(_, input):
-        with pytest.raises(TypeError):
-            validate.output_path(input, True)
-
-    def test_invalid_overwrite(_, raster):
-        with pytest.raises(FileExistsError):
-            validate.output_path(raster, overwrite=False)
-
-    @pytest.mark.parametrize("overwrite", (True, False))
-    def test_none(_, overwrite):
-        path, save = validate.output_path(None, overwrite)
-        assert path is None
-        assert save == False
-
-    @pytest.mark.parametrize(
-        "path", ("some-file", "some-file.tif", "some-file.tiff", "some-file.TiFf")
-    )
-    def test_valid(_, path):
-        output, save = validate.output_path(path, True)
-        assert output == Path("some-file.tif")
-        assert save == True
-
-    def test_valid_overwrite(_, raster):
-        output, save = validate.output_path(raster, True)
-        assert output == raster
-        assert save == True
+    def test_isdata(_):
+        a = np.array([-3,-2,-1,0,1,2,3,4])
+        isdata = np.array([False]*4 + [True]*4)
+        validate.flow(a, '', isdata=isdata)

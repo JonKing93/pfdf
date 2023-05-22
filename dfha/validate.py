@@ -632,7 +632,7 @@ def positive(
             operator = ">"
 
         # Validate the data elements
-        isdata = _isdata(raster, isdata, nodata)
+        isdata = _isdata(array, isdata, nodata)
         _check_bound(array, name, isdata, operator, bound=0)
 
 
@@ -767,7 +767,8 @@ def mask(
 
         # Convert NoData values to 0. Return as boolean dtype
         array = array.astype(bool)
-        array[~isdata] = False
+        if isdata is not None:
+            array[~isdata] = False
     return array
 
 
@@ -775,8 +776,8 @@ def flow(
     array: RealArray,
     name: str,
     *,
-    isdata: Optional[BooleanArray],
-    nodata: Optional[scalar],
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
 ):
     """
     flow  Checks that an array represents TauDEM-style D8 flow directions
@@ -891,16 +892,17 @@ def _check(
 
     if not np.all(passed):
         index, value = _first_failure(array, isdata, passed)
+        index = aslist(index)
         raise ValueError(
             f"The data elements of {name} must be {description}, "
-            f"but element {index} ({value}) is not."
+            f"but element {index} ({value=}) is not."
         )
 
 
 def _first_failure(
     array: RealArray,
     isdata: DataMask,
-    passed: Optional[BooleanArray] = None,
+    passed: BooleanArray,
 ) -> Tuple[index, scalar]:
     """
     _first_failure  Returns the indices and value of the first invalid data element
