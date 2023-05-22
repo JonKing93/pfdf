@@ -7,6 +7,7 @@ import numpy as np
 import rasterio
 from pathlib import Path
 from dfha import validate
+from dfha.errors import ShapeError, DimensionError
 
 #####
 # Fixtures and testing utilities
@@ -37,7 +38,6 @@ def band2(band1):
 @pytest.fixture
 def raster(tmp_path, band1, band2):
     raster = tmp_path / "raster.tif"
-    mask = band1 < 8
     with rasterio.open(
         raster,
         "w",
@@ -52,9 +52,27 @@ def raster(tmp_path, band1, band2):
     ) as file:
         file.write(band1, 1)
         file.write(band2, 2)
-        file.write_mask(mask)
     return raster
 
+# A complex-valued raster
+@pytest.fixture
+def craster(tmp_path, band1):
+    band1 = band1.astype(np.csingle)
+    raster = tmp_path / "raster.tif"
+    with rasterio.open(
+        raster,
+        "w",
+        driver="GTiff",
+        height=band1.shape[0],
+        width=band1.shape[1],
+        count=2,
+        nodata=4,
+        dtype=band1.dtype,
+        crs="+proj=latlong",
+        transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
+    ) as file:
+        file.write(band1, 1)
+    return raster
 
 def check_equal(array1, array2):
     assert np.array_equal(array1, array2)
@@ -68,44 +86,6 @@ def mask():
 ###
 # Low-level
 ###
-
-
-class TestCheckBound:
-    def test_pass(_, array):
-        min = np.amin(array)
-        max = np.amax(array)
-        validate._check_bound(array, "", "<", max + 1)
-        validate._check_bound(array, "", "<=", max)
-        validate._check_bound(array, "", ">=", min)
-        validate._check_bound(array, "", ">", min - 1)
-
-    def test_fail(_, array):
-        min = np.amin(array)
-        max = np.amax(array)
-        name = "test name"
-
-        with pytest.raises(ValueError) as error:
-            validate._check_bound(array, "test name", "<", max)
-            assert_contains(error, name, "less than")
-
-        with pytest.raises(ValueError) as error:
-            validate._check_bound(array, "test name", "<=", max - 1)
-            assert_contains(error, name, "less than or equal to")
-
-        with pytest.raises(ValueError) as error:
-            validate._check_bound(array, "test name", ">=", min + 1)
-            assert_contains(error, name, "greater than or equal to")
-
-        with pytest.raises(ValueError) as error:
-            validate._check_bound(array, "test name", ">", min)
-            assert_contains(error, name, "greater than")
-
-
-class TestNonsingleton:
-    def test(_):
-        array = np.arange(0, 36).reshape(2, 1, 1, 3, 1, 6)
-        tf = [True, False, False, True, False, True]
-        assert validate.nonsingleton(array) == tf
 
 
 class TestShape:
@@ -152,141 +132,11 @@ class TestDtype:
         validate.dtype_(self.name, allowed, self.dtype)
 
 
-#####
-# Loaded Arrays
-#####
-
-
-class TestPositive:
-    name = "test name"
-
-    def test_pass(self):
-        array = np.arange(1, 11).reshape(2, 5)
-        validate.positive(array, self.name)
-
-    def test_fail(self):
-        array = np.arange(-11, -1).reshape(2, 5)
-        with pytest.raises(ValueError) as error:
-            validate.positive(array, self.name)
-        assert_contains(error, self.name)
-
-    def test_pass_0(self):
-        array = np.arange(0, 10).reshape(2, 5)
-        validate.positive(array, self.name, allow_zero=True)
-
-    def test_fail_0(self):
-        array = np.arange(0, 10).reshape(2, 5)
-        with pytest.raises(ValueError) as error:
-            validate.positive(array, self.name)
-        assert_contains(error, self.name)
-
-    def test_nan(self):
-        a = np.array([np.nan, np.nan])
-        with pytest.raises(ValueError) as error:
-            validate.positive(a, self.name)
-        assert_contains(error, self.name)
-
-
-class TestIntegers:
-    name = "test name"
-
-    def test_pass(self):
-        array = np.array([-4.0, -3.0, 1.0, 2.0, 3.0, 100.000], dtype=float)
-        validate.integers(array, self.name)
-
-    def test_fail(self):
-        array = np.array([1.2, 2.0, 3.0, 4.222])
-        with pytest.raises(ValueError) as error:
-            validate.integers(array, self.name)
-        assert_contains(error, self.name)
-
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
-    def test_nan(self):
-        a = np.array([np.nan, np.nan])
-        with pytest.raises(ValueError) as error:
-            validate.integers(a, self.name)
-        assert_contains(error, self.name)
-
-
-class TestInRange:
-    name = "test name"
-
-    @staticmethod
-    def bounds(array):
-        return (np.amin(array), np.amax(array))
-
-    def test_pass(self, array):
-        min, max = self.bounds(array)
-        validate.inrange(array, self.name, min - 1, max + 1)
-
-    def test_includes_bound(self, array):
-        min, max = self.bounds(array)
-        validate.inrange(array, self.name, min, max)
-
-    def test_too_high(self, array):
-        min, max = self.bounds(array)
-        with pytest.raises(ValueError) as error:
-            validate.inrange(array, self.name, min, max - 1)
-        assert_contains(error, self.name, str(max - 1))
-
-    def test_too_low(self, array):
-        min, max = self.bounds(array)
-        with pytest.raises(ValueError) as error:
-            validate.inrange(array, self.name, min + 1, max)
-        assert_contains(error, self.name, str(min + 1))
-
-    def test_only_upper(self, array):
-        _, max = self.bounds(array)
-        validate.inrange(array, self.name, max=max)
-
-    def test_only_lower(self, array):
-        min, _ = self.bounds(array)
-        validate.inrange(array, self.name, min=min)
-
-    def test_nan(self):
-        a = np.array([np.nan, np.nan])
-        with pytest.raises(ValueError) as error:
-            validate.inrange(a, self.name, min=-np.inf, max=np.inf)
-        assert_contains(error, self.name)
-
-
-class TestMask:
-    @pytest.mark.parametrize("type", (bool, int, float))
-    def test_valid(_, mask, type):
-        input = mask.astype(type)
-        output = validate.mask(input, "test name")
-        assert np.array_equal(output, mask)
-
-    @pytest.mark.parametrize("value", (np.nan, np.inf, -999, 3))
-    def test_invalid(_, mask, value):
-        mask = mask.astype(float)
-        mask[0, 0] = value
-        with pytest.raises(ValueError) as error:
-            validate.mask(mask, "test name")
-            assert_contains(error, "test name")
-
-    def test_nan(_, mask):
-        mask = mask.astype(float)
-        mask[0, 0] = np.nan
-        with pytest.raises(ValueError) as error:
-            validate.mask(mask, "test name")
-            assert_contains(error, "test name")
-
-
-class TestFlow:
-    @pytest.mark.parametrize("type", (int, float))
-    def test_valid(_, type):
-        a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
-        validate.flow(a, "test name")
-
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
-    @pytest.mark.parametrize("value", (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
-    def test_invalid(_, value):
-        a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
-        a[5] = value
-        with pytest.raises(ValueError) as error:
-            validate.flow(a, "test name")
-            assert_contains(error, "test name")
+class TestNonsingleton:
+    def test(_):
+        array = np.arange(0, 36).reshape(2, 1, 1, 3, 1, 6)
+        tf = [True, False, False, True, False, True]
+        assert validate.nonsingleton(array) == tf
 
 
 #####
@@ -498,140 +348,312 @@ class TestMatrix:
 # Rasters
 #####
 
-
-class TestRaster:
+class TestRasterType:
     name = "test name"
 
     def test_string(self, raster, band1):
-        raster = str(raster)
-        output = validate.raster(raster, "")
-        check_equal(output, band1)
+        output, isfile = validate._raster_type(str(raster), "")
+        assert output == raster
+        assert isfile==True
 
     def test_path(_, raster, band1):
-        output = validate.raster(raster, "")
-        check_equal(output, band1)
+        output, isfile = validate._raster_type(raster, "")
+        assert output == raster
+        assert isfile==True
 
     def test_reader(_, raster, band1):
         with rasterio.open(raster) as reader:
-            output = validate.raster(reader, "")
-        check_equal(output, band1)
+            output, isfile = validate._raster_type(reader, "")
+        assert output == raster
+        assert isfile==True
 
     def test_array(_, band1):
-        output = validate.raster(band1, "")
+        output, isfile = validate._raster_type(band1, "")
         check_equal(output, band1)
+        assert isfile==False
 
     def test_bad_string(self):
         raster = "not a file"
         with pytest.raises(FileNotFoundError):
-            validate.raster(raster, self.name)
+            validate._raster_type(raster, self.name)
 
     def test_missing(self, raster):
         raster.unlink()
         raster = str(raster)
         with pytest.raises(FileNotFoundError):
-            validate.raster(raster, self.name)
+            validate._raster_type(raster, self.name)
 
     def test_old_reader(self, raster):
         with rasterio.open(raster) as reader:
             reader.close()
             raster.unlink()
             with pytest.raises(FileNotFoundError) as error:
-                validate.raster(reader, self.name)
+                validate._raster_type(reader, self.name)
             assert_contains(error, "no longer exists", str(raster))
-
-    def test_ND(self):
-        raster = np.arange(0, 27).reshape(3, 3, 3)
-        with pytest.raises(validate.DimensionError) as error:
-            validate.raster(raster, self.name)
-        assert_contains(error, self.name)
-
-    def test_notreal_numpy(self):
-        raster = np.array([True, True], dtype=bool)
-        with pytest.raises(TypeError) as error:
-            validate.raster(raster, self.name)
-        assert_contains(error, self.name, "numpy.integer", "numpy.floating")
 
     def test_other(self):
         with pytest.raises(TypeError) as error:
-            validate.raster(np, self.name)
+            validate._raster_type(np, self.name)
         assert_contains(
             error,
             self.name,
-            "str, pathlib.Path, rasterio.DatasetReader, or numpy.ndarray",
+            "str, pathlib.Path, rasterio.DatasetReader, or 2D numpy.ndarray",
         )
 
-    def test_shape_numpy(self):
-        raster = np.arange(0, 10).reshape(2, 5)
-        output = validate.raster(raster, "", shape=(2, 5))
-        check_equal(raster, output)
 
-    def test_shape_file(self, raster, band1):
-        output = validate.raster(raster, "", shape=band1.shape)
+class TestRasterFile:
+    name = 'test name'
+
+    def test_shape(self, raster, band1):
+        output, nodata = validate._raster_file(raster, "", shape=band1.shape, load=True)
         check_equal(output, band1)
+        assert nodata==4
 
-    def test_shape_failed_numpy(self):
-        raster = np.arange(0, 10).reshape(2, 5)
-        with pytest.raises(validate.ShapeError) as error:
-            validate.raster(raster, self.name, shape=(3, 6))
-        assert_contains(error, self.name)
-
-    def test_shape_failed_file(self, raster):
-        with pytest.raises(validate.ShapeError) as error:
-            validate.raster(raster, self.name, shape=(1000, 1000))
+    def test_invalid_shape(self, raster):
+        with pytest.raises(ShapeError) as error:
+            validate._raster_file(raster, self.name, shape=(1000, 1000), load=True)
         assert_contains(error, self.name)
 
     def test_noload(self, raster):
-        output = validate.raster(raster, "", load=False)
+        output, nodata = validate._raster_file(raster, "", shape=None, load=False)
         assert output == raster
+        assert nodata==4
 
-    def test_noload_numpy(self):
+    def test_invalid_dtype(self, craster):
+        with pytest.raises(TypeError) as error:
+            validate._raster_file(craster, '', shape=None, load=False)
+        assert_contains(error, 'floating', 'integer', 'bool')
+
+
+class TestRasterArray:
+    name = 'test name'
+
+    def test_invalid_dtype(self, band1):
+        band1 = band1.astype(np.csingle)
+        with pytest.raises(TypeError) as error:
+            validate._raster_array(band1, self.name, shape=None, nodata=None, nodata_name='')
+        assert_contains(error, 'integer', 'floating', 'bool')
+
+    def test_shape(self):
         raster = np.arange(0, 10).reshape(2, 5)
-        output = validate.raster(raster, "", load=False)
+        output, nodata = validate._raster_array(raster, "", shape=(2, 5), nodata=None, nodata_name='')
         check_equal(raster, output)
+        assert nodata is None
 
-    def test_nodata_array(_, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        output = validate.raster(band1, "", numpy_nodata=4, nodata_to=-999)
-        assert np.array_equal(output, expected)
+    def test_invalid_shape(self):
+        raster = np.arange(0, 10).reshape(2, 5)
+        with pytest.raises(ShapeError) as error:
+            validate._raster_array(raster, self.name, shape=(3, 6), nodata=None, nodata_name='')
+        assert_contains(error, self.name)
 
-    def test_nodata_file(_, raster, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        output = validate.raster(raster, "", nodata_to=-999)
-        assert np.array_equal(output, expected)
+    def test_nodata(self, band1):
+        output, nodata = validate._raster_array(band1, '', shape=None, nodata=-999, nodata_name='')
+        check_equal(band1, output)
+        assert nodata==-999
 
-    def test_array_mask(_, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        expected_mask = band1 == 4
-        output = validate.raster(
-            band1, "", numpy_nodata=4, nodata_to=-999, return_mask=True
-        )
-        assert isinstance(output, tuple)
-        assert len(output) == 2
-        assert np.array_equal(output[0], expected)
-        assert np.array_equal(output[1], expected_mask)
+    def test_invalid_nodata(self, band1):
+        with pytest.raises(TypeError) as error:
+            validate._raster_array(band1, 'test name', shape=None, nodata='invalid', nodata_name='some nodata name')
+        assert_contains(error, 'some nodata name')
 
-    def test_file_mask(_, raster, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        expected_mask = band1 == 4
-        output = validate.raster(
-            raster, "", numpy_nodata=4, nodata_to=-999, return_mask=True
-        )
-        assert isinstance(output, tuple)
-        assert len(output) == 2
-        assert np.array_equal(output[0], expected)
-        assert np.array_equal(output[1], expected_mask)
+    def test_not_matrix(self, band1):
+        band1 = np.stack((band1, band1), axis=-1)
+        with pytest.raises(DimensionError) as error:
+            validate._raster_array(band1, 'test name', shape=None, nodata=None, nodata_name='')
+        assert_contains(error, 'test name')
 
-    def test_array_dtype(_, band1):
-        with pytest.raises(TypeError):
-            validate.raster(band1, "test name", dtype=np.floating)
+# Most functionality is tested via the tests of the private raster validaters.
+# Only need to check the intersection of file-based and numpy options here
+class TestRaster:
 
-    def test_file_dtype(_, raster):
-        with pytest.raises(TypeError):
-            validate.raster(raster, "test name", dtype=np.floating)
+    @pytest.mark.parametrize('numpy_nodata', (-999, 'invalid'))
+    def test_file_numpy_nodata(self, raster, band1, numpy_nodata):
+        output, nodata = validate.raster(raster, 'test name', shape=None, numpy_nodata=numpy_nodata)
+        check_equal(output, band1)
+        assert nodata==4
+
+    def test_file_noload(self, raster):
+        output, nodata = validate.raster(raster, '', shape=None, load=False)
+        assert output==raster
+        assert nodata==4
+
+    def test_numpy_noload(self, band1):
+        output, nodata = validate.raster(band1, '', numpy_nodata=-999, load=False)
+        check_equal(output, band1)
+        assert nodata==-999
+
+
+
+
+class TestCheckBound:
+    def test_pass(_, array):
+        min = np.amin(array)
+        max = np.amax(array)
+        validate._check_bound(array, "", "<", max + 1)
+        validate._check_bound(array, "", "<=", max)
+        validate._check_bound(array, "", ">=", min)
+        validate._check_bound(array, "", ">", min - 1)
+
+    def test_fail(_, array):
+        min = np.amin(array)
+        max = np.amax(array)
+        name = "test name"
+
+        with pytest.raises(ValueError) as error:
+            validate._check_bound(array, "test name", "<", max)
+            assert_contains(error, name, "less than")
+
+        with pytest.raises(ValueError) as error:
+            validate._check_bound(array, "test name", "<=", max - 1)
+            assert_contains(error, name, "less than or equal to")
+
+        with pytest.raises(ValueError) as error:
+            validate._check_bound(array, "test name", ">=", min + 1)
+            assert_contains(error, name, "greater than or equal to")
+
+        with pytest.raises(ValueError) as error:
+            validate._check_bound(array, "test name", ">", min)
+            assert_contains(error, name, "greater than")
+
+
+#####
+# Loaded Arrays
+#####
+
+
+class TestPositive:
+    name = "test name"
+
+    def test_pass(self):
+        array = np.arange(1, 11).reshape(2, 5)
+        validate.positive(array, self.name)
+
+    def test_fail(self):
+        array = np.arange(-11, -1).reshape(2, 5)
+        with pytest.raises(ValueError) as error:
+            validate.positive(array, self.name)
+        assert_contains(error, self.name)
+
+    def test_pass_0(self):
+        array = np.arange(0, 10).reshape(2, 5)
+        validate.positive(array, self.name, allow_zero=True)
+
+    def test_fail_0(self):
+        array = np.arange(0, 10).reshape(2, 5)
+        with pytest.raises(ValueError) as error:
+            validate.positive(array, self.name)
+        assert_contains(error, self.name)
+
+    def test_nan(self):
+        a = np.array([np.nan, np.nan])
+        with pytest.raises(ValueError) as error:
+            validate.positive(a, self.name)
+        assert_contains(error, self.name)
+
+
+class TestIntegers:
+    name = "test name"
+
+    def test_pass(self):
+        array = np.array([-4.0, -3.0, 1.0, 2.0, 3.0, 100.000], dtype=float)
+        validate.integers(array, self.name)
+
+    def test_fail(self):
+        array = np.array([1.2, 2.0, 3.0, 4.222])
+        with pytest.raises(ValueError) as error:
+            validate.integers(array, self.name)
+        assert_contains(error, self.name)
+
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    def test_nan(self):
+        a = np.array([np.nan, np.nan])
+        with pytest.raises(ValueError) as error:
+            validate.integers(a, self.name)
+        assert_contains(error, self.name)
+
+
+class TestInRange:
+    name = "test name"
+
+    @staticmethod
+    def bounds(array):
+        return (np.amin(array), np.amax(array))
+
+    def test_pass(self, array):
+        min, max = self.bounds(array)
+        validate.inrange(array, self.name, min - 1, max + 1)
+
+    def test_includes_bound(self, array):
+        min, max = self.bounds(array)
+        validate.inrange(array, self.name, min, max)
+
+    def test_too_high(self, array):
+        min, max = self.bounds(array)
+        with pytest.raises(ValueError) as error:
+            validate.inrange(array, self.name, min, max - 1)
+        assert_contains(error, self.name, str(max - 1))
+
+    def test_too_low(self, array):
+        min, max = self.bounds(array)
+        with pytest.raises(ValueError) as error:
+            validate.inrange(array, self.name, min + 1, max)
+        assert_contains(error, self.name, str(min + 1))
+
+    def test_only_upper(self, array):
+        _, max = self.bounds(array)
+        validate.inrange(array, self.name, max=max)
+
+    def test_only_lower(self, array):
+        min, _ = self.bounds(array)
+        validate.inrange(array, self.name, min=min)
+
+    def test_nan(self):
+        a = np.array([np.nan, np.nan])
+        with pytest.raises(ValueError) as error:
+            validate.inrange(a, self.name, min=-np.inf, max=np.inf)
+        assert_contains(error, self.name)
+
+
+class TestMask:
+    @pytest.mark.parametrize("type", (bool, int, float))
+    def test_valid(_, mask, type):
+        input = mask.astype(type)
+        output = validate.mask(input, "test name")
+        assert np.array_equal(output, mask)
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, -999, 3))
+    def test_invalid(_, mask, value):
+        mask = mask.astype(float)
+        mask[0, 0] = value
+        with pytest.raises(ValueError) as error:
+            validate.mask(mask, "test name")
+            assert_contains(error, "test name")
+
+    def test_nan(_, mask):
+        mask = mask.astype(float)
+        mask[0, 0] = np.nan
+        with pytest.raises(ValueError) as error:
+            validate.mask(mask, "test name")
+            assert_contains(error, "test name")
+
+
+class TestFlow:
+    @pytest.mark.parametrize("type", (int, float))
+    def test_valid(_, type):
+        a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
+        validate.flow(a, "test name")
+
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    @pytest.mark.parametrize("value", (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
+    def test_invalid(_, value):
+        a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
+        a[5] = value
+        with pytest.raises(ValueError) as error:
+            validate.flow(a, "test name")
+            assert_contains(error, "test name")
+
+
+
 
 
 class TestOutputPath:
