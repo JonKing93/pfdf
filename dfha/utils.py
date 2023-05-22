@@ -1,16 +1,13 @@
 """
 utils  Low-level utilities used throughout the package
 ----------
-Numpy dtypes:
+Misc:
     real            - A list of numpy dtypes considered to be real-valued numbers
-    mask_dtypes     - A list of numpy dtypes suitable for raster masks
+    any_defined     - True if any input is not None
 
 Sequence conversion:
     aslist          - Returns an input as a list
     astuple         - Returns an input as a tuple
-
-Argument Parsing:
-    any_defined     - True if any input is not None
 
 Rasters:
     load_raster     - Returns a pre-validated raster as a numpy array
@@ -97,8 +94,6 @@ def load_raster(
     raster: ValidatedRaster,
     *,
     band: int = 1,
-    numpy_nodata: Optional[scalar] = None,
-    nodata_to: Optional[scalar] = None
 ) -> RasterArray:
     """
     load_raster  Returns a raster as a numpy.ndarray
@@ -114,53 +109,21 @@ def load_raster(
     load_raster(..., *, band)
     Loads the indicated raster band. The band option is ignored is the input is
     a numpy array.
-
-    load_raster(..., *, numpy_nodata)
-    Indicates a value representing NoData for when the input raster is a numpy
-    array. This option is typically combined with the "nodata_to" option (see below).
-
-    load_raster(..., *, nodata_to)
-    Converts NoData values to the indicated value. If the input raster is file-based,
-    determines the NoData value from the file metadata. If the input is a numpy
-    array, determines the NoData value from the "numpy_nodata" option (if provided).
     ----------
     Inputs:
         raster: The Path to a raster file or a raster as a 2D numpy array
         band: The raster band to load from file. Default is band 1.
-        numpy_nodata: Indicates a value to treat as NoData for input numpy arrays.
-        nodata_to: The value to which NoData values will be converted
 
     Outputs:
         numpy 2D array: The raster as a numpy.ndarray
     """
 
-    # Note whether replacing nodata
-    if nodata_to is not None:
-        replace = True
-    else:
-        replace = False
-
-    # If not a numpy array, going to load from file. Temporarily suppress
-    # rasterios georeferencing warnings
+    # If not a numpy array, load from file. Temporarily suppress georef warning
     if not isinstance(raster, ndarray):
-        isarray = False
         with catch_warnings():
             simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
-
-            # Load the raster from file
             with rasterio.open(raster) as file:
                 raster = file.read(band)
-
-                # Determine NoData value if appropriate
-                if replace:
-                    nodata = file.nodata
-    elif replace:
-        isarray = True
-        nodata = numpy_nodata
-
-    # Optionally replace NoData
-    if replace:
-        raster, _ = replace_nodata(raster, nodata, nodata_to, copy=isarray)
     return raster
 
 
@@ -188,7 +151,7 @@ def save_raster(
         A GeoTIFF file matching the "path" input.
     """
 
-    # Rasterio does not accept boolean dtype, so convert to (equivalent) int8
+    # Rasterio does not accept boolean dtype, so convert to int8 first
     if raster.dtype == bool:
         raster = raster.astype("int8")
 
