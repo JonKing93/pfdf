@@ -22,7 +22,7 @@ import numpy as np
 from pathlib import Path
 from dfha import dem, validate
 from dfha.utils import save_raster, load_raster
-from dfha.errors import ShapeError
+from dfha.errors import ShapeError, DimensionError
 
 #####
 # Testing Utilities
@@ -45,7 +45,7 @@ def araster():
 @pytest.fixture
 def fraster(araster, tmp_path):
     path = tmp_path / "raster.tif"
-    save_raster(araster, path)
+    save_raster(araster, path, nodata=200)
     return path
 
 
@@ -246,168 +246,66 @@ class TestOptions:
 class TestValidateInputs:
     def test_invalid(_):
         with pytest.raises(TypeError) as error:
-            dem._validate_inputs([True], ["test name"])
+            dem._validate_inputs([True], ["test name"], [None], [""])
         assert_contains(error, "test name")
 
     def test_invalid_array(_):
         a = np.arange(0, 27).reshape(3, 3, 3)
-        with pytest.raises(validate.DimensionError) as error:
-            dem._validate_inputs([a], ["test name"])
+        with pytest.raises(DimensionError) as error:
+            dem._validate_inputs([a], ["test name"], [None], [""])
         assert_contains(error, "test name")
 
     def test_invalid_file(_):
         file = "not-a-file"
         with pytest.raises(FileNotFoundError) as error:
-            dem._validate_inputs([file], ["test name"])
+            dem._validate_inputs([file], ["test name"], [None], [""])
 
     def test_invalid_shapes(_, araster):
         raster1 = araster
         raster2 = araster.reshape(-1)
-        with pytest.raises(validate.ShapeError) as error:
-            dem._validate_inputs([raster1, raster2], ["test 1", "test 2"])
+        with pytest.raises(ShapeError) as error:
+            dem._validate_inputs(
+                [raster1, raster2], ["test 1", "test 2"], [None, None], ["", ""]
+            )
         assert_contains(error, "test 2")
 
+    def test_invalid_nodata(_, araster):
+        invalid = np.array([1, 2, 3])
+        with pytest.raises(DimensionError) as error:
+            dem._validate_inputs([araster], ["test raster"], [invalid], ["nodata name"])
+        assert_contains(error, "nodata name")
+
     def test_valid_array(_, araster):
-        output = dem._validate_inputs([araster], ["test name"])
-        assert isinstance(output, list)
-        assert len(output) == 1
-        assert np.array_equal(output[0], araster)
+        rasters, nodata = dem._validate_inputs([araster], ["test name"], [-999], [""])
+        assert isinstance(rasters, list)
+        assert len(rasters) == 1
+        assert np.array_equal(rasters[0], araster)
+        assert isinstance(nodata, list)
+        assert len(nodata) == 1
+        assert nodata[0] == -999
 
     def test_valid_file(_, fraster):
-        output = dem._validate_inputs([fraster], ["test 1", "test 2"])
-        assert isinstance(output, list)
-        assert len(output) == 1
-        assert np.array_equal(output[0], fraster)
+        rasters, nodata = dem._validate_inputs([fraster], ["test 1"], [-999], [""])
+        assert isinstance(rasters, list)
+        assert len(rasters) == 1
+        assert rasters[0] == fraster
+        assert isinstance(nodata, list)
+        assert len(nodata) == 1
+        assert nodata[0] == 200
 
     def test_multiple(_, araster, fraster):
-        output = dem._validate_inputs([araster, fraster], ["test 1", "test 2"])
-        assert isinstance(output, list)
-        assert len(output) == 2
-        assert np.array_equal(output[0], araster)
-        assert np.array_equal(output[1], fraster)
+        rasters, nodata = dem._validate_inputs(
+            [araster, fraster], ["test 1", "test 2"], [-999, None], ["", ""]
+        )
+        assert isinstance(rasters, list)
+        assert len(rasters) == 2
+        assert np.array_equal(rasters[0], araster)
+        assert rasters[1] == fraster
 
-
-class TestNoData:
-    def test_file(_, fdem):
-        output = dem._nodata(["ignore me"], ["test name"], [fdem])
-        assert output == ["ignore me"]
-
-    @pytest.mark.parametrize("value", (np.nan, np.inf, 5, -999))
-    def test_valid(_, fdem, value):
-        raster = load_raster(fdem)
-        output = dem._nodata([value], ["test name"], [raster])
-        expected = validate.scalar(value, "")
-        assert np.array_equal(output, [expected], equal_nan=True)
-
-    def test_none(_, fdem):
-        raster = load_raster(fdem)
-        output = dem._nodata([None], ["test name"], raster)
-        assert output == [None]
-
-    # NaN (floating) should convert to 0 for integer rasters
-    def test_converted(_, fflow8):
-        raster = load_raster(fflow8)
-        output = dem._nodata([np.nan], "test name", [raster])
-        assert output == [0]
-
-    def test_nonscalar(_, fdem):
-        raster = load_raster(fdem)
-        with pytest.raises(validate.DimensionError) as error:
-            dem._nodata([raster], ["test name"], [raster])
-            assert_contains(error, "test name")
-
-    def test_not_real(_, fdem):
-        raster = load_raster(fdem)
-        with pytest.raises(TypeError) as error:
-            dem._nodata([True], ["test name"], [raster])
-            assert_contains(error, "test name")
-
-    def test_mixed_valid(_, fdem):
-        raster = load_raster(fdem)
-        rasters = [raster, raster, fdem]
-        values = [None, -999, "ignored"]
-        output = dem._nodata(values, ["", "", ""], rasters)
-        assert output == values
-
-    def test_mixed_invalid(_, fdem):
-        raster = load_raster(fdem)
-        rasters = [raster, raster, fdem]
-        with pytest.raises(TypeError) as error:
-            dem._nodata(
-                [5, "invalid", "ignored"],
-                ["test1", "test2", "test3"],
-                rasters,
-            )
-            assert_contains(error, "test2")
-
-
-class TestValidateD8:
-    def test_disable(_):
-        a = np.arange(0, 100).reshape(10, 10)
-        dem._validate_d8(False, a, 0)
-
-    def test_valid(_):
-        a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2)
-        dem._validate_d8(True, a, 0)
-
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
-    @pytest.mark.parametrize("value", (np.nan, np.inf, 2.2, -1, 9))
-    def test_invalid(_, value):
-        a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2).astype(float)
-        a[0, 0] = value
-        with pytest.raises(ValueError) as error:
-            dem._validate_d8(True, a, 0)
-            assert_contains(error, "flow_directions")
-
-    @pytest.mark.parametrize("value", (np.nan, np.inf, 2.2, -1, 9))
-    def test_nodata(_, value):
-        a = np.array([1, 5, 3, 4, 6, 7, 8, 2, 4, 3, 5, 5]).reshape(-1, 2).astype(float)
-        a[0, 0] = value
-        dem._validate_d8(True, a, value)
-
-
-class TestValidateDinf:
-    def test_disable(_):
-        flow = np.arange(0, 100).reshape(10, 10)
-        slopes = np.arange(-100, 0).reshape(10, 10)
-        dem._validate_dinf(False, flow, 0, slopes, 0)
-
-    def test_valid(_):
-        flow = np.array([0, 1, np.pi, 1.5, 2, 2 * np.pi]).reshape(2, 3)
-        slopes = np.array([0, 10, 100, 1000, 10000, np.inf]).reshape(2, 3)
-        dem._validate_dinf(True, flow, -999, slopes, -999)
-
-    @pytest.mark.parametrize("value", (np.nan, np.inf, -3, 7))
-    def test_invalid_flow(_, value):
-        flow = np.array([0, 1, np.pi, 1.5, 2, 2 * np.pi]).reshape(2, 3)
-        slopes = np.array([0, 10, 100, 1000, 10000, np.inf]).reshape(2, 3)
-        flow[0, 0] = value
-        with pytest.raises(ValueError) as error:
-            dem._validate_dinf(True, flow, 0, slopes, 0)
-        assert_contains(error, "flow_directions")
-
-    @pytest.mark.parametrize("value", (np.nan, -3))
-    def test_invalid_slopes(_, value):
-        flow = np.array([0, 1, np.pi, 1.5, 2, 2 * np.pi]).reshape(2, 3)
-        slopes = np.array([0, 10, 100, 1000, 10000, np.inf]).reshape(2, 3)
-        slopes[0, 0] = value
-        with pytest.raises(ValueError) as error:
-            dem._validate_dinf(True, flow, 0, slopes, 0)
-            assert_contains(error, "slopes")
-
-    @pytest.mark.parametrize("value", (np.nan, np.inf, -3, 7))
-    def test_nodata_flow(_, value):
-        flow = np.array([0, 1, np.pi, 1.5, 2, 2 * np.pi]).reshape(2, 3)
-        slopes = np.array([0, 10, 100, 1000, 10000, np.inf]).reshape(2, 3)
-        flow[0, 0] = value
-        dem._validate_dinf(True, flow, value, slopes, 0)
-
-    @pytest.mark.parametrize("value", (np.nan, -3))
-    def test_nodata_slopes(_, value):
-        flow = np.array([0, 1, np.pi, 1.5, 2, 2 * np.pi]).reshape(2, 3)
-        slopes = np.array([0, 10, 100, 1000, 10000, np.inf]).reshape(2, 3)
-        slopes[0, 0] = value
-        dem._validate_dinf(True, flow, 0, slopes, value)
+        assert isinstance(nodata, list)
+        assert len(nodata) == 2
+        assert nodata[0] == -999
+        assert nodata[1] == 200
 
 
 class TestPaths:

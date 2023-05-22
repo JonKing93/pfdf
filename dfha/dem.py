@@ -877,13 +877,13 @@ def _options(verbose: Option, overwrite: Option) -> Tuple[bool, bool]:
 def _validate_inputs(
     rasters: List[Any],
     names: Sequence[str],
-    nodata: List[nodata],
+    nodatas: List[nodata],
     nodata_names: Sequence[str],
 ) -> Tuple[List[ValidatedRaster], List[nodata]]:
     """
     _validate_inputs  Validates user provided input rasters and NoData values
     ----------
-    _validate_inputs(rasters, names, nodata, nodata_names)
+    _validate_inputs(rasters, names, nodatas, nodata_names)
     Checks that inputs are valid rasters. If a raster is a numpy array, also
     validates the associated NoData value. If multiple rasters are provided,
     checks that all have the same shape. Does not load file-based rasters into
@@ -892,7 +892,7 @@ def _validate_inputs(
     Inputs:
         rasters: The user-provided input rasters
         names: The names of the rasters for use in error messages.
-        nodata: NoData values for the rasters for when they are numpy arrays.
+        nodatas: NoData values for the rasters for when they are numpy arrays.
         nodata_names: The names of the NoData variables for use in error messages.
 
     Outputs:
@@ -907,9 +907,9 @@ def _validate_inputs(
 
     # Validate each raster and NoData value
     for r, raster, name, nodata, nodata_name in zip(
-        indices, rasters, names, nodata, nodata_names
+        indices, rasters, names, nodatas, nodata_names
     ):
-        rasters[r], nodata[r] = validate.raster(
+        rasters[r], nodatas[r] = validate.raster(
             raster,
             name,
             shape=shape,
@@ -921,7 +921,7 @@ def _validate_inputs(
         # Additional rasters must match the shape of the first
         if nrasters > 1 and r == 0:
             shape = raster_shape(rasters[r])
-    return rasters
+    return rasters, nodatas
 
 
 def _paths(
