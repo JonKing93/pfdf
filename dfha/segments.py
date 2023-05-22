@@ -1034,6 +1034,7 @@ def filter(
     its inputs are missing.
 
     filter(..., *, minimum_slope, slopes, ...)
+    filter(..., *, minimum_slope, slopes, ...)
     Removes stream segments whose mean slopes are below a minimum threshold.
     Slopes below the threshold should be too flat to support a debris flow.
     Requires the slopes of the DEM pixels as input. Segment slopes are set as
