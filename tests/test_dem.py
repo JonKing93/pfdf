@@ -87,6 +87,12 @@ def fpitfilled(tmp_path):
     return file_raster(pitfilled, "float32", tmp_path, "pitfilled")
 
 
+def add_basins(paths):
+    paths["isbasin"] = UsesPaths.fire / UsesPaths.isbasin
+    paths["upslope_basins"] = UsesPaths.fire / UsesPaths.nbasins
+    return paths
+
+
 @pytest.fixture
 def fflow8(tmp_path):
     return filled_raster("int16", tmp_path, "flow8", center=[7, 5], fill=-32768)
