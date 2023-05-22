@@ -1,1 +1,1 @@
-__all__ = ["dem","segments","stream","typing","utils","validate"]
+__all__ = ['errors', 'typing', 'utils', 'validate', 'dem', 'stream']
