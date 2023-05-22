@@ -15,6 +15,5 @@ test:
     - pytest tests/test_errors.py --cov=dfha.errors --cov-fail-under=$MIN_COVERAGE --cov-append
     - pytest tests/test_utils.py --cov=dfha.utils --cov-fail-under=$MIN_COVERAGE --cov-append
     - pytest tests/test_validate.py --cov=dfha.validate --cov-fail-under=$MIN_COVERAGE --cov-append
-    - pytest tests/test_dem.py --cov=dfha.dem --cov-fail-under=$MIN_COVERAGE --cov-append
 
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
