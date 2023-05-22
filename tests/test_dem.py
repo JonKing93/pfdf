@@ -22,6 +22,7 @@ import numpy as np
 from pathlib import Path
 from dfha import dem, validate
 from dfha.utils import save_raster, load_raster
+from dfha.errors import ShapeError
 
 #####
 # Testing Utilities
@@ -151,6 +152,65 @@ def assert_contains(error, *strings):
     message = error.value.args[0]
     for string in strings:
         assert string in message
+
+
+#####
+# Loaded array validaters
+#####
+
+
+class TestValidateD8:
+    def test_nocheck(_):
+        dem._validate_d8(False, "invalid", None)
+
+    def test_pass_nodata(_, fflow8):
+        dem._validate_d8(True, fflow8, nodata=-32768)
+
+    def test_fail(_, fflow8):
+        with pytest.raises(ValueError) as error:
+            dem._validate_d8(True, fflow8, None)
+        assert_contains(error, "flow_directions")
+
+
+class TestValidateDinf:
+    def test_nocheck(_):
+        dem._validate_dinf(False, "invalid", None, "invalid", None)
+
+    def test_pass_nodata(_, fflowi, fslopesi):
+        dem._validate_dinf(True, fflowi, fmin, fslopesi, -1)
+
+    def test_fail_flow(_, fflowi, fslopesi):
+        with pytest.raises(ValueError) as error:
+            dem._validate_dinf(True, fflowi, None, fslopesi, -1)
+        assert_contains(error, "flow_directions")
+
+    def test_fail_slopes(_, fflowi, fslopesi):
+        with pytest.raises(ValueError) as error:
+            dem._validate_dinf(True, fflowi, fmin, fslopesi, None)
+        assert_contains(error, "slopes")
+
+
+class TestValidateMask:
+    def test_invalid_shape(_, fmask):
+        with pytest.raises(ShapeError) as error:
+            dem._validate_mask(False, fmask, shape=(10, 10), nodata=-1)
+        assert_contains(error, "mask")
+
+    def test_invalid_raster(_):
+        with pytest.raises(TypeError):
+            dem._validate_mask(False, np, None, None)
+
+    def test_pass(_, fmask):
+        dem._validate_mask(True, fmask, shape=(3, 4), nodata=-1)
+
+    def test_fail(_, fmask):
+        fmask = load_raster(fmask)
+        with pytest.raises(ValueError) as error:
+            dem._validate_mask(True, fmask, shape=(3, 4), nodata=None)
+        assert_contains(error, "mask")
+
+    def test_nocheck(_, fmask):
+        dem._validate_mask(False, fmask, None, None)
 
 
 #####

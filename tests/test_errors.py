@@ -4,6 +4,7 @@ test_errors  Unit tests for the errors module
 
 from dfha import errors
 
+
 class TestShapeError:
     def test(_):
         error = errors.ShapeError("array", "columns", 1, (2, 5), (2, 6))
@@ -22,6 +23,7 @@ class TestDimensionError:
         error = errors.DimensionError(message)
         assert isinstance(error, Exception)
         assert error.args[0] == message
+
 
 class TestRasterShapeError:
     def test(_):

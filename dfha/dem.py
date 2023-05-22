@@ -360,7 +360,9 @@ def upslope_pixels(
     # Validate
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "upslope_pixels"]
-    [flow], nodata = _validate_inputs([flow_directions], names[0:1], [nodata], ['nodata'])
+    [flow], nodata = _validate_inputs(
+        [flow_directions], names[0:1], [nodata], ["nodata"]
+    )
     area, save = validate.output_path(path, overwrite)
     _validate_d8(check, flow, nodata[0])
 
@@ -458,7 +460,12 @@ def upslope_sum(
     # Initial validation
     verbose, overwrite = _options(verbose, overwrite)
     names = ["flow_directions", "values", "upslope_sum"]
-    [flow, values], nodata = _validate_inputs([flow_directions, values], names[0:2], [flow_nodata, values_nodata], ['flow_nodata','values_nodata'])
+    [flow, values], nodata = _validate_inputs(
+        [flow_directions, values],
+        names[0:2],
+        [flow_nodata, values_nodata],
+        ["flow_nodata", "values_nodata"],
+    )
     sum, save = validate.output_path(path, overwrite)
 
     # Validate the mask (if provided) and the D8 flow directions
@@ -564,7 +571,7 @@ def relief(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["pitfilled", "flow_directions", "slopes", "relief"]
     [pitfilled, flow, slopes] = _validate_inputs(
-        [pitfilled, flow_directions, slopes], 
+        [pitfilled, flow_directions, slopes],
         names[0:3],
         [pitfilled_nodata, flow_nodata, slopes_nodata],
         ["pitfilled_nodata", "flow_nodata", "slopes_nodata"],
@@ -771,11 +778,11 @@ def _validate_d8(check: bool, flow: ValidatedRaster, nodata: nodata) -> None:
     Inputs:
         check: True to validate. False to skip validation
         flow: A D8 flow-directions raster
-        nodata: The NoData value for numpy arrays
+        nodata: The NoData value for the raster
     """
     if check:
-        flow = load_raster(flow, numpy_nodata=nodata, nodata_to=1)
-        validate.flow(flow, "flow_directions")
+        flow = load_raster(flow)
+        validate.flow(flow, "flow_directions", nodata=nodata)
 
 
 def _validate_dinf(
@@ -797,19 +804,19 @@ def _validate_dinf(
     Inputs:
         check: True to validate. False to skip validation
         flow: A D-infinity flow directions raster
-        flow_nodata: NoData value for numpy flow directions
+        flow_nodata: NoData value for flow directions
         slopes: A D-infinity flow slopes raster
-        slopes_nodata: NoData value for numpy flow slopes
+        slopes_nodata: NoData value for flow slopes
     """
     if check:
-        flow = load_raster(flow, numpy_nodata=flow_nodata, nodata_to=0)
-        validate.inrange(flow, "flow_directions", min=0, max=2 * pi)
-        slopes = load_raster(slopes, numpy_nodata=slopes_nodata, nodata_to=0)
-        validate.positive(slopes, "slopes", allow_zero=True)
+        flow = load_raster(flow)
+        validate.inrange(flow, "flow_directions", min=0, max=2 * pi, nodata=flow_nodata)
+        slopes = load_raster(slopes)
+        validate.positive(slopes, "slopes", allow_zero=True, nodata=slopes_nodata)
 
 
 def _validate_mask(
-    check: bool, raster: Any, shape: shape2d, nodata: nodata, 
+    check: bool, raster: Any, nodata: nodata, shape: shape2d
 ) -> BooleanMask:
     """
     _validate_mask  Validates and returns a valid data mask
@@ -822,17 +829,17 @@ def _validate_mask(
     Inputs:
         check: True to check that elements are boolean-like. False to disable the check
         raster: The user-provided raster mask
-        nodata: A nodata value is the raster is a numpy array
+        nodata: A nodata value if the raster is a numpy array
         shape: The required shape of the raster
 
     Outputs:
         numpy 2D bool array: The loaded valid data mask
     """
     mask, nodata = validate.raster(
-        raster, "mask", shape=shape, numpy_nodata=nodata, nodata_name='mask_nodata'
+        raster, "mask", shape=shape, numpy_nodata=nodata, nodata_name="mask_nodata"
     )
     if check:
-        mask = validate.mask(mask, mask, nodata=nodata)
+        mask = validate.mask(mask, "mask", nodata=nodata)
     return mask
 
 
