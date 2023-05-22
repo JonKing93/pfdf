@@ -51,8 +51,33 @@ def output_path(tmp_path):
 
 
 #####
-# Tests
+# Misc
 #####
+
+def test_real():
+    assert utils.real == [np.integer, np.floating, np.bool_]
+
+
+@pytest.mark.parametrize(
+    "input, expected",
+    (
+        ((1, 2, 3), True),
+        ((True,), True),
+        ((False,), True),
+        ((1, None, "test"), True),
+        ((None, None, False), True),
+        ((None,), False),
+        ((None, None, None), False),
+    ),
+)
+def test_any_defined(input, expected):
+    assert utils.any_defined(*input) == expected
+
+
+#####
+# Sequences
+#####
+
 @pytest.mark.parametrize(
     "input, expected",
     (
@@ -81,20 +106,9 @@ def test_astuple(input, expected):
     assert utils.astuple(input) == expected
 
 
-@pytest.mark.parametrize(
-    "input, expected",
-    (
-        ((1, 2, 3), True),
-        ((True,), True),
-        ((False,), True),
-        ((1, None, "test"), True),
-        ((None, None, False), True),
-        ((None,), False),
-        ((None, None, None), False),
-    ),
-)
-def test_any_defined(input, expected):
-    assert utils.any_defined(*input) == expected
+#####
+# Rasters
+#####
 
 
 class TestLoadRaster:
@@ -115,59 +129,6 @@ class TestLoadRaster:
     def test_path_band2(_, fraster, band2):
         output = utils.load_raster(fraster, band=2)
         assert np.array_equal(output, band2)
-
-    def test_nodata_array(_, band1):
-        output = utils.load_raster(band1, numpy_nodata=1, nodata_to=-999)
-        band1[0, 0] = -999
-        assert np.array_equal(output, band1)
-
-    def test_nodata_file(_, fraster, band1):
-        output = utils.load_raster(fraster, nodata_to=-999)
-        band1[0, 0] = -999
-        assert np.array_equal(output, band1)
-
-
-class TestRasterShape:
-    def test_array(_, band1):
-        assert utils.raster_shape(band1) == band1.shape
-
-    def test_file(_, fraster, band1):
-        assert utils.raster_shape(fraster) == band1.shape
-
-
-class TestReplaceNodata:
-    def test_number(_, band1):
-        output, mask = utils.replace_nodata(band1, 4, -999, copy=True)
-        assert np.array_equal(mask, band1 == 4)
-        band1[0, 3] = -999
-        assert np.array_equal(output, band1)
-
-    def test_nan(_, band1):
-        band1[0, 3] = np.nan
-        output, mask = utils.replace_nodata(band1, np.nan, -999, copy=True)
-        assert np.array_equal(mask, np.isnan(band1))
-        band1[0, 3] = -999
-        assert np.array_equal(output, band1)
-
-    def test_none(_, band1):
-        output, mask = utils.replace_nodata(band1, None, -999, copy=True)
-        assert np.array_equal(output, band1)
-        assert mask is None
-
-    def test_none_mask(_, band1):
-        output, mask = utils.replace_nodata(
-            band1, None, -999, copy=True, return_mask=True
-        )
-        expected = np.full(band1.shape, False)
-        assert np.array_equal(output, band1)
-        assert np.array_equal(mask, expected)
-
-    def test_copy(_, band1):
-        expected = band1.copy()
-        expected[0, 3] = -999
-        output, _ = utils.replace_nodata(band1, 4, -999, copy=False)
-        assert output is band1
-        assert np.array_equal(output, expected)
 
 
 @pytest.mark.filterwarnings("ignore::rasterio.errors.NotGeoreferencedWarning")
@@ -195,3 +156,53 @@ class TestSaveRaster:
             assert file.count == 1
             raster = file.read(1)
             assert np.array_equal(raster, band1)
+
+
+class TestRasterShape:
+    def test_array(_, band1):
+        assert utils.raster_shape(band1) == band1.shape
+
+    def test_file(_, fraster, band1):
+        assert utils.raster_shape(fraster) == band1.shape
+
+
+#####
+# NoData
+#####
+
+@pytest.mark.parametrize('function', (utils.data_mask, utils.isdata))
+class TestDataMask:
+    def test_none(_, function, band1):
+        output = function(band1, None)
+        assert output is None
+        
+    def test_number(_, function, band1):
+        band1[band1>=6] = -999
+        output = function(band1, -999)
+        assert np.array_equal(output, band1!=-999)
+        
+    def test_nan(_, function, band1):
+        band1 = band1.astype(float)
+        band1[band1>=6] = np.nan
+        output = function(band1, np.nan)
+        assert np.array_equal(output, ~np.isnan(band1))
+
+@pytest.mark.parametrize('function', (utils.nodata_mask, utils.isnodata))
+class TestNodataMask:
+    def test_none(_, function, band1):
+        output = function(band1, None)
+        assert output is None
+        
+    def test_number(_, function, band1):
+        band1[band1>=6] = -999
+        output = function(band1, -999)
+        assert np.array_equal(output, band1==-999)
+        
+    def test_nan(_, function, band1):
+        band1 = band1.astype(float)
+        band1[band1>=6] = np.nan
+        output = function(band1, np.nan)
+        assert np.array_equal(output, np.isnan(band1))
+
+
+
