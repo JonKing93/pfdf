@@ -471,7 +471,8 @@ def upslope_sum(
     # Validate the mask (if provided) and the D8 flow directions
     if mask is not None:
         shape = raster_shape(flow)
-        mask = _validate_mask(check, mask, shape, mask_nodata)
+        print(mask_nodata)
+        mask = _validate_mask(check, mask, mask_nodata, shape)
     _validate_d8(check, flow, nodata[0])
 
     # Optionally mask the pixel values. Ensure NoData values remain Nodata
@@ -570,7 +571,7 @@ def relief(
     # Validate
     verbose, overwrite = _options(verbose, overwrite)
     names = ["pitfilled", "flow_directions", "slopes", "relief"]
-    [pitfilled, flow, slopes] = _validate_inputs(
+    [pitfilled, flow, slopes], nodata = _validate_inputs(
         [pitfilled, flow_directions, slopes],
         names[0:3],
         [pitfilled_nodata, flow_nodata, slopes_nodata],
