@@ -504,12 +504,12 @@ class TestOutputPath:
     )
     def test_valid(_, path):
         output, save = validate.output_path(path, True)
-        assert output == Path("some-file.tif")
+        assert output == Path("some-file.tif").resolve()
         assert save == True
 
     def test_valid_overwrite(_, raster):
         output, save = validate.output_path(raster, True)
-        assert output == raster
+        assert output == raster.resolve()
         assert save == True
 
 
