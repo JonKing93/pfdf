@@ -2,8 +2,8 @@
 errors  Classes that define custom exceptions
 ----------
 Numpy Arrays:
-    DimensionError  - When a numpy array has an invalid nonsingleton dimensions
-    ShapeError      - When a numpy axis has an invalid shape
+    DimensionError      - When a numpy array has invalid nonsingleton dimensions
+    ShapeError          - When a numpy axis has an invalid shape
 
 Stream Segments:
     RasterShapeError    - When a raster shape does not match that of the stream raster

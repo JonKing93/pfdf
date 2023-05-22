@@ -49,7 +49,7 @@ Array Utilities:
     _check_bound    - Compares the elements of an ndarray to a bound
     _isdata         - Returns the data mask for an ndarray
     _data_elements  - Returns the data elements of an ndarray
-    _check          - Ensures the elements of an ndarray passed a validation test
+    _check          - Ensures the data elements of an ndarray passed a validation test
     _first_failure  - Returns the index and value of the first element to fail a validation test
 """
 
@@ -80,7 +80,6 @@ from dfha.typing import (
 )
 
 # Type aliases
-RasterAndMask = Tuple[ValidatedRaster, BooleanMask]
 RasterAndNodata = Tuple[ValidatedRaster, nodata]
 OutputPath = Union[None, Path]
 save = bool

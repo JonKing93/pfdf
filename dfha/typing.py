@@ -26,8 +26,8 @@ nptyping Primer:
       be an integer or boolean dtype.
 
     * An array typed with a boolean dtype is usually a data mask - such as a
-      valid-data/NoData mask. Although a boolean dtype is recommended, the
-      function will accept float and integer dtypes, so long as all valid
+      valid-data/NoData mask. A boolean dtype is preferred, but the function
+      will also accept float and integer dtypes, so long as all valid
       data elements are either 1 or 0.
 """
 
@@ -68,8 +68,8 @@ matrix = Union[ints, floats, MatrixArray]
 
 # Rasters
 RasterArray = MatrixArray  # alias for clarity
-ValidatedRaster = Union[Path, RasterArray]
 Raster = Union[str, Path, DatasetReader, RasterArray]
+ValidatedRaster = Union[Path, RasterArray]
 OutputRaster = Union[Path, RasterArray]
 
 # Generic Masks
