@@ -19,22 +19,22 @@ We recommend using official BARC4 data when possible, but these maps are not
 always available. If this is the case, users can use the "estimate" function
 to estimate a burn severity raster from dNBR.
 ----------
-Functions:
+User Functions:
     locate                  - Builds a burn severity mask
     estimate                - Estimates burn severity from dNBR
     classification          - Returns a dict with the BARC4 classification scheme
 
 Private:
     _validate_thresholds    - Checks that dNBR thresholds are valid
+    _validate_descriptions  - Checks that burn severity descriptions are recognized
     _compare                - Compares two dNBR thresholds
-    _classify               - Detemines 
+    _classify               - Locates a burn severity class using two thresholds 
 """
 
-from pathlib import Path
 import numpy as np
 from dfha import validate
-from dfha.utils import real, save_raster, nodata_mask
-from typing import Dict, Optional
+from dfha.utils import real, save_raster, nodata_mask, astuple
+from typing import Dict, Optional, Set, Any
 from dfha.typing import (
     Raster,
     RasterArray,
@@ -57,6 +57,11 @@ _classification = {
 }
 
 
+#####
+# User Functions
+#####
+
+
 def classification() -> Dict[int, str]:
     """
     classification  Returns the BARC4 burn severity classification scheme
@@ -77,9 +82,9 @@ def locate(
     severity: Raster,
     descriptions: strs,
     *,
-    path: Optional[Path] = None,
+    path: Optional[Pathlike] = None,
     overwrite: bool = False,
-):
+) -> OutputRaster:
     """
     locate  Generates a burn severity mask
     ----------
@@ -95,23 +100,21 @@ def locate(
     saved raster. Set overwrite=True to allow the output to overwrite an existing
     file. Otherwise, raises a FileExistsError if the file already exists.
     ----------
+    Inputs:
+        severity: A BARC4 style burn severity raster.
+        descriptions: A list of strings indicating the burn severity levels that
+            should be set as True in the returned mask
+        path: A path for a saved burned severity mask
+        overwrite: True to allow saved output to replace existing files. Set to
+            False (default) to prevent replacement.
 
+    Outputs:
+        numpy 2D bool array | pathlib.Path: The burn severity mask or Path to
+            a saved mask.
     """
 
-    # Validate descriptions and get unique values
-    allowed = tuple(_classification.values())
-    for d, description in enumerate(descriptions):
-        if not isinstance(description, str):
-            raise TypeError("Description {d} is not a string.")
-        elif description not in allowed:
-            allowed = ", ".join(allowed)
-            raise ValueError(
-                f"Description {d} ({description}) is not a recognized burn severity level. "
-                f"Recognized values are: {allowed}"
-            )
-    descriptions = set(descriptions)
-
-    # Validate output path and burn severity raster
+    # Validate inputs
+    descriptions = _validate_descriptions(descriptions)
     if path is not None:
         path = validate.output_path(path, overwrite)
     severity, _ = validate.raster(severity, "burn severity raster")
@@ -134,9 +137,9 @@ def estimate(
     dNBR: Raster,
     thresholds: Thresholds = [125, 250, 500],
     *,
-    path: Pathlike,
-    overwrite: bool,
-    nodata: scalar,
+    path: Optional[Pathlike] = None,
+    overwrite: bool = False,
+    nodata: Optional[scalar] = None,
 ) -> OutputRaster:
     """
     estimate  Estimates BARC4 burn severity raster from a dNBR raster
@@ -189,8 +192,7 @@ def estimate(
     """
 
     # Validate inputs
-    thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
-    _validate_thresholds(thresholds)
+    thresholds = _validate_thresholds(thresholds)
     if path is not None:
         path = validate.output_path(path, overwrite)
     dNBR, nodata = validate.raster(dNBR, "dNBR", numpy_nodata=nodata)
@@ -213,14 +215,37 @@ def estimate(
         return save_raster(severity, path, nodata=0)
 
 
-def _validate_thresholds(thresholds: ThresholdArray) -> None:
+#####
+# Utilities
+#####
+
+
+def _validate_descriptions(descriptions: Any) -> Set[str]:
+    "Checks that burn severity descriptions are recognized"
+    descriptions = astuple(descriptions)
+    allowed = tuple(_classification.values())
+    for d, description in enumerate(descriptions):
+        if not isinstance(description, str):
+            raise TypeError("Description {d} is not a string.")
+        elif description not in allowed:
+            allowed = ", ".join(allowed)
+            raise ValueError(
+                f"Description {d} ({description}) is not a recognized burn severity level. "
+                f"Recognized values are: {allowed}"
+            )
+    return set(descriptions)
+
+
+def _validate_thresholds(thresholds: Any) -> ThresholdArray:
     "Checks that dNBR thresholds are sorted and not NaN"
+    thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
     if any(thresholds == np.nan):
         bad = np.nonzero(thresholds == np.nan)[0]
         raise ValueError(f"dNBR thresholds cannot be NaN, but threshold {bad} is NaN.")
     names = ["unburned-low", "low-moderate", "moderate-high"]
     _compare(thresholds[0:2], names[0:2])
     _compare(thresholds[1:], names[1:])
+    return thresholds
 
 
 def _compare(thresholds: VectorArray, names: strs) -> None:
