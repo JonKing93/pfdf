@@ -1,7 +1,7 @@
 """
 severity  Functions that estimate and locate burn severity
 ----------
-The severity module is used to generate and work with rasters that report
+The severity module is used to generate and work with rasters that record
 BARC4-like burn severity. The BARC4 classification is as follows:
 
     1 - Unburned
@@ -9,7 +9,9 @@ BARC4-like burn severity. The BARC4 classification is as follows:
     3 - Moderate burn severity
     4 - High burn severity
 
-These burn severity rasters are typically used to derive data masks used to
+This module has two main functions: "locate" and "estimate" (see below for details).
+
+Burn severity rasters are typically used to derive data masks used to
 implement various parts of a hazard assessment. For example, the burned pixel
 mask used to delineate a stream network, or the high-moderate burn mask used to
 implement the M1, M2, and M3 models from Staley et al., 2017. Users can use the
@@ -20,7 +22,7 @@ always available. If this is the case, users can use the "estimate" function
 to estimate a burn severity raster from dNBR.
 ----------
 User Functions:
-    locate                  - Builds a burn severity mask
+    locate                  - Returns a mask of the specified burn severities
     estimate                - Estimates burn severity from dNBR
     classification          - Returns a dict with the BARC4 classification scheme
 
@@ -97,8 +99,9 @@ def locate(
     locate(..., *, path)
     locate(..., *, path, overwrite)
     Saves the burn severity mask to the indicated file. Returns the Path to the
-    saved raster. Set overwrite=True to allow the output to overwrite an existing
-    file. Otherwise, raises a FileExistsError if the file already exists.
+    saved raster rather than a numpy array. Set overwrite=True to allow the 
+    output to overwrite an existing file. Otherwise, raises a FileExistsError 
+    if the file already exists.
     ----------
     Inputs:
         severity: A BARC4 style burn severity raster.
