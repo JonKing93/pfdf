@@ -36,6 +36,7 @@ from math import sqrt
 from copy import deepcopy
 from dfha import validate, segments
 from dfha.segments import Segments
+from dfha.errors import RasterShapeError
 
 
 #####
@@ -524,7 +525,7 @@ class TestValidate:
     def test_wrong_shape(_, segments5):
         bad = np.array([1, 2, 3])
         name = "raster name"
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segments5._validate(bad, name)
         assert_contains(error, name)
 
@@ -671,11 +672,18 @@ class TestBasins:
 
     def test_invalid(_, segments3, values3):
         values3 = np.concatenate((values3, values3), axis=1)
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segments3.basins(values3)
         assert_contains(error, "upslope_basins")
 
+    def test_nodata(_, segments3, values3):
+        expected = np.array([np.nan, 4, 2.2])
+        output = segments3.basins(values3, nodata=-8)
+        assert np.array_equal(output, expected, equal_nan=True)
 
+
+# Note that the actual confinement angle calculation tests are all in
+# Test_Confinements. Only need to check the validation steps for this function
 class TestConfinement:
     def test(_, segmentsc, demc, flowc):
         expected = np.array([105, 120])
@@ -684,13 +692,13 @@ class TestConfinement:
 
     def test_invalid_dem(_, segmentsc, demc, flowc):
         demc = np.concatenate((demc, demc), axis=1)
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segmentsc.confinement(demc, flowc, 1, 1)
         assert_contains(error, "dem")
 
     def test_invalid_flow_shape(_, segmentsc, demc, flowc):
         flowc = np.concatenate((flowc, flowc), axis=1)
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segmentsc.confinement(demc, flowc, 1, 1)
         assert_contains(error, "flow_directions")
 
@@ -731,9 +739,15 @@ class TestDevelopment:
 
     def test_invalid(_, segments3, values3):
         values3 = np.concatenate((values3, values3), axis=1)
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segments3.development(values3)
         assert_contains(error, "upslope_development")
+
+    def test_nodata(_, segments3, values3):
+        expected = np.array([np.nan, 3, 2.2])
+        output = segments3.development(values3, nodata=-8)
+        assert np.array_equal(output, expected, equal_nan=True)
+
 
 
 class TestPixels:
@@ -744,9 +758,15 @@ class TestPixels:
 
     def test_invalid(_, segments3, values3):
         values3 = np.concatenate((values3, values3), axis=1)
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segments3.pixels(values3)
         assert_contains(error, "upslope_pixels")
+
+    def test_nodata(_, segments3, values3):
+        expected = np.array([np.nan, 4, 2.2])
+        output = segments3.pixels(values3, nodata=-8)
+        assert np.array_equal(output, expected, equal_nan=True)
+
 
 
 class TestRemove:
@@ -813,9 +833,15 @@ class TestSlope:
 
     def test_invalid(_, segments3, values3):
         values3 = np.concatenate((values3, values3), axis=1)
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segments3.slope(values3)
         assert_contains(error, "slopes")
+
+    def test_nodata(_, segments3, values3):
+        expected = np.array([np.nan, 3, 2.2])
+        output = segments3.slope(values3, nodata=-8)
+        assert np.array_equal(output, expected, equal_nan=True)
+
 
 
 class TestSummary:
@@ -837,7 +863,7 @@ class TestSummary:
 
     def test_invalid_values(_, segments3, values3):
         values3 = np.concatenate((values3, values3), axis=1)
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segments3.summary("mean", values3)
         assert_contains(error, "input raster")
 
@@ -851,6 +877,11 @@ class TestSummary:
         with pytest.raises(ValueError) as error:
             segments3.summary(bad, values3)
         assert_contains(error, bad)
+
+    def test_nodata(_, segments3, values3):
+        expected = np.array([np.nan, 3, 2.2])
+        output = segments3.summary('mean', values3, nodata=-8)
+        assert np.array_equal(output, expected, equal_nan=True)
 
 
 #####
@@ -907,7 +938,7 @@ class TestValidateRaster:
         }
         filter = "area"
 
-        with pytest.raises(segments.RasterShapeError) as error:
+        with pytest.raises(RasterShapeError) as error:
             segments._validate_raster(filters, filter, segments5, args)
         assert_contains(error, args[0])
 
