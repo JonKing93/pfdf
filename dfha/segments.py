@@ -54,7 +54,7 @@ from dfha.typing import (
     SegmentValues,
     nodata,
 )
-from nptyping import NDArray, Shape, Integer, Number, Bool
+from nptyping import NDArray, Shape, Integer, Floating, Bool
 
 
 # Type aliases
@@ -243,14 +243,14 @@ class Segments:
         stream_raster, nodata = validate.raster(
             stream_raster, name, numpy_nodata=nodata
         )
-        mask = isdata(stream_raster, nodata)
-        validate.positive(stream_raster, name, allow_zero=True, isdata=mask)
-        validate.integers(stream_raster, name, where=mask)
+        data_mask = isdata(stream_raster, nodata)
+        validate.positive(stream_raster, name, allow_zero=True, isdata=data_mask)
+        validate.integers(stream_raster, name, isdata=data_mask)
 
         # Locate stream segment pixels
         pixels = stream_raster != 0
-        if isdata is not None:
-            pixels = pixels & isdata
+        if data_mask is not None:
+            pixels = pixels & data_mask
 
         # Get pixel indices for each dimension. Set as 1D arrays
         (rows, cols) = np.nonzero(pixels)
@@ -281,7 +281,7 @@ class Segments:
         return f"Stream Segments: {list}"
 
     #####
-    # Validation methods
+    # Raster Validation
     #####
     def _validate(
         self,
@@ -342,25 +342,14 @@ class Segments:
         except ShapeError as error:
             raise RasterShapeError(name, error)
 
-    @staticmethod
-    def _validate_confinement_args(
-        N: Any, resolution: Any
-    ) -> Tuple[ScalarArray, ScalarArray]:
-        """Validates the kernel size (N) and DEM resolution for confinement angles
-        Returns the values as scalar numpy arrays"""
-        N = validate.scalar(N, "N", real)
-        validate.positive(N, "N")
-        validate.integers(N, "N")
-        resolution = validate.scalar(resolution, "resolution", real)
-        validate.positive(resolution, "resolution")
-        return N, resolution
+
 
     #####
     # Confinement angle calculations
     #####
     @staticmethod
     def _confinement_angle(
-        slopes: NDArray[Shape["Pixels, 2 rotations"], Number]
+        slopes: NDArray[Shape["Pixels, 2 rotations"], Floating]
     ) -> ScalarArray:
         """Returns mean confinement angle given slopes for a set of pixels.
         Slopes should be rise/run - output angle is in degrees.
@@ -413,7 +402,7 @@ class Segments:
 
             # Get flow-directions. If any are NoData, set confinement to NaN
             flows = flow_directions[pixels]
-            if np.any(isnodata(flows, nodata)):
+            if np.any(isnodata(flows, flow_nodata)):
                 theta[i] = np.nan
                 continue
 
@@ -462,7 +451,7 @@ class Segments:
             values = raster[pixels]
 
             # Compute statistic or set to NaN if NoData is present
-            if np.all(isdata(values)):
+            if np.all(isdata(values, nodata)):
                 summary[i] = statistic(raster[pixels])
             else:
                 summary[i] = np.nan
@@ -629,7 +618,7 @@ class Segments:
             if mask is not None:
                 mask = load_raster(mask)
                 mask = validate.mask(mask, "mask", nodata="mask_nodata")
-                values = values_array  # Loaded array is fastest for a masked mean
+                values = values_array  # Loaded array is required for a masked mean
 
         # Compute the number of pixels if not provided
         if npixels is None:
@@ -724,8 +713,14 @@ class Segments:
             numpy 1D array: The mean confinement angle for each stream segment.
         """
 
-        # Validate
-        N, resolution = self._validate_confinement_args(N, resolution)
+        # Validate N and resolution
+        N = validate.scalar(N, "N", real)
+        validate.positive(N, "N")
+        validate.integers(N, "N")
+        resolution = validate.scalar(resolution, "resolution", real)
+        validate.positive(resolution, "resolution")
+
+        # Validate rasters
         flow, flow_nodata = self._validate(
             flow_directions, "flow_directions", flow_nodata
         )
@@ -1147,7 +1142,7 @@ class _Kernel:
 
     def orthogonal_slopes(
         self, flow: FlowNumber, length: scalar, dem: RasterArray, nodata: nodata
-    ) -> NDArray[Shape["1 pixel, 2 rotations"], Number]:
+    ) -> NDArray[Shape["1 pixel, 2 rotations"], Floating]:
         """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
         length: The lateral or diagonal flow length across 1 pixel

@@ -176,6 +176,7 @@ def segments0(stream0):
     return Segments(stream0)
 
 
+# Stream raster with 3 segments
 @pytest.fixture
 def stream3():
     return np.array(
@@ -187,11 +188,12 @@ def stream3():
     )
 
 
+# Segments object for network with 3 segments
 @pytest.fixture
 def segments3(stream3):
     return Segments(stream3)
 
-
+# Raster for network with 3 segments
 @pytest.fixture
 def values3():
     return np.array(
@@ -208,22 +210,22 @@ def indices3():
     indices = {1: ([1, 2], [0, 0]), 2: ([0, 0, 1], [1, 2, 1]), 3: ([2], [2])}
     return index_dict(indices)
 
-
+# A stream raster for confinement angle tests
 @pytest.fixture
 def streamc():
     return np.array([[0, 0, 0], [1, 2, 0], [0, 0, 0]])
 
-
+# A Segments object for confinement tests
 @pytest.fixture
 def segmentsc(streamc):
     return Segments(streamc)
 
-
+# Flow raster based on confinement stream raster
 @pytest.fixture
 def flowc():
     return np.array([[8, 8, 8], [1, 5, 8], [8, 8, 8]])
 
-
+# Sample DEM for confinement tests
 @pytest.fixture
 def demc():
     return np.array([[1, sqrt(3), 0], [0, 0, 0], [1 / sqrt(3), 0, 0]])
@@ -399,7 +401,7 @@ class TestKernel:
 
 
 #####
-# Segments: Properties, Dunders, and Internal (except _filter)
+# Segments: Properties, Dunders, and Internal
 #####
 
 
@@ -444,6 +446,11 @@ class TestInit:
         with pytest.raises(validate.DimensionError):
             Segments(stream)
 
+    def test_nodata(self, stream, indices):
+        stream[0,0] = -1
+        segments = Segments(stream, nodata=-1)
+        self.validate(segments, indices)
+
 
 class TestIds:
     def test(_, segments5):
@@ -485,22 +492,27 @@ class TestStr:
 class TestValidate:
     @pytest.mark.parametrize("load", [(True), (False)])
     def test_valid_numpy(_, segments5, stream, load):
-        output = segments5._validate(stream, "", load)
+        output, nodata = segments5._validate(stream, "", load)
         assert np.array_equal(output, stream)
+        assert nodata is None
 
     def test_valid_file(_, segments5, stream_path):
-        output = segments5._validate(stream_path, "")
+        output, nodata = segments5._validate(stream_path, "")
         with rasterio.open(stream_path) as data:
             expected = data.read(1)
         assert np.array_equal(output, expected)
+        assert nodata is None
 
     def test_str_noload(_, segments5, stream_path):
-        output = segments5._validate(str(stream_path), "", load=False)
+        output, nodata = segments5._validate(str(stream_path), "", load=False)
         assert output == stream_path
+        assert nodata is None
 
     def test_path_noload(_, segments5, stream_path):
-        output = segments5._validate(stream_path, "", load=False)
+        output, nodata = segments5._validate(stream_path, "", load=False)
         assert output == stream_path
+        assert nodata is None
+
 
     def test_not_raster(_, segments5, stream):
         bad = np.stack((stream, stream))
@@ -515,6 +527,11 @@ class TestValidate:
         with pytest.raises(segments.RasterShapeError) as error:
             segments5._validate(bad, name)
         assert_contains(error, name)
+
+    def test_nodata(_, segments5, stream):
+        output, nodata = segments5._validate(stream, '', nodata=-999)
+        assert np.array_equal(output, stream)
+        assert nodata == -999
 
 
 class TestValidateConfinementArgs:
@@ -609,20 +626,36 @@ class TestConfinementAngle:
 class Test_Confinement:
     def test(_, segmentsc, flowc, demc):
         expected = np.array([105, 120])
-        output = segmentsc._confinement(demc, flowc, 1, 1)
+        output = segmentsc._confinement(demc, None, flowc, None, 1, 1)
         assert np.array_equal(output, expected)
+
+    def test_flow_nodata(_, segmentsc, flowc, demc):
+        expected = np.array([np.nan, 120])
+        output = segmentsc._confinement(demc, None, flowc, flow_nodata=1, N=1, resolution=1)
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_dem_nodata(_, segmentsc, flowc, demc):
+        expected = np.array([np.nan, 120])
+        output = segmentsc._confinement(demc, 1, flowc, None, 1, 1)
+        assert np.array_equal(output, expected, equal_nan=True)
+
 
 
 class Test_Summary:
     def test_mean(_, segments3, values3):
         expected = np.array([-8.5, 3, 2.2])
-        output = segments3._summary(values3, np.mean)
+        output = segments3._summary(values3, np.mean, None)
         assert np.array_equal(output, expected)
 
     def test_max(_, segments3, values3):
         expected = np.array([-8, 4, 2.2])
-        output = segments3._summary(values3, np.amax)
+        output = segments3._summary(values3, np.amax, None)
         assert np.array_equal(output, expected)
+
+    def test_nodata(_, segments3, values3):
+        expected = np.array([-8.5, 3, 2.2])
+        output = segments3._summary(values3, np.mean, nodata=-8)
+        assert np.array_equal(output, expected, equal_nan=True)
 
 
 #####
