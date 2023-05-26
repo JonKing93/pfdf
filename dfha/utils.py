@@ -21,7 +21,7 @@ NoData:
     isnodata        - An alias for nodata_mask
 """
 
-from numpy import ndarray, integer, floating, bool_, isnan
+from numpy import ndarray, integer, floating, bool_, isnan, any as any_
 import rasterio
 from warnings import simplefilter, catch_warnings
 from pathlib import Path
@@ -262,3 +262,25 @@ def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
 def isnodata(raster: RealArray, nodata: nodata) -> DataMask:
     "An alias for nodata_mask"
     return nodata_mask(raster, nodata)
+
+def has_nodata(array: RealArray, nodata: nodata) -> bool:
+    """
+    has_nodata  True if any elements of an array are NoData
+    ----------
+    has_nodata(array, nodata)
+    True if nodata is not None and any elements of the array match the NoData
+    values. Otherwise False.
+    ----------
+    Inputs:
+        array: The array whose elements are being compared to NoData
+        nodata: The NoData value
+
+    Outputs:
+        bool: Whether the array contains NoData values    
+    """
+
+    if nodata is None:
+        return False
+    else:
+        nodata = nodata_mask(array, nodata)
+        return any_(nodata)
