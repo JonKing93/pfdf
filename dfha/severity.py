@@ -99,8 +99,8 @@ def locate(
     locate(..., *, path)
     locate(..., *, path, overwrite)
     Saves the burn severity mask to the indicated file. Returns the Path to the
-    saved raster rather than a numpy array. Set overwrite=True to allow the 
-    output to overwrite an existing file. Otherwise, raises a FileExistsError 
+    saved raster rather than a numpy array. Set overwrite=True to allow the
+    output to overwrite an existing file. Otherwise, raises a FileExistsError
     if the file already exists.
     ----------
     Inputs:
@@ -119,7 +119,7 @@ def locate(
     # Validate inputs
     descriptions = _validate_descriptions(descriptions)
     if path is not None:
-        path = validate.output_path(path, overwrite)
+        path, save = validate.output_path(path, overwrite)
     severity, _ = validate.raster(severity, "burn severity raster")
 
     # Get the queried classes and build the severity mask
@@ -131,9 +131,11 @@ def locate(
     mask = np.isin(severity, classes)
 
     # Optionally save. Return the mask
-    if path is not None:
-        mask = save_raster(mask, path)
-    return mask
+    if path is None:
+        return mask
+    else:
+        save_raster(mask, path)
+        return path
 
 
 def estimate(
@@ -197,25 +199,29 @@ def estimate(
     # Validate inputs
     thresholds = _validate_thresholds(thresholds)
     if path is not None:
-        path = validate.output_path(path, overwrite)
+        path, _ = validate.output_path(path, overwrite)
     dNBR, nodata = validate.raster(dNBR, "dNBR", numpy_nodata=nodata)
 
-    # Preallocate. Fill NoData values
+    # Preallocate. Get nodata maskocate
     severity = np.empty(dNBR.shape, dtype="int8")
     nodata = nodata_mask(dNBR, nodata)
-    severity[nodata] = 0
 
     # Get the burn severity classes
     severity[dNBR < thresholds[0]] = 1
     _classify(severity, dNBR, thresholds[0:2], 2)
     _classify(severity, dNBR, thresholds[1:3], 3)
-    severity[dNBR > thresholds[2]] = 4
+    severity[dNBR >= thresholds[2]] = 4
+
+    # Fill NoData
+    if nodata is not None:
+        severity[nodata] = 0
 
     # Return raster. Optionally save
     if path is None:
         return severity
     else:
-        return save_raster(severity, path, nodata=0)
+        save_raster(severity, path, nodata=0)
+        return path
 
 
 #####
@@ -242,8 +248,9 @@ def _validate_descriptions(descriptions: Any) -> Set[str]:
 def _validate_thresholds(thresholds: Any) -> ThresholdArray:
     "Checks that dNBR thresholds are sorted and not NaN"
     thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
-    if any(thresholds == np.nan):
-        bad = np.nonzero(thresholds == np.nan)[0]
+    nans = np.isnan(thresholds)
+    if np.any(nans):
+        bad = np.argwhere(nans)[0]
         raise ValueError(f"dNBR thresholds cannot be NaN, but threshold {bad} is NaN.")
     names = ["unburned-low", "low-moderate", "moderate-high"]
     _compare(thresholds[0:2], names[0:2])
@@ -263,4 +270,5 @@ def _classify(
     severity: RasterArray, dNBR: RasterArray, thresholds: ThresholdArray, value: int
 ) -> None:
     "Locates a severity class using 2 thresholds"
-    severity[dNBR >= thresholds[0] & dNBR < thresholds[1]] = value
+    mask = (dNBR >= thresholds[0]) & (dNBR < thresholds[1])
+    severity[mask] = value
