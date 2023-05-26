@@ -73,7 +73,7 @@ ValidatedRaster = Union[Path, RasterArray]
 OutputRaster = Union[Path, RasterArray]
 
 # Generic Masks
-Mask = Union[     # This is for user-provided masks
+Mask = Union[  # This is for user-provided masks
     NDArray[MatrixShape, Integer],
     NDArray[MatrixShape, Floating],
     NDArray[MatrixShape, Bool],
@@ -85,11 +85,13 @@ BooleanArray = NDArray[Any, Bool]
 nodata = Union[None, ScalarArray]
 DataMask = Union[None, BooleanArray]
 
-# Segments and Staley 2017 models
-SegmentValues = NDArray[Shape['Segments'], Floating]
-Durations = NDArray[Shape['Durations'], Floating]
-Pvalues = NDArray[Shape['Pvalues'], Floating]
-Parameters = NDArray[Shape['Runs'], Floating]
-Variables = NDArray[Shape['Parameters, Runs'], Floating]
-Intensities = NDArray[Shape['Segments, Runs, Pvalues'], Floating]
+# Segments
+SegmentsShape = Shape["Segments"]
+SegmentValues = NDArray[SegmentsShape, Floating]
 
+# Staley 2017
+Durations = NDArray[Shape["Durations"], Floating]
+Pvalues = NDArray[Shape["Pvalues"], Floating]
+Parameters = NDArray[Shape["Runs"], Floating]
+Variables = NDArray[Shape["Parameters, Runs"], Floating]
+Intensities = NDArray[Shape["Segments, Runs, Pvalues"], Floating]
