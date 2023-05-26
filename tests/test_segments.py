@@ -360,7 +360,14 @@ class TestKernel:
 
     @pytest.mark.parametrize("flow, height", flow_height)
     def test_max_height(_, kernel2, dem, flow, height):
-        assert kernel2.max_height(flow, dem) == height
+        output = kernel2.max_height(flow, dem, nodata=None)
+        assert output == height
+
+    def test_max_height_nodata(_, kernel2, dem):
+        output = kernel2.max_height(flow=0, dem=dem, nodata=10)
+        assert np.isnan(output)
+        output = kernel2.max_height(flow=1, dem=dem, nodata=12)
+        assert np.isnan(output)
 
     @pytest.mark.parametrize(
         "flow, slopes",
