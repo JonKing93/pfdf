@@ -20,7 +20,7 @@ import rasterio
 import pytest, subprocess
 import numpy as np
 from pathlib import Path
-from dfha import dem, validate
+from dfha import dem
 from dfha.utils import save_raster, load_raster
 from dfha.errors import ShapeError, DimensionError
 
@@ -85,12 +85,6 @@ def fpitfilled(tmp_path):
         ]
     )
     return file_raster(pitfilled, "float32", tmp_path, "pitfilled")
-
-
-def add_basins(paths):
-    paths["isbasin"] = UsesPaths.fire / UsesPaths.isbasin
-    paths["upslope_basins"] = UsesPaths.fire / UsesPaths.nbasins
-    return paths
 
 
 @pytest.fixture
