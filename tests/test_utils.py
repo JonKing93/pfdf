@@ -206,3 +206,15 @@ class TestNodataMask:
 
 
 
+class TestHasNodata:
+    def test_none(_, band1):
+        assert utils.has_nodata(band1, None) == False
+
+    def test_nan(_, band1):
+        assert utils.has_nodata(band1, np.nan) == False
+        band1[0,0] = np.nan
+        assert utils.has_nodata(band1, np.nan) == True
+
+    def test_number(_, band1):
+        assert utils.has_nodata(band1, 5) == True
+        assert utils.has_nodata(band1, -999) == False
