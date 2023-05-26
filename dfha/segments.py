@@ -11,18 +11,11 @@ of hazard assessment modeling. Common filtering criteria include:
     * Total developed upslope area
     * Number of upslope debris-retention basins
 
-This module provides two main workflows for filtering stream segments: 
-    1. The "filter" function, and
-    2. The "Segments" class
-The "filter" function is intended for operational users. This function implements
-a number of standard filters, and returns the IDs of stream segments deemed 
-worthy of hazard assessment modeling. 
-
-By contrast, the "Segments" class is intended for users interested in designing 
-custom filtering routines. The class includes a variety of methods that calculate
-values for each stream segment in a network - users can use these values to screen
-the stream segments as desired. Please see the documention of the "Segments"
-class for instructions on this workflow.
+The workflow for this module proceeds via the "Segments" class. This class provides
+a variety of methods that calculate values for each stream segment in a network.
+Users can use these values to screen stream segments and reduce the network as
+desired. Please see the documentation of the "Segments" class for detailed
+instructions on this workflow.
 
 Most of the commands in this module operate on raster datasets, and so the module
 allows users to provide rasters in a variety of ways. When calling commands, 
@@ -35,22 +28,18 @@ Note that file-based rasters are loaded using rasterio, and so support nearly al
 common raster file formats. You can find a complete list of supported formats
 here: https://gdal.org/drivers/raster/index.html
 ----------
-Functions:
-    filter              - Filters a network of stream segments
-
 Classes:
     Segments            - Defines a stream segment network and calculates values for the segments
 
-Internal:
+Internal Classes:
     _Kernel             - Locates raster pixels required for confinement angle focal statistics
-    _validate_raster    - Validates a raster for a filter
 """
 
 import numpy as np
 from math import sqrt
 from copy import deepcopy
 from dfha import validate, dem
-from dfha.utils import any_defined, load_raster, real, data_mask, isnodata, isdata
+from dfha.utils import any_defined, load_raster, real, isnodata, isdata
 from dfha.errors import ShapeError, RasterShapeError
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
@@ -997,218 +986,12 @@ class Segments:
         return self._summary(raster, statistic, nodata)
 
 
-def filter(
-    stream_raster: Raster,
-    *,
-    slopes: Optional[Raster] = None,
-    minimum_slope: Optional[scalar] = None,
-    upslope_pixels: Optional[Raster] = None,
-    maximum_pixels: Optional[scalar] = None,
-    upslope_development: Optional[Raster] = None,
-    maximum_development: Optional[scalar] = None,
-    dem: Optional[Raster] = None,
-    flow_directions: Optional[Raster] = None,
-    N: Optional[scalar] = None,
-    resolution: Optional[scalar] = None,
-    maximum_confinement: Optional[scalar] = None,
-    upslope_basins: Optional[Raster] = None,
-    maximum_basins: Optional[scalar] = None,
-) -> NDArray[Shape["IDs"], Integer]:
-    """
-    filter  Filters an initial stream network to a set of model-worthy stream segments
-    ----------
-    filter(stream_raster, *, ...)
-    Filters the stream segments in a network to a set of segments worthy of
-    hazard-assessment modeling. Searches a stream network raster for non-zero
-    pixels. The unique set of non-zero pixels are taken as the IDs of the stream
-    segments. Each segment is associated with the pixels matching its ID.
-
-    Once the stream segments are located, applies various optional filters to
-    the stream segment network. Returns the IDs of the stream segments that
-    passed all the filters. These are the IDs of stream segments appropriate for
-    hazard assessment modeling.
-
-    Individual filters are described below. All filters are optional and require
-    several inputs. If any of a filter's inputs are provided, then the filter
-    will attempt to run. However, the filter will raise an expection if any of
-    its inputs are missing.
-
-    filter(..., *, minimum_slope, slopes, ...)
-    filter(..., *, minimum_slope, slopes, ...)
-    Removes stream segments whose mean slopes are below a minimum threshold.
-    Slopes below the threshold should be too flat to support a debris flow.
-    Requires the slopes of the DEM pixels as input. Segment slopes are set as
-    the mean slope from all associated pixels.
-
-    filter(..., *, maximum_pixels, upslope_pixels, ...)
-    Removes stream segments whose number of upslope pixels is above a maxmimum
-    threshold. Pixel counts are a stand-in for a maximum upslope area - divide the
-    maximum upslope area by the area of a DEM pixel to get the maximum number of
-    pixels. Segments with an upslope area over the threshold should exhibit
-    flood-like behavior, and are often tagged as watchstream. Requires the upslope
-    pixels of the DEM as input. Pixel counts are determined from the most downstream
-    pixel in each stream segment.
-
-    filter(..., *, maximum_development, upslope_development, ...)
-    Removes stream segments whose upslope development is above a maximum threshold.
-    Segments with upslope development over the threshold should be too altered
-    by human development to support standard debris flow behavior. Requires the
-    upslope developed areas of the DEM pixels as input. Segment areas are set as
-    the upslope developed area from the most downstream pixel.
-
-    filter(..., *, maximum_confinement, dem, resolution, flow_directions, N, ...)
-    Removes stream segments whose confinement angle is above a maximum threshold.
-    Segments with angles above the threshold should be too confined to support
-    the flow of debris. Segment confinement is set as the mean confinement of
-    all associated pixels.
-
-    Requires the DEM, DEM resolution, and D8 flow directions as input. D8 flow
-    directions should follow the TauDEM convention, wherein flow directions are
-    numbered from 1 to 8, traveling clockwise from right. Also, the DEM resolution
-    should use the same units as the DEM data. For example, if a DEM expresses
-    elevation in meters, then the DEM resolution should also be in meters.
-
-    This filter also requires N, which specifies the number of pixels from the
-    processing pixel to search when calculating confinement slopes (the slopes
-    in the directions perpendicular to flow). For example, for a pixel flowing
-    east with N=4, the function will calculate confinement slopes using the
-    maximum DEM height from the 4 pixels north and the 4 pixels south.
-
-    filter(..., *, maximum_basins, upslope_basins, ...)
-    Removes stream segments whose number of upslope debris-retention basins
-    exceeds a maximum threshold. (This threshold is often set to 1). Segments
-    with an upslope debris basin should have debris flows contained by the
-    basin. Requires the upslope basins of the DEM pixels as input. The upslope
-    basins for a segment is set as the number of basins from the most downstream
-    pixel.
-    ----------
-    Inputs:
-        stream_raster: A stream link raster. Stream segment pixels should have a
-            value matching the ID of the associated stream segment. All other
-            pixels should be 0.
-        minimum_slope: A minimum slope. Segments with slopes below this threshold
-            will be removed.
-        slopes: A raster holding the slopes of the DEM pixels
-        maximum_pixels: A maximum number of upslope pixels. Segments with upslope
-            pixel counts above this threshold will be removed.
-        upslope_pixels: A raster holding the total upslope pixel counts for the DEM.
-        maximum_development: A maximum number of developed upslope pixels. Segments
-            with developed pixel counts above this threshold will be removed.
-        upslope_development: A numpy 2D array holding the developed upslope area
-            fot the DEM pixels.
-        maximum_basins: A maximum number of upslope debris basins. Segments with
-            debris basin counts exceeding this threshold will be removed.
-        upslope_basins: A raster holding the number of upslope debris basins
-            for the DEM pixels.
-        maximum_confinement: A maximum confinement angle. Segments with a mean
-            confinement angle above this threshold will be removed.
-        dem: A raster holding the DEM data
-        resolution: The resolution of the DEM in the same units as the DEM data.
-        flow_directions: A numpy 2D array holding the flow directions for the
-            DEM pixels
-        N: The number of raster pixels to search for maximum heights when
-            calculating confinement slopes perpendicular to flow.
-
-    Outputs:
-        List[int]: The IDs of the stream segments that passed all applied
-            filters. These are typically the set of stream segments worthy of hazard
-            assessment modeling.
-    """
-
-    # Map each filter to its args. Arg order must be threshold, raster, *args
-    # Note that the confinement filter should be first. This allows flow
-    # direction validation to occur before any computations.
-    filters = {
-        "confinement": {
-            "maximum_confinement": maximum_confinement,
-            "dem": dem,
-            "flow_directions": flow_directions,
-            "N": N,
-            "resolution": resolution,
-        },
-        "pixels": {"maximum_pixels": maximum_pixels, "upslope_pixels": upslope_pixels},
-        "basins": {"maximum_basins": maximum_basins, "upslope_basins": upslope_basins},
-        "development": {
-            "maximum_development": maximum_development,
-            "upslope_development": upslope_development,
-        },
-        "slope": {"minimum_slope": minimum_slope, "slopes": slopes},
-    }
-
-    # Remove filters with no args
-    for filter, args in list(filters.items()):
-        if not any_defined(*args.values()):
-            del filters[filter]
-
-    # Validate non-raster inputs.
-    for filter, args in filters.items():
-        saved = filters[filter]
-        inputs = list(args.items())
-        (threshold, value) = inputs[0]
-        saved[threshold] = validate.scalar(value, threshold, real)
-        if filter == "confinement":
-            (N, N_value), (resolution, res_value) = inputs[3:5]
-            saved[N], saved[resolution] = Segments._validate_confinement_args(
-                N_value, res_value
-            )
-
-    # Build the initial set of stream segments
-    segments = Segments(stream_raster)
-
-    # Validate the rasters, but don't load file rasters into memory yet
-    for filter, args in filters.items():
-        args = list(args.items())
-        _validate_raster(filters, filter, segments, args[1])
-        if filter == "confinement":
-            _validate_raster(filters, filter, segments, args[2])
-
-    # Iterate through filters. Only run if there are stream segments remaining
-    for filter, args in filters.items():
-        if len(segments) > 0:
-            # Get the comparison type
-            threshold = list(args.keys())[0]
-            if threshold.startswith("max"):
-                type = ">"
-            elif threshold.startswith("min"):
-                type = "<"
-
-            # Get threshold and load raster into memory
-            args = list(args.values())
-            threshold, raster = args[0:2]
-            raster = load_raster(raster)
-
-            # Run the confinement filter (which should be first).
-            # Delete (possibly large) flow raster when finished
-            if filter == "confinement":
-                flow, N, resolution = args[2:]
-                segments._validate_flow(flow)
-                segments._filter(
-                    Segments._confinement, type, threshold, raster, flow, N, resolution
-                )
-                del flow
-
-            # Run the remaining (standard statistical) filters
-            else:
-                statistic = segments._stats[filter]
-                segments._filter(Segments._summary, type, threshold, raster, statistic)
-
-    # Return the IDs of the segments that passed the filters
-    return segments.ids
-
-
-def _validate_raster(
-    filters: Dict[str, Dict], filter: str, segments: Segments, args: Tuple[str, Any]
-) -> None:
-    "Validates a raster for a filter. Does not read raster files into memory"
-    (name, raster) = args
-    filters[filter][name] = segments._validate(raster, name, load=False)
-
-
 class _Kernel:
     """_Kernel  Locate data values for irregular focal statistics
     ----------
     The _Kernel class helps determine the indices of raster pixels needed to
-    implement irregular focal statistics. Each _Kernel object represents a focal
+    implement irregular focal statistics (which are needed to calculate stream
+    segment confinement angles). Each _Kernel object represents a focal
     statistics environment - the properties of the object describe the raster,
     kernel size, and current processing cell.
 
