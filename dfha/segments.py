@@ -78,8 +78,8 @@ class Segments:
     mean slope of each stream segment, or each segment's confinement angle.
     Note that summary statistics are only calculated using stream segment
     pixels (roughly, the river bed), and NOT using all the pixels in the segment's
-    catchment area. The one exception is the "catchment_mean" method, which
-    computes a mean over all pixels in the catchment area.
+    catchment area. The one exception is the "catchment_mean" method, which does
+    operate over a catchment area.
 
     These summary values can then be used to filter an initial stream segment
     network to a final set of segments for hazard assessment modeling. A
@@ -160,9 +160,8 @@ class Segments:
         _confinement_angle          - Computes confinement from a set of pixel slopes
         _flow_length                - Returns flow length in a given direction
 
-    Filtering:
+    Statistics:
         _summary                    - Computes a summary statistic for a set of stream segments
-        _filter                     - Applies a filter to a set of stream segments
     """
 
     # The statistical function for each type of summary value
@@ -433,43 +432,6 @@ class Segments:
             theta[i] = self._confinement_angle(slopes)
         return theta
 
-    def _filter(
-        self,
-        method: Callable[["Segments", Tuple[Any, ...]], SegmentValues],
-        type: Literal["<", ">"],
-        threshold: scalar,
-        *args: Any,
-    ) -> None:
-        """
-        _filter  Applies a filter to a set of stream segments
-        ----------
-        self._filter(method, type, threshold, *args)
-        Applies a filter to a set of stream segments and removes segments that
-        do not pass the filter. Uses the indicated method to return a set of
-        stream segment values, and compares the values to a threshold value.
-        If a stream segment's value does not pass the comparison, then the
-        segment is removed from the Segments object.
-        ----------
-        Inputs:
-            method: A Segments method that returns a set of segment values
-                Note: This SHOULD NOT be a bound method.
-            type:
-                '>': Removes segments greater than the threshold
-                '<': Removes segments less than the threshold
-            threshold: A comparison value for the segment values
-            *args: The inputs to the Segments method
-        """
-
-        # Only run if at least one of the filter's arguments were given
-        if any_defined(threshold, *args):
-            # Get segment values and find invalid segments
-            values = method(self, *args)
-            if type == ">":
-                failed = values > threshold
-            elif type == "<":
-                failed = values < threshold
-            self.remove(failed)
-
     def _summary(
         self, raster: RasterArray, statistic: StatFunction, nodata: nodata
     ) -> SegmentValues:
@@ -612,7 +574,7 @@ class Segments:
         self.catchment_mean(..., *, check=False)
         Disables validation checks of input rasters. This can speed up the
         processing of large rasters, but may produce unexpected results if any
-        of the input rasters contain invalid values. 
+        of the input rasters contain invalid values.
         ----------
         Inputs:
             flow_directions: A raster with TauDEM-style D8 flow directions for
