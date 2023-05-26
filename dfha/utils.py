@@ -19,6 +19,7 @@ NoData:
     nodata_mask     - Returns the NoData mask for a raster array
     isdata          - An alias for data_mask
     isnodata        - An alias for nodata_mask
+    has_nodata      - True if an array contains NoData values
 """
 
 from numpy import ndarray, integer, floating, bool_, isnan, any as any_
@@ -263,6 +264,7 @@ def isnodata(raster: RealArray, nodata: nodata) -> DataMask:
     "An alias for nodata_mask"
     return nodata_mask(raster, nodata)
 
+
 def has_nodata(array: RealArray, nodata: nodata) -> bool:
     """
     has_nodata  True if any elements of an array are NoData
@@ -276,7 +278,7 @@ def has_nodata(array: RealArray, nodata: nodata) -> bool:
         nodata: The NoData value
 
     Outputs:
-        bool: Whether the array contains NoData values    
+        bool: Whether the array contains NoData values
     """
 
     if nodata is None:
