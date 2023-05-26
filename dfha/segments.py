@@ -39,7 +39,7 @@ import numpy as np
 from math import sqrt
 from copy import deepcopy
 from dfha import validate, dem
-from dfha.utils import load_raster, real, isnodata, isdata
+from dfha.utils import load_raster, real, isdata, has_nodata
 from dfha.errors import ShapeError, RasterShapeError
 from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
 from dfha.typing import (
@@ -342,8 +342,6 @@ class Segments:
         except ShapeError as error:
             raise RasterShapeError(name, error)
 
-
-
     #####
     # Confinement angle calculations
     #####
@@ -402,7 +400,7 @@ class Segments:
 
             # Get flow-directions. If any are NoData, set confinement to NaN
             flows = flow_directions[pixels]
-            if np.any(isnodata(flows, flow_nodata)):
+            if has_nodata(flows, flow_nodata):
                 theta[i] = np.nan
                 continue
 
@@ -451,10 +449,10 @@ class Segments:
             values = raster[pixels]
 
             # Compute statistic or set to NaN if NoData is present
-            if np.all(isdata(values, nodata)):
-                summary[i] = statistic(raster[pixels])
-            else:
+            if has_nodata(values, nodata):
                 summary[i] = np.nan
+            else:
+                summary[i] = statistic(raster[pixels])
         return summary
 
     #####
@@ -1135,7 +1133,7 @@ class _Kernel:
         nodata: NoData value for the DEM"""
         direction = self.directions[flow]
         heights = dem[direction(self)]
-        if np.any(isnodata(heights, nodata)):
+        if has_nodata(heights, nodata):
             return np.nan
         else:
             return np.amax(heights)
