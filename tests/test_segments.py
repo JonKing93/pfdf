@@ -384,9 +384,18 @@ class TestKernel:
     )
     def test_orthogonal_slopes(_, kernel2, dem, flow, slopes):
         dem[2, 2] = 1
-        output = kernel2.orthogonal_slopes(flow, dem, 10)
+        output = kernel2.orthogonal_slopes(flow, length=10, dem=dem, nodata=None)
         slopes = np.array(slopes).reshape(1, 2)
         assert np.array_equal(output, slopes)
+
+    def test_orthogonal_slopes_nodata(_, kernel2, dem):
+        dem[2, 2] = 1
+        output = kernel2.orthogonal_slopes(flow=1, length=10, dem=dem, nodata=23)
+        expected = np.array([1.4, np.nan]).reshape(1,2)
+        assert np.array_equal(output, expected, equal_nan=True)
+        output = kernel2.orthogonal_slopes(flow=2, length=10, dem=dem, nodata=16)
+        expected = np.array([np.nan, 2.4]).reshape(1,2)
+        assert np.array_equal(output, expected, equal_nan=True)
 
 
 #####
