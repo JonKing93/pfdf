@@ -194,6 +194,7 @@ def stream3():
 def segments3(stream3):
     return Segments(stream3)
 
+
 # Raster for network with 3 segments
 @pytest.fixture
 def values3():
@@ -206,25 +207,53 @@ def values3():
     )
 
 
+# Values raster for testing catchment mean
+@pytest.fixture
+def catchment3():
+    return np.array([[1, 6, 7], [2, 5, 8], [3, 4, 9]])
+
+
+# Flow raster for catchment means
+@pytest.fixture
+def flow3():
+    return np.array([[3, 1, 7], [3, 7, 3], [3, 7, 1]])
+
+
+# Data mask for catchment means
+@pytest.fixture
+def mask3():
+    return np.array(
+        [
+            [0, 1, 1],
+            [1, 0, 1],
+            [1, 0, 0],
+        ]
+    )
+
+
 @pytest.fixture
 def indices3():
     indices = {1: ([1, 2], [0, 0]), 2: ([0, 0, 1], [1, 2, 1]), 3: ([2], [2])}
     return index_dict(indices)
+
 
 # A stream raster for confinement angle tests
 @pytest.fixture
 def streamc():
     return np.array([[0, 0, 0], [1, 2, 0], [0, 0, 0]])
 
+
 # A Segments object for confinement tests
 @pytest.fixture
 def segmentsc(streamc):
     return Segments(streamc)
 
+
 # Flow raster based on confinement stream raster
 @pytest.fixture
 def flowc():
     return np.array([[8, 8, 8], [1, 5, 8], [8, 8, 8]])
+
 
 # Sample DEM for confinement tests
 @pytest.fixture
@@ -394,10 +423,10 @@ class TestKernel:
     def test_orthogonal_slopes_nodata(_, kernel2, dem):
         dem[2, 2] = 1
         output = kernel2.orthogonal_slopes(flow=1, length=10, dem=dem, nodata=23)
-        expected = np.array([1.4, np.nan]).reshape(1,2)
+        expected = np.array([1.4, np.nan]).reshape(1, 2)
         assert np.array_equal(output, expected, equal_nan=True)
         output = kernel2.orthogonal_slopes(flow=2, length=10, dem=dem, nodata=16)
-        expected = np.array([np.nan, 2.4]).reshape(1,2)
+        expected = np.array([np.nan, 2.4]).reshape(1, 2)
         assert np.array_equal(output, expected, equal_nan=True)
 
 
@@ -448,7 +477,7 @@ class TestInit:
             Segments(stream)
 
     def test_nodata(self, stream, indices):
-        stream[0,0] = -1
+        stream[0, 0] = -1
         segments = Segments(stream, nodata=-1)
         self.validate(segments, indices)
 
@@ -514,7 +543,6 @@ class TestValidate:
         assert output == stream_path
         assert nodata is None
 
-
     def test_not_raster(_, segments5, stream):
         bad = np.stack((stream, stream))
         name = "raster name"
@@ -530,7 +558,7 @@ class TestValidate:
         assert_contains(error, name)
 
     def test_nodata(_, segments5, stream):
-        output, nodata = segments5._validate(stream, '', nodata=-999)
+        output, nodata = segments5._validate(stream, "", nodata=-999)
         assert np.array_equal(output, stream)
         assert nodata == -999
 
@@ -632,14 +660,15 @@ class Test_Confinement:
 
     def test_flow_nodata(_, segmentsc, flowc, demc):
         expected = np.array([np.nan, 120])
-        output = segmentsc._confinement(demc, None, flowc, flow_nodata=1, N=1, resolution=1)
+        output = segmentsc._confinement(
+            demc, None, flowc, flow_nodata=1, N=1, resolution=1
+        )
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_dem_nodata(_, segmentsc, flowc, demc):
         expected = np.array([np.nan, 120])
         output = segmentsc._confinement(demc, 1, flowc, None, 1, 1)
         assert np.array_equal(output, expected, equal_nan=True)
-
 
 
 class Test_Summary:
@@ -680,6 +709,40 @@ class TestBasins:
         expected = np.array([np.nan, 4, 2.2])
         output = segments3.basins(values3, nodata=-8)
         assert np.array_equal(output, expected, equal_nan=True)
+
+
+class TestCatchmentMean:
+    def test_have_npixels(_, segments3, flow3, catchment3):
+        # Use npixels=1 (instead of real N) to check not calculating internally
+        # Value should be sum rather than mean.
+        npixels = np.ones((3,))
+        expected = np.array([6, 22, 17]).reshape(-1)
+        output = segments3.catchment_mean(flow3, catchment3, npixels=npixels)
+        assert np.array_equal(output, expected)
+
+    def test_npixels_0(_, segments3, flow3, catchment3):
+        npixels = np.array([np.nan, 1, 1])
+        expected = np.array([np.nan, 22, 17]).reshape(-1)
+        output = segments3.catchment_mean(flow3, catchment3, npixels=npixels)
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_standard(_, segments3, flow3, catchment3):
+        expected = np.array([2, 5.5, 8.5]).reshape(-1)
+        output = segments3.catchment_mean(flow3, catchment3)
+        assert np.array_equal(output, expected)
+
+    def test_masked(_, segments3, flow3, catchment3, mask3):
+        expected = np.array([2.5, 6.5, 8]).reshape(-1)
+        output = segments3.catchment_mean(flow3, catchment3, mask=mask3)
+        assert np.array_equal(output, expected)
+
+    def test_mask_and_npixels(_, segments3, flow3, catchment3, mask3):
+        npixels = np.ones((3,))
+        expected = np.array([5, 13, 8])
+        output = segments3.catchment_mean(
+            flow3, catchment3, npixels=npixels, mask=mask3
+        )
+        assert np.array_equal(output, expected)
 
 
 # Note that the actual confinement angle calculations are tested in
@@ -749,7 +812,6 @@ class TestDevelopment:
         assert np.array_equal(output, expected, equal_nan=True)
 
 
-
 class TestPixels:
     def test(_, segments3, values3):
         expected = np.array([-8, 4, 2.2])
@@ -766,7 +828,6 @@ class TestPixels:
         expected = np.array([np.nan, 4, 2.2])
         output = segments3.pixels(values3, nodata=-8)
         assert np.array_equal(output, expected, equal_nan=True)
-
 
 
 class TestRemove:
@@ -843,7 +904,6 @@ class TestSlope:
         assert np.array_equal(output, expected, equal_nan=True)
 
 
-
 class TestSummary:
     @pytest.mark.parametrize(
         "statistic, expected",
@@ -880,7 +940,5 @@ class TestSummary:
 
     def test_nodata(_, segments3, values3):
         expected = np.array([np.nan, 3, 2.2])
-        output = segments3.summary('mean', values3, nodata=-8)
+        output = segments3.summary("mean", values3, nodata=-8)
         assert np.array_equal(output, expected, equal_nan=True)
-
-

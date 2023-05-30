@@ -602,7 +602,11 @@ class Segments:
         )
         if mask is not None:
             mask, mask_nodata = validate.raster(
-                mask, "mask", nodata=mask_nodata, nodata_name="mask_nodata", load=False
+                mask,
+                "mask",
+                numpy_nodata=mask_nodata,
+                nodata_name="mask_nodata",
+                load=False,
             )
 
         # Optionally validate array elements
@@ -630,8 +634,12 @@ class Segments:
                     values_nodata=values_nodata,
                     check=False,
                 )
-            npixels = self._summary(npixels, np.amax)
+            print(npixels)
+            assert False
+            npixels = self._summary(npixels, np.amax, values_nodata)
         npixels[npixels == 0] = np.nan
+        print(npixels)
+        assert False
 
         # Compute mean values. (Note that since values are positive, np.amax
         # gives the sum from the most downstream pixel).
@@ -644,7 +652,7 @@ class Segments:
             mask_nodata=mask_nodata,
             check=False,
         )
-        segment_sums = self._summary(upslope_sums, np.amax)
+        segment_sums = self._summary(upslope_sums, np.amax, values_nodata)
         return segment_sums / npixels
 
     def confinement(
@@ -720,10 +728,13 @@ class Segments:
 
         # Validate rasters
         flow, flow_nodata = self._validate(
-            flow_directions, "flow_directions", nodata=flow_nodata, nodata_name='flow_nodata',
+            flow_directions,
+            "flow_directions",
+            nodata=flow_nodata,
+            nodata_name="flow_nodata",
         )
         validate.flow(flow, "flow_directions", nodata=flow_nodata)
-        dem = self._validate(dem, "dem", nodata=dem_nodata, nodata_name='dem_nodata')
+        dem = self._validate(dem, "dem", nodata=dem_nodata, nodata_name="dem_nodata")
 
         # Compute mean confinement angles
         return self._confinement(
