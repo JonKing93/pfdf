@@ -9,20 +9,20 @@ BARC4-like burn severity. The BARC4 classification is as follows:
     3 - Moderate burn severity
     4 - High burn severity
 
-This module has two main functions: "locate" and "estimate" (see below for details).
+This module has two main functions: "mask" and "estimate" (see below for details).
 
 Burn severity rasters are typically used to derive data masks used to
 implement various parts of a hazard assessment. For example, the burned pixel
 mask used to delineate a stream network, or the high-moderate burn mask used to
 implement the M1, M2, and M3 models from Staley et al., 2017. Users can use the
-"locate" function to generate these masks from a burn severity raster.
+"mask" function to generate these masks from a burn severity raster.
 
 We recommend using official BARC4 data when possible, but these maps are not
 always available. If this is the case, users can use the "estimate" function
 to estimate a burn severity raster from dNBR.
 ----------
 User Functions:
-    locate                  - Returns a mask of the specified burn severities
+    mask                    - Returns a mask of the specified burn severities
     estimate                - Estimates burn severity from dNBR
     classification          - Returns a dict with the BARC4 classification scheme
 
@@ -80,7 +80,7 @@ def classification() -> Dict[int, str]:
     return _classification
 
 
-def locate(
+def mask(
     severity: Raster,
     descriptions: strs,
     *,
@@ -88,16 +88,16 @@ def locate(
     overwrite: bool = False,
 ) -> OutputRaster:
     """
-    locate  Generates a burn severity mask
+    mask  Generates a burn severity mask
     ----------
-    locate(severity, descriptions)
+    mask(severity, descriptions)
     Given a burn severity raster, locates pixels that match any of the specified
     burn severity levels. Returns a numpy 2D array holding the mask of matching
     pixels. Pixels that match one of the specified burn severities will have a
     value of 1. All other pixels will be 0.
 
-    locate(..., *, path)
-    locate(..., *, path, overwrite)
+    mask(..., *, path)
+    mask(..., *, path, overwrite)
     Saves the burn severity mask to the indicated file. Returns the Path to the
     saved raster rather than a numpy array. Set overwrite=True to allow the
     output to overwrite an existing file. Otherwise, raises a FileExistsError

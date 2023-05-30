@@ -176,22 +176,22 @@ class TestClassification:
 
 
 
-class TestLocate:
+class TestMask:
     def test_single(_, rseverity):
-        output = severity.locate(rseverity, "moderate")
+        output = severity.mask(rseverity, "moderate")
         expected = (rseverity == 3)
         assert np.array_equal(output, expected)
 
     def test_multiple(_, rseverity):
         levels = ["high", "moderate"]
-        output = severity.locate(rseverity, levels)
+        output = severity.mask(rseverity, levels)
         expected = (rseverity==3) | (rseverity==4)
         assert np.array_equal(output, expected)
 
     def test_save(_, rseverity, tmp_path):
         path = Path(tmp_path) / "output.tif"
         levels = ["high", "moderate"]
-        output = severity.locate(rseverity, levels, path=path)
+        output = severity.mask(rseverity, levels, path=path)
 
         assert path.is_file()
         assert output == path
