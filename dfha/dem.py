@@ -199,7 +199,7 @@ def flow_directions(
     flow_directions(type, pitfilled)
     Computes D8 or D-Infinity flow directions from a pitfilled DEM. Returns the
     flow directions as a numpy 2D array. D8 flow directions are numbered from
-    1 to 8 proceeding clockwise from right.
+    1 to 8 proceeding counter-clockwise from right.
 
     flow_directions(..., *, path)
     flow_directions(..., *, path, overwrite)
@@ -341,7 +341,7 @@ def upslope_pixels(
     ----------
     Inputs:
         flow_directions: The raster of D8 flow directions used to compute upslope.
-            pixels. Flow numbers should proceed from 1 to 8, clockwise from right.
+            pixels. Flow numbers should proceed from 1 to 8, counter-clockwise from right.
         path: The path to a file in which to save the upslope area.
         nodata: A NoData value for the flow directions when they are a numpy array.
         check: True to validate flow-direction numbers. False to disable this check.
@@ -434,7 +434,7 @@ def upslope_sum(
     ----------
     Inputs:
         flow_directions: D8 flow directions used to determine upslope sums. Flow
-            numbers should proceed from 1 to 8, clockwise from right.
+            numbers should proceed from 1 to 8, counter-clockwise from right.
         values: A raster indicating the value of each pixel to use in the sum.
             Must have the same shape as the flow directions raster.
         mask: An optional valid data mask used to include/exclude pixels from
