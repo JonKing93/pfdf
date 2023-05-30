@@ -682,7 +682,7 @@ class TestBasins:
         assert np.array_equal(output, expected, equal_nan=True)
 
 
-# Note that the actual confinement angle calculation tests are all in
+# Note that the actual confinement angle calculations are tested in
 # Test_Confinements. Only need to check the validation steps for this function
 class TestConfinement:
     def test(_, segmentsc, demc, flowc):

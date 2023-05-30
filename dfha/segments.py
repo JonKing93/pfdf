@@ -720,10 +720,10 @@ class Segments:
 
         # Validate rasters
         flow, flow_nodata = self._validate(
-            flow_directions, "flow_directions", flow_nodata
+            flow_directions, "flow_directions", nodata=flow_nodata, nodata_name='flow_nodata',
         )
         validate.flow(flow, "flow_directions", nodata=flow_nodata)
-        dem = self._validate(dem, "dem", dem_nodata)
+        dem = self._validate(dem, "dem", nodata=dem_nodata, nodata_name='dem_nodata')
 
         # Compute mean confinement angles
         return self._confinement(
