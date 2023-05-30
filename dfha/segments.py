@@ -1058,7 +1058,7 @@ class _Kernel:
         return self.exchange(False)
 
     # Direction reference
-    directions = [right, downright, down, downleft, left, upleft, up, upright]
+    directions = [right, upright, up, upleft, left, downleft, down, downright]
 
     # Direction types
     def vertical(self, before: bool) -> KernelIndices:
@@ -1156,8 +1156,8 @@ class _Kernel:
         flow: TauDEM style D8 flow direction number
         length: The lateral or diagonal flow length across 1 pixel
         nodata: NoData value for the DEM"""
-        clockwise = self.max_height(flow - 7, dem, nodata)
-        counterclock = self.max_height(flow - 3, dem, nodata)
+        clockwise = self.max_height(flow - 3, dem, nodata)
+        counterclock = self.max_height(flow - 7, dem, nodata)
         heights = np.array([clockwise, counterclock]).reshape(1, 2)
         rise = heights - dem[self.row, self.col]
         slopes = rise / length
