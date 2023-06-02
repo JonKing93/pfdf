@@ -21,7 +21,7 @@ class DimensionError(Exception):
 
 class ShapeError(Exception):
     """
-    When a numpy axis has the wrong shape
+    When a numpy axis has the wrong length
     ----------
     Properties:
         required: The required shape of the numpy array
