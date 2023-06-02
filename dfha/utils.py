@@ -1,6 +1,10 @@
 """
 utils  Low-level utilities used throughout the package
 ----------
+This module provides a variety of low-level functions used throughout the package.
+Broadly, these include functions for basic input parsing, raster IO, and functions
+to help locate NoData elements.
+----------
 Misc:
     real            - A list of numpy dtypes considered to be real-valued numbers
     any_defined     - True if any input is not None
