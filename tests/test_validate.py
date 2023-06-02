@@ -153,7 +153,7 @@ class TestScalar:
 
     def test_float(_):
         a = 5.5
-        assert validate.scalar(5.5, "") == np.array(5.5)
+        assert validate.scalar(a, "") == np.array(5.5)
 
     def test_1D(_):
         a = np.array(2.2)
