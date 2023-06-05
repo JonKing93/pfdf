@@ -257,7 +257,7 @@ class TestValidateInputs:
 
     def test_invalid_file(_):
         file = "not-a-file"
-        with pytest.raises(FileNotFoundError) as error:
+        with pytest.raises(FileNotFoundError):
             dem._validate_inputs([file], ["test name"], [None], [""])
 
     def test_invalid_shapes(_, araster):
