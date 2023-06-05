@@ -5,14 +5,8 @@ The tests for the dem module are grouped into classes. Each class holds the test
 for one function in the the dem module. Tests progress from module utilities,
 to the low-level TauDEM wrappers, to the user-facing functions.
 
-The tests rely on scientifically validated outputs from a test fire. Test fire
-validation data is located in tests/data/<fire code> and consists of a number of
-validated TIF rasters produced by TauDEM.
-
-Note that many fires don't have debris-retention basins. However, the computation
-for debris-basin flow routing is identical to that of burned upslope area. As
-such, you can use copies of the "isburned" and "burned_area" rasters as stand ins
-for the debris basin flow routing rasters.
+REQUIREMENTS:
+    * Same as for the DEM module
 
 RUNNING THE TESTS:
 To run the tests, you will need to:
@@ -22,737 +16,941 @@ To run the tests, you will need to:
     * Run `pytest tests/test_dem.py --cov=. --cov-fail-under=80`
 """
 
-import pytest, rasterio
-import numpy, subprocess, os
+import rasterio
+import pytest, subprocess
+import numpy as np
 from pathlib import Path
 from dfha import dem
+from dfha.utils import save_raster, load_raster
+from dfha.errors import ShapeError, DimensionError
 
-# Locate testing data
-data = Path(__file__).parent / "data"
-testfire = data / "col2022"
+#####
+# Testing Utilities
+#####
+
+# TauDEM floating-point fill value
+fmin = np.finfo("float32").min
+
+# Raster data for a pre-existing output file
+existing_raster = np.arange(0, 10).reshape(2, 5)
 
 
-###
-# Utilites for running the testes
-###
-
-# Fixture to create temporary output directories
+# A raster as a numpy array
 @pytest.fixture
-def tempdir(tmp_path):
-    folder = tmp_path / "output"
-    folder.mkdir()
-    return folder
+def araster():
+    return np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]).astype(float)
 
 
-# Utility to check output raster values
-def validate(output, expected):
-    assert output.is_file()
-    with rasterio.open(output) as raster:
-        output = raster.read(1)
-    with rasterio.open(expected) as raster:
-        expected = raster.read(1)
-    assert numpy.array_equal(output, expected, equal_nan=True)
-
-
-# Utility to check TauDEM verbosity
-def check_verbosity(capfd, verbose):
-    stdout = capfd.readouterr().out
-    if verbose:
-        assert stdout != ""
-    else:
-        assert stdout == ""
-
-
-# Return user paths as string or Path
-def set_path_type(type, *paths):
-    if type == "string":
-        return (str(path) for path in paths)
-    else:
-        return paths
-
-
-# Base class for TauDEM file names
-class UsesPaths:
-    dem = "dem.tif"
-    isburned = "isburned.tif"
-    isdeveloped = "isdeveloped.tif"
-    pitfilled = "pitfilled.tif"
-    flow_d8 = "flow_d8.tif"
-    slopes_d8 = "slopes_d8.tif"
-    flow_dinf = "flow_dinf.tif"
-    slopes_dinf = "slopes_dinf.tif"
-    total_area = "total_area.tif"
-    burned_area = "burned_area.tif"
-    developed_area = "developed_area.tif"
-    isbasin = "isbasin.tif"
-    nbasins = "upslope_basins.tif"
-    relief = "relief.tif"
-    fire = testfire
-
-
-# Fixtures that simulate Path dicts
+# A file-based raster
 @pytest.fixture
-def user_paths():
-    paths = {
-        "dem": UsesPaths.dem,
-        "isburned": UsesPaths.isburned,
-        "isdeveloped": UsesPaths.isdeveloped,
-        "pitfilled": UsesPaths.pitfilled,
-        "flow_directions_dinf": UsesPaths.flow_dinf,
-        "slopes_dinf": UsesPaths.slopes_dinf,
-        "flow_directions": UsesPaths.flow_d8,
-        "total_area": UsesPaths.total_area,
-        "burned_area": UsesPaths.burned_area,
-        "developed_area": UsesPaths.developed_area,
-        "relief": UsesPaths.relief,
-        "extra_key": "some-file.tif",
-        "another_key": "another-file.tif",
-    }
-    return {key: UsesPaths.fire / value for key, value in paths.items()}
+def fraster(araster, tmp_path):
+    path = tmp_path / "raster.tif"
+    save_raster(araster, path, nodata=200)
+    return path
 
 
-def add_basins(paths):
-    paths["isbasin"] = UsesPaths.fire / UsesPaths.isbasin
-    paths["upslope_basins"] = UsesPaths.fire / UsesPaths.nbasins
-    return paths
+# Saves a file-based raster
+def file_raster(raster, dtype, folder, name, nodata=None):
+    path = folder / (name + ".tif")
+    raster = raster.astype(dtype)
+    save_raster(raster, path, nodata)
+    return path
+
+
+# Saves a 3x4 raster whose edges are fill values
+def filled_raster(dtype, folder, name, center, fill):
+    raster = np.array(
+        [
+            [fill, fill, fill, fill],
+            [fill, center[0], center[1], fill],
+            [fill, fill, fill, fill],
+        ]
+    )
+    return file_raster(raster, dtype, folder, name, nodata=fill)
 
 
 @pytest.fixture
-def user_paths_basins(user_paths):
-    return add_basins(user_paths)
+def fdem(tmp_path):
+    dem = np.array([[4, 5, 6, 6], [5, 1, 4, 5], [3, 2, 3, 4]])
+    return file_raster(dem, "float32", tmp_path, "dem")
 
 
 @pytest.fixture
-def final_paths(user_paths):
-    remove = ["dem", "isburned", "isdeveloped", "extra_key", "another_key"]
-    for key in remove:
-        user_paths.pop(key)
-    return user_paths
+def fpitfilled(tmp_path):
+    pitfilled = np.array(
+        [
+            [4, 5, 6, 6],
+            [5, 2, 4, 5],
+            [3, 2, 3, 4],
+        ]
+    )
+    return file_raster(pitfilled, "float32", tmp_path, "pitfilled")
 
 
 @pytest.fixture
-def final_paths_basins(final_paths):
-    paths = add_basins(final_paths)
-    paths.pop("isbasin")
-    return paths
+def fflow8(tmp_path):
+    return filled_raster("int16", tmp_path, "flow8", center=[7, 5], fill=-32768)
 
 
-###
-# Module utilities
-###
+@pytest.fixture
+def fslopes8(tmp_path):
+    return filled_raster("float32", tmp_path, "slopes8", center=[0, 2], fill=-1)
 
 
-class TestRunTaudem(UsesPaths):
-    def command(self, tempdir):
-        input = self.fire / self.dem
-        output = tempdir / self.pitfilled
-        return f"PitRemove -z {input} -fel {output}"
+# D-infinity flow directions
+@pytest.fixture
+def fflowi(tmp_path):
+    return filled_raster(
+        "float32", tmp_path, "slopesi", center=[4.7123890, 3.1415927], fill=fmin
+    )
 
+
+# D-infinity slopes are the same as D8 for this simple example
+@pytest.fixture
+def fslopesi(fslopes8):
+    return fslopes8
+
+
+# Unweighted upslope area
+@pytest.fixture
+def fareau(tmp_path):
+    return filled_raster("float32", tmp_path, "area_unweighted", center=[2, 1], fill=-1)
+
+
+# Area weights
+@pytest.fixture
+def fweights(tmp_path):
+    return filled_raster("float32", tmp_path, "weights", center=[2, 6], fill=-999)
+
+
+# Valid data mask for upslope sums
+@pytest.fixture
+def fmask(tmp_path):
+    return filled_raster("int8", tmp_path, "mask", center=[1, 0], fill=-1)
+
+
+# Weighted area
+@pytest.fixture
+def fareaw(tmp_path):
+    return filled_raster("float32", tmp_path, "area_weighted", center=[8, 6], fill=-1)
+
+
+# Masked upslope sum
+@pytest.fixture
+def faream(tmp_path):
+    return filled_raster("float32", tmp_path, "area_masked", center=[2, 0], fill=-1)
+
+
+# Vertical relief
+@pytest.fixture
+def frelief(tmp_path):
+    return filled_raster("float32", tmp_path, "relief", center=[2, 0], fill=fmin)
+
+
+# Check string is in error message
+def assert_contains(error, *strings):
+    message = error.value.args[0]
+    for string in strings:
+        assert string in message
+
+
+#####
+# Loaded array validaters
+#####
+
+
+class TestValidateD8:
+    def test_nocheck(_):
+        dem._validate_d8(False, "invalid", None)
+
+    def test_pass_nodata(_, fflow8):
+        dem._validate_d8(True, fflow8, nodata=-32768)
+
+    def test_fail(_, fflow8):
+        with pytest.raises(ValueError) as error:
+            dem._validate_d8(True, fflow8, None)
+        assert_contains(error, "flow_directions")
+
+
+class TestValidateDinf:
+    def test_nocheck(_):
+        dem._validate_dinf(False, "invalid", None, "invalid", None)
+
+    def test_pass_nodata(_, fflowi, fslopesi):
+        dem._validate_dinf(True, fflowi, fmin, fslopesi, -1)
+
+    def test_fail_flow(_, fflowi, fslopesi):
+        with pytest.raises(ValueError) as error:
+            dem._validate_dinf(True, fflowi, None, fslopesi, -1)
+        assert_contains(error, "flow_directions")
+
+    def test_fail_slopes(_, fflowi, fslopesi):
+        with pytest.raises(ValueError) as error:
+            dem._validate_dinf(True, fflowi, fmin, fslopesi, None)
+        assert_contains(error, "slopes")
+
+
+class TestValidateMask:
+    def test_invalid_shape(_, fmask):
+        with pytest.raises(ShapeError) as error:
+            dem._validate_mask(False, fmask, shape=(10, 10), nodata=-1)
+        assert_contains(error, "mask")
+
+    def test_invalid_raster(_):
+        with pytest.raises(TypeError):
+            dem._validate_mask(False, np, None, None)
+
+    def test_pass(_, fmask):
+        dem._validate_mask(True, fmask, shape=(3, 4), nodata=-1)
+
+    def test_fail(_, fmask):
+        fmask = load_raster(fmask)
+        with pytest.raises(ValueError) as error:
+            dem._validate_mask(True, fmask, shape=(3, 4), nodata=None)
+        assert_contains(error, "mask")
+
+    def test_nocheck(_, fmask):
+        dem._validate_mask(False, fmask, None, None)
+
+
+#####
+# Module Utilities
+#####
+
+
+class TestOptions:
     @pytest.mark.parametrize("verbose", (True, False))
-    def test_succeed(self, tempdir, capfd, verbose):
-        command = self.command(tempdir)
-        dem._run_taudem(command, verbose)
-        check_verbosity(capfd, verbose)
-
-    def test_failed(self, tempdir):
-        command = self.command(tempdir)
-        command = command.replace(self.dem, "not-a-real-file.tif")
-        with pytest.raises(subprocess.CalledProcessError):
-            dem._run_taudem(command, verbose=False)
-
-
-class TestVerbosity:
-    @pytest.mark.parametrize("tf", [True, False])
-    def test_bool(_, tf):
-        verbose = dem._verbosity(tf)
-        assert verbose == tf
+    @pytest.mark.parametrize("overwrite", (True, False))
+    def test_bool(_, verbose, overwrite):
+        verbose_out, overwrite_out = dem._options(verbose, overwrite)
+        assert verbose_out == verbose
+        assert overwrite_out == overwrite
 
     def test_none(_):
-        verbose = dem._verbosity(None)
+        verbose, overwrite = dem._options(None, None)
         assert verbose == False
+        assert overwrite == False
 
     def test_changed_default(_):
         try:
             dem.verbose_by_default = True
-            verbose = dem._verbosity(None)
+            dem.overwrite_by_default = True
+            verbose, overwrite = dem._options(None, None)
             assert verbose == True
+            assert overwrite == True
         finally:
             dem.verbose_by_default = False
+            dem.overwrite_by_default = False
 
 
-class TestInputPath(UsesPaths):
-    path = UsesPaths.fire / UsesPaths.dem
-
-    # Test a string and path
-    @pytest.mark.parametrize("input", (str(path), path))
-    def test_standard(_, input):
-        output = dem._input_path(input)
-        assert output == Path(input)
-
-    def test_missing(self):
-        with pytest.raises(FileNotFoundError):
-            output = dem._input_path(self.fire / "not-a-real-file.tif")
-
-
-@pytest.mark.parametrize("use_str", (True, False))  # Both string and Path inputs
-class TestOutputPath(UsesPaths):
-    path = (UsesPaths.fire / UsesPaths.dem).with_suffix(".tif")
-
-    def check(_, input, expected, use_str):
-        if use_str:
-            input = str(input)
-        output = dem._output_path(input)
-        assert output == expected
-
-    @pytest.mark.parametrize("ext", (".tif", ".tiff", ".TIF", ".TIFF", ".tIf", ".TiFf"))
-    def test_tif(self, ext, use_str):
-        input = self.path.with_suffix(ext)
-        self.check(input, self.path, use_str)
-
-    @pytest.mark.parametrize("tail", ("", ".other", ".test"))
-    def test_other(self, tail, use_str):
-        stem = self.path.stem
-        expected = self.path.with_stem(stem + tail)
-        input = expected.with_suffix("")
-        self.check(input, expected, use_str)
-
-
-class TestSetup(UsesPaths):
-    outputs = dem._INTERMEDIATE + dem._FINAL
-    required = dem._INPUTS + outputs
-    tempdir = Path("a/temp/folder")
-
-    def set_type(self, type, paths):
-        for key in self.required:
-            if type == "string" and (key in paths) and (paths[key] is not None):
-                paths[key] = str(paths[key])
-        return paths
-
-    def validate(self, working, final, paths):
-        assert isinstance(working, dict)
-        for file in self.required:
-            assert file in working
-            assert isinstance(working[file], Path)
-            if file in dem._INPUTS:
-                assert working[file] == Path(paths[file])
-            else:
-                assert working[file].parent == self.tempdir
-                assert working[file].name == (file + ".tif")
-
-        assert isinstance(final, dict)
-        saved = [file for file in paths if (file in self.outputs and paths[file] is not None)]
-        for file in saved:
-            assert file in final
-            assert final[file] == Path(paths[file])
-
-    # Parametrizes required input and output
-    @pytest.mark.parametrize("missing", ("dem", "relief"))
-    def test_required_missing(self, missing, user_paths):
-        user_paths.pop(missing)
-        with pytest.raises(KeyError):
-            dem._setup(user_paths, self.tempdir)
-
-    @pytest.mark.parametrize("missing", ("dem", "relief"))
-    def test_required_none(self, missing, user_paths):
-        user_paths[missing] = None
+class TestValidateInputs:
+    def test_invalid(_):
         with pytest.raises(TypeError) as error:
-            dem._setup(user_paths, self.tempdir)
-        assert "expected str, bytes or os.PathLike" in str(error.value)
+            dem._validate_inputs([True], ["test name"], [None], [""])
+        assert_contains(error, "test name")
 
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_no_tmp(self, user_paths, path_type):
-        paths = self.set_type(path_type, user_paths)
-        (working, final, _) = dem._setup(paths, self.tempdir)
-        self.validate(working, final, paths)
+    def test_invalid_array(_):
+        a = np.arange(0, 27).reshape(3, 3, 3)
+        with pytest.raises(DimensionError) as error:
+            dem._validate_inputs([a], ["test name"], [None], [""])
+        assert_contains(error, "test name")
 
-    @pytest.mark.parametrize(
-        "tmp", (["slopes_dinf"], ["flow_directions_dinf", "pitfilled"])
-    )
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_missing_tmp(self, user_paths, path_type, tmp):
-        paths = self.set_type(path_type, user_paths)
-        for file in tmp:
-            paths.pop(file)
-        (working, final, _) = dem._setup(paths, self.tempdir)
-        self.validate(working, final, paths)
+    def test_invalid_file(_):
+        file = "not-a-file"
+        with pytest.raises(FileNotFoundError):
+            dem._validate_inputs([file], ["test name"], [None], [""])
 
-    @pytest.mark.parametrize(
-        "tmp", (["slopes_dinf"], ["flow_directions_dinf", "pitfilled"])
-    )
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_none_tmp(self, user_paths, path_type, tmp):
-        paths = self.set_type(path_type, user_paths)
-        for file in tmp:
-            paths[file] = None
-        (working, final, _) = dem._setup(paths, self.tempdir)
-        self.validate(working, final, paths)
+    def test_invalid_shapes(_, araster):
+        raster1 = araster
+        raster2 = araster.reshape(-1)
+        with pytest.raises(ShapeError) as error:
+            dem._validate_inputs(
+                [raster1, raster2], ["test 1", "test 2"], [None, None], ["", ""]
+            )
+        assert_contains(error, "test 2")
 
-    def test_no_basins(self, user_paths):
-        (working, final, hasbasins) = dem._setup(user_paths, self.tempdir)
-        self.validate(working, final, user_paths)
-        assert not hasbasins
-        for file in dem._BASINS:
-            assert file not in working
-            assert file not in final
+    def test_invalid_nodata(_, araster):
+        invalid = np.array([1, 2, 3])
+        with pytest.raises(DimensionError) as error:
+            dem._validate_inputs([araster], ["test raster"], [invalid], ["nodata name"])
+        assert_contains(error, "nodata name")
 
-    def test_missing_inbasins(self, user_paths):
-        user_paths[dem._BASINS[1]] = str(self.nbasins)
-        (working, final, hasbasins) = dem._setup(user_paths, self.tempdir)
-        self.validate(working, final, user_paths)
-        assert not hasbasins
-        for file in dem._BASINS:
-            assert file not in working
-            assert file not in final
+    def test_valid_array(_, araster):
+        rasters, nodata = dem._validate_inputs([araster], ["test name"], [-999], [""])
+        assert isinstance(rasters, list)
+        assert len(rasters) == 1
+        assert np.array_equal(rasters[0], araster)
+        assert isinstance(nodata, list)
+        assert len(nodata) == 1
+        assert nodata[0] == -999
 
-    def test_none_inbasins(self, user_paths):
-        [isbasin, nbasins] = dem._BASINS
-        user_paths[isbasin] = None
-        user_paths[nbasins] = str(self.nbasins)
-        (working, final, hasbasins) = dem._setup(user_paths, self.tempdir)
-        self.validate(working, final, user_paths)
-        assert not hasbasins
-        for file in dem._BASINS:
-            assert file not in working
-            assert file not in final
+    def test_valid_file(_, fraster):
+        rasters, nodata = dem._validate_inputs([fraster], ["test 1"], [-999], [""])
+        assert isinstance(rasters, list)
+        assert len(rasters) == 1
+        assert rasters[0] == fraster
+        assert isinstance(nodata, list)
+        assert len(nodata) == 1
+        assert nodata[0] == 200
 
-    def test_missing_outbasins(self, user_paths_basins):
-        user_paths_basins.pop(dem._BASINS[1])
-        with pytest.raises(KeyError):
-            dem._setup(user_paths_basins, self.tempdir)
-
-    def test_none_outbasins(self, user_paths_basins):
-        user_paths_basins[dem._BASINS[1]] = None
-        with pytest.raises(TypeError):
-            dem._setup(user_paths_basins, self.tempdir)
-
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_with_basins(self, user_paths_basins, path_type):
-        isbasin, nbasins = dem._BASINS
-        paths = user_paths_basins
-        paths[isbasin], paths[nbasins] = set_path_type(
-            path_type, paths[isbasin], paths[nbasins]
+    def test_multiple(_, araster, fraster):
+        rasters, nodata = dem._validate_inputs(
+            [araster, fraster], ["test 1", "test 2"], [-999, None], ["", ""]
         )
-        (working, final, hasbasins) = dem._setup(paths, self.tempdir)
+        assert isinstance(rasters, list)
+        assert len(rasters) == 2
+        assert np.array_equal(rasters[0], araster)
+        assert rasters[1] == fraster
 
-        self.validate(working, final, paths)
-        assert hasbasins
-
-        assert isbasin in working
-        assert working[isbasin] == Path(user_paths_basins[isbasin])
-        assert isbasin not in final
-
-        assert nbasins in working
-        assert working[nbasins] == self.tempdir / (nbasins + ".tif") 
-        assert nbasins in final
-        assert final[nbasins] == Path(user_paths_basins[nbasins])
+        assert isinstance(nodata, list)
+        assert len(nodata) == 2
+        assert nodata[0] == -999
+        assert nodata[1] == 200
 
 
-class TestOutputDict(UsesPaths):
-    def run(self, option, required, paths, hasbasins):
-        temporary = ["slopes_dinf"]
-        for key in temporary:
-            paths.pop(key)
+class TestPaths:
+    @pytest.mark.filterwarnings("ignore::rasterio.errors.NotGeoreferencedWarning")
+    def test(_, tmp_path, araster, fraster):
+        output = dem._paths(
+            tmp_path,
+            rasters=[araster, fraster, fraster, None],
+            save=[None, None, True, False],
+            names=["input-1", "input-2", "output-1", "output-2"],
+            nodata=[5, "ignored"],
+        )
 
-        output = dem._output_dict(paths, option, hasbasins)
-        assert isinstance(output, dict)
-
-        keys = output.keys()
-        assert len(keys) == len(required)
-        print(sorted(keys))
-        print(sorted(required))
-
-        for key in required:
-            assert key in keys
-            if key not in paths:
-                assert output[key] is None
-            else:
-                assert output[key] == paths[key]
-
-    def test_default_nobasin(self, final_paths):
-        required = dem._FINAL
-        self.run("default", required, final_paths, False)
-
-    def test_default_basin(self, final_paths_basins):
-        required = dem._FINAL + [dem._BASINS[1]]
-        self.run("default", required, final_paths_basins, True)
-
-    def test_saved_nobasin(self, final_paths):
-        required = dem._FINAL + ["pitfilled", "flow_directions_dinf"]
-        self.run("saved", required, final_paths, False)
-
-    def test_saved_basin(self, final_paths_basins):
-        required = dem._FINAL + ["pitfilled", "flow_directions_dinf"] + [dem._BASINS[1]]
-        self.run("saved", required, final_paths_basins, True)
-
-    def test_all_nobasin(self, final_paths):
-        required = dem._FINAL + dem._INTERMEDIATE + [dem._BASINS[1]]
-        self.run("all", required, final_paths, False)
-
-    def test_all_basin(self, final_paths_basins):
-        required = dem._FINAL + dem._INTERMEDIATE + [dem._BASINS[1]]
-        self.run("all", required, final_paths_basins, True)
+        assert isinstance(output, list)
+        assert len(output) == 4
+        assert output[0] == tmp_path / "input-1.tif"
+        assert output[0].is_file()
+        with rasterio.open(output[0]) as file:
+            data = file.read(1)
+            assert np.array_equal(data, araster)
+            assert file.nodata == 5
+        assert output[1] == fraster
+        assert output[2] == fraster
+        assert output[3] == tmp_path / "output-2.tif"
 
 
-###
-# Low-level Taudem wrappers
-###
+class TestRunTaudem:
+    def test_verbose(_, tmp_path, fraster, capfd):
+        dem_data = fraster
+        pitfilled = tmp_path / "pitfilled.tif"
+        command = f"PitRemove -z {dem_data} -fel {pitfilled}"
+        dem._run_taudem(command, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
+
+    def test_quiet(_, tmp_path, fraster, capfd):
+        dem_data = fraster
+        pitfilled = tmp_path / "pitfilled.tif"
+        command = f"PitRemove -z {dem_data} -fel {pitfilled}"
+        dem._run_taudem(command, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_failed(_, tmp_path):
+        dem_data = tmp_path / "not-a-file.tif"
+        pitfilled = tmp_path / "pitfilled.tif"
+        command = f"PitRemove -z {dem_data} -fel {pitfilled}"
+        with pytest.raises(subprocess.CalledProcessError):
+            dem._run_taudem(command, verbose=False)
 
 
-# Base class for TauDEM wrappers. Checks both verbosity settings
-@pytest.mark.parametrize("verbose", (True, False))
-class WrapsTaudem(UsesPaths):
-    pass
+class TestOutput:
+    def test_array(_, araster, fraster):
+        output = dem._output(fraster, save=False)
+        assert np.array_equal(output, araster)
+
+    def test_path(_, fraster):
+        output = dem._output(fraster, save=True)
+        assert output == fraster
 
 
-class TestPitRemove(WrapsTaudem):
-    def test(self, tempdir, capfd, verbose):
-        input = self.fire / self.dem
-        output = tempdir / self.pitfilled
-        expected = self.fire / self.pitfilled
-
-        dem.pitremove(input, output, verbose)
-        check_verbosity(capfd, verbose)
-        validate(output, expected)
+#####
+# Low Level
+#####
 
 
-# Base class for testing D8/D-infinity flow direction wrappers
-class TaudemFlow(WrapsTaudem):
-    def run(self, tempdir, capfd, verbose, function, flow, slopes):
-        pitfilled = self.fire / self.pitfilled
-        output_flow = tempdir / flow
-        output_slopes = tempdir / slopes
-        expected_flow = self.fire / flow
-        expected_slopes = self.fire / slopes
+class TestPitRemove:
+    def test(_, fdem, fpitfilled, tmp_path):
+        pitfilled = tmp_path / "output.tif"
+        assert not pitfilled.is_file()
+        dem.pitremove(fdem, pitfilled, False)
+        assert pitfilled.is_file()
 
-        function(pitfilled, output_flow, output_slopes, verbose)
-        check_verbosity(capfd, verbose)
-        validate(output_flow, expected_flow)
-        validate(output_slopes, expected_slopes)
+        output = load_raster(pitfilled)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
 
 
-class TestFlowD8(TaudemFlow):
-    def test(self, tempdir, capfd, verbose):
-        function = dem.flow_d8
-        flow = self.flow_d8
-        slopes = self.slopes_d8
-        self.run(tempdir, capfd, verbose, function, flow, slopes)
+class TestFlowD8:
+    def test(_, fpitfilled, fflow8, fslopes8, tmp_path):
+        flow = tmp_path / "output-1.tif"
+        slopes = tmp_path / "output-2.tif"
+        assert not flow.is_file()
+        assert not slopes.is_file()
+        dem.flow_d8(fpitfilled, flow, slopes, False)
+        assert flow.is_file()
+        assert slopes.is_file()
+
+        output = load_raster(flow)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+
+        output = load_raster(slopes).astype(float)
+        expected = load_raster(fslopes8).astype(float)
+        print(output)
+        print(expected)
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
 
-class TestFlowDInf(TaudemFlow):
-    def test(self, tempdir, capfd, verbose):
-        function = dem.flow_dinf
-        flow = self.flow_dinf
-        slopes = self.slopes_dinf
-        self.run(tempdir, capfd, verbose, function, flow, slopes)
+class TestFlowDinf:
+    def test_flow_dinf(_, fpitfilled, fflowi, fslopesi, tmp_path):
+        flow = tmp_path / "output-1.tif"
+        slopes = tmp_path / "output-2.tif"
+        assert not flow.is_file()
+        assert not slopes.is_file()
+        dem.flow_dinf(fpitfilled, flow, slopes, False)
+        assert flow.is_file()
+        assert slopes.is_file()
+
+        output = load_raster(flow)[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+
+        output = load_raster(slopes)[1, 1:3].astype(float)
+        expected = load_raster(fslopesi)[1, 1:3].astype(float)
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
 
-class TestAreaD8(WrapsTaudem):
-    def run(self, tempdir, capfd, verbose, weights, area):
-        flow = self.fire / self.flow_d8
-        output = tempdir / area
-        expected = self.fire / area
+class TestAreaD8:
+    def test_unweighted(_, fflow8, fareau, tmp_path):
+        area = tmp_path / "output.tif"
+        assert not area.is_file()
+        dem.area_d8(fflow8, None, area, False)
+        assert area.is_file()
 
-        dem.area_d8(flow, weights, output, verbose)
-        check_verbosity(capfd, verbose)
-        validate(output, expected)
+        output = load_raster(area)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
 
-    def test_weighted(self, tempdir, capfd, verbose):
-        weights = self.fire / self.isburned
-        area = self.burned_area
-        self.run(tempdir, capfd, verbose, weights, area)
+    def test_weighted(_, fflow8, fweights, fareaw, tmp_path):
+        area = tmp_path / "output.tif"
+        assert not area.is_file()
+        dem.area_d8(fflow8, fweights, area, False)
+        assert area.is_file()
 
-    def test_unweighted(self, tempdir, capfd, verbose):
-        weights = None
-        area = self.total_area
-        self.run(tempdir, capfd, verbose, weights, area)
-
-
-class TestReliefDInf(WrapsTaudem):
-    def test(self, tempdir, capfd, verbose):
-        pitfilled = self.fire / self.pitfilled
-        flow = self.fire / self.flow_dinf
-        slopes = self.fire / self.slopes_dinf
-        output = tempdir / self.relief
-        expected = self.fire / self.relief
-
-        dem.relief_dinf(pitfilled, flow, slopes, output, verbose)
-        check_verbosity(capfd, verbose)
-        validate(output, expected)
+        output = load_raster(area)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
 
 
-###
-# User functions
-###
+class TestReliefDinf:
+    def test(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path):
+        relief = tmp_path / "output.tif"
+        assert not relief.is_file()
+        dem.relief_dinf(fpitfilled, fflowi, fslopesi, relief, False)
+        assert relief.is_file()
 
-# Base class for testing user functions. Includes file names and output checker
-class UserFunction(UsesPaths):
-    missing = "not-a-real-file.tif"
-
-    def check_output(_, output, intended_path, expected_values):
-        assert output == Path(intended_path)
-        validate(output, expected_values)
-
-
-class TestPitfill(UserFunction):
-    def test_missing(self):
-        with pytest.raises(FileNotFoundError):
-            dem.pitfill(self.missing, self.missing, verbose=False)
-
-    @pytest.mark.parametrize("verbose", (True, False, None))
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_standard(self, tempdir, path_type, verbose, capfd):
-
-        input = self.fire / self.dem
-        pitfilled = tempdir / self.pitfilled
-        expected = self.fire / self.pitfilled
-        (input, pitfilled) = set_path_type(path_type, input, pitfilled)
-
-        output = dem.pitfill(input, pitfilled, verbose=verbose)
-        check_verbosity(capfd, verbose)
-        self.check_output(output, pitfilled, expected)
+        output = load_raster(relief)
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
 
 
-class TestFlowDirections(UserFunction):
-    d8 = {"type": "D8", "file": UsesPaths.flow_d8, "slopes": UsesPaths.slopes_d8}
-    dinf = {
-        "type": "DInf",
-        "file": UsesPaths.flow_dinf,
-        "slopes": UsesPaths.slopes_dinf,
-    }
+#####
+# User Functions
+#####
 
-    def paths(self, tempdir, flow, path_type):
-        pitfilled = self.fire / self.pitfilled
-        output_flow = tempdir / flow["file"]
-        expected_flow = self.fire / flow["file"]
-        (pitfilled, output_flow) = set_path_type(path_type, pitfilled, output_flow)
-        return (pitfilled, output_flow, expected_flow)
 
-    def test_missing(self):
-        with pytest.raises(FileNotFoundError):
-            dem.flow_directions("D8", self.missing, self.missing)
+class TestPitfill:
+    def test_verbose(_, fdem, capfd):
+        dem.pitfill(fdem, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
 
-    @pytest.mark.parametrize("flow", (d8, dinf))
-    @pytest.mark.parametrize("verbose", (True, False, None))
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_no_slopes(self, flow, tempdir, path_type, verbose, capfd):
-        (pitfilled, output_flow, expected_flow) = self.paths(tempdir, flow, path_type)
+    def test_quiet(_, fdem, capfd):
+        dem.pitfill(fdem, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fdem, fpitfilled, tmp_path):
+        pitfilled = tmp_path / "output.tif"
+        save_raster(existing_raster, pitfilled)
+        dem.pitfill(fdem, path=pitfilled, overwrite=True)
+        output = load_raster(pitfilled)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_, fdem, tmp_path):
+        pitfilled = tmp_path / "output.tif"
+        save_raster(existing_raster, pitfilled)
+        with pytest.raises(FileExistsError):
+            dem.pitfill(fdem, path=pitfilled, overwrite=False)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array(_, fdem, fpitfilled, load_input):
+        if load_input:
+            fdem = load_raster(fdem)
+        output = dem.pitfill(fdem)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "dem.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save(_, fdem, fpitfilled, tmp_path, load_input):
+        if load_input:
+            fdem = load_raster(fdem)
+        pitfilled = tmp_path / "output.tif"
+        output = dem.pitfill(fdem, path=pitfilled)
+        assert output == pitfilled
+        output = load_raster(pitfilled)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
+
+    def test_nodata(_, fdem):
+        fdem = load_raster(fdem)
+        output = dem.pitfill(fdem, nodata=4)
+        fill = -3e38
+        expected = fdem
+        expected[expected == 4] = fill
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fdem, fpitfilled):
+        output = dem.pitfill(fdem, nodata=4)
+        expected = load_raster(fpitfilled)
+        assert np.array_equal(output, expected)
+
+
+class TestFlowDirections:
+    def test_verbose(_, fpitfilled, capfd):
+        dem.flow_directions("D8", fpitfilled, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
+
+    def test_quiet(_, fpitfilled, capfd):
+        dem.flow_directions("D8", fpitfilled, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fpitfilled, fflow8, tmp_path):
+        flow = tmp_path / "output.tif"
+        save_raster(existing_raster, flow)
+        dem.flow_directions("D8", fpitfilled, path=flow, overwrite=True)
+        output = load_raster(flow)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_, fpitfilled, tmp_path):
+        flow = tmp_path / "output.tif"
+        save_raster(existing_raster, flow)
+        with pytest.raises(FileExistsError):
+            dem.upslope_pixels(fpitfilled, path=flow, overwrite=False)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array8(_, fpitfilled, fflow8, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+        output = dem.flow_directions("D8", fpitfilled)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "flow_directions.tif").is_file()
+        assert not (Path.cwd() / "slopes.tif").is_file()
+
+    def test_array8_slopes(_, fpitfilled, fflow8, fslopes8):
+        output = dem.flow_directions("D8", fpitfilled, return_slopes=True)
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        flow, slopes = output
+        expected = load_raster(fflow8)
+        assert np.array_equal(flow, expected)
+        expected = load_raster(fslopes8)
+        assert np.allclose(slopes, expected, rtol=0, atol=1e-7)
+        assert not (Path.cwd() / "flow_directions.tif").is_file()
+        assert not (Path.cwd() / "slopes.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save8(_, fpitfilled, fflow8, tmp_path, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+        flow = tmp_path / "output.tif"
+        output = dem.flow_directions("D8", fpitfilled, path=flow)
+        assert output == flow
+        output = load_raster(flow)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+
+    def test_save8_slopes(_, fpitfilled, fflow8, fslopes8, tmp_path):
+        flow_path = tmp_path / "output-1.tif"
+        slopes_path = tmp_path / "output-2.tif"
         output = dem.flow_directions(
-            flow["type"], pitfilled, output_flow, verbose=verbose
+            "D8",
+            fpitfilled,
+            path=flow_path,
+            return_slopes=True,
+            slopes_path=slopes_path,
         )
-        check_verbosity(capfd, verbose)
-        self.check_output(output, output_flow, expected_flow)
-        outputs = os.listdir(tempdir)
-        assert not any(file.startswith("slopes") for file in outputs)
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        flow, slopes = output
+        assert flow == flow_path
+        output = load_raster(flow_path)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
+        assert slopes == slopes_path
+        output = load_raster(slopes_path)
+        expected = load_raster(fslopes8)
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
-    @pytest.mark.parametrize("flow", (d8, dinf))
-    @pytest.mark.parametrize("verbose", (True, False, None))
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_with_slopes(self, flow, tempdir, path_type, verbose, capfd):
-        (pitfilled, flow_path, expected_flow) = self.paths(tempdir, flow, path_type)
-        slopes_path = tempdir / flow["slopes"]
-        expected_slopes = self.fire / flow["slopes"]
-        (output_flow, output_slopes) = dem.flow_directions(
-            flow["type"], pitfilled, flow_path, slopes_path=slopes_path, verbose=verbose
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_arrayI(_, fpitfilled, fflowi, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+        output = dem.flow_directions("DInf", fpitfilled)[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+        assert not (Path.cwd() / "flow_directions.tif").is_file()
+        assert not (Path.cwd() / "slopes.tif").is_file()
+
+    def test_arrayI_slopes(_, fpitfilled, fflowi, fslopesi):
+        output = dem.flow_directions("DInf", fpitfilled, return_slopes=True)
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        flow, slopes = output
+        flow = flow[1, 1:3]
+        slopes = slopes[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(flow, expected, rtol=0, atol=1e-7)
+        expected = load_raster(fslopesi)[1, 1:3]
+        assert np.allclose(slopes, expected, rtol=0, atol=1e-7)
+        assert not (Path.cwd() / "flow_directions.tif").is_file()
+        assert not (Path.cwd() / "slopes.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_saveI(_, fpitfilled, fflowi, tmp_path, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+        flow = tmp_path / "output.tif"
+        output = dem.flow_directions("DInf", fpitfilled, path=flow)
+        assert output == flow
+        output = load_raster(flow)[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+
+    def test_saveI_slopes(_, fpitfilled, fflowi, fslopesi, tmp_path):
+        flow_path = tmp_path / "output-1.tif"
+        slopes_path = tmp_path / "output-2.tif"
+        output = dem.flow_directions(
+            "DInf",
+            fpitfilled,
+            path=flow_path,
+            return_slopes=True,
+            slopes_path=slopes_path,
         )
-        check_verbosity(capfd, verbose)
-        self.check_output(output_flow, flow_path, expected_flow)
-        self.check_output(output_slopes, slopes_path, expected_slopes)
+        assert isinstance(output, tuple)
+        assert len(output) == 2
+        flow, slopes = output
+        assert flow == flow_path
+        output = load_raster(flow_path)[1, 1:3]
+        expected = load_raster(fflowi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+        assert slopes == slopes_path
+        output = load_raster(slopes_path)[1, 1:3]
+        expected = load_raster(fslopesi)[1, 1:3]
+        assert np.allclose(output, expected, rtol=0, atol=1e-7)
+
+    def test_nodata(_, fpitfilled):
+        pitfilled = load_raster(fpitfilled)
+        output = dem.flow_directions("D8", pitfilled, nodata=4)
+        expected = np.full(pitfilled.shape, -32768)
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fpitfilled, fflow8):
+        output = dem.flow_directions("D8", fpitfilled, nodata=4)
+        expected = load_raster(fflow8)
+        assert np.array_equal(output, expected)
 
 
-class TestUpslopeArea(UserFunction):
-    unweighted = {"weights": None, "name": UsesPaths.total_area}
-    weighted = {
-        "weights": UsesPaths.fire / UsesPaths.isburned,
-        "name": UsesPaths.burned_area,
-    }
+class TestUpslopePixels:
+    def test_warnings(_, fflow8, capfd):
+        load_raster(fflow8)
+        dem.upslope_pixels(fflow8)
 
-    @pytest.mark.parametrize("area", (unweighted, weighted))
-    @pytest.mark.parametrize("verbose", (True, False, None))
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_standard(self, tempdir, path_type, verbose, capfd, area):
-        flow = self.fire / self.flow_d8
-        area_path = tempdir / area["name"]
-        expected = self.fire / area["name"]
-        (flow, area_path) = set_path_type(path_type, flow, area_path)
+    def test_verbose(_, fflow8, capfd):
+        dem.upslope_pixels(fflow8, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
 
-        output = dem.upslope_area(
-            flow, area_path, weights_path=area["weights"], verbose=verbose
+    def test_quiet(_, fflow8, capfd):
+        dem.upslope_pixels(fflow8, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fflow8, fareau, tmp_path):
+        area = tmp_path / "output.tif"
+        save_raster(existing_raster, area)
+        dem.upslope_pixels(fflow8, path=area, overwrite=True)
+        output = load_raster(area)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_, fflow8, tmp_path):
+        area = tmp_path / "output.tif"
+        save_raster(existing_raster, area)
+        with pytest.raises(FileExistsError):
+            dem.upslope_pixels(fflow8, path=area, overwrite=False)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array(_, fflow8, fareau, load_input):
+        if load_input:
+            fflow8 = load_raster(fflow8)
+        output = dem.upslope_pixels(fflow8, nodata=-32768)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "upslope_pixels.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save(_, fflow8, fareau, tmp_path, load_input):
+        if load_input:
+            fflow8 = load_raster(fflow8)
+        area = tmp_path / "output.tif"
+        output = dem.upslope_pixels(fflow8, nodata=-32768, path=area)
+        assert output == area
+        output = load_raster(area)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+
+    def test_nodata(_, fflow8, fareau):
+        flow = load_raster(fflow8)
+        output = dem.upslope_pixels(flow, nodata=-32768)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+
+    def test_missing_nodata(_, fflow8, fareau):
+        flow = load_raster(fflow8)
+        output = dem.upslope_pixels(flow, check=False)
+        expected = load_raster(fareau)
+        expected[expected == -1] = 1
+        expected[2, 1] = 3
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fflow8, fareau):
+        output = dem.upslope_pixels(fflow8, nodata=0)
+        expected = load_raster(fareau)
+        assert np.array_equal(output, expected)
+
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
+    def test_check(_, fflow8, value):
+        flow = load_raster(fflow8).astype(float)
+        flow[0, 0] = value
+        with pytest.raises(ValueError) as error:
+            dem.upslope_pixels(flow)
+        assert_contains(error, "flow_directions")
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
+    def test_nocheck(_, fflow8, value):
+        flow = load_raster(fflow8).astype(float)
+        flow[0, 0] = value
+        dem.upslope_pixels(flow, check=False)
+
+
+class TestUpslopeSum:
+    def test_verbose(_, fflow8, fweights, capfd):
+        dem.upslope_sum(fflow8, fweights, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
+
+    def test_quiet(_, fflow8, fweights, capfd):
+        dem.upslope_sum(fflow8, fweights, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
+
+    def test_overwrite(_, fflow8, fweights, fareaw, tmp_path):
+        area = tmp_path / "output.tif"
+        save_raster(existing_raster, area)
+        dem.upslope_sum(fflow8, fweights, path=area, overwrite=True)
+        output = load_raster(area)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
+
+    def test_invalid_overwrite(_, fflow8, fweights, tmp_path):
+        area = tmp_path / "output.tif"
+        save_raster(existing_raster, area)
+        with pytest.raises(FileExistsError):
+            dem.upslope_sum(fflow8, fweights, path=area, overwrite=False)
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array(_, fflow8, fweights, fareaw, load_input):
+        if load_input:
+            fflow8 = load_raster(fflow8)
+            fweights = load_raster(fweights)
+        output = dem.upslope_sum(
+            fflow8, fweights, flow_nodata=-32768, values_nodata=-999
         )
-        check_verbosity(capfd, verbose)
-        self.check_output(output, area_path, expected)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "upslope_sum.tif").is_file()
 
-    def test_missing(self):
-        with pytest.raises(FileNotFoundError):
-            dem.upslope_area(self.missing, self.missing)
-
-
-class TestUpslopeBasins(UserFunction):
-    @pytest.mark.parametrize("verbose", (True, False, None))
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_standard(self, tempdir, path_type, verbose, capfd):
-        flow = self.fire / self.flow_d8
-        isbasin = self.fire / self.isbasin
-        nbasins = tempdir / self.nbasins
-        expected = self.fire / self.nbasins
-        (flow, isbasin, nbasins) = set_path_type(path_type, flow, isbasin, nbasins)
-
-        output = dem.upslope_basins(flow, isbasin, nbasins, verbose=verbose)
-        check_verbosity(capfd, verbose)
-        self.check_output(output, nbasins, expected)
-
-    def test_missing(self):
-        with pytest.raises(FileNotFoundError):
-            dem.upslope_basins(self.missing, self.missing, self.missing)
-
-
-class TestUpslopeBurn(UserFunction):
-    @pytest.mark.parametrize("verbose", (True, False, None))
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_standard(self, tempdir, path_type, verbose, capfd):
-        flow = self.fire / self.flow_d8
-        isburned = self.fire / self.isburned
-        area = tempdir / self.burned_area
-        expected = self.fire / self.burned_area
-        (flow, isburned, area) = set_path_type(path_type, flow, isburned, area)
-
-        output = dem.upslope_burn(flow, isburned, area, verbose=verbose)
-        check_verbosity(capfd, verbose)
-        self.check_output(output, area, expected)
-
-    def test_missing(self):
-        with pytest.raises(FileNotFoundError):
-            dem.upslope_burn(self.missing, self.missing, self.missing)
-
-
-class TestUpslopeDevelopment(UserFunction):
-    @pytest.mark.parametrize("verbose", (True, False, None))
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_standard(self, tempdir, path_type, verbose, capfd):
-        flow = self.fire / self.flow_d8
-        isdeveloped = self.fire / self.isdeveloped
-        area = tempdir / self.developed_area
-        expected = self.fire / self.developed_area
-        (flow, isdeveloped, area) = set_path_type(path_type, flow, isdeveloped, area)
-
-        output = dem.upslope_development(flow, isdeveloped, area, verbose=verbose)
-        check_verbosity(capfd, verbose)
-        self.check_output(output, area, expected)
-
-    def test_missing(self):
-        with pytest.raises(FileNotFoundError):
-            dem.upslope_development(self.missing, self.missing, self.missing)
-
-
-class TestRelief(UserFunction):
-    def test_missing(self):
-        with pytest.raises(FileNotFoundError):
-            dem.relief(self.missing, self.missing, self.missing, self.missing)
-
-    @pytest.mark.parametrize("verbose", (True, False, None))
-    @pytest.mark.parametrize("path_type", ("string", "path"))
-    def test_standard(self, tempdir, path_type, verbose, capfd):
-        pitfilled = self.fire / self.pitfilled
-        flow = self.fire / self.flow_dinf
-        slopes = self.fire / self.slopes_dinf
-        relief = tempdir / self.relief
-        expected = self.fire / self.relief
-        (pitfilled, flow, slopes, relief) = set_path_type(
-            path_type, pitfilled, flow, slopes, relief
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save(_, fflow8, fweights, fareaw, tmp_path, load_input):
+        if load_input:
+            fflow8 = load_raster(fflow8)
+            fweights = load_raster(fweights)
+        area = tmp_path / "output.tif"
+        output = dem.upslope_sum(
+            fflow8, fweights, path=area, flow_nodata=-32768, values_nodata=-999
         )
+        assert output == area
+        output = load_raster(area)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
 
-        output = dem.relief(pitfilled, flow, slopes, relief, verbose=verbose)
-        check_verbosity(capfd, verbose)
-        self.check_output(output, relief, expected)
+    def test_nodata(_, fflow8, fweights, fareaw):
+        flow = load_raster(fflow8)
+        output = dem.upslope_sum(flow, fweights, flow_nodata=-32768)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fflow8, fweights, fareaw):
+        output = dem.upslope_sum(fflow8, fweights, flow_nodata=0, values_nodata=2)
+        expected = load_raster(fareaw)
+        assert np.array_equal(output, expected)
+
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
+    def test_check(_, fflow8, fweights, value):
+        flow = load_raster(fflow8).astype(float)
+        flow[0, 0] = value
+        with pytest.raises(ValueError) as error:
+            dem.upslope_sum(flow, fweights)
+        assert_contains(error, "flow_directions")
+
+    @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
+    def test_nocheck(_, fflow8, value, fweights):
+        flow = load_raster(fflow8).astype(float)
+        flow[0, 0] = value
+        dem.upslope_sum(flow, fweights, check=False)
+
+    @pytest.mark.parametrize("load_mask", (True, False))
+    def test_mask(_, fflow8, fweights, fmask, faream, load_mask):
+        if load_mask:
+            fmask = load_raster(fmask)
+            fmask[fmask == -1] = 0
+        output = dem.upslope_sum(fflow8, fweights, fmask)
+        expected = load_raster(faream)
+        assert np.array_equal(output, expected)
+
+    def test_mask_nodata(_, fflow8, fweights, fmask, faream):
+        mask = load_raster(fmask)
+        output = dem.upslope_sum(fflow8, fweights, mask, mask_nodata=-1)
+        expected = load_raster(faream)
+        assert np.array_equal(output, expected)
+
+    def test_mask_ignore_nodata(_, fflow8, fweights, fmask, faream):
+        output = dem.upslope_sum(fflow8, fweights, fmask, mask_nodata=-999)
+        expected = load_raster(faream)
+        assert np.array_equal(output, expected)
+
+    def test_mask_check(_, fflow8, fweights, fmask):
+        mask = load_raster(fmask)
+        with pytest.raises(ValueError) as error:
+            dem.upslope_sum(fflow8, fweights, mask)
+        assert_contains(error, "mask")
+
+    # Only need to test it runs. Output values are unconstrained when check=False
+    def test_mask_nocheck(_, fflow8, fweights, fmask):
+        mask = load_raster(fmask)
+        dem.upslope_sum(fflow8, fweights, mask, check=False)
 
 
-class TestAnalyze:
-    missing_tmps = ["flow_directions_dinf"]
-    none_tmps = ["pitfilled"]
-    saved_tmps = ["slopes_dinf"]
+class TestRelief:
+    def test_verbose(_, fpitfilled, fflowi, fslopesi, capfd):
+        dem.relief(fpitfilled, fflowi, fslopesi, verbose=True)
+        stdout = capfd.readouterr().out
+        assert stdout != ""
 
-    def setup_paths(self, paths, tmpdir, hasbasins):
-        paths = paths.copy()
-        outputs = dem._FINAL + self.saved_tmps
-        if hasbasins:
-            outputs += [dem._BASINS[1]]
-        else:
-            paths.pop(dem._BASINS[0])
-            paths.pop(dem._BASINS[1])
-        for file in outputs:
-            paths[file] = tmpdir / paths[file].name
-        for file in self.missing_tmps:
-            paths.pop(file)
-        for file in self.none_tmps:
-            paths[file] = None
-        return paths
+    def test_quiet(_, fpitfilled, fflowi, fslopesi, capfd):
+        dem.relief(fpitfilled, fflowi, fslopesi, verbose=False)
+        stdout = capfd.readouterr().out
+        assert stdout == ""
 
-    def check_outputs(
-        self, output, required, tmpdir, input_paths, all_paths, hasbasins, isall=False
-    ):
-        assert isinstance(output, dict)
-
-        # Get lists of tmp files, saved output files, expected output files for core analysis
-        temporary = self.missing_tmps + self.none_tmps
-        saved = os.listdir(tmpdir)
-        expected = dem._FINAL + self.saved_tmps
-
-        # Add optional basin files and get final file list
-        nbasins = [dem._BASINS[1]]
-        if hasbasins or isall:
-            required += nbasins
-            if hasbasins:
-                expected += nbasins
-            else:
-                temporary += nbasins
-        expected_files = [all_paths[file].name for file in expected]
-
-        # Check the dict has the expected keys/values
-        keys = output.keys()
-        assert sorted(keys) == sorted(required)
-        for key in required:
-            if key in temporary:
-                assert output[key] is None
-            else:
-                assert output[key] == input_paths[key]
-
-        # Validate the saved files
-        assert sorted(saved) == sorted(expected_files)
-        for file in expected:
-            validate(input_paths[file], all_paths[file])
-
-        # Check that tmp files were deleted
-        for tmp in temporary:
-            stem = all_paths[tmp].stem
-            assert not any(file.startswith(stem) for file in saved)
-
-    def test_missing_required(self, user_paths):
-        user_paths.pop("dem")
-        with pytest.raises(KeyError):
-            dem.analyze(user_paths)
-
-    @pytest.mark.parametrize("hasbasins", (True, False))
-    def test_default(self, user_paths_basins, tempdir, hasbasins):
-        paths = self.setup_paths(user_paths_basins, tempdir, hasbasins)
-        output = dem.analyze(paths)
-        required = dem._FINAL.copy()
-        self.check_outputs(
-            output, required, tempdir, paths, user_paths_basins, hasbasins
+    def test_overwrite(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path):
+        relief = tmp_path / "output.tif"
+        save_raster(existing_raster, relief)
+        dem.relief(
+            fpitfilled,
+            fflowi,
+            fslopesi,
+            path=relief,
+            overwrite=True,
+            flow_nodata=fmin,
+            slopes_nodata=-1,
         )
+        output = load_raster(relief)
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
 
-    @pytest.mark.parametrize("hasbasins", (True, False))
-    def test_saved(self, user_paths_basins, tempdir, hasbasins):
-        paths = self.setup_paths(user_paths_basins, tempdir, hasbasins)
-        output = dem.analyze(paths, outputs="saved")
-        required = dem._FINAL + self.saved_tmps
-        self.check_outputs(
-            output, required, tempdir, paths, user_paths_basins, hasbasins
-        )
+    def test_invalid_overwrite(_, fpitfilled, fflowi, fslopesi, tmp_path):
+        relief = tmp_path / "output.tif"
+        save_raster(existing_raster, relief)
+        with pytest.raises(FileExistsError):
+            dem.relief(
+                fpitfilled,
+                fflowi,
+                fslopesi,
+                path=relief,
+                overwrite=False,
+                flow_nodata=fmin,
+                slopes_nodata=-1,
+            )
 
-    @pytest.mark.parametrize("hasbasins", (True, False))
-    def test_all(self, user_paths_basins, tempdir, hasbasins):
-        paths = self.setup_paths(user_paths_basins, tempdir, hasbasins)
-        output = dem.analyze(paths, outputs="all")
-        required = dem._FINAL + dem._INTERMEDIATE
-        self.check_outputs(
-            output, required, tempdir, paths, user_paths_basins, hasbasins, True
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_array(_, fpitfilled, fflowi, fslopesi, frelief, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+            fflowi = load_raster(fflowi)
+            fslopesi = load_raster(fslopesi)
+        output = dem.relief(
+            fpitfilled,
+            fflowi,
+            fslopesi,
+            flow_nodata=fmin,
+            slopes_nodata=-1,
         )
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
+        assert not (Path.cwd() / "relief.tif").is_file()
+
+    @pytest.mark.parametrize("load_input", (True, False))
+    def test_save(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path, load_input):
+        if load_input:
+            fpitfilled = load_raster(fpitfilled)
+            fflowi = load_raster(fflowi)
+            fslopesi = load_raster(fslopesi)
+        relief = tmp_path / "output.tif"
+        output = dem.relief(
+            fpitfilled,
+            fflowi,
+            fslopesi,
+            path=relief,
+            flow_nodata=fmin,
+            slopes_nodata=-1,
+        )
+        assert output == relief
+        output = load_raster(relief)
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
+
+    def test_nodata(_, fpitfilled, fflowi, fslopesi, frelief):
+        flow = load_raster(fflowi)
+        output = dem.relief(fpitfilled, flow, fslopesi, flow_nodata=fmin)
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
+
+    def test_ignore_nodata(_, fpitfilled, fflowi, fslopesi, frelief):
+        output = dem.relief(
+            fpitfilled, fflowi, fslopesi, flow_nodata=0, slopes_nodata=0
+        )
+        expected = load_raster(frelief)
+        assert np.array_equal(output, expected)
