@@ -202,7 +202,7 @@ def estimate(
         path, _ = validate.output_path(path, overwrite)
     dNBR, nodata = validate.raster(dNBR, "dNBR", numpy_nodata=nodata)
 
-    # Preallocate. Get nodata maskocate
+    # Preallocate. Get nodata mask
     severity = np.empty(dNBR.shape, dtype="int8")
     nodata = nodata_mask(dNBR, nodata)
 
