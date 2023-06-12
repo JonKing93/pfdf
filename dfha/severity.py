@@ -1,7 +1,7 @@
 """
 severity  Functions that estimate and locate burn severity
 ----------
-The severity module is used to generate and work with rasters that record
+The severity module is used to generate and work with rasters that record a
 BARC4-like soil burn severity. The BARC4 classification is as follows:
 
     1 - Unburned
@@ -15,23 +15,24 @@ Burn severity rasters are typically used to derive data masks used to
 implement various parts of a hazard assessment. For example, the burned pixel
 mask used to delineate a stream network, or the high-moderate burn mask used to
 implement the M1, M2, and M3 models from Staley et al., 2017. Users can use the
-"mask" function to generate these masks from a burn severity raster.
+"mask" function to generate these masks from a BARC4-like burn severity raster.
+Note that "mask" function searches for burn-severity levels by name, and users
+can inspect the supported names using the "classification" function.
 
-We note tha
-
-We recommend using field-verified burn severity data when possible, but these 
-maps are not always available. If this is the case, users can use the "estimate"
-function to estimate a burn severity raster from dNBR.
+We recommend using field-verified BARC4-like burn severity data when possible, 
+but these maps are not always available. If this is the case, users can use the 
+"estimate" function to estimate a burn severity raster from dNBR, BARC256, or 
+other BARC-like rasters.
 ----------
 User Functions:
     mask                    - Returns a mask of the specified burn severities
-    estimate                - Estimates burn severity from dNBR
+    estimate                - Estimates burn severity from a dNBR or BARC-like raster
     classification          - Returns a dict with the BARC4 classification scheme
 
 Private:
-    _validate_thresholds    - Checks that dNBR thresholds are valid
+    _validate_thresholds    - Checks that severity level thresholds are valid
     _validate_descriptions  - Checks that burn severity descriptions are recognized
-    _compare                - Compares two dNBR thresholds
+    _compare                - Compares two severity-level thresholds
     _classify               - Locates a burn severity class using two thresholds 
 """
 
@@ -141,7 +142,7 @@ def mask(
 
 
 def estimate(
-    dNBR: Raster,
+    raster: Raster,
     thresholds: Thresholds = [125, 250, 500],
     *,
     path: Optional[Pathlike] = None,
@@ -149,12 +150,13 @@ def estimate(
     nodata: Optional[scalar] = None,
 ) -> OutputRaster:
     """
-    estimate  Estimates BARC4 burn severity raster from a dNBR raster
+    estimate  Estimates a BARC4-like burn severity raster from a dNBR or BARC-like raster
     ----------
-    estimate(dNBR)
-    Estimates a BARC4 burn severity from a dNBR raster. This process classifies
-    the burn severity of each raster pixel using an integer from 1 to 4.
-    The classification scheme is as follows:
+    estimate(raster)
+    Estimates a BARC4 burn severity from a raster assumed to be (dNBR * 1000).
+    (See the following syntax if you instead have raw dNBR, BARC256, or another
+    BARC-like raster). This process classifies the burn severity of each raster 
+    pixel using an integer from 1 to 4. The classification scheme is as follows:
 
         Classification - Interpretation: dNBR Range
         1 - unburned:  [-Inf, 125)
@@ -165,9 +167,14 @@ def estimate(
     NoData values are set to 0. Returns a numpy 2D array holding the estimated
     BARC4 burn severity raster.
 
-    estimate(dNBR, thresholds)
-    Specifies the dNBR thresholds to use to distinguish between burn severity
-    classes. The "thresholds" input should have 3 elements. In order, these should
+    estimate(raster, thresholds)
+    Specifies the thresholds to use to distinguish between burn severity classes
+    in the input raster. This syntax should be used whenever the input raster is
+    not (raw dNBR * 1000), and also supports custom thresholds for the (raw dNBR * 1000) 
+    case. Note that the function does not check the intervals of raster values 
+    when thresholds are specified.
+
+    The "thresholds" input should have 3 elements. In order, these should
     be the thresholds between (1) unburned and low severity, (2) low and moderate
     severity, and (3) moderate and high severity. Each threshold defines the
     upper bound (exclusive) of the less-burned class, and the lower bound (inclusive)
@@ -192,6 +199,10 @@ def estimate(
         overwrite: True to allow saved burn severities to replace existing files.
             False to prevent replacement.
         nodata: Indicates the dNBR NoData value for when dNBR is a numpy array.
+        check: Indicates whether to check the interval of raster values when
+            thresholds are not specified. If True, raises an exception when no
+            raster values are outside the interval [-5, 5]. Ignored if thresholds
+            are provided.
 
     Outputs:
         numpy 2D array | pathlib.Path: The BARC4 burn severity estimate or the
@@ -202,17 +213,17 @@ def estimate(
     thresholds = _validate_thresholds(thresholds)
     if path is not None:
         path, _ = validate.output_path(path, overwrite)
-    dNBR, nodata = validate.raster(dNBR, "dNBR", numpy_nodata=nodata)
+    raster, nodata = validate.raster(raster, "input raster", numpy_nodata=nodata)
 
     # Preallocate. Get nodata mask
-    severity = np.empty(dNBR.shape, dtype="int8")
-    nodata = nodata_mask(dNBR, nodata)
+    severity = np.empty(raster.shape, dtype="int8")
+    nodata = nodata_mask(raster, nodata)
 
     # Get the burn severity classes
-    severity[dNBR < thresholds[0]] = 1
-    _classify(severity, dNBR, thresholds[0:2], 2)
-    _classify(severity, dNBR, thresholds[1:3], 3)
-    severity[dNBR >= thresholds[2]] = 4
+    severity[raster < thresholds[0]] = 1
+    _classify(severity, raster, thresholds[0:2], 2)
+    _classify(severity, raster, thresholds[1:3], 3)
+    severity[raster >= thresholds[2]] = 4
 
     # Fill NoData
     if nodata is not None:
@@ -248,12 +259,12 @@ def _validate_descriptions(descriptions: Any) -> Set[str]:
 
 
 def _validate_thresholds(thresholds: Any) -> ThresholdArray:
-    "Checks that dNBR thresholds are sorted and not NaN"
+    "Checks that thresholds are sorted and not NaN"
     thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
     nans = np.isnan(thresholds)
     if np.any(nans):
         bad = np.argwhere(nans)[0]
-        raise ValueError(f"dNBR thresholds cannot be NaN, but threshold {bad} is NaN.")
+        raise ValueError(f"thresholds cannot be NaN, but threshold {bad} is NaN.")
     names = ["unburned-low", "low-moderate", "moderate-high"]
     _compare(thresholds[0:2], names[0:2])
     _compare(thresholds[1:], names[1:])
@@ -269,8 +280,8 @@ def _compare(thresholds: VectorArray, names: strs) -> None:
 
 
 def _classify(
-    severity: RasterArray, dNBR: RasterArray, thresholds: ThresholdArray, value: int
+    severity: RasterArray, raster: RasterArray, thresholds: ThresholdArray, value: int
 ) -> None:
     "Locates a severity class using 2 thresholds"
-    mask = (dNBR >= thresholds[0]) & (dNBR < thresholds[1])
+    mask = (raster >= thresholds[0]) & (raster < thresholds[1])
     severity[mask] = value
