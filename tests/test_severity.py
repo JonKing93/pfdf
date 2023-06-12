@@ -86,6 +86,11 @@ class TestValidateDescriptions:
         output = severity._validate_descriptions("moderate")
         assert output == set(["moderate"])
 
+    def test_invalid(_):
+        with pytest.raises(TypeError) as error:
+            severity._validate_descriptions(5)
+        assert_contains(error, 'not a string')
+
     def test_sequence(_):
         input = ["moderate", "high"]
         output = severity._validate_descriptions(input)
