@@ -21,8 +21,8 @@ can inspect the supported names using the "classification" function.
 
 We recommend using field-verified BARC4-like burn severity data when possible, 
 but these maps are not always available. If this is the case, users can use the 
-"estimate" function to estimate a burn severity raster from dNBR, BARC256, or 
-other BARC-like rasters.
+"estimate" function to estimate a BARC4-like burn severity raster from dNBR,
+BARC256, or other BARC-like rasters.
 ----------
 User Functions:
     mask                    - Returns a mask of the specified burn severities
