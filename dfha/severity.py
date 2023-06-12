@@ -26,7 +26,7 @@ other BARC-like rasters.
 ----------
 User Functions:
     mask                    - Returns a mask of the specified burn severities
-    estimate                - Estimates burn severity from a dNBR or BARC-like raster
+    estimate                - Estimates burn severity from a dNBR, BARC256, or other BARC-like raster
     classification          - Returns a dict with the BARC4 classification scheme
 
 Private:
