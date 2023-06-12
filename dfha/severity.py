@@ -125,8 +125,7 @@ def mask(
 
     # Validate inputs
     descriptions = _validate_descriptions(descriptions)
-    if path is not None:
-        path, save = validate.output_path(path, overwrite)
+    path, save = validate.output_path(path, overwrite)
     severity, _ = validate.raster(severity, "burn severity raster")
 
     # Get the queried classes and build the severity mask
@@ -138,11 +137,12 @@ def mask(
     mask = np.isin(severity, classes)
 
     # Optionally save. Return the mask
-    if path is None:
-        return mask
-    else:
+    if save:
         save_raster(mask, path)
         return path
+    else:
+        return mask
+
 
 
 def estimate(
@@ -215,8 +215,7 @@ def estimate(
 
     # Validate inputs
     thresholds = _validate_thresholds(thresholds)
-    if path is not None:
-        path, _ = validate.output_path(path, overwrite)
+    path, save = validate.output_path(path, overwrite)
     raster, nodata = validate.raster(raster, "input raster", numpy_nodata=nodata)
 
     # Preallocate. Get nodata mask
@@ -233,12 +232,12 @@ def estimate(
     if nodata is not None:
         severity[nodata] = 0
 
-    # Return raster. Optionally save
-    if path is None:
-        return severity
-    else:
+    # Optionally save. Return raster
+    if save:
         save_raster(severity, path, nodata=0)
         return path
+    else:
+        return severity
 
 
 #####
