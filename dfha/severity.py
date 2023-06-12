@@ -203,10 +203,6 @@ def estimate(
         overwrite: True to allow saved burn severities to replace existing files.
             False to prevent replacement.
         nodata: Indicates the dNBR NoData value for when dNBR is a numpy array.
-        check: Indicates whether to check the interval of raster values when
-            thresholds are not specified. If True, raises an exception when no
-            raster values are outside the interval [-5, 5]. Ignored if thresholds
-            are provided.
 
     Outputs:
         numpy 2D array | pathlib.Path: The BARC4 burn severity estimate or the
