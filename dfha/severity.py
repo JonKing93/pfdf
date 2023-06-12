@@ -157,7 +157,7 @@ def estimate(
     estimate  Estimates a BARC4-like burn severity raster from a dNBR or BARC-like raster
     ----------
     estimate(raster)
-    Estimates a BARC4 burn severity from a raster assumed to be (dNBR * 1000).
+    Estimates a BARC4 burn severity from a raster assumed to be (raw dNBR * 1000).
     (See the following syntax if you instead have raw dNBR, BARC256, or another
     BARC-like raster). This process classifies the burn severity of each raster 
     pixel using an integer from 1 to 4. The classification scheme is as follows:
