@@ -22,11 +22,11 @@ can inspect the supported names using the "classification" function.
 We recommend using field-verified BARC4-like burn severity data when possible, 
 but these maps are not always available. If this is the case, users can use the 
 "estimate" function to estimate a BARC4-like burn severity raster from dNBR,
-BARC256, or other BARC-like rasters.
+BARC256, or other burn severity measure.
 ----------
 User Functions:
     mask                    - Returns a mask of the specified burn severities
-    estimate                - Estimates burn severity from a dNBR, BARC256, or other BARC-like raster
+    estimate                - Estimates burn severity from dNBR, BARC256, or burn-severity measure
     classification          - Returns a dict with the BARC4 classification scheme
 
 Private:
@@ -111,7 +111,7 @@ def mask(
     if the file already exists.
     ----------
     Inputs:
-        severity: A BARC4 style burn severity raster.
+        severity: A BARC4-like burn severity raster.
         descriptions: A list of strings indicating the burn severity levels that
             should be set as True in the returned mask
         path: A path for a saved burned severity mask
@@ -144,7 +144,6 @@ def mask(
         return mask
 
 
-
 def estimate(
     raster: Raster,
     thresholds: Thresholds = [125, 250, 500],
@@ -154,13 +153,13 @@ def estimate(
     nodata: Optional[scalar] = None,
 ) -> OutputRaster:
     """
-    estimate  Estimates a BARC4-like burn severity raster from a dNBR or BARC-like raster
+    estimate  Estimates a BARC4-like burn severity raster from dNBR, BARC256, or other burn-severity measure
     ----------
     estimate(raster)
     Estimates a BARC4 burn severity from a raster assumed to be (raw dNBR * 1000).
     (See the following syntax if you instead have raw dNBR, BARC256, or another
-    BARC-like raster). This process classifies the burn severity of each raster 
-    pixel using an integer from 1 to 4. The classification scheme is as follows:
+    burn-severity measure). This process classifies the burn severity of each
+    raster pixel using an integer from 1 to 4. The classification scheme is as follows:
 
         Classification - Interpretation: dNBR Range
         1 - unburned:  [-Inf, 125)
@@ -174,8 +173,8 @@ def estimate(
     estimate(raster, thresholds)
     Specifies the thresholds to use to distinguish between burn severity classes
     in the input raster. This syntax should be used whenever the input raster is
-    not (raw dNBR * 1000), and also supports custom thresholds for the (raw dNBR * 1000) 
-    case. Note that the function does not check the intervals of raster values 
+    not (raw dNBR * 1000), and also supports custom thresholds for the (raw dNBR * 1000)
+    case. Note that the function does not check the intervals of raster values
     when thresholds are specified.
 
     The "thresholds" input should have 3 elements. In order, these should
