@@ -99,6 +99,10 @@ def mask(
     pixels. Pixels that match one of the specified burn severities will have a
     value of 1. All other pixels will be 0.
 
+    Note that the burn severity descriptions are strings describing the appropriate
+    burn severity levels. The supported strings are: "unburned", "low", "moderate",
+    and "high".
+
     mask(..., *, path)
     mask(..., *, path, overwrite)
     Saves the burn severity mask to the indicated file. Returns the Path to the
