@@ -2,7 +2,7 @@
 severity  Functions that estimate and locate burn severity
 ----------
 The severity module is used to generate and work with rasters that record
-BARC4-like burn severity. The BARC4 classification is as follows:
+BARC4-like soil burn severity. The BARC4 classification is as follows:
 
     1 - Unburned
     2 - Low burn severity
@@ -17,9 +17,11 @@ mask used to delineate a stream network, or the high-moderate burn mask used to
 implement the M1, M2, and M3 models from Staley et al., 2017. Users can use the
 "mask" function to generate these masks from a burn severity raster.
 
-We recommend using official BARC4 data when possible, but these maps are not
-always available. If this is the case, users can use the "estimate" function
-to estimate a burn severity raster from dNBR.
+We note tha
+
+We recommend using field-verified burn severity data when possible, but these 
+maps are not always available. If this is the case, users can use the "estimate"
+function to estimate a burn severity raster from dNBR.
 ----------
 User Functions:
     mask                    - Returns a mask of the specified burn severities
