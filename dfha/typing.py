@@ -93,3 +93,8 @@ Parameters = NDArray[Shape['Runs'], Floating]
 Variables = NDArray[Shape['Parameters, Runs'], Floating]
 Intensities = NDArray[Shape['Segments, Runs, Pvalues'], Floating]
 
+# Burn severities
+ThresholdSequence = Sequence[scalar]
+ThresholdArray = NDArray[Shape['3 thresholds'], Floating]
+Thresholds = Union[ThresholdSequence, ThresholdArray]
+
