@@ -478,7 +478,6 @@ def upslope_sum(
     # Validate the mask (if provided) and the D8 flow directions
     if mask is not None:
         shape = raster_shape(flow)
-        print(mask_nodata)
         mask = _validate_mask(check, mask, mask_nodata, shape)
     _validate_d8(check, flow, nodata[0])
 

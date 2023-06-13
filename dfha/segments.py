@@ -634,12 +634,8 @@ class Segments:
                     values_nodata=values_nodata,
                     check=False,
                 )
-            print(npixels)
-            assert False
             npixels = self._summary(npixels, np.amax, values_nodata)
         npixels[npixels == 0] = np.nan
-        print(npixels)
-        assert False
 
         # Compute mean values. (Note that since values are positive, np.amax
         # gives the sum from the most downstream pixel).
