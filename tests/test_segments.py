@@ -563,42 +563,6 @@ class TestValidate:
         assert nodata == -999
 
 
-class TestValidateConfinementArgs:
-    def test_valid(_, segments5):
-        (N, res) = segments5._validate_confinement_args(4, 9.3)
-        assert isinstance(N, np.ndarray)
-        assert N.shape == (1,)
-        assert N == 4
-        assert isinstance(res, np.ndarray)
-        assert res.shape == (1,)
-        assert res == 9.3
-
-    def test_N_nonscalar(_, segments5):
-        with pytest.raises(validate.DimensionError) as error:
-            segments5._validate_confinement_args([2, 3], 9.3)
-        assert_contains(error, "N")
-
-    def test_N_negative(_, segments5):
-        with pytest.raises(ValueError) as error:
-            segments5._validate_confinement_args(-2, 9.3)
-        assert_contains(error, "N")
-
-    def test_N_nonint(_, segments5):
-        with pytest.raises(ValueError) as error:
-            segments5._validate_confinement_args(4.3, 9.3)
-        assert_contains(error, "N")
-
-    def test_res_nonscalar(_, segments5):
-        with pytest.raises(validate.DimensionError) as error:
-            segments5._validate_confinement_args(4, [2, 3])
-        assert_contains(error, "resolution")
-
-    def test_res_negative(_, segments5):
-        with pytest.raises(ValueError) as error:
-            segments5._validate_confinement_args(4, -3)
-        assert_contains(error, "resolution")
-
-
 class TestFlowLength:
     @pytest.mark.parametrize(
         "flow, expected",

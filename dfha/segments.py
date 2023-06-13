@@ -152,8 +152,6 @@ class Segments:
 
     Validation:
         _validate                   - Validates an input raster
-        _validate_area              - Validates the area of DEM pixels
-        _validate_confinement_args  - Validate kernel size (N) and DEM resolution
 
     Confinement:
         _confinement                - Computes mean confinement angles for a set of stream segments
