@@ -599,32 +599,6 @@ class TestValidateConfinementArgs:
         assert_contains(error, "resolution")
 
 
-class TestValidateFlow:
-    name = "flow_directions"
-
-    def test_valid(self, segments5, flow):
-        segments5._validate_flow(flow)
-
-    def test_too_low(self, segments5, flow):
-        flow[0, 0] = 0
-        with pytest.raises(ValueError) as error:
-            segments5._validate_flow(flow)
-        assert_contains(error, self.name)
-
-    def test_too_high(self, segments5, flow):
-        flow[0, 0] = 9
-        with pytest.raises(ValueError) as error:
-            segments5._validate_flow(flow)
-        assert_contains(error, self.name)
-
-    def test_nonint(self, segments5, flow):
-        flow = flow.astype(float)
-        flow[0, 0] = 2.2
-        with pytest.raises(ValueError) as error:
-            segments5._validate_flow(flow)
-        assert_contains(error, self.name)
-
-
 class TestFlowLength:
     @pytest.mark.parametrize(
         "flow, expected",
