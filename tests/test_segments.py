@@ -29,14 +29,16 @@ RUN THE TESTS:
       from the OS command line.
 """
 
+from copy import deepcopy
+from math import sqrt
+
+import numpy as np
 import pytest
 import rasterio
-import numpy as np
-from math import sqrt
-from copy import deepcopy
-from dfha import validate, segments
-from dfha.segments import Segments
+
+from dfha import segments, validate
 from dfha.errors import RasterShapeError
+from dfha.segments import Segments
 
 
 #####

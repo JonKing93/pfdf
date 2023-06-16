@@ -36,22 +36,23 @@ Private:
     _classify               - Locates a burn severity class using two thresholds 
 """
 
+from typing import Any, Dict, Optional, Set
+
 import numpy as np
+
 from dfha import validate
-from dfha.utils import real, save_raster, nodata_mask, astuple
-from typing import Dict, Optional, Set, Any
 from dfha.typing import (
-    Raster,
-    RasterArray,
     OutputRaster,
     Pathlike,
+    Raster,
+    RasterArray,
+    ThresholdArray,
+    Thresholds,
+    VectorArray,
     scalar,
     strs,
-    Thresholds,
-    ThresholdArray,
-    VectorArray,
 )
-
+from dfha.utils import astuple, nodata_mask, real, save_raster
 
 # The classification scheme used in the module
 _classification = {

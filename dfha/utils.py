@@ -26,20 +26,22 @@ NoData:
     has_nodata      - True if an array contains NoData values
 """
 
-from numpy import ndarray, integer, floating, bool_, isnan, any as any_
-import rasterio
-from warnings import simplefilter, catch_warnings
 from pathlib import Path
-from typing import List, Any, Tuple, Optional
-from dfha.typing import (
-    RasterArray,
-    ValidatedRaster,
-    scalar,
-    RealArray,
-    DataMask,
-    nodata,
-)
+from typing import Any, List, Optional, Tuple
+from warnings import catch_warnings, simplefilter
 
+import rasterio
+from numpy import any as any_
+from numpy import bool_, floating, integer, isnan, ndarray
+
+from dfha.typing import (
+    DataMask,
+    RasterArray,
+    RealArray,
+    ValidatedRaster,
+    nodata,
+    scalar,
+)
 
 # Combination numpy dtypes
 real = [integer, floating, bool_]

@@ -87,24 +87,25 @@ Utilities:
     _output             - Returns an output raster as a numpy 2D array or Path
 """
 
-from math import pi
 import subprocess
+from math import pi
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
+
 from dfha import validate
-from dfha.utils import save_raster, load_raster, raster_shape, nodata_mask
-from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
 from dfha.typing import (
+    BooleanMask,
     Pathlike,
     Raster,
     RasterArray,
-    scalar,
-    strs,
     ValidatedRaster,
-    shape2d,
-    BooleanMask,
     nodata,
+    scalar,
+    shape2d,
+    strs,
 )
+from dfha.utils import load_raster, nodata_mask, raster_shape, save_raster
 
 # Type aliases
 Option = Union[None, bool]  # None: Default, bool: User-specified

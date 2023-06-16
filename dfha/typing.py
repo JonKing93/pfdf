@@ -31,9 +31,10 @@ nptyping Primer:
       data elements are either 1 or 0.
 """
 
-from typing import Any, Union, Sequence, Dict, Tuple
-from nptyping import NDArray, Shape, Integer, Floating, Bool
 from pathlib import Path
+from typing import Any, Dict, Sequence, Tuple, Union
+
+from nptyping import Bool, Floating, Integer, NDArray, Shape
 from rasterio import DatasetReader
 
 # Singular / plural
@@ -91,6 +92,5 @@ SegmentValues = NDArray[SegmentsShape, Floating]
 
 # Burn severities
 ThresholdSequence = Sequence[scalar]
-ThresholdArray = NDArray[Shape['3 thresholds'], Floating]
+ThresholdArray = NDArray[Shape["3 thresholds"], Floating]
 Thresholds = Union[ThresholdSequence, ThresholdArray]
-

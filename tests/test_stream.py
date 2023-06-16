@@ -19,10 +19,13 @@ To run the tests, you will need to:
     * Run `pytest tests/test_stream.py --cov=. --cov-fail-under=80`
 """
 
-import pytest
 from pathlib import Path
-from typing import List, Union, Optional, Any
-import arcpy, numpy
+from typing import Any, List, Optional, Union
+
+import arcpy
+import numpy
+import pytest
+
 from dfha import stream
 
 # Locate test geodatabases
@@ -59,6 +62,7 @@ files = [
     raster_split,
 ]
 
+
 # Utility to return a dict mapping file names to full geodatabase paths
 def path_dict(gdb):
     return {file: str(gdb / file) for file in files}
@@ -67,6 +71,7 @@ def path_dict(gdb):
 # Organize test fires as a list of dicts
 for f, gdb in enumerate(fires):
     fires[f] = path_dict(gdb)
+
 
 # Fixture to create temporary geodatabase for test outputs. Returns a path
 # dict for files in the output
@@ -80,6 +85,7 @@ def output(tmp_path):
 
 # Type alias
 strs = Union[str, List[str]]
+
 
 # Utility to validate output files
 def validate_outputs(
@@ -192,7 +198,6 @@ class TestLinks(CheckAllFires):
 
 
 class TestSplit(CheckAllFires):
-
     # Standard splitting
     def test_standard(_, fire, output):
         out = stream.split(
@@ -243,7 +248,6 @@ class TestRaster(CheckAllFires):
 # Test of High-level user-facing functions
 ###
 class TestNetwork(CheckAllFires):
-
     # Validate the output dict of final stream paths
     @staticmethod
     def check_dict(out: Any, gdb: dict, feature: str, raster: str) -> None:

@@ -35,27 +35,28 @@ Internal Classes:
     _Kernel             - Locates raster pixels required for confinement angle focal statistics
 """
 
-import numpy as np
-from math import sqrt
 from copy import deepcopy
-from dfha import validate, dem
-from dfha.utils import load_raster, real, isdata, has_nodata
-from dfha.errors import ShapeError, RasterShapeError
-from typing import Any, Dict, Tuple, Literal, Union, Callable, Optional, List
+from math import sqrt
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
+
+import numpy as np
+from nptyping import Bool, Floating, Integer, NDArray, Shape
+
+from dfha import dem, validate
+from dfha.errors import RasterShapeError, ShapeError
 from dfha.typing import (
     Raster,
-    ValidatedRaster,
     RasterArray,
-    scalar,
-    ints,
     ScalarArray,
-    VectorShape,
     SegmentsShape,
     SegmentValues,
+    ValidatedRaster,
+    VectorShape,
+    ints,
     nodata,
+    scalar,
 )
-from nptyping import NDArray, Shape, Integer, Floating, Bool
-
+from dfha.utils import has_nodata, isdata, load_raster, real
 
 # Type aliases
 PixelIndices = NDArray[Shape["Pixels"], Integer]

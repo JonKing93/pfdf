@@ -53,31 +53,35 @@ Array Utilities:
     _first_failure  - Returns the index and value of the first element to fail a validation test
 """
 
-import numpy as np
-from numpy import issubdtype as istype, unsignedinteger as uint_, integer as int_
 from pathlib import Path
-import rasterio
+from typing import Any, List, Optional, Tuple, Union
 from warnings import catch_warnings, simplefilter
-from dfha.utils import aslist, astuple, real, data_mask
+
+import numpy as np
+import rasterio
+from numpy import integer as int_
+from numpy import issubdtype as istype
+from numpy import unsignedinteger as uint_
+
 from dfha.errors import DimensionError, ShapeError
-from typing import Any, Optional, List, Union, Tuple
 from dfha.typing import (
-    strs,
-    dtypes,
-    shape,
-    shape2d,
-    scalar,
-    RealArray,
-    ScalarArray,
-    VectorArray,
+    BooleanArray,
+    BooleanMask,
+    Mask,
     MatrixArray,
     RasterArray,
+    RealArray,
+    ScalarArray,
     ValidatedRaster,
-    Mask,
-    BooleanMask,
-    BooleanArray,
+    VectorArray,
+    dtypes,
     nodata,
+    scalar,
+    shape,
+    shape2d,
+    strs,
 )
+from dfha.utils import aslist, astuple, data_mask, real
 
 # Type aliases
 RasterAndNodata = Tuple[ValidatedRaster, nodata]
