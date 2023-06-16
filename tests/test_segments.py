@@ -272,7 +272,7 @@ class TestKernel:
     def test_init(_):
         kernel = segments._Kernel(4, 100, 250)
         assert isinstance(kernel, segments._Kernel)
-        assert kernel.N == 4
+        assert kernel.neighborhood == 4
         assert kernel.nRows == 100
         assert kernel.nCols == 250
         assert kernel.row is None
