@@ -437,7 +437,8 @@ class TestKernel:
         output = kernel2.orthogonal_slopes(flow=1, length=10, dem=dem, nodata=23)
         expected = np.array([1.4, np.nan]).reshape(1, 2)
         assert np.array_equal(output, expected, equal_nan=True)
-        output = kernel2.orthogonal_slopes(flow=2, length=10, dem=dem, nodata=16)
+
+        output = kernel2.orthogonal_slopes(flow=8, length=10, dem=dem, nodata=16)
         expected = np.array([np.nan, 2.4]).reshape(1, 2)
         assert np.array_equal(output, expected, equal_nan=True)
 
