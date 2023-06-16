@@ -42,13 +42,13 @@ import numpy as np
 
 from dfha import validate
 from dfha.typing import (
-    OutputRaster,
+    Output_Raster,
     Pathlike,
     Raster,
-    RasterArray,
-    ThresholdArray,
+    Raster_Array,
+    Threshold_Array,
     Thresholds,
-    VectorArray,
+    Vector_Array,
     scalar,
     strs,
 )
@@ -90,7 +90,7 @@ def mask(
     *,
     path: Optional[Pathlike] = None,
     overwrite: bool = False,
-) -> OutputRaster:
+) -> Output_Raster:
     """
     mask  Generates a burn severity mask
     ----------
@@ -152,7 +152,7 @@ def estimate(
     path: Optional[Pathlike] = None,
     overwrite: bool = False,
     nodata: Optional[scalar] = None,
-) -> OutputRaster:
+) -> Output_Raster:
     """
     estimate  Estimates a BARC4-like burn severity raster from dNBR, BARC256, or other burn-severity measure
     ----------
@@ -257,7 +257,7 @@ def _validate_descriptions(descriptions: Any) -> Set[str]:
     return set(descriptions)
 
 
-def _validate_thresholds(thresholds: Any) -> ThresholdArray:
+def _validate_thresholds(thresholds: Any) -> Threshold_Array:
     "Checks that thresholds are sorted and not NaN"
     thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
     nans = np.isnan(thresholds)
@@ -270,7 +270,7 @@ def _validate_thresholds(thresholds: Any) -> ThresholdArray:
     return thresholds
 
 
-def _compare(thresholds: VectorArray, names: strs) -> None:
+def _compare(thresholds: Vector_Array, names: strs) -> None:
     "Checks that the second threshold is >= the first threshold"
     if thresholds[1] < thresholds[0]:
         raise ValueError(
@@ -279,7 +279,7 @@ def _compare(thresholds: VectorArray, names: strs) -> None:
 
 
 def _classify(
-    severity: RasterArray, raster: RasterArray, thresholds: ThresholdArray, value: int
+    severity: Raster_Array, raster: Raster_Array, thresholds: Threshold_Array, value: int
 ) -> None:
     "Locates a severity class using 2 thresholds"
     mask = (raster >= thresholds[0]) & (raster < thresholds[1])

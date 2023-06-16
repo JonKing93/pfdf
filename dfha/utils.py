@@ -35,10 +35,10 @@ from numpy import any as any_
 from numpy import bool_, floating, integer, isnan, ndarray
 
 from dfha.typing import (
-    DataMask,
-    RasterArray,
-    RealArray,
-    ValidatedRaster,
+    Data_Mask,
+    Raster_Array,
+    Real_Array,
+    Validated_Raster,
     nodata,
     scalar,
 )
