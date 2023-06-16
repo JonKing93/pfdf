@@ -390,9 +390,19 @@ class TestKernel:
     def test_downleft(_, kernel5):
         assert kernel5.downleft() == ([6, 7, 8, 9], [4, 3, 2, 1])
 
-    flow_height = [(k - 1, 2 * k + 9) for k in range(1, 9)]
-
-    @pytest.mark.parametrize("flow, height", flow_height)
+    @pytest.mark.parametrize(
+        "flow, height",
+        (
+            (0, 11),
+            (1, 25),
+            (2, 23),
+            (3, 21),
+            (4, 19),
+            (5, 17),
+            (6, 15),
+            (7, 13),
+        ),
+    )
     def test_max_height(_, kernel2, dem, flow, height):
         output = kernel2.max_height(flow, dem, nodata=None)
         assert output == height
@@ -407,13 +417,13 @@ class TestKernel:
         "flow, slopes",
         [
             (1, [1.4, 2.2]),
-            (2, [1.6, 2.4]),
-            (3, [1.8, 1.0]),
-            (4, [2.0, 1.2]),
+            (8, [1.6, 2.4]),
+            (7, [1.8, 1.0]),
+            (6, [2.0, 1.2]),
             (5, [2.2, 1.4]),
-            (6, [2.4, 1.6]),
-            (7, [1.0, 1.8]),
-            (8, [1.2, 2.0]),
+            (4, [2.4, 1.6]),
+            (3, [1.0, 1.8]),
+            (2, [1.2, 2.0]),
         ],
     )
     def test_orthogonal_slopes(_, kernel2, dem, flow, slopes):
