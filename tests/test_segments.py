@@ -410,7 +410,7 @@ class TestKernel:
     def test_max_height_nodata(_, kernel2, dem):
         output = kernel2.max_height(flow=0, dem=dem, nodata=10)
         assert np.isnan(output)
-        output = kernel2.max_height(flow=1, dem=dem, nodata=12)
+        output = kernel2.max_height(flow=1, dem=dem, nodata=25)
         assert np.isnan(output)
 
     @pytest.mark.parametrize(
