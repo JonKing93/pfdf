@@ -98,10 +98,10 @@ def astuple(input: Any) -> Tuple:
 
 
 def load_raster(
-    raster: ValidatedRaster,
+    raster: Validated_Raster,
     *,
     band: int = 1,
-) -> RasterArray:
+) -> Raster_Array:
     """
     load_raster  Returns a raster as a numpy.ndarray
     ----------
@@ -135,7 +135,7 @@ def load_raster(
 
 
 def save_raster(
-    raster: RasterArray, path: Path, nodata: Optional[scalar] = None
+    raster: Raster_Array, path: Path, nodata: Optional[scalar] = None
 ) -> None:
     """
     save_raster  Saves a numpy array (raster) to a GeoTIFF file
@@ -181,7 +181,7 @@ def save_raster(
             file.write(raster, 1)
 
 
-def raster_shape(raster: ValidatedRaster):
+def raster_shape(raster: Validated_Raster):
     """
     raster_shape  Returns the 2D shape of a file-based or numpy raster
     ----------
@@ -210,7 +210,7 @@ def raster_shape(raster: ValidatedRaster):
 #####
 
 
-def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
+def data_mask(raster: Real_Array, nodata: nodata) -> Data_Mask:
     """
     data_mask  Returns the valid data mask for a raster
     ----------
@@ -236,12 +236,12 @@ def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return raster != nodata
 
 
-def isdata(raster: RealArray, nodata: nodata) -> DataMask:
+def isdata(raster: Real_Array, nodata: nodata) -> Data_Mask:
     "An alias for data mask"
     return data_mask(raster, nodata)
 
 
-def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
+def nodata_mask(raster: Real_Array, nodata: nodata) -> Data_Mask:
     """
     nodata_mask  Returns the NoData mask for a raster
     ----------
@@ -266,12 +266,12 @@ def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return raster == nodata
 
 
-def isnodata(raster: RealArray, nodata: nodata) -> DataMask:
+def isnodata(raster: Real_Array, nodata: nodata) -> Data_Mask:
     "An alias for nodata_mask"
     return nodata_mask(raster, nodata)
 
 
-def has_nodata(array: RealArray, nodata: nodata) -> bool:
+def has_nodata(array: Real_Array, nodata: nodata) -> bool:
     """
     has_nodata  True if any elements of an array are NoData
     ----------
