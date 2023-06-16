@@ -612,7 +612,7 @@ class Test_Confinement:
     def test_flow_nodata(_, segmentsc, flowc, demc):
         expected = np.array([np.nan, 120])
         output = segmentsc._confinement(
-            demc, None, flowc, flow_nodata=1, N=1, resolution=1
+            demc, None, flowc, flow_nodata=1, neighborhood=1, resolution=1
         )
         assert np.array_equal(output, expected, equal_nan=True)
 
@@ -725,7 +725,7 @@ class TestConfinement:
     def test_invalid_N(_, segmentsc, demc, flowc):
         with pytest.raises(ValueError) as error:
             segmentsc.confinement(demc, flowc, -2, 1)
-        assert_contains(error, "N")
+        assert_contains(error, "neighborhood")
 
     def test_invalid_resolution(_, segmentsc, demc, flowc):
         with pytest.raises(ValueError) as error:

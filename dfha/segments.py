@@ -394,7 +394,7 @@ class Segments:
         # Preallocate. Initialize kernel. Get flow lengths
         theta = np.empty(len(self))
         kernel = _Kernel(neighborhood, *self.raster_shape)
-        lateral_length = resolution * N
+        lateral_length = resolution * neighborhood
         diagonal_length = lateral_length * sqrt(2)
 
         # Get pixels for each stream segment.
