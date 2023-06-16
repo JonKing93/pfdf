@@ -46,12 +46,12 @@ from dfha import dem, validate
 from dfha.errors import RasterShapeError, ShapeError
 from dfha.typing import (
     Raster,
-    RasterArray,
-    ScalarArray,
-    SegmentsShape,
-    SegmentValues,
-    ValidatedRaster,
-    VectorShape,
+    Raster_Array,
+    Scalar_Array,
+    Segments_Shape,
+    Segment_Values,
+    Validated_Raster,
+    Vector_Shape,
     ints,
     nodata,
     scalar,
@@ -59,12 +59,12 @@ from dfha.typing import (
 from dfha.utils import has_nodata, isdata, load_raster, real
 
 # Type aliases
-PixelIndices = NDArray[Shape["Pixels"], Integer]
-PixelIndices = Tuple[PixelIndices, PixelIndices]
-indices = Dict[int, PixelIndices]
+Pixel_Indices = NDArray[Shape["Pixels"], Integer]
+Pixel_Indices = Tuple[Pixel_Indices, Pixel_Indices]
+indices = Dict[int, Pixel_Indices]
 Statistic = Literal["min", "max", "mean", "median", "std"]
-StatFunction = Callable[[np.ndarray], np.ndarray]
-IDs = Union[ints, NDArray[VectorShape, Integer], NDArray[SegmentsShape, Bool]]
+Stat_Function = Callable[[np.ndarray], np.ndarray]
+IDs = Union[ints, NDArray[Vector_Shape, Integer], NDArray[Segments_Shape, Bool]]
 FlowNumber = Literal[1, 2, 3, 4, 5, 6, 7, 8]
 KernelIndices = Tuple[List[int], List[int]]
 
@@ -163,40 +163,6 @@ class Segments:
         _summary                    - Computes a summary statistic for a set of stream segments
     """
 
-    # The statistical function for each type of summary value
-    _stats = {
-        "basins": np.amax,
-        "confinement": np.mean,
-        "development": np.mean,
-        "pixels": np.amax,
-        "slope": np.mean,
-    }
-
-    #####
-    # Properties
-    #####
-    @property
-    def ids(self) -> SegmentValues:
-        "A numpy 1D array listing the stream segment IDs for the object."
-        # (Use a numpy array so user can apply logical indexing when filtering)
-        ids = list(self.indices.keys())
-        return np.array(ids)
-
-    @property
-    def indices(self) -> indices:
-        """
-        A dict mapping each stream segment ID to the indices of its associated
-        pixels in the stream segment raster. The value of each key is a 2-tuple
-        whose elements are numpy 1D arrays. The first array lists the row indices
-        of the pixels, and the second array lists the column indices.
-        """
-        return self._indices
-
-    @property
-    def raster_shape(self) -> Tuple[int, int]:
-        "The shape of the stream link raster used to define the stream segments"
-        return self._raster_shape
-
     #####
     # Dunders
     #####
@@ -280,6 +246,44 @@ class Segments:
         return f"Stream Segments: {list}"
 
     #####
+    # Class variables
+    #####
+
+    # The statistical function for each type of summary value
+    _stats = {
+        "basins": np.amax,
+        "confinement": np.mean,
+        "development": np.mean,
+        "pixels": np.amax,
+        "slope": np.mean,
+    }
+
+    #####
+    # Properties
+    #####
+    @property
+    def ids(self) -> Segment_Values:
+        "A numpy 1D array listing the stream segment IDs for the object."
+        # (Use a numpy array so user can apply logical indexing when filtering)
+        ids = list(self.indices.keys())
+        return np.array(ids)
+
+    @property
+    def indices(self) -> indices:
+        """
+        A dict mapping each stream segment ID to the indices of its associated
+        pixels in the stream segment raster. The value of each key is a 2-tuple
+        whose elements are numpy 1D arrays. The first array lists the row indices
+        of the pixels, and the second array lists the column indices.
+        """
+        return self._indices
+
+    @property
+    def raster_shape(self) -> Tuple[int, int]:
+        "The shape of the stream link raster used to define the stream segments"
+        return self._raster_shape
+
+    #####
     # Raster Validation
     #####
     def _validate(
@@ -290,7 +294,7 @@ class Segments:
         nodata_name: str = "nodata",
         *,
         load: bool = True,
-    ) -> Tuple[ValidatedRaster, nodata]:
+    ) -> Tuple[Validated_Raster, nodata]:
         """
         _validate  Check input raster if compatible with stream segment pixel indices
         ----------
@@ -347,7 +351,7 @@ class Segments:
     @staticmethod
     def _confinement_angle(
         slopes: NDArray[Shape["Pixels, 2 rotations"], Floating]
-    ) -> ScalarArray:
+    ) -> Scalar_Array:
         """Returns mean confinement angle given slopes for a set of pixels.
         Slopes should be rise/run - output angle is in degrees.
         slopes: (Nx2) ndarray. One column each for clockwise/counterclockwise
@@ -375,13 +379,13 @@ class Segments:
     #####
     def _confinement(
         self,
-        dem: RasterArray,
+        dem: Raster_Array,
         dem_nodata: nodata,
-        flow_directions: RasterArray,
+        flow_directions: Raster_Array,
         flow_nodata: nodata,
-        N: ScalarArray,
-        resolution: ScalarArray,
-    ) -> SegmentValues:
+        N: Scalar_Array,
+        resolution: Scalar_Array,
+    ) -> Segment_Values:
         """Computes mean confinement angle. Assumes that all inputs are valid
         numpy arrays. Please see the documention of Segments.confinement for
         additional details on the inputs and computation.
@@ -419,8 +423,8 @@ class Segments:
         return theta
 
     def _summary(
-        self, raster: RasterArray, statistic: StatFunction, nodata: nodata
-    ) -> SegmentValues:
+        self, raster: Raster_Array, statistic: Stat_Function, nodata: nodata
+    ) -> Segment_Values:
         """
         _summary  Returns a summary value for each stream segment
         ----------
@@ -459,7 +463,7 @@ class Segments:
     #####
     def basins(
         self, upslope_basins: Raster, nodata: Optional[scalar] = None
-    ) -> SegmentValues:
+    ) -> Segment_Values:
         """
         basins  Returns the maximum number of upslope basins for each stream segment
         ----------
@@ -496,12 +500,12 @@ class Segments:
         values: Raster,
         *,
         mask: Optional[Raster] = None,
-        npixels: Optional[SegmentValues] = None,
+        npixels: Optional[Segment_Values] = None,
         flow_nodata: Optional[scalar] = None,
         values_nodata: Optional[scalar] = None,
         mask_nodata: Optional[scalar] = None,
         check: bool = True,
-    ) -> SegmentValues:
+    ) -> Segment_Values:
         """
         catchment_mean  Computes mean values over all pixels in stream segment catchment areas
         ----------
@@ -659,7 +663,7 @@ class Segments:
         *,
         dem_nodata: Optional[scalar] = None,
         flow_nodata: Optional[scalar] = None,
-    ) -> SegmentValues:
+    ) -> Segment_Values:
         """
         confinement  Returns the mean confinement angle of each stream segment
         ----------
@@ -752,7 +756,7 @@ class Segments:
 
     def development(
         self, upslope_development: Raster, nodata: Optional[scalar] = None
-    ) -> SegmentValues:
+    ) -> Segment_Values:
         """
         development  Returns the mean number of developed upslope pixels for each stream segment
         ----------
@@ -783,7 +787,7 @@ class Segments:
 
     def pixels(
         self, upslope_pixels: Raster, nodata: Optional[scalar] = None
-    ) -> SegmentValues:
+    ) -> Segment_Values:
         """
         pixels  Returns the maximum number of upslope pixels for each stream segment
         ----------
@@ -872,7 +876,7 @@ class Segments:
         for id in segments:
             del self.indices[id]
 
-    def slope(self, slopes: Raster, nodata: Optional[scalar] = None) -> SegmentValues:
+    def slope(self, slopes: Raster, nodata: Optional[scalar] = None) -> Segment_Values:
         """
         slope  Returns the mean slope for each stream segment
         ----------
@@ -899,7 +903,7 @@ class Segments:
 
     def summary(
         self, statistic: Statistic, raster: Raster, nodata: Optional[scalar] = None
-    ) -> SegmentValues:
+    ) -> Segment_Values:
         """
         summary  Computes a summary statistic for each stream segment
         ----------
@@ -1131,7 +1135,7 @@ class _Kernel:
             return indices[0:N]
 
     # Confinement angle slopes
-    def max_height(self, flow: int, dem: RasterArray, nodata: nodata) -> ScalarArray:
+    def max_height(self, flow: int, dem: Raster_Array, nodata: nodata) -> Scalar_Array:
         """Returns the maximum height in a particular direction or NaN if there
         are NoData values.
         flow: Flow direction *index* (flow number - 1)
@@ -1145,7 +1149,7 @@ class _Kernel:
             return np.amax(heights)
 
     def orthogonal_slopes(
-        self, flow: FlowNumber, length: scalar, dem: RasterArray, nodata: nodata
+        self, flow: FlowNumber, length: scalar, dem: Raster_Array, nodata: nodata
     ) -> NDArray[Shape["1 pixel, 2 rotations"], Floating]:
         """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
