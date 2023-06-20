@@ -152,6 +152,7 @@ def stream_path(tmp_path, stream):
         height=5,
         width=5,
         count=1,
+        nodata=-999,
         dtype=stream.dtype,
         crs="+proj=latlong",
         transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
@@ -218,7 +219,7 @@ def catchment3():
 # Flow raster for catchment means
 @pytest.fixture
 def flow3():
-    return np.array([[3, 1, 7], [3, 7, 3], [3, 7, 1]])
+    return np.array([[7, 1, 3], [7, 3, 7], [7, 3, 1]])
 
 
 # Data mask for catchment means
@@ -535,39 +536,39 @@ class TestStr:
 class TestValidate:
     @pytest.mark.parametrize("load", [(True), (False)])
     def test_valid_numpy(_, segments5, stream, load):
-        output, nodata = segments5._validate(stream, "", load)
+        output, nodata = segments5._validate(stream, "", nodata=None, load=load)
         assert np.array_equal(output, stream)
         assert nodata is None
 
     def test_valid_file(_, segments5, stream_path):
-        output, nodata = segments5._validate(stream_path, "")
+        output, nodata = segments5._validate(stream_path, "", nodata=None)
         with rasterio.open(stream_path) as data:
             expected = data.read(1)
         assert np.array_equal(output, expected)
-        assert nodata is None
+        assert nodata == -999
 
     def test_str_noload(_, segments5, stream_path):
-        output, nodata = segments5._validate(str(stream_path), "", load=False)
+        output, nodata = segments5._validate(str(stream_path), "", nodata=None, load=False)
         assert output == stream_path
-        assert nodata is None
+        assert nodata == -999
 
     def test_path_noload(_, segments5, stream_path):
-        output, nodata = segments5._validate(stream_path, "", load=False)
+        output, nodata = segments5._validate(stream_path, "", nodata=None, load=False)
         assert output == stream_path
-        assert nodata is None
+        assert nodata == -999
 
     def test_not_raster(_, segments5, stream):
         bad = np.stack((stream, stream))
         name = "raster name"
         with pytest.raises(validate.DimensionError) as error:
-            segments5._validate(bad, name)
+            segments5._validate(bad, name, nodata=None)
         assert_contains(error, name)
 
     def test_wrong_shape(_, segments5):
         bad = np.array([1, 2, 3])
         name = "raster name"
         with pytest.raises(RasterShapeError) as error:
-            segments5._validate(bad, name)
+            segments5._validate(bad, name, nodata=None)
         assert_contains(error, name)
 
     def test_nodata(_, segments5, stream):
@@ -634,7 +635,7 @@ class Test_Summary:
         assert np.array_equal(output, expected)
 
     def test_nodata(_, segments3, values3):
-        expected = np.array([-8.5, 3, 2.2])
+        expected = np.array([np.nan, 3, 2.2])
         output = segments3._summary(values3, np.mean, nodata=-8)
         assert np.array_equal(output, expected, equal_nan=True)
 
@@ -672,7 +673,7 @@ class TestCatchmentMean:
         assert np.array_equal(output, expected)
 
     def test_npixels_0(_, segments3, flow3, catchment3):
-        npixels = np.array([np.nan, 1, 1])
+        npixels = np.array([0, 1, 1])
         expected = np.array([np.nan, 22, 17]).reshape(-1)
         output = segments3.catchment_mean(flow3, catchment3, npixels=npixels)
         assert np.array_equal(output, expected, equal_nan=True)

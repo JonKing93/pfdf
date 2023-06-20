@@ -622,7 +622,7 @@ class Segments:
             )
             if mask is not None:
                 mask = load_raster(mask)
-                mask = validate.mask(mask, "mask", nodata="mask_nodata")
+                mask = validate.mask(mask, "mask", nodata=mask_nodata)
                 values = values_array  # Loaded array is required for a masked mean
 
         # Compute the number of pixels if not provided
@@ -638,6 +638,7 @@ class Segments:
                     check=False,
                 )
             npixels = self._summary(npixels, np.amax, values_nodata)
+        npixels = npixels.astype(float)
         npixels[npixels == 0] = np.nan
 
         # Compute mean values. (Note that since values are positive, np.amax
@@ -734,7 +735,7 @@ class Segments:
             nodata_name="flow_nodata",
         )
         validate.flow(flow, "flow_directions", nodata=flow_nodata)
-        dem = self._validate(dem, "dem", nodata=dem_nodata, nodata_name="dem_nodata")
+        dem, dem_nodata = self._validate(dem, "dem", nodata=dem_nodata, nodata_name="dem_nodata")
 
         # Compute mean confinement angles
         return self._confinement(
