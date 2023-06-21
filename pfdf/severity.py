@@ -279,7 +279,10 @@ def _compare(thresholds: Vector_Array, names: strs) -> None:
 
 
 def _classify(
-    severity: Raster_Array, raster: Raster_Array, thresholds: Threshold_Array, value: int
+    severity: Raster_Array,
+    raster: Raster_Array,
+    thresholds: Threshold_Array,
+    value: int,
 ) -> None:
     "Locates a severity class using 2 thresholds"
     mask = (raster >= thresholds[0]) & (raster < thresholds[1])

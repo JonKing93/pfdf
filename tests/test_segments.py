@@ -29,7 +29,6 @@ RUN THE TESTS:
       from the OS command line.
 """
 
-from copy import deepcopy
 from math import sqrt
 
 import numpy as np
@@ -548,7 +547,9 @@ class TestValidate:
         assert nodata == -999
 
     def test_str_noload(_, segments5, stream_path):
-        output, nodata = segments5._validate(str(stream_path), "", nodata=None, load=False)
+        output, nodata = segments5._validate(
+            str(stream_path), "", nodata=None, load=False
+        )
         assert output == stream_path
         assert nodata == -999
 
@@ -661,6 +662,7 @@ class TestBasins:
         expected = np.array([np.nan, 4, 2.2])
         output = segments3.basins(values3, nodata=-8)
         assert np.array_equal(output, expected, equal_nan=True)
+
 
 @pytest.mark.taudem
 class TestCatchmentMean:
