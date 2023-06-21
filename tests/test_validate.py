@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha import validate
-from dfha.errors import DimensionError, ShapeError
+from pfdf import validate
+from pfdf.errors import DimensionError, ShapeError
 
 #####
 # Fixtures and testing utilities

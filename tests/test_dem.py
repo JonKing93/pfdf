@@ -23,9 +23,9 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha import dem
-from dfha.errors import DimensionError, ShapeError
-from dfha.utils import load_raster, save_raster
+from pfdf import dem
+from pfdf.errors import DimensionError, ShapeError
+from pfdf.utils import load_raster, save_raster
 
 #####
 # Testing Utilities

@@ -42,9 +42,9 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 import numpy as np
 from nptyping import Bool, Floating, Integer, NDArray, Shape
 
-from dfha import dem, validate
-from dfha.errors import RasterShapeError, ShapeError
-from dfha.typing import (
+from pfdf import dem, validate
+from pfdf.errors import RasterShapeError, ShapeError
+from pfdf.typing import (
     Raster,
     Raster_Array,
     Scalar_Array,
@@ -56,7 +56,7 @@ from dfha.typing import (
     nodata,
     scalar,
 )
-from dfha.utils import has_nodata, isdata, load_raster, real
+from pfdf.utils import has_nodata, isdata, load_raster, real
 
 # Type aliases
 Pixel_Indices = NDArray[Shape["Pixels"], Integer]

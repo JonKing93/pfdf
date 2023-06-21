@@ -40,8 +40,8 @@ from typing import Any, Dict, Optional, Set
 
 import numpy as np
 
-from dfha import validate
-from dfha.typing import (
+from pfdf import validate
+from pfdf.typing import (
     Output_Raster,
     Pathlike,
     Raster,
@@ -52,7 +52,7 @@ from dfha.typing import (
     scalar,
     strs,
 )
-from dfha.utils import astuple, nodata_mask, real, save_raster
+from pfdf.utils import astuple, nodata_mask, real, save_raster
 
 # The classification scheme used in the module
 _classification = {

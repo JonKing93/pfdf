@@ -36,9 +36,9 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha import segments, validate
-from dfha.errors import RasterShapeError
-from dfha.segments import Segments
+from pfdf import segments, validate
+from pfdf.errors import RasterShapeError
+from pfdf.segments import Segments
 
 
 #####

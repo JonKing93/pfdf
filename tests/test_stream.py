@@ -26,7 +26,7 @@ import arcpy
 import numpy
 import pytest
 
-from dfha import stream
+from pfdf import stream
 
 # Locate test geodatabases
 data = Path(__file__).parent / "data"

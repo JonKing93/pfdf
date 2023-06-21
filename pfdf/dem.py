@@ -93,8 +93,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 
-from dfha import validate
-from dfha.typing import (
+from pfdf import validate
+from pfdf.typing import (
     Boolean_Mask,
     Pathlike,
     Raster,
@@ -105,7 +105,7 @@ from dfha.typing import (
     shape2d,
     strs,
 )
-from dfha.utils import load_raster, nodata_mask, raster_shape, save_raster
+from pfdf.utils import load_raster, nodata_mask, raster_shape, save_raster
 
 # Type aliases
 Option = Union[None, bool]  # None: Default, bool: User-specified

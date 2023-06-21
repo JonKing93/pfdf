@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha import utils
+from pfdf import utils
 
 
 #####
