@@ -35,7 +35,7 @@ def tests():
         "python -m "
         'pytest tests -k "not taudem" '
         "--cov=pfdf.errors --cov=pfdf.utils --cov=pfdf.validate --cov=pfdf.severity --cov=pfdf.segments "
-        f"--cov-fail-under={MIN_COVERAGE} --cov-report xml "
+        f"--cov-fail-under={MIN_COVERAGE} --cov-report xml:coverage.xml "
         f"{ignore_npt_warning}"
     )
     run(command)
