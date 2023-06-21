@@ -87,31 +87,32 @@ Utilities:
     _output             - Returns an output raster as a numpy 2D array or Path
 """
 
-from math import pi
 import subprocess
+from math import pi
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
+
 from dfha import validate
-from dfha.utils import save_raster, load_raster, raster_shape, nodata_mask
-from typing import Union, Optional, List, Literal, Tuple, Any, Sequence
 from dfha.typing import (
+    Boolean_Mask,
     Pathlike,
     Raster,
-    RasterArray,
-    scalar,
-    strs,
-    ValidatedRaster,
-    shape2d,
-    BooleanMask,
+    Raster_Array,
+    Validated_Raster,
     nodata,
+    scalar,
+    shape2d,
+    strs,
 )
+from dfha.utils import load_raster, nodata_mask, raster_shape, save_raster
 
 # Type aliases
 Option = Union[None, bool]  # None: Default, bool: User-specified
-Output = Union[RasterArray, Path]
-FlowSlopes = Tuple[Output, Output]
-FlowOutput = Union[Output, FlowSlopes]
-SaveType = Union[None, bool]  # (None is for inputs)
+Output = Union[Raster_Array, Path]
+Flow_Slopes = Tuple[Output, Output]
+Flow_Output = Union[Output, Flow_Slopes]
+Save_Type = Union[None, bool]  # (None is for inputs)
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
@@ -199,7 +200,7 @@ def flow_directions(
     slopes_path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
-) -> FlowOutput:
+) -> Flow_Output:
     """
     flow_directions  Computes D8 or D-Infinity flow directions and slopes
     ----------
@@ -478,7 +479,6 @@ def upslope_sum(
     # Validate the mask (if provided) and the D8 flow directions
     if mask is not None:
         shape = raster_shape(flow)
-        print(mask_nodata)
         mask = _validate_mask(check, mask, mask_nodata, shape)
     _validate_d8(check, flow, nodata[0])
 
@@ -774,7 +774,7 @@ def relief_dinf(
 #####
 
 
-def _validate_d8(check: bool, flow: ValidatedRaster, nodata: nodata) -> None:
+def _validate_d8(check: bool, flow: Validated_Raster, nodata: nodata) -> None:
     """
     _validate_d8  Optionally validates D8 flow directions
     ----------
@@ -795,9 +795,9 @@ def _validate_d8(check: bool, flow: ValidatedRaster, nodata: nodata) -> None:
 
 def _validate_dinf(
     check: bool,
-    flow: ValidatedRaster,
+    flow: Validated_Raster,
     flow_nodata: nodata,
-    slopes: ValidatedRaster,
+    slopes: Validated_Raster,
     slopes_nodata: nodata,
 ) -> None:
     """
@@ -825,7 +825,7 @@ def _validate_dinf(
 
 def _validate_mask(
     check: bool, raster: Any, nodata: nodata, shape: shape2d
-) -> BooleanMask:
+) -> Boolean_Mask:
     """
     _validate_mask  Validates and returns a valid data mask
     ----------
@@ -887,7 +887,7 @@ def _validate_inputs(
     names: Sequence[str],
     nodatas: List[nodata],
     nodata_names: Sequence[str],
-) -> Tuple[List[ValidatedRaster], List[nodata]]:
+) -> Tuple[List[Validated_Raster], List[nodata]]:
     """
     _validate_inputs  Validates user provided input rasters and NoData values
     ----------
@@ -934,8 +934,8 @@ def _validate_inputs(
 
 def _paths(
     temp: TemporaryDirectory,
-    rasters: List[ValidatedRaster],
-    save: Sequence[SaveType],
+    rasters: List[Validated_Raster],
+    save: Sequence[Save_Type],
     names: Sequence[str],
     nodata: Sequence[nodata],
 ) -> List[Path]:

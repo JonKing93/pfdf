@@ -23,22 +23,25 @@ NoData:
     nodata_mask     - Returns the NoData mask for a raster array
     isdata          - An alias for data_mask
     isnodata        - An alias for nodata_mask
+    has_nodata      - True if an array contains NoData values
 """
 
-from numpy import ndarray, integer, floating, bool_, isnan
-import rasterio
-from warnings import simplefilter, catch_warnings
 from pathlib import Path
-from typing import List, Any, Tuple, Optional
-from dfha.typing import (
-    RasterArray,
-    ValidatedRaster,
-    scalar,
-    RealArray,
-    DataMask,
-    nodata,
-)
+from typing import Any, List, Optional, Tuple
+from warnings import catch_warnings, simplefilter
 
+import rasterio
+from numpy import any as any_
+from numpy import bool_, floating, integer, isnan, ndarray
+
+from dfha.typing import (
+    Data_Mask,
+    Raster_Array,
+    Real_Array,
+    Validated_Raster,
+    nodata,
+    scalar,
+)
 
 # Combination numpy dtypes
 real = [integer, floating, bool_]
@@ -95,10 +98,10 @@ def astuple(input: Any) -> Tuple:
 
 
 def load_raster(
-    raster: ValidatedRaster,
+    raster: Validated_Raster,
     *,
     band: int = 1,
-) -> RasterArray:
+) -> Raster_Array:
     """
     load_raster  Returns a raster as a numpy.ndarray
     ----------
@@ -132,7 +135,7 @@ def load_raster(
 
 
 def save_raster(
-    raster: RasterArray, path: Path, nodata: Optional[scalar] = None
+    raster: Raster_Array, path: Path, nodata: Optional[scalar] = None
 ) -> None:
     """
     save_raster  Saves a numpy array (raster) to a GeoTIFF file
@@ -178,7 +181,7 @@ def save_raster(
             file.write(raster, 1)
 
 
-def raster_shape(raster: ValidatedRaster):
+def raster_shape(raster: Validated_Raster):
     """
     raster_shape  Returns the 2D shape of a file-based or numpy raster
     ----------
@@ -207,7 +210,7 @@ def raster_shape(raster: ValidatedRaster):
 #####
 
 
-def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
+def data_mask(raster: Real_Array, nodata: nodata) -> Data_Mask:
     """
     data_mask  Returns the valid data mask for a raster
     ----------
@@ -233,12 +236,12 @@ def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return raster != nodata
 
 
-def isdata(raster: RealArray, nodata: nodata) -> DataMask:
+def isdata(raster: Real_Array, nodata: nodata) -> Data_Mask:
     "An alias for data mask"
     return data_mask(raster, nodata)
 
 
-def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
+def nodata_mask(raster: Real_Array, nodata: nodata) -> Data_Mask:
     """
     nodata_mask  Returns the NoData mask for a raster
     ----------
@@ -263,6 +266,29 @@ def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
         return raster == nodata
 
 
-def isnodata(raster: RealArray, nodata: nodata) -> DataMask:
+def isnodata(raster: Real_Array, nodata: nodata) -> Data_Mask:
     "An alias for nodata_mask"
     return nodata_mask(raster, nodata)
+
+
+def has_nodata(array: Real_Array, nodata: nodata) -> bool:
+    """
+    has_nodata  True if any elements of an array are NoData
+    ----------
+    has_nodata(array, nodata)
+    True if nodata is not None and any elements of the array match the NoData
+    values. Otherwise False.
+    ----------
+    Inputs:
+        array: The array whose elements are being compared to NoData
+        nodata: The NoData value
+
+    Outputs:
+        bool: Whether the array contains NoData values
+    """
+
+    if nodata is None:
+        return False
+    else:
+        nodata = nodata_mask(array, nodata)
+        return any_(nodata)

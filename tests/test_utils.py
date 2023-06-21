@@ -5,10 +5,12 @@ Requirements:
     * pytest, numpy, rasterio
 """
 
-import pytest
-import numpy as np
-import rasterio
 import warnings
+
+import numpy as np
+import pytest
+import rasterio
+
 from dfha import utils
 
 
@@ -54,6 +56,7 @@ def output_path(tmp_path):
 # Misc
 #####
 
+
 def test_real():
     assert utils.real == [np.integer, np.floating, np.bool_]
 
@@ -77,6 +80,7 @@ def test_any_defined(input, expected):
 #####
 # Sequences
 #####
+
 
 @pytest.mark.parametrize(
     "input, expected",
@@ -170,39 +174,52 @@ class TestRasterShape:
 # NoData
 #####
 
-@pytest.mark.parametrize('function', (utils.data_mask, utils.isdata))
+
+@pytest.mark.parametrize("function", (utils.data_mask, utils.isdata))
 class TestDataMask:
     def test_none(_, function, band1):
         output = function(band1, None)
         assert output is None
-        
+
     def test_number(_, function, band1):
-        band1[band1>=6] = -999
+        band1[band1 >= 6] = -999
         output = function(band1, -999)
-        assert np.array_equal(output, band1!=-999)
-        
+        assert np.array_equal(output, band1 != -999)
+
     def test_nan(_, function, band1):
         band1 = band1.astype(float)
-        band1[band1>=6] = np.nan
+        band1[band1 >= 6] = np.nan
         output = function(band1, np.nan)
         assert np.array_equal(output, ~np.isnan(band1))
 
-@pytest.mark.parametrize('function', (utils.nodata_mask, utils.isnodata))
+
+@pytest.mark.parametrize("function", (utils.nodata_mask, utils.isnodata))
 class TestNodataMask:
     def test_none(_, function, band1):
         output = function(band1, None)
         assert output is None
-        
+
     def test_number(_, function, band1):
-        band1[band1>=6] = -999
+        band1[band1 >= 6] = -999
         output = function(band1, -999)
-        assert np.array_equal(output, band1==-999)
-        
+        assert np.array_equal(output, band1 == -999)
+
     def test_nan(_, function, band1):
         band1 = band1.astype(float)
-        band1[band1>=6] = np.nan
+        band1[band1 >= 6] = np.nan
         output = function(band1, np.nan)
         assert np.array_equal(output, np.isnan(band1))
 
 
+class TestHasNodata:
+    def test_none(_, band1):
+        assert utils.has_nodata(band1, None) == False
 
+    def test_nan(_, band1):
+        assert utils.has_nodata(band1, np.nan) == False
+        band1[0, 0] = np.nan
+        assert utils.has_nodata(band1, np.nan) == True
+
+    def test_number(_, band1):
+        assert utils.has_nodata(band1, 5) == True
+        assert utils.has_nodata(band1, -999) == False

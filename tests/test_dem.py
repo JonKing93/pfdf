@@ -16,13 +16,16 @@ To run the tests, you will need to:
     * Run `pytest tests/test_dem.py --cov=. --cov-fail-under=80`
 """
 
-import rasterio
-import pytest, subprocess
-import numpy as np
+import subprocess
 from pathlib import Path
+
+import numpy as np
+import pytest
+import rasterio
+
 from dfha import dem
-from dfha.utils import save_raster, load_raster
-from dfha.errors import ShapeError, DimensionError
+from dfha.errors import DimensionError, ShapeError
+from dfha.utils import load_raster, save_raster
 
 #####
 # Testing Utilities

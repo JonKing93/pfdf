@@ -53,37 +53,40 @@ Array Utilities:
     _first_failure  - Returns the index and value of the first element to fail a validation test
 """
 
-import numpy as np
-from numpy import issubdtype as istype, unsignedinteger as uint_, integer as int_
 from pathlib import Path
-import rasterio
+from typing import Any, List, Optional, Tuple, Union
 from warnings import catch_warnings, simplefilter
-from dfha.utils import aslist, astuple, real, data_mask
+
+import numpy as np
+import rasterio
+from numpy import integer as int_
+from numpy import issubdtype as istype
+from numpy import unsignedinteger as uint_
+
 from dfha.errors import DimensionError, ShapeError
-from typing import Any, Optional, List, Union, Tuple
 from dfha.typing import (
-    strs,
+    Boolean_Array,
+    Boolean_Mask,
+    Mask,
+    Matrix_Array,
+    Raster_Array,
+    Real_Array,
+    Scalar_Array,
+    Validated_Raster,
+    Vector_Array,
     dtypes,
+    nodata,
+    scalar,
     shape,
     shape2d,
-    scalar,
-    RealArray,
-    ScalarArray,
-    VectorArray,
-    MatrixArray,
-    RasterArray,
-    ValidatedRaster,
-    Mask,
-    BooleanMask,
-    BooleanArray,
-    nodata,
+    strs,
 )
+from dfha.utils import aslist, astuple, data_mask, real
 
 # Type aliases
-RasterAndNodata = Tuple[ValidatedRaster, nodata]
-OutputPath = Union[None, Path]
+Output_Path = Union[None, Path]
 save = bool
-DataMask = Union[None, BooleanArray]
+DataMask = Union[None, Boolean_Array]
 index = Tuple[int, ...]
 
 
@@ -181,7 +184,7 @@ def nonsingleton(array: np.ndarray) -> List[bool]:
 #####
 
 
-def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray:
+def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> Scalar_Array:
     """
     scalar  Validate an input represents a scalar
     ----------
@@ -225,7 +228,7 @@ def vector(
     *,
     dtype: Optional[dtypes] = None,
     length: Optional[int] = None,
-) -> VectorArray:
+) -> Vector_Array:
     """
     vector  Validate an input represents a 1D numpy array
     ----------
@@ -283,7 +286,7 @@ def matrix(
     *,
     dtype: Optional[dtypes] = None,
     shape: Optional[shape2d] = None,
-) -> MatrixArray:
+) -> Matrix_Array:
     """
     matrix  Validate input represents a 2D numpy array
     ----------
@@ -356,7 +359,7 @@ def raster(
     load: bool = True,
     numpy_nodata: Optional[scalar] = None,
     nodata_name: str = "nodata",
-) -> Tuple[ValidatedRaster, nodata]:
+) -> Tuple[Validated_Raster, nodata]:
     """
     raster  Check input is valid raster and return in requested format
     ----------
@@ -424,7 +427,7 @@ def raster(
         return _raster_array(raster, name, shape, numpy_nodata, nodata_name)
 
 
-def _raster_type(raster: Any, name: str) -> ValidatedRaster:
+def _raster_type(raster: Any, name: str) -> Validated_Raster:
     """Checks that an input raster is a valid type (str, Path, DatasetReader, or
     numpy array), and raises a TypeError if not. If a file-based raster, converts
     to a Path object and checks that the file exists. Raises a FileNotFoundError
@@ -501,12 +504,12 @@ def _raster_file(
 
 
 def _raster_array(
-    raster: RasterArray,
+    raster: Raster_Array,
     name: str,
     shape: Union[shape2d, None],
     nodata: nodata,
     nodata_name: str,
-) -> Tuple[RasterArray, nodata]:
+) -> Tuple[Raster_Array, nodata]:
     """Checks that a user-provided numpy raster has a valid shape and dtype.
     If a NoData value was provided, validates the value and converts it to the
     same dtype as the raster. Returns the raster and NoData value."""
@@ -523,7 +526,7 @@ def _raster_array(
     return raster, nodata
 
 
-def output_path(path: Any, overwrite: bool) -> Tuple[OutputPath, save]:
+def output_path(path: Any, overwrite: bool) -> Tuple[Output_Path, save]:
     """
     output_path  Validate and parse options for an output raster path
     ----------
@@ -583,11 +586,11 @@ def output_path(path: Any, overwrite: bool) -> Tuple[OutputPath, save]:
 
 
 def positive(
-    array: RealArray,
+    array: Real_Array,
     name: str,
     *,
     allow_zero: bool = False,
-    isdata: Optional[BooleanArray] = None,
+    isdata: Optional[Boolean_Array] = None,
     nodata: Optional[scalar] = None,
 ) -> None:
     """
@@ -636,10 +639,10 @@ def positive(
 
 
 def integers(
-    array: RealArray,
+    array: Real_Array,
     name: str,
     *,
-    isdata: Optional[BooleanArray] = None,
+    isdata: Optional[Boolean_Array] = None,
     nodata: Optional[scalar] = None,
 ) -> None:
     """
@@ -680,12 +683,12 @@ def integers(
 
 
 def inrange(
-    array: RealArray,
+    array: Real_Array,
     name: str,
     min: Optional[scalar] = None,
     max: Optional[scalar] = None,
     *,
-    isdata: Optional[BooleanArray] = None,
+    isdata: Optional[Boolean_Array] = None,
     nodata: Optional[scalar] = None,
 ) -> None:
     """
@@ -727,9 +730,9 @@ def mask(
     array: Mask,
     name: str,
     *,
-    isdata: Optional[BooleanArray] = None,
+    isdata: Optional[Boolean_Array] = None,
     nodata: Optional[scalar] = None,
-) -> BooleanMask:
+) -> Boolean_Mask:
     """
     mask  Validates a boolean-like mask
     ----------
@@ -772,10 +775,10 @@ def mask(
 
 
 def flow(
-    array: RealArray,
+    array: Real_Array,
     name: str,
     *,
-    isdata: Optional[BooleanArray] = None,
+    isdata: Optional[Boolean_Array] = None,
     nodata: Optional[scalar] = None,
 ):
     """
@@ -814,7 +817,7 @@ def flow(
 
 
 def _check_bound(
-    array: RealArray,
+    array: Real_Array,
     name: str,
     isdata: DataMask,
     operator: str,
@@ -862,7 +865,7 @@ def _check_bound(
         _check(passed, f"{description} {bound}", array, name, isdata)
 
 
-def _isdata(array: RealArray, isdata: BooleanArray, nodata: nodata) -> DataMask:
+def _isdata(array: Real_Array, isdata: Boolean_Array, nodata: nodata) -> DataMask:
     """Parses isdata/nodata options and returns the data mask for the array
     (i.e. the mask of element that are not NoData). Note that if both options are
     None, then the data mask will be None, as no mask is necessary."""
@@ -871,7 +874,7 @@ def _isdata(array: RealArray, isdata: BooleanArray, nodata: nodata) -> DataMask:
     return isdata
 
 
-def _data_elements(array: RealArray, isdata: DataMask) -> RealArray:
+def _data_elements(array: Real_Array, isdata: DataMask) -> Real_Array:
     """Returns the data elements of an array. (The elements that are not NoData)"""
     if isdata is None:
         return array
@@ -880,9 +883,9 @@ def _data_elements(array: RealArray, isdata: DataMask) -> RealArray:
 
 
 def _check(
-    passed: BooleanArray,
+    passed: Boolean_Array,
     description: str,
-    array: RealArray,
+    array: Real_Array,
     name: str,
     isdata: DataMask,
 ):
@@ -899,9 +902,9 @@ def _check(
 
 
 def _first_failure(
-    array: RealArray,
+    array: Real_Array,
     isdata: DataMask,
-    passed: BooleanArray,
+    passed: Boolean_Array,
 ) -> Tuple[index, scalar]:
     """
     _first_failure  Returns the indices and value of the first invalid data element

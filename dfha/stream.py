@@ -44,9 +44,10 @@ Utilities:
     _check_split_paths   - Error checking for optional splitting inputs
 """
 
-from typing import Dict, Optional, Literal, Any
-import arcpy
 from pathlib import Path
+from typing import Any, Dict, Literal, Optional
+
+import arcpy
 
 
 def links(
