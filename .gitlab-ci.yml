@@ -1,20 +1,21 @@
-image: python:3.9
+image: code.usgs.gov:5001/devops/images/usgs/python:3.9
+
+cache:
+  paths:
+    - .venv
 
 test:
   stage: test
-  variables:
-    MIN_COVERAGE: 95
+  before_script:
+    - pip install poetry
+    - poetry config virtualenvs.in-project true
+    - poetry install --with dev
   script:
-    - pip install numpy
-    - pip install nptyping
-    - pip install rasterio
-    - pip install pytest
-    - pip install pytest-cov
-    - pip install coverage
-
-    - pytest tests/test_errors.py --cov=dfha.errors --cov-fail-under=$MIN_COVERAGE --cov-append
-    - pytest tests/test_utils.py --cov=dfha.utils --cov-fail-under=$MIN_COVERAGE --cov-append
-    - pytest tests/test_validate.py --cov=dfha.validate --cov-fail-under=$MIN_COVERAGE --cov-append
-    - pytest tests/test_severity.py --cov=dfha.severity --cov-fail-under=$MIN_COVERAGE --cov-append
-
+    - poetry run tests
+    - poetry run lint
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
