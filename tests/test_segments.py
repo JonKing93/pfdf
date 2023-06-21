@@ -662,7 +662,7 @@ class TestBasins:
         output = segments3.basins(values3, nodata=-8)
         assert np.array_equal(output, expected, equal_nan=True)
 
-
+@pytest.mark.taudem
 class TestCatchmentMean:
     def test_have_npixels(_, segments3, flow3, catchment3):
         # Use npixels=1 (instead of real N) to check not calculating internally

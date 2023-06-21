@@ -31,6 +31,9 @@ from pfdf.utils import load_raster, save_raster
 # Testing Utilities
 #####
 
+# DEM should only be tested with TauDEM
+pytestmark = pytest.mark.taudem
+
 # TauDEM floating-point fill value
 fmin = np.finfo("float32").min
 
