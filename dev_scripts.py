@@ -1,10 +1,21 @@
 """
 dev_scripts  Contains functions used for poetry command line scripts
 ----------
-Functions:
-    tests       - Runs the (pure Python) tests intended for the Gitlab pipeline
-    all_tests   - Runs all tests, including those requiring TauDEM
-    lint        - Checks code conforms to isort and black formatting
+This module contains functions intended for use as a poetry command line scripts.
+To run a script, enter:
+
+    poetry run <function>
+
+from a command line (not the Python interactive shell).
+----------
+Poetry Scripts:
+    tests               - Runs the (pure Python) tests intended for the Gitlab pipeline
+    all_tests           - Runs all tests, including those requiring TauDEM
+    format              - Applies isort and black formatters to the code
+    check_format        - Checks that all code is formatted correctly
+
+Other Functions:
+    run                 - Runs a set of commands as a subprocess
 """
 
 import subprocess
@@ -27,22 +38,36 @@ def tests():
         f"--cov-fail-under={MIN_COVERAGE} --cov-report xml "
         f"{ignore_npt_warning}"
     )
-    subprocess.run(command, check=True)
-    subprocess.run("coverage report")
+    run(command)
+    run("coverage report")
 
 
 def all_tests():
     "Can be used by developers with a TauDEM installation to validate all tests"
     command = f"python -m pytest tests {ignore_npt_warning}"
-    subprocess.run(command)
+    run(command)
 
 
-def lint():
+def format():
+    "Applies isort and black to pfdf and tests"
+    commands = ["isort pfdf", "isort tests", "black pfdf", "black tests"]
+    run(commands)
+
+
+def check_format():
+    "Checks that pfdf and tests follow formatting guidelines"
     commands = [
         "isort pfdf -c",
         "isort tests -c",
         "black pfdf --check",
         "black tests --check",
     ]
+    run(commands)
+
+
+def run(commands):
+    "Runs a set of commands as a subprocess"
+    if not isinstance(commands, list):
+        commands = [commands]
     for command in commands:
         subprocess.run(command)

@@ -43,7 +43,8 @@ coverage = "*"
 [tool.poetry.scripts]
 tests = "dev_scripts:tests"
 all_tests = "dev_scripts:all_tests"
-lint = "dev_scripts:lint"
+format = "dev_scripts:format"
+check_format = "dev_scripts:check_format"
 
 [tool.pytest.ini_options]
 markers = [
