@@ -12,7 +12,7 @@ test:
     - poetry install --with dev
   script:
     - poetry run tests
-    - poetry run lint
+    - poetry run check_format
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     reports:
