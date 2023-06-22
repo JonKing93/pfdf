@@ -16,6 +16,13 @@ into the project you can [fork this repository][2] and
 [3]: https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html
 
 
+## Installation
+We recommend using the included poetry scripts to help ensure your contributions meet the project's standards. These scripts require a development installation of pfdf. You can implement this install using:
+```
+poetry install --with dev
+```
+All commands described on this page assume a development installation.
+
 ## Formatting
 This project uses `isort` and `black` to format the code. You can apply these formatters using:
 ```
@@ -25,19 +32,16 @@ This should format the code within the `pfdf` and `tests` directories. We also n
 
 Note that you can also use:
 ```
-poetry run check_format
+poetry run lint
 ```
 to verify that all code is formatted correctly. The Gitlab pipeline requires that this check passes before code can be merged.
 
-
 ## Testing
-This project uses the `pytest` framework to implement tests. You can test that the pure Python tests pass using:
+This project uses the `pytest` framework to implement tests, and the Gitlab pipeline requires that all tests pass before new code can be added. As a rule, all new code should include accompanying tests. The tests for each module should be named `test_<module>.py` and placed in the `tests` folder. In the case of private and public modules with the same name (i.e. `rasters.py and `_rasters.py`), you may append "private" and "public" to the end of the test file name.
+
+Within a test module, the tests for a function should be grouped into a class. For large classes, the tests for each property or method should likewise be grouped into a class. For small classes, it may be appropriate to group all tests into a single class. Test class names should use capitalized camel-case. Underscores are discouraged, except when needed to distinguish between public and private routines with the same name. Individual tests should be named using standard Python snakecase (lowercase separated by underscores).
+
+Note that you can check the status of the tests using:
 ```
 poetry run tests
-```
-This will also report the test coverage and require a minimum coverage (defined in `dev_scripts.py`). The Gitlab pipeline requires that this script passes before code can be merged.
-
-Note that the Gitlab pipeline does not check tests that rely on TauDEM commands. However, if TauDEM is installed, you can run all tests (pure Python and TauDEM reliant) using:
-```
-poetry run all_tests
 ```

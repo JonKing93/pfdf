@@ -21,6 +21,13 @@ git clone https://code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assess
 
 You should now be able to import the package within python via: `import pfdf`
 
+Alternatively, you can do a developement installation, which enables poetry scripts to run tests and linting. To do a development install, update step 4 to:
+
+```
+poetry install --with dev
+```
+
+
 ### TauDEM
 Much of the pfdf package depends on TauDEM, a C++ library for digital terrain analysis, so you will need to install TauDEM to use most modules. TauDEM is easiest to install for Windows, via the [windows installer](https://hydrology.usu.edu/taudem/taudem5/downloads.html).
 
@@ -32,20 +39,24 @@ This works on some machines, but can sometimes create dependency problems with r
 
 We note that future releases aim to replace all TauDEM functionality with the pure Python `pysheds` module.
 
-### Validate Installation
-You may want to run the pfdf tests to validate your installation. You can by entering:
+### Run Tests
+You may want to run the pfdf tests to validate your installation. This requires a development installation:
 ```
-poetry run all_tests
+poetry install --with dev
 ```
-from the command line. Note that this command includes tests that rely on TauDEM. If you only want to run pure Python tests, instead enter:
+
+Once this is complete, you can run the tests using:
 ```
 poetry run tests
 ```
+This will also report the test coverage and requires a minimum coverage (defined in `scripts/poetry.py`). The Gitlab pipeline requires that this script passes before code can be merged.
+
+Note that the Gitlab pipeline does not check tests that rely on TauDEM commands. However, if TauDEM is installed, you can run all tests (including TauDEM) using:
+```
+poetry run all_tests
+```
 
 (Note that we plan to remove the all_tests command with the migration from TauDEM to pysheds).
-
-
-
 
 
 
