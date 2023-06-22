@@ -41,10 +41,10 @@ pytest-cov = "*"
 coverage = "*"
 
 [tool.poetry.scripts]
-tests = "dev_scripts:tests"
-all_tests = "dev_scripts:all_tests"
-format = "dev_scripts:format"
-check_format = "dev_scripts:check_format"
+tests = "scripts.poetry:tests"
+all_tests = "scripts.poetry:all_tests"
+format = "scripts.poetry:format"
+check_format = "scripts.poetry:check_format"
 
 [tool.pytest.ini_options]
 markers = [
