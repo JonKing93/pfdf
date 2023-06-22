@@ -31,43 +31,44 @@ def tests():
     do not require a TauDEM installation. Also generates a coverage report and
     requires a minimum coverage.
     """
+    modules = ["errors", "utils", "validate", "severity", "segments"]
+    coverage = [f"--cov=pfdf.{module}" for module in modules]
     command = (
-        "python -m "
-        'pytest tests -k "not taudem" '
-        "--cov=pfdf.errors --cov=pfdf.utils --cov=pfdf.validate --cov=pfdf.severity --cov=pfdf.segments "
-        f"--cov-fail-under={MIN_COVERAGE} --cov-report xml:coverage.xml "
-        f"{ignore_npt_warning}"
+        ["pytest", "tests", "-k", '"not taudem"']
+        + coverage
+        + [
+            f"--cov-fail-under={MIN_COVERAGE}",
+            "--cov-report",
+            "xml:coverage.xml",
+            ignore_npt_warning,
+        ]
     )
     run(command)
-    run("coverage report")
+    run(["coverage", "report"])
 
 
 def all_tests():
     "Can be used by developers with a TauDEM installation to validate all tests"
-    command = f"python -m pytest tests {ignore_npt_warning}"
+    command = ["pytest", "tests", ignore_npt_warning]
     run(command)
 
 
 def format():
     "Applies isort and black to pfdf and tests"
-    commands = ["isort pfdf", "isort tests", "black pfdf", "black tests"]
-    run(commands)
+    run(["isort", "pfdf"])
+    run(["isort", "tests"])
+    run(["black", "pfdf"])
+    run(["black", "tests"])
 
 
 def check_format():
     "Checks that pfdf and tests follow formatting guidelines"
-    commands = [
-        "isort pfdf -c",
-        "isort tests -c",
-        "black pfdf --check",
-        "black tests --check",
-    ]
-    run(commands)
+    run(["isort", "pfdf", "--check"])
+    run(["isort", "tests", "--check"])
+    run(["black", "pfdf", "--check"])
+    run(["black", "tests", "--check"])
 
 
-def run(commands):
-    "Runs a set of commands as a subprocess"
-    if not isinstance(commands, list):
-        commands = [commands]
-    for command in commands:
-        subprocess.run(command)
+def run(command):
+    "Runs a command as a subprocess. Raises error if encounters an error code"
+    subprocess.run(command, check=True)
