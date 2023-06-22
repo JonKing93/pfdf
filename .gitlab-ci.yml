@@ -2,7 +2,7 @@ image: code.usgs.gov:5001/devops/images/usgs/python:3.9
 
 stages:
   - build
-  - format
+  - lint
   - test
 
 cache:
@@ -16,10 +16,10 @@ build:
     - poetry config virtualenvs.in-project true
     - poetry install --with dev
 
-format:
-  stage: format
+lint:
+  stage: lint
   script:
-    - poetry run check_format
+    - poetry run lint
 
 test:
   stage: test
