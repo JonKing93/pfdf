@@ -15,6 +15,7 @@ build:
     - pip install poetry
     - poetry config virtualenvs.in-project true
     - poetry install --with dev
+    - poetry run safety check
 
 lint:
   stage: lint
