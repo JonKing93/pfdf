@@ -34,7 +34,7 @@ def tests():
     modules = ["errors", "utils", "validate", "severity", "segments"]
     coverage = [f"--cov=pfdf.{module}" for module in modules]
     command = (
-        ["pytest", "tests", "-k", '"not taudem"']
+        ["pytest", "tests", "-k", "not taudem"]
         + coverage
         + [
             f"--cov-fail-under={MIN_COVERAGE}",
