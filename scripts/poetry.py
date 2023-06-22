@@ -21,7 +21,7 @@ Other Functions:
 from typing import List
 import subprocess
 
-MIN_COVERAGE = 95
+MIN_COVERAGE = 75
 
 ignore_npt_warning = "-W ignore::DeprecationWarning:nptyping.typing_ "
 
@@ -32,21 +32,19 @@ def tests():
     do not require a TauDEM installation. Also generates a coverage report and
     requires a minimum coverage.
     """
-    modules = ["errors", "utils", "validate", "severity", "segments"]
-    coverage = [f"--cov=pfdf.{module}" for module in modules]
-    command = (
-        ["pytest", "tests", "-k", "not taudem"]
-        + coverage
-        + [
-            f"--cov-fail-under={MIN_COVERAGE}",
-            "--cov-report",
-            "xml:coverage.xml",
-            ignore_npt_warning,
-        ]
-    )
+    command = [
+        "pytest",
+        "tests",
+        "-k",
+        "not taudem",
+        "--cov=pfdf",
+        f"--cov-fail-under={MIN_COVERAGE}",
+        "--cov-report",
+        "xml:coverage.xml",
+        ignore_npt_warning,
+    ]
     run(command)
     run(["coverage", "report"])
-
 
 def all_tests():
     "Can be used by developers with a TauDEM installation to validate all tests"
