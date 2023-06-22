@@ -1,18 +1,30 @@
 image: code.usgs.gov:5001/devops/images/usgs/python:3.9
 
+stages:
+  - build
+  - format
+  - test
+
 cache:
   paths:
     - .venv
 
-test:
-  stage: test
-  before_script:
+build:
+  stage: build
+  script:
     - pip install poetry
     - poetry config virtualenvs.in-project true
     - poetry install --with dev
+
+format:
+  stage: format
+  script:
+    - poetry run check_format
+
+test:
+  stage: test
   script:
     - poetry run tests
-    - poetry run check_format
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     reports:
