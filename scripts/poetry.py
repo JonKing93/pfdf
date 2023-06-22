@@ -1,5 +1,5 @@
 """
-dev_scripts  Contains functions used for poetry command line scripts
+Contains functions used for poetry command line scripts
 ----------
 This module contains functions intended for use as a poetry command line scripts.
 To run a script, enter:
@@ -12,12 +12,13 @@ Poetry Scripts:
     tests               - Runs the (pure Python) tests intended for the Gitlab pipeline
     all_tests           - Runs all tests, including those requiring TauDEM
     format              - Applies isort and black formatters to the code
-    check_format        - Checks that all code is formatted correctly
+    lint                - Checks that all code is formatted correctly
 
 Other Functions:
-    run                 - Runs a set of commands as a subprocess
+    run                 - Runs a command as a subprocess
 """
 
+from typing import List
 import subprocess
 
 MIN_COVERAGE = 95
@@ -61,7 +62,7 @@ def format():
     run(["black", "tests"])
 
 
-def check_format():
+def lint():
     "Checks that pfdf and tests follow formatting guidelines"
     run(["isort", "pfdf", "--check"])
     run(["isort", "tests", "--check"])
@@ -69,6 +70,6 @@ def check_format():
     run(["black", "tests", "--check"])
 
 
-def run(command):
+def run(command: List[str]):
     "Runs a command as a subprocess. Raises error if encounters an error code"
     subprocess.run(command, check=True)
