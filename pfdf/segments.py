@@ -42,7 +42,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 import numpy as np
 from nptyping import Bool, Floating, Integer, NDArray, Shape
 
-from pfdf import dem, validate
+from pfdf import _validate, dem
 from pfdf.errors import RasterShapeError, ShapeError
 from pfdf.typing import (
     Raster,
@@ -56,7 +56,7 @@ from pfdf.typing import (
     nodata,
     scalar,
 )
-from pfdf.utils import has_nodata, isdata, load_raster, real
+from pfdf._utils import has_nodata, isdata, load_raster, real
 
 # Type aliases
 Pixel_Indices = NDArray[Shape["Pixels"], Integer]
@@ -205,12 +205,12 @@ class Segments:
 
         # Validate
         name = "stream_raster"
-        stream_raster, nodata = validate.raster(
+        stream_raster, nodata = _validate.raster(
             stream_raster, name, numpy_nodata=nodata
         )
         data_mask = isdata(stream_raster, nodata)
-        validate.positive(stream_raster, name, allow_zero=True, isdata=data_mask)
-        validate.integers(stream_raster, name, isdata=data_mask)
+        _validate.positive(stream_raster, name, allow_zero=True, isdata=data_mask)
+        _validate.integers(stream_raster, name, isdata=data_mask)
 
         # Locate stream segment pixels
         pixels = stream_raster != 0
@@ -334,7 +334,7 @@ class Segments:
         """
 
         try:
-            return validate.raster(
+            return _validate.raster(
                 raster,
                 name,
                 shape=self._raster_shape,
@@ -587,8 +587,8 @@ class Segments:
 
         # Initial validation
         if npixels is not None:
-            npixels = validate.vector(npixels, "npixels", dtype=real, length=len(self))
-            validate.positive(npixels, "npixels", allow_zero=True)
+            npixels = _validate.vector(npixels, "npixels", dtype=real, length=len(self))
+            _validate.positive(npixels, "npixels", allow_zero=True)
         flow, flow_nodata = self._validate(
             flow_directions,
             "flow_directions",
@@ -604,7 +604,7 @@ class Segments:
             load=False,
         )
         if mask is not None:
-            mask, mask_nodata = validate.raster(
+            mask, mask_nodata = _validate.raster(
                 mask,
                 "mask",
                 numpy_nodata=mask_nodata,
@@ -615,14 +615,14 @@ class Segments:
         # Optionally validate array elements
         if check:
             flow_array = load_raster(flow_directions)
-            validate.flow(flow_array, "flow_directions", nodata=flow_nodata)
+            _validate.flow(flow_array, "flow_directions", nodata=flow_nodata)
             values_array = load_raster(values)
-            validate.positive(
+            _validate.positive(
                 values_array, "values", allow_zero=True, nodata=values_nodata
             )
             if mask is not None:
                 mask = load_raster(mask)
-                mask = validate.mask(mask, "mask", nodata=mask_nodata)
+                mask = _validate.mask(mask, "mask", nodata=mask_nodata)
                 values = values_array  # Loaded array is required for a masked mean
 
         # Compute the number of pixels if not provided
@@ -721,11 +721,11 @@ class Segments:
         """
 
         # Validate N and resolution
-        neighborhood = validate.scalar(neighborhood, "neighborhood", real)
-        validate.positive(neighborhood, "neighborhood")
-        validate.integers(neighborhood, "neighborhood")
-        resolution = validate.scalar(resolution, "resolution", real)
-        validate.positive(resolution, "resolution")
+        neighborhood = _validate.scalar(neighborhood, "neighborhood", real)
+        _validate.positive(neighborhood, "neighborhood")
+        _validate.integers(neighborhood, "neighborhood")
+        resolution = _validate.scalar(resolution, "resolution", real)
+        _validate.positive(resolution, "resolution")
 
         # Validate rasters
         flow, flow_nodata = self._validate(
@@ -734,7 +734,7 @@ class Segments:
             nodata=flow_nodata,
             nodata_name="flow_nodata",
         )
-        validate.flow(flow, "flow_directions", nodata=flow_nodata)
+        _validate.flow(flow, "flow_directions", nodata=flow_nodata)
         dem, dem_nodata = self._validate(
             dem, "dem", nodata=dem_nodata, nodata_name="dem_nodata"
         )
@@ -854,11 +854,11 @@ class Segments:
         """
 
         # Require numeric or bool vector
-        segments = validate.vector(segments, "segments", dtype=real)
+        segments = _validate.vector(segments, "segments", dtype=real)
 
         # If boolean, require 1 element per segment. Convert to IDs
         if segments.dtype == bool:
-            validate.shape_(
+            _validate.shape_(
                 "segments", "element(s)", required=len(self), actual=segments.shape
             )
             segments = self.ids[np.argwhere(segments)].reshape(-1)

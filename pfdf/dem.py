@@ -93,7 +93,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 
-from pfdf import validate
+from pfdf import _validate
 from pfdf.typing import (
     Boolean_Mask,
     Pathlike,
@@ -105,7 +105,7 @@ from pfdf.typing import (
     shape2d,
     strs,
 )
-from pfdf.utils import load_raster, nodata_mask, raster_shape, save_raster
+from pfdf._utils import load_raster, nodata_mask, raster_shape, save_raster
 
 # Type aliases
 Option = Union[None, bool]  # None: Default, bool: User-specified
@@ -181,7 +181,7 @@ def pitfill(
     verbose, overwrite = _options(verbose, overwrite)
     names = ["dem", "pitfilled"]
     [dem], nodata = _validate_inputs([dem], names[0:1], [nodata], ["nodata"])
-    pitfilled, save = validate.output_path(path, overwrite)
+    pitfilled, save = _validate.output_path(path, overwrite)
 
     # Run using temporary files as necessary
     with TemporaryDirectory() as temp:
@@ -271,11 +271,11 @@ def flow_directions(
     [pitfilled], nodata = _validate_inputs(
         [pitfilled], names[0:1], [nodata], ["nodata"]
     )
-    flow, save = validate.output_path(path, overwrite)
+    flow, save = _validate.output_path(path, overwrite)
 
     # Get flow-slope options and path
     if return_slopes:
-        slopes, save_slopes = validate.output_path(slopes_path, overwrite)
+        slopes, save_slopes = _validate.output_path(slopes_path, overwrite)
     else:
         slopes = None
         save_slopes = False
@@ -371,7 +371,7 @@ def upslope_pixels(
     [flow], nodata = _validate_inputs(
         [flow_directions], names[0:1], [nodata], ["nodata"]
     )
-    area, save = validate.output_path(path, overwrite)
+    area, save = _validate.output_path(path, overwrite)
     _validate_d8(check, flow, nodata[0])
 
     # Run using temp files as needed
@@ -474,7 +474,7 @@ def upslope_sum(
         [flow_nodata, values_nodata],
         ["flow_nodata", "values_nodata"],
     )
-    sum, save = validate.output_path(path, overwrite)
+    sum, save = _validate.output_path(path, overwrite)
 
     # Validate the mask (if provided) and the D8 flow directions
     if mask is not None:
@@ -584,7 +584,7 @@ def relief(
         [pitfilled_nodata, flow_nodata, slopes_nodata],
         ["pitfilled_nodata", "flow_nodata", "slopes_nodata"],
     )
-    relief, save = validate.output_path(path, overwrite)
+    relief, save = _validate.output_path(path, overwrite)
     _validate_dinf(check, flow, nodata[1], slopes, nodata[2])
 
     # Run using temp files as needed
@@ -790,7 +790,7 @@ def _validate_d8(check: bool, flow: Validated_Raster, nodata: nodata) -> None:
     """
     if check:
         flow = load_raster(flow)
-        validate.flow(flow, "flow_directions", nodata=nodata)
+        _validate.flow(flow, "flow_directions", nodata=nodata)
 
 
 def _validate_dinf(
@@ -818,9 +818,9 @@ def _validate_dinf(
     """
     if check:
         flow = load_raster(flow)
-        validate.inrange(flow, "flow_directions", min=0, max=2 * pi, nodata=flow_nodata)
+        _validate.inrange(flow, "flow_directions", min=0, max=2 * pi, nodata=flow_nodata)
         slopes = load_raster(slopes)
-        validate.positive(slopes, "slopes", allow_zero=True, nodata=slopes_nodata)
+        _validate.positive(slopes, "slopes", allow_zero=True, nodata=slopes_nodata)
 
 
 def _validate_mask(
@@ -843,11 +843,11 @@ def _validate_mask(
     Outputs:
         numpy 2D bool array: The loaded valid data mask
     """
-    mask, nodata = validate.raster(
+    mask, nodata = _validate.raster(
         raster, "mask", shape=shape, numpy_nodata=nodata, nodata_name="mask_nodata"
     )
     if check:
-        mask = validate.mask(mask, "mask", nodata=nodata)
+        mask = _validate.mask(mask, "mask", nodata=nodata)
     return mask
 
 
@@ -917,7 +917,7 @@ def _validate_inputs(
     for r, raster, name, nodata, nodata_name in zip(
         indices, rasters, names, nodatas, nodata_names
     ):
-        rasters[r], nodatas[r] = validate.raster(
+        rasters[r], nodatas[r] = _validate.raster(
             raster,
             name,
             shape=shape,

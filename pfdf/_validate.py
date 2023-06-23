@@ -81,7 +81,7 @@ from pfdf.typing import (
     shape2d,
     strs,
 )
-from pfdf.utils import aslist, astuple, data_mask, real
+from pfdf._utils import aslist, astuple, data_mask, real
 
 # Type aliases
 Output_Path = Union[None, Path]

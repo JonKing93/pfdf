@@ -9,7 +9,7 @@ import pytest
 
 from pfdf import severity
 from pfdf.errors import ShapeError
-from pfdf.utils import load_raster
+from pfdf._utils import load_raster
 
 #####
 # Testing utilities

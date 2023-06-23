@@ -35,7 +35,7 @@ import numpy as np
 import pytest
 import rasterio
 
-from pfdf import segments, validate
+from pfdf import _validate, segments
 from pfdf.errors import RasterShapeError
 from pfdf.segments import Segments
 
@@ -486,7 +486,7 @@ class TestInit:
 
     def test_ND_failed(self, stream):
         stream = np.stack((stream, stream))
-        with pytest.raises(validate.DimensionError):
+        with pytest.raises(_validate.DimensionError):
             Segments(stream)
 
     def test_nodata(self, stream, indices):
@@ -561,7 +561,7 @@ class TestValidate:
     def test_not_raster(_, segments5, stream):
         bad = np.stack((stream, stream))
         name = "raster name"
-        with pytest.raises(validate.DimensionError) as error:
+        with pytest.raises(_validate.DimensionError) as error:
             segments5._validate(bad, name, nodata=None)
         assert_contains(error, name)
 
@@ -836,7 +836,7 @@ class TestRemove:
 
     @pytest.mark.parametrize("input", [([True, False]), ([True, False, True, False])])
     def test_invalid_bools(_, segments3, input):
-        with pytest.raises(validate.ShapeError):
+        with pytest.raises(_validate.ShapeError):
             segments3.remove(input)
 
 

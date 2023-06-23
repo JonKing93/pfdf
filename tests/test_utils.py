@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 import rasterio
 
-from pfdf import utils
+from pfdf import _utils
 
 
 #####
@@ -58,7 +58,7 @@ def output_path(tmp_path):
 
 
 def test_real():
-    assert utils.real == [np.integer, np.floating, np.bool_]
+    assert _utils.real == [np.integer, np.floating, np.bool_]
 
 
 @pytest.mark.parametrize(
@@ -74,7 +74,7 @@ def test_real():
     ),
 )
 def test_any_defined(input, expected):
-    assert utils.any_defined(*input) == expected
+    assert _utils.any_defined(*input) == expected
 
 
 #####
@@ -93,7 +93,7 @@ def test_any_defined(input, expected):
     ),
 )
 def test_aslist(input, expected):
-    assert utils.aslist(input) == expected
+    assert _utils.aslist(input) == expected
 
 
 @pytest.mark.parametrize(
@@ -107,7 +107,7 @@ def test_aslist(input, expected):
     ),
 )
 def test_astuple(input, expected):
-    assert utils.astuple(input) == expected
+    assert _utils.astuple(input) == expected
 
 
 #####
@@ -117,28 +117,28 @@ def test_astuple(input, expected):
 
 class TestLoadRaster:
     def test_array(_, band1):
-        output = utils.load_raster(band1)
+        output = _utils.load_raster(band1)
         assert np.array_equal(output, band1)
 
     # Band should be ignored when given an ndarray as input
     @pytest.mark.parametrize("band", [(1), (2), (3)])
     def test_array_band(_, band1, band):
-        output = utils.load_raster(band1, band=band)
+        output = _utils.load_raster(band1, band=band)
         assert np.array_equal(output, band1)
 
     def test_path(_, fraster, band1):
-        output = utils.load_raster(fraster)
+        output = _utils.load_raster(fraster)
         assert np.array_equal(output, band1)
 
     def test_path_band2(_, fraster, band2):
-        output = utils.load_raster(fraster, band=2)
+        output = _utils.load_raster(fraster, band=2)
         assert np.array_equal(output, band2)
 
 
 @pytest.mark.filterwarnings("ignore::rasterio.errors.NotGeoreferencedWarning")
 class TestSaveRaster:
     def test(_, band1, output_path):
-        utils.save_raster(band1, output_path)
+        _utils.save_raster(band1, output_path)
         with rasterio.open(output_path) as file:
             assert file.count == 1
             raster = file.read(1)
@@ -146,7 +146,7 @@ class TestSaveRaster:
 
     @pytest.mark.parametrize("nodata", (np.nan, 0, -999))
     def test_nodata(_, band1, output_path, nodata):
-        utils.save_raster(band1, output_path, nodata)
+        _utils.save_raster(band1, output_path, nodata)
         with rasterio.open(output_path) as file:
             assert file.count == 1
             assert np.array_equal(file.nodata, nodata, equal_nan=True)
@@ -155,7 +155,7 @@ class TestSaveRaster:
 
     def test_bool(_, band1, output_path):
         band1 = band1.astype(bool)
-        utils.save_raster(band1, output_path)
+        _utils.save_raster(band1, output_path)
         with rasterio.open(output_path) as file:
             assert file.count == 1
             raster = file.read(1)
@@ -164,10 +164,10 @@ class TestSaveRaster:
 
 class TestRasterShape:
     def test_array(_, band1):
-        assert utils.raster_shape(band1) == band1.shape
+        assert _utils.raster_shape(band1) == band1.shape
 
     def test_file(_, fraster, band1):
-        assert utils.raster_shape(fraster) == band1.shape
+        assert _utils.raster_shape(fraster) == band1.shape
 
 
 #####
@@ -175,7 +175,7 @@ class TestRasterShape:
 #####
 
 
-@pytest.mark.parametrize("function", (utils.data_mask, utils.isdata))
+@pytest.mark.parametrize("function", (_utils.data_mask, _utils.isdata))
 class TestDataMask:
     def test_none(_, function, band1):
         output = function(band1, None)
@@ -193,7 +193,7 @@ class TestDataMask:
         assert np.array_equal(output, ~np.isnan(band1))
 
 
-@pytest.mark.parametrize("function", (utils.nodata_mask, utils.isnodata))
+@pytest.mark.parametrize("function", (_utils.nodata_mask, _utils.isnodata))
 class TestNodataMask:
     def test_none(_, function, band1):
         output = function(band1, None)
@@ -213,13 +213,13 @@ class TestNodataMask:
 
 class TestHasNodata:
     def test_none(_, band1):
-        assert utils.has_nodata(band1, None) == False
+        assert _utils.has_nodata(band1, None) == False
 
     def test_nan(_, band1):
-        assert utils.has_nodata(band1, np.nan) == False
+        assert _utils.has_nodata(band1, np.nan) == False
         band1[0, 0] = np.nan
-        assert utils.has_nodata(band1, np.nan) == True
+        assert _utils.has_nodata(band1, np.nan) == True
 
     def test_number(_, band1):
-        assert utils.has_nodata(band1, 5) == True
-        assert utils.has_nodata(band1, -999) == False
+        assert _utils.has_nodata(band1, 5) == True
+        assert _utils.has_nodata(band1, -999) == False

@@ -25,7 +25,7 @@ import rasterio
 
 from pfdf import dem
 from pfdf.errors import DimensionError, ShapeError
-from pfdf.utils import load_raster, save_raster
+from pfdf._utils import load_raster, save_raster
 
 #####
 # Testing Utilities

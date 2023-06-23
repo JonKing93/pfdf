@@ -40,7 +40,7 @@ from typing import Any, Dict, Optional, Set
 
 import numpy as np
 
-from pfdf import validate
+from pfdf import _validate
 from pfdf.typing import (
     Output_Raster,
     Pathlike,
@@ -52,7 +52,7 @@ from pfdf.typing import (
     scalar,
     strs,
 )
-from pfdf.utils import astuple, nodata_mask, real, save_raster
+from pfdf._utils import astuple, nodata_mask, real, save_raster
 
 # The classification scheme used in the module
 _classification = {
@@ -126,8 +126,8 @@ def mask(
 
     # Validate inputs
     descriptions = _validate_descriptions(descriptions)
-    path, save = validate.output_path(path, overwrite)
-    severity, _ = validate.raster(severity, "burn severity raster")
+    path, save = _validate.output_path(path, overwrite)
+    severity, _ = _validate.raster(severity, "burn severity raster")
 
     # Get the queried classes and build the severity mask
     classes = [
@@ -211,8 +211,8 @@ def estimate(
 
     # Validate inputs
     thresholds = _validate_thresholds(thresholds)
-    path, save = validate.output_path(path, overwrite)
-    raster, nodata = validate.raster(raster, "input raster", numpy_nodata=nodata)
+    path, save = _validate.output_path(path, overwrite)
+    raster, nodata = _validate.raster(raster, "input raster", numpy_nodata=nodata)
 
     # Preallocate. Get nodata mask
     severity = np.empty(raster.shape, dtype="int8")
@@ -259,7 +259,7 @@ def _validate_descriptions(descriptions: Any) -> Set[str]:
 
 def _validate_thresholds(thresholds: Any) -> Threshold_Array:
     "Checks that thresholds are sorted and not NaN"
-    thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
+    thresholds = _validate.vector(thresholds, "thresholds", dtype=real, length=3)
     nans = np.isnan(thresholds)
     if np.any(nans):
         bad = np.argwhere(nans)[0]
