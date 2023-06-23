@@ -31,9 +31,6 @@ from pfdf.rasters import NumpyRaster
 # Testing Utilities
 #####
 
-# DEM should only be tested with TauDEM
-pytestmark = pytest.mark.taudem
-
 # TauDEM floating-point fill value
 fmin = np.finfo("float32").min
 
@@ -366,7 +363,7 @@ class TestPaths:
         assert output[2] == fraster
         assert output[3] == tmp_path / "output-2.tif"
 
-
+@pytest.mark.taudem
 class TestRunTaudem:
     def test_verbose(_, tmp_path, fraster, capfd):
         dem_data = fraster
@@ -406,7 +403,7 @@ class TestOutput:
 # Low Level
 #####
 
-
+@pytest.mark.taudem
 class TestPitRemove:
     def test(_, fdem, fpitfilled, tmp_path):
         pitfilled = tmp_path / "output.tif"
@@ -418,6 +415,7 @@ class TestPitRemove:
         expected = _Raster(fpitfilled)
         assert np.array_equal(output.values, expected.values)
 
+@pytest.mark.taudem
 
 class TestFlowD8:
     def test(_, fpitfilled, fflow8, fslopes8, tmp_path):
@@ -437,6 +435,7 @@ class TestFlowD8:
         expected = _Raster(fslopes8).values.astype(float)
         assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
+@pytest.mark.taudem
 
 class TestFlowDinf:
     def test_flow_dinf(_, fpitfilled, fflowi, fslopesi, tmp_path):
@@ -456,6 +455,7 @@ class TestFlowDinf:
         expected = _Raster(fslopesi).values[1, 1:3].astype(float)
         assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
+@pytest.mark.taudem
 
 class TestAreaD8:
     def test_unweighted(_, fflow8, fareau, tmp_path):
@@ -478,6 +478,7 @@ class TestAreaD8:
         expected = _Raster(fareaw).values
         assert np.array_equal(output, expected)
 
+@pytest.mark.taudem
 
 class TestReliefDinf:
     def test(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path):
@@ -495,6 +496,7 @@ class TestReliefDinf:
 # User Functions
 #####
 
+@pytest.mark.taudem
 
 class TestPitfill:
     def test_verbose(_, fdem, capfd):
@@ -541,6 +543,7 @@ class TestPitfill:
         expected = _Raster(fpitfilled).values
         assert np.array_equal(output, expected)
 
+@pytest.mark.taudem
 
 class TestFlowDirections:
     def test_verbose(_, fpitfilled, capfd):
@@ -679,6 +682,7 @@ class TestFlowDirections:
         expected = _Raster(fslopesi).values[1, 1:3]
         assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
+@pytest.mark.taudem
 
 class TestUpslopePixels:
     def test_warnings(_, fflow8, capfd):
@@ -738,6 +742,7 @@ class TestUpslopePixels:
         flow[0, 0] = value
         dem.upslope_pixels(flow, check=False)
 
+@pytest.mark.taudem
 
 class TestUpslopeSum:
     def test_verbose(_, fflow8, fweights, capfd):
@@ -813,6 +818,7 @@ class TestUpslopeSum:
         mask = _Raster(fmask).values
         dem.upslope_sum(fflow8, fweights, mask, check=False)
 
+@pytest.mark.taudem
 
 class TestRelief:
     def test_verbose(_, fpitfilled, fflowi, fslopesi, capfd):
