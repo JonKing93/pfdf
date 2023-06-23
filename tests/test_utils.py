@@ -5,13 +5,11 @@ Requirements:
     * pytest, numpy, rasterio
 """
 
-import warnings
 
 import numpy as np
 import pytest
-import rasterio
 
-from pfdf import _utils
+from dfha import _utils
 
 
 #####
@@ -20,36 +18,6 @@ from pfdf import _utils
 @pytest.fixture
 def band1():
     return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4).astype(float)
-
-
-@pytest.fixture
-def band2(band1):
-    return band1 * 10
-
-
-@pytest.fixture
-def fraster(tmp_path, band1, band2):
-    raster = tmp_path / "raster.tif"
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
-        with rasterio.open(
-            raster,
-            "w",
-            driver="GTiff",
-            height=band1.shape[0],
-            width=band1.shape[1],
-            count=2,
-            dtype=band1.dtype,
-            nodata=1,
-        ) as file:
-            file.write(band1, 1)
-            file.write(band2, 2)
-    return raster
-
-
-@pytest.fixture
-def output_path(tmp_path):
-    return tmp_path / "output.tif"
 
 
 #####
@@ -108,66 +76,6 @@ def test_aslist(input, expected):
 )
 def test_astuple(input, expected):
     assert _utils.astuple(input) == expected
-
-
-#####
-# Rasters
-#####
-
-
-class TestLoadRaster:
-    def test_array(_, band1):
-        output = _utils.load_raster(band1)
-        assert np.array_equal(output, band1)
-
-    # Band should be ignored when given an ndarray as input
-    @pytest.mark.parametrize("band", [(1), (2), (3)])
-    def test_array_band(_, band1, band):
-        output = _utils.load_raster(band1, band=band)
-        assert np.array_equal(output, band1)
-
-    def test_path(_, fraster, band1):
-        output = _utils.load_raster(fraster)
-        assert np.array_equal(output, band1)
-
-    def test_path_band2(_, fraster, band2):
-        output = _utils.load_raster(fraster, band=2)
-        assert np.array_equal(output, band2)
-
-
-@pytest.mark.filterwarnings("ignore::rasterio.errors.NotGeoreferencedWarning")
-class TestSaveRaster:
-    def test(_, band1, output_path):
-        _utils.save_raster(band1, output_path)
-        with rasterio.open(output_path) as file:
-            assert file.count == 1
-            raster = file.read(1)
-            assert np.array_equal(raster, band1)
-
-    @pytest.mark.parametrize("nodata", (np.nan, 0, -999))
-    def test_nodata(_, band1, output_path, nodata):
-        _utils.save_raster(band1, output_path, nodata)
-        with rasterio.open(output_path) as file:
-            assert file.count == 1
-            assert np.array_equal(file.nodata, nodata, equal_nan=True)
-            raster = file.read(1)
-            assert np.array_equal(raster, band1)
-
-    def test_bool(_, band1, output_path):
-        band1 = band1.astype(bool)
-        _utils.save_raster(band1, output_path)
-        with rasterio.open(output_path) as file:
-            assert file.count == 1
-            raster = file.read(1)
-            assert np.array_equal(raster, band1)
-
-
-class TestRasterShape:
-    def test_array(_, band1):
-        assert _utils.raster_shape(band1) == band1.shape
-
-    def test_file(_, fraster, band1):
-        assert _utils.raster_shape(fraster) == band1.shape
 
 
 #####

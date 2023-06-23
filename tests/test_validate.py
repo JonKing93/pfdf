@@ -6,10 +6,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import rasterio
 
-from pfdf import _validate
-from pfdf.errors import DimensionError, ShapeError
+from dfha import _validate
+from dfha._rasters import Raster
 
 #####
 # Fixtures and testing utilities
@@ -33,58 +32,16 @@ def band1():
 
 
 @pytest.fixture
-def band2(band1):
-    return band1 * 10
-
-
-@pytest.fixture
-def raster(tmp_path, band1, band2):
-    raster = tmp_path / "raster.tif"
-    with rasterio.open(
-        raster,
-        "w",
-        driver="GTiff",
-        height=band1.shape[0],
-        width=band1.shape[1],
-        count=2,
-        nodata=4,
-        dtype=band1.dtype,
-        crs="+proj=latlong",
-        transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
-    ) as file:
-        file.write(band1, 1)
-        file.write(band2, 2)
-    return raster
-
-
-# A complex-valued raster
-@pytest.fixture
-def craster(tmp_path, band1):
-    band1 = band1.astype(np.csingle)
-    raster = tmp_path / "raster.tif"
-    with rasterio.open(
-        raster,
-        "w",
-        driver="GTiff",
-        height=band1.shape[0],
-        width=band1.shape[1],
-        count=2,
-        nodata=4,
-        dtype=band1.dtype,
-        crs="+proj=latlong",
-        transform=rasterio.transform.Affine(300, 0, 101985, 0, -300, 2826915),
-    ) as file:
-        file.write(band1, 1)
-    return raster
-
-
-def check_equal(array1, array2):
-    assert np.array_equal(array1, array2)
-
-
-@pytest.fixture
 def mask():
     return np.array([True, False, False, True]).reshape(2, 2)
+
+
+@pytest.fixture
+def raster(tmp_path):
+    path = Path(tmp_path) / "output.tif"
+    a = np.arange(0, 8).reshape(2, 4)
+    Raster(a).save(path)
+    return path
 
 
 ###
@@ -203,39 +160,39 @@ class TestVector:
     def test_list(_):
         a = [1, 2, 3, 4, 5]
         output = _validate.vector(a, "")
-        check_equal(output, np.array(a))
+        np.array_equal(output, np.array(a))
 
     def test_tuple(_):
         a = (1, 2, 3, 4, 5)
         output = _validate.vector(a, "")
-        check_equal(output, np.array(a))
+        np.array_equal(output, np.array(a))
 
     def test_1D(_):
         a = np.array([1, 2, 3, 4, 5])
         output = _validate.vector(a, "")
-        check_equal(output, a)
+        np.array_equal(output, a)
 
     @pytest.mark.parametrize("shape", [(1, 5), (1, 1, 1, 1, 5), (1, 1, 5, 1, 1)])
     def test_ND(_, shape):
         a = np.array([1, 2, 3, 4, 5]).reshape(*shape)
         output = _validate.vector(a, "")
-        check_equal(output, a.reshape(5))
+        np.array_equal(output, a.reshape(5))
 
     @pytest.mark.parametrize("types", [(np.integer), ([np.integer, np.floating])])
     def test_dtype(_, types):
         a = np.array([1, 2, 3, 4, 5])
         output = _validate.vector(a, "", dtype=types)
-        check_equal(output, a)
+        np.array_equal(output, a)
 
     def test_length(_):
         a = np.arange(1, 6)
         output = _validate.vector(a, "", length=5)
-        check_equal(output, a)
+        np.array_equal(output, a)
 
     def test_scalar(self):
         a = 2.2
         output = _validate.vector(a, "")
-        check_equal(output, np.array(a).reshape(1))
+        np.array_equal(output, np.array(a).reshape(1))
 
     def test_dtype_failed(self):
         a = np.arange(0, 5, dtype=int)
@@ -270,51 +227,51 @@ class TestMatrix:
     def test_list(_):
         a = [1, 2, 3, 4]
         output = _validate.matrix(a, "")
-        check_equal(output, np.array(a).reshape(1, 4))
+        np.array_equal(output, np.array(a).reshape(1, 4))
 
     def test_tuple(_):
         a = (1, 2, 3, 4)
         output = _validate.matrix(a, "")
-        check_equal(output, np.array(a).reshape(1, 4))
+        np.array_equal(output, np.array(a).reshape(1, 4))
 
     def test_2D(_):
         a = np.arange(0, 10).reshape(2, 5)
         output = _validate.matrix(a, "")
-        check_equal(output, a)
+        np.array_equal(output, a)
 
     def test_trailing(_):
         a = np.arange(0, 10).reshape(2, 5, 1, 1, 1)
         output = _validate.matrix(a, "")
-        check_equal(output, a.reshape(2, 5))
+        np.array_equal(output, a.reshape(2, 5))
 
     def test_dtype(_):
         a = np.arange(0, 10, dtype=int).reshape(2, 5)
         output = _validate.matrix(a, "", dtype=np.integer)
-        check_equal(output, a)
+        np.array_equal(output, a)
 
     def test_shape(_):
         a = np.arange(0, 10).reshape(2, 5)
         output = _validate.matrix(a, "", shape=(2, 5))
-        check_equal(output, a)
+        np.array_equal(output, a)
 
     def test_skip_shape(_):
         a = np.arange(0, 10).reshape(2, 5)
         output = _validate.matrix(a, "", shape=(-1, 5))
-        check_equal(output, a)
+        np.array_equal(output, a)
         output = _validate.matrix(a, "", shape=(2, -1))
-        check_equal(output, a)
+        np.array_equal(output, a)
         output = _validate.matrix(a, "", shape=(-1, -1))
-        check_equal(output, a)
+        np.array_equal(output, a)
 
     def test_scalar(_):
         a = 5
         output = _validate.matrix(a, "")
-        check_equal(output, np.array(a).reshape(1, 1))
+        np.array_equal(output, np.array(a).reshape(1, 1))
 
     def test_vector(_):
         a = np.arange(0, 10)
         output = _validate.matrix(a, "")
-        check_equal(output, a.reshape(1, -1))
+        np.array_equal(output, a.reshape(1, -1))
 
     def test_dtype_failed(self):
         a = np.arange(0, 10, dtype=int)
@@ -349,161 +306,8 @@ class TestMatrix:
 
 
 #####
-# Rasters
+# File IO
 #####
-
-
-class TestRasterType:
-    name = "test name"
-
-    def test_string(self, raster, band1):
-        output, isfile = _validate._raster_type(str(raster), "")
-        assert output == raster
-        assert isfile == True
-
-    def test_path(_, raster, band1):
-        output, isfile = _validate._raster_type(raster, "")
-        assert output == raster
-        assert isfile == True
-
-    def test_reader(_, raster, band1):
-        with rasterio.open(raster) as reader:
-            output, isfile = _validate._raster_type(reader, "")
-        assert output == raster
-        assert isfile == True
-
-    def test_array(_, band1):
-        output, isfile = _validate._raster_type(band1, "")
-        check_equal(output, band1)
-        assert isfile == False
-
-    def test_bad_string(self):
-        raster = "not a file"
-        with pytest.raises(FileNotFoundError):
-            _validate._raster_type(raster, self.name)
-
-    def test_missing(self, raster):
-        raster.unlink()
-        raster = str(raster)
-        with pytest.raises(FileNotFoundError):
-            _validate._raster_type(raster, self.name)
-
-    def test_old_reader(self, raster):
-        with rasterio.open(raster) as reader:
-            reader.close()
-            raster.unlink()
-            with pytest.raises(FileNotFoundError) as error:
-                _validate._raster_type(reader, self.name)
-            assert_contains(error, "no longer exists", str(raster))
-
-    def test_other(self):
-        with pytest.raises(TypeError) as error:
-            _validate._raster_type(np, self.name)
-        assert_contains(
-            error,
-            self.name,
-            "str, pathlib.Path, rasterio.DatasetReader, or 2D numpy.ndarray",
-        )
-
-
-class TestRasterFile:
-    name = "test name"
-
-    def test_shape(self, raster, band1):
-        output, nodata = _validate._raster_file(raster, "", shape=band1.shape, load=True)
-        check_equal(output, band1)
-        assert nodata == 4
-
-    def test_invalid_shape(self, raster):
-        with pytest.raises(ShapeError) as error:
-            _validate._raster_file(raster, self.name, shape=(1000, 1000), load=True)
-        assert_contains(error, self.name)
-
-    def test_noload(self, raster):
-        output, nodata = _validate._raster_file(raster, "", shape=None, load=False)
-        assert output == raster
-        assert nodata == 4
-
-    def test_invalid_dtype(self, craster):
-        with pytest.raises(TypeError) as error:
-            _validate._raster_file(craster, "", shape=None, load=False)
-        assert_contains(error, "floating", "integer", "bool")
-
-
-class TestRasterArray:
-    name = "test name"
-
-    def test_invalid_dtype(self, band1):
-        band1 = band1.astype(np.csingle)
-        with pytest.raises(TypeError) as error:
-            _validate._raster_array(
-                band1, self.name, shape=None, nodata=None, nodata_name=""
-            )
-        assert_contains(error, "integer", "floating", "bool")
-
-    def test_shape(self):
-        raster = np.arange(0, 10).reshape(2, 5)
-        output, nodata = _validate._raster_array(
-            raster, "", shape=(2, 5), nodata=None, nodata_name=""
-        )
-        check_equal(raster, output)
-        assert nodata is None
-
-    def test_invalid_shape(self):
-        raster = np.arange(0, 10).reshape(2, 5)
-        with pytest.raises(ShapeError) as error:
-            _validate._raster_array(
-                raster, self.name, shape=(3, 6), nodata=None, nodata_name=""
-            )
-        assert_contains(error, self.name)
-
-    def test_nodata(self, band1):
-        output, nodata = _validate._raster_array(
-            band1, "", shape=None, nodata=-999, nodata_name=""
-        )
-        check_equal(band1, output)
-        assert nodata == -999
-
-    def test_invalid_nodata(self, band1):
-        with pytest.raises(TypeError) as error:
-            _validate._raster_array(
-                band1,
-                "test name",
-                shape=None,
-                nodata="invalid",
-                nodata_name="some nodata name",
-            )
-        assert_contains(error, "some nodata name")
-
-    def test_not_matrix(self, band1):
-        band1 = np.stack((band1, band1), axis=-1)
-        with pytest.raises(DimensionError) as error:
-            _validate._raster_array(
-                band1, "test name", shape=None, nodata=None, nodata_name=""
-            )
-        assert_contains(error, "test name")
-
-
-# Most functionality is tested via the tests of the private raster validaters.
-# Only need to check the intersection of file-based and numpy options here
-class TestRaster:
-    @pytest.mark.parametrize("numpy_nodata", (-999, "invalid"))
-    def test_file_numpy_nodata(self, raster, band1, numpy_nodata):
-        output, nodata = _validate.raster(
-            raster, "test name", shape=None, numpy_nodata=numpy_nodata
-        )
-        check_equal(output, band1)
-        assert nodata == 4
-
-    def test_file_noload(self, raster):
-        output, nodata = _validate.raster(raster, "", shape=None, load=False)
-        assert output == raster
-        assert nodata == 4
-
-    def test_numpy_noload(self, band1):
-        output, nodata = _validate.raster(band1, "", numpy_nodata=-999, load=False)
-        check_equal(output, band1)
-        assert nodata == -999
 
 
 class TestOutputPath:
@@ -518,22 +322,19 @@ class TestOutputPath:
 
     @pytest.mark.parametrize("overwrite", (True, False))
     def test_none(_, overwrite):
-        path, save = _validate.output_path(None, overwrite)
+        path = _validate.output_path(None, overwrite)
         assert path is None
-        assert save == False
 
     @pytest.mark.parametrize(
         "path", ("some-file", "some-file.tif", "some-file.tiff", "some-file.TiFf")
     )
     def test_valid(_, path):
-        output, save = _validate.output_path(path, True)
+        output = _validate.output_path(path, True)
         assert output == Path("some-file.tif").resolve()
-        assert save == True
 
     def test_valid_overwrite(_, raster):
-        output, save = _validate.output_path(raster, True)
+        output = _validate.output_path(raster, True)
         assert output == raster.resolve()
-        assert save == True
 
 
 #####
@@ -548,28 +349,28 @@ class TestIsData:
     def test_both(_, band1):
         isdata = band1 > 6
         output = _validate._isdata(band1, isdata, 4)
-        check_equal(output, isdata)
+        np.array_equal(output, isdata)
 
     def test_isdata(_, band1):
         isdata = band1 > 6
         output = _validate._isdata(band1, isdata, None)
-        check_equal(output, isdata)
+        np.array_equal(output, isdata)
 
     def test_nodata(_, band1):
         expected = band1 != 4
         output = _validate._isdata(band1, None, nodata=4)
-        check_equal(output, expected)
+        np.array_equal(output, expected)
 
 
 class TestDataElements:
     def test(_, band1):
         isdata = band1 > 6
         output = _validate._data_elements(band1, isdata)
-        check_equal(output, band1[isdata])
+        np.array_equal(output, band1[isdata])
 
     def test_none(_, band1):
         output = _validate._data_elements(band1, None)
-        check_equal(output, band1)
+        np.array_equal(output, band1)
 
 
 class TestFirstFailure:
@@ -786,14 +587,14 @@ class TestMask:
         a = np.array([nodata, nodata, 1, 1, 0])
         output = _validate.mask(a, "", nodata=nodata)
         expected = np.array([False, False, True, True, False])
-        check_equal(output, expected)
+        np.array_equal(output, expected)
 
     def test_isdata(_):
         a = np.array([-3, -2, -1, 0, 1, 1, 0, 0])
         isdata = np.array([False] * 4 + [True] * 4)
         output = _validate.mask(a, "", isdata=isdata)
         expected = np.array([False] * 4 + [True, True, False, False])
-        check_equal(output, expected)
+        np.array_equal(output, expected)
 
 
 class TestFlow:
@@ -802,7 +603,7 @@ class TestFlow:
         a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
         _validate.flow(a, "test name")
 
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:pfdf.validate")
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
     def test_invalid(_, value):
         a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)

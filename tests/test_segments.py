@@ -35,9 +35,10 @@ import numpy as np
 import pytest
 import rasterio
 
-from pfdf import _validate, segments
-from pfdf.errors import RasterShapeError
-from pfdf.segments import Segments
+from dfha import _validate, segments
+from dfha._rasters import Raster as _Raster
+from dfha.errors import RasterShapeError
+from dfha.segments import Segments
 
 
 #####
@@ -272,7 +273,7 @@ class TestKernel:
     def test_init(_):
         kernel = segments._Kernel(4, 100, 250)
         assert isinstance(kernel, segments._Kernel)
-        assert kernel.neighborhood == 4
+        assert kernel.N == 4
         assert kernel.nRows == 100
         assert kernel.nCols == 250
         assert kernel.row is None
@@ -428,17 +429,20 @@ class TestKernel:
     )
     def test_orthogonal_slopes(_, kernel2, dem, flow, slopes):
         dem[2, 2] = 1
-        output = kernel2.orthogonal_slopes(flow, length=10, dem=dem, nodata=None)
+        output = kernel2.orthogonal_slopes(flow, length=10, dem=_Raster(dem))
         slopes = np.array(slopes).reshape(1, 2)
         assert np.array_equal(output, slopes)
 
     def test_orthogonal_slopes_nodata(_, kernel2, dem):
         dem[2, 2] = 1
-        output = kernel2.orthogonal_slopes(flow=1, length=10, dem=dem, nodata=23)
+        dem = _Raster(dem)
+        dem.nodata = 23
+        output = kernel2.orthogonal_slopes(flow=1, length=10, dem=dem)
         expected = np.array([1.4, np.nan]).reshape(1, 2)
         assert np.array_equal(output, expected, equal_nan=True)
 
-        output = kernel2.orthogonal_slopes(flow=8, length=10, dem=dem, nodata=16)
+        dem.nodata = 16
+        output = kernel2.orthogonal_slopes(flow=8, length=10, dem=dem)
         expected = np.array([np.nan, 2.4]).reshape(1, 2)
         assert np.array_equal(output, expected, equal_nan=True)
 
@@ -489,11 +493,6 @@ class TestInit:
         with pytest.raises(_validate.DimensionError):
             Segments(stream)
 
-    def test_nodata(self, stream, indices):
-        stream[0, 0] = -1
-        segments = Segments(stream, nodata=-1)
-        self.validate(segments, indices)
-
 
 class TestIds:
     def test(_, segments5):
@@ -535,47 +534,33 @@ class TestStr:
 class TestValidate:
     @pytest.mark.parametrize("load", [(True), (False)])
     def test_valid_numpy(_, segments5, stream, load):
-        output, nodata = segments5._validate(stream, "", nodata=None, load=load)
-        assert np.array_equal(output, stream)
-        assert nodata is None
+        output = segments5._validate(stream, "", load=load)
+        assert isinstance(output, _Raster)
+        assert np.array_equal(output.values, stream)
 
     def test_valid_file(_, segments5, stream_path):
-        output, nodata = segments5._validate(stream_path, "", nodata=None)
-        with rasterio.open(stream_path) as data:
-            expected = data.read(1)
-        assert np.array_equal(output, expected)
-        assert nodata == -999
+        output = segments5._validate(stream_path, "")
+        assert isinstance(output, _Raster)
+        assert np.array_equal(output.values, _Raster(stream_path).values)
 
-    def test_str_noload(_, segments5, stream_path):
-        output, nodata = segments5._validate(
-            str(stream_path), "", nodata=None, load=False
-        )
-        assert output == stream_path
-        assert nodata == -999
-
-    def test_path_noload(_, segments5, stream_path):
-        output, nodata = segments5._validate(stream_path, "", nodata=None, load=False)
-        assert output == stream_path
-        assert nodata == -999
+    def test_file_noload(_, segments5, stream_path):
+        output = segments5._validate(str(stream_path), "", load=False)
+        assert isinstance(output, _Raster)
+        assert output.values is None
 
     def test_not_raster(_, segments5, stream):
         bad = np.stack((stream, stream))
         name = "raster name"
         with pytest.raises(_validate.DimensionError) as error:
-            segments5._validate(bad, name, nodata=None)
+            segments5._validate(bad, name)
         assert_contains(error, name)
 
     def test_wrong_shape(_, segments5):
         bad = np.array([1, 2, 3])
         name = "raster name"
         with pytest.raises(RasterShapeError) as error:
-            segments5._validate(bad, name, nodata=None)
+            segments5._validate(bad, name)
         assert_contains(error, name)
-
-    def test_nodata(_, segments5, stream):
-        output, nodata = segments5._validate(stream, "", nodata=-999)
-        assert np.array_equal(output, stream)
-        assert nodata == -999
 
 
 class TestFlowLength:
@@ -608,36 +593,44 @@ class TestConfinementAngle:
 class Test_Confinement:
     def test(_, segmentsc, flowc, demc):
         expected = np.array([105, 120])
-        output = segmentsc._confinement(demc, None, flowc, None, 1, 1)
+        dem = _Raster(demc)
+        flow = _Raster(flowc)
+        output = segmentsc._confinement(dem, flow, 1, 1)
         assert np.array_equal(output, expected)
 
     def test_flow_nodata(_, segmentsc, flowc, demc):
         expected = np.array([np.nan, 120])
-        output = segmentsc._confinement(
-            demc, None, flowc, flow_nodata=1, neighborhood=1, resolution=1
-        )
+        dem = _Raster(demc)
+        flow = _Raster(flowc)
+        flow.nodata = 1
+        output = segmentsc._confinement(dem, flow, N=1, resolution=1)
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_dem_nodata(_, segmentsc, flowc, demc):
         expected = np.array([np.nan, 120])
-        output = segmentsc._confinement(demc, 1, flowc, None, 1, 1)
+        dem = _Raster(demc)
+        dem.nodata = 1
+        flow = _Raster(flowc)
+        output = segmentsc._confinement(dem, flow, 1, 1)
         assert np.array_equal(output, expected, equal_nan=True)
 
 
 class Test_Summary:
     def test_mean(_, segments3, values3):
         expected = np.array([-8.5, 3, 2.2])
-        output = segments3._summary(values3, np.mean, None)
+        output = segments3._summary(_Raster(values3), np.mean)
         assert np.array_equal(output, expected)
 
     def test_max(_, segments3, values3):
         expected = np.array([-8, 4, 2.2])
-        output = segments3._summary(values3, np.amax, None)
+        output = segments3._summary(_Raster(values3), np.amax)
         assert np.array_equal(output, expected)
 
     def test_nodata(_, segments3, values3):
-        expected = np.array([np.nan, 3, 2.2])
-        output = segments3._summary(values3, np.mean, nodata=-8)
+        expected = np.array([-8.5, 3, 2.2])
+        raster = _Raster(values3)
+        raster.nodata = -8.5
+        output = segments3._summary(raster, np.mean)
         assert np.array_equal(output, expected, equal_nan=True)
 
 
@@ -658,13 +651,7 @@ class TestBasins:
             segments3.basins(values3)
         assert_contains(error, "upslope_basins")
 
-    def test_nodata(_, segments3, values3):
-        expected = np.array([np.nan, 4, 2.2])
-        output = segments3.basins(values3, nodata=-8)
-        assert np.array_equal(output, expected, equal_nan=True)
 
-
-@pytest.mark.taudem
 class TestCatchmentMean:
     def test_have_npixels(_, segments3, flow3, catchment3):
         # Use npixels=1 (instead of real N) to check not calculating internally
@@ -728,7 +715,7 @@ class TestConfinement:
     def test_invalid_N(_, segmentsc, demc, flowc):
         with pytest.raises(ValueError) as error:
             segmentsc.confinement(demc, flowc, -2, 1)
-        assert_contains(error, "neighborhood")
+        assert_contains(error, "N")
 
     def test_invalid_resolution(_, segmentsc, demc, flowc):
         with pytest.raises(ValueError) as error:
@@ -760,11 +747,6 @@ class TestDevelopment:
             segments3.development(values3)
         assert_contains(error, "upslope_development")
 
-    def test_nodata(_, segments3, values3):
-        expected = np.array([np.nan, 3, 2.2])
-        output = segments3.development(values3, nodata=-8)
-        assert np.array_equal(output, expected, equal_nan=True)
-
 
 class TestPixels:
     def test(_, segments3, values3):
@@ -777,11 +759,6 @@ class TestPixels:
         with pytest.raises(RasterShapeError) as error:
             segments3.pixels(values3)
         assert_contains(error, "upslope_pixels")
-
-    def test_nodata(_, segments3, values3):
-        expected = np.array([np.nan, 4, 2.2])
-        output = segments3.pixels(values3, nodata=-8)
-        assert np.array_equal(output, expected, equal_nan=True)
 
 
 class TestRemove:
@@ -852,11 +829,6 @@ class TestSlope:
             segments3.slope(values3)
         assert_contains(error, "slopes")
 
-    def test_nodata(_, segments3, values3):
-        expected = np.array([np.nan, 3, 2.2])
-        output = segments3.slope(values3, nodata=-8)
-        assert np.array_equal(output, expected, equal_nan=True)
-
 
 class TestSummary:
     @pytest.mark.parametrize(
@@ -891,8 +863,3 @@ class TestSummary:
         with pytest.raises(ValueError) as error:
             segments3.summary(bad, values3)
         assert_contains(error, bad)
-
-    def test_nodata(_, segments3, values3):
-        expected = np.array([np.nan, 3, 2.2])
-        output = segments3.summary("mean", values3, nodata=-8)
-        assert np.array_equal(output, expected, equal_nan=True)

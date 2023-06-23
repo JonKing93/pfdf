@@ -7,9 +7,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pfdf import severity
-from pfdf.errors import ShapeError
-from pfdf._utils import load_raster
+from dfha import severity
+from dfha._rasters import Raster as _Raster, output
+from dfha.errors import ShapeError
+from dfha.rasters import NumpyRaster
 
 #####
 # Testing utilities
@@ -181,13 +182,13 @@ class TestMask:
     def test_single(_, rseverity):
         output = severity.mask(rseverity, "moderate")
         expected = rseverity == 3
-        assert np.array_equal(output, expected)
+        assert np.array_equal(output.array, expected)
 
     def test_multiple(_, rseverity):
         levels = ["high", "moderate"]
         output = severity.mask(rseverity, levels)
         expected = (rseverity == 3) | (rseverity == 4)
-        assert np.array_equal(output, expected)
+        assert np.array_equal(output.array, expected)
 
     def test_save(_, rseverity, tmp_path):
         path = Path(tmp_path) / "output.tif"
@@ -196,24 +197,25 @@ class TestMask:
 
         assert path.is_file()
         assert output == path
-        output = load_raster(path)
+        output = _Raster(path)
         expected = (rseverity == 3) | (rseverity == 4)
         expected = expected.astype("int8")
-        assert np.array_equal(output, expected)
+        assert np.array_equal(output.values, expected)
 
 
 class TestEstimate:
     def test(_, dnbr, estimate):
         output = severity.estimate(dnbr)
-        assert np.array_equal(output, estimate)
+        assert np.array_equal(output.array, estimate)
 
     def test_thresholds(_, dnbr, thresholds, estimate_thresh):
         output = severity.estimate(dnbr, thresholds)
-        assert np.array_equal(output, estimate_thresh)
+        assert np.array_equal(output.array, estimate_thresh)
 
     def test_nodata(_, dnbr, estimate_nodata):
-        output = severity.estimate(dnbr, nodata=-1)
-        assert np.array_equal(output, estimate_nodata)
+        dnbr = NumpyRaster(dnbr, nodata=-1)
+        output = severity.estimate(dnbr)
+        assert np.array_equal(output.array, estimate_nodata)
 
     def test_save(_, dnbr, estimate, tmp_path):
         path = Path(tmp_path) / "output.tif"
@@ -221,5 +223,5 @@ class TestEstimate:
 
         assert path.is_file()
         assert output == path
-        output = load_raster(path)
-        assert np.array_equal(output, estimate)
+        output = _Raster(path)
+        assert np.array_equal(output.values, estimate)
