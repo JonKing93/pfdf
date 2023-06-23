@@ -1,4 +1,5 @@
 from pathlib import Path
+from warnings import catch_warnings, simplefilter
 
 import numpy as np
 import pytest
@@ -22,19 +23,11 @@ def araster():
 @pytest.fixture
 def fraster(tmp_path, araster):
     "A file-based raster"
-    raster = tmp_path / "raster.tif"
-    with rasterio.open(
-        raster,
-        "w",
-        driver="GTiff",
-        height=araster.shape[0],
-        width=araster.shape[1],
-        count=2,
-        dtype=araster.dtype,
-        nodata=1,
-    ) as file:
-        file.write(araster, 1)
-    return raster
+    path = tmp_path / "raster.tif"
+    raster = _Raster(araster)
+    raster.nodata = 1
+    raster.save(path)
+    return path
 
 
 def assert_contains(error, *strings):
@@ -193,9 +186,11 @@ class TestValidated:
         assert isinstance(output, _Raster)
 
     def test_reader(_, fraster):
-        with rasterio.open(fraster) as input:
-            output = validated(input, "")
-        assert isinstance(output, _Raster)
+        with catch_warnings():
+            simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
+            with rasterio.open(fraster) as input:
+                output = validated(input, "")
+            assert isinstance(output, _Raster)
 
     def test_array(_, araster):
         output = validated(araster, "")
@@ -217,12 +212,14 @@ class TestValidated:
             validated(fraster, "")
 
     def test_old_reader(_, fraster):
-        with rasterio.open(fraster) as reader:
-            reader.close()
-            fraster.unlink()
-            with pytest.raises(FileNotFoundError) as error:
-                validated(reader, "")
-            assert_contains(error, 'rasterio.DatasetReader', 'no longer exists')
+        with catch_warnings():
+            simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
+            with rasterio.open(fraster) as reader:
+                reader.close()
+                fraster.unlink()
+                with pytest.raises(FileNotFoundError) as error:
+                    validated(reader, "")
+                assert_contains(error, "rasterio.DatasetReader", "no longer exists")
 
     def test_invalid_type(_):
         with pytest.raises(TypeError) as error:

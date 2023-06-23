@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from pfdf import severity
-from pfdf._rasters import Raster as _Raster, output
+from pfdf._rasters import Raster as _Raster
 from pfdf.errors import ShapeError
 from pfdf.rasters import NumpyRaster
 

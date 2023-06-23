@@ -603,7 +603,7 @@ class TestFlow:
         a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
         _validate.flow(a, "test name")
 
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:pfdf.validate")
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:pfdf._validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
     def test_invalid(_, value):
         a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
