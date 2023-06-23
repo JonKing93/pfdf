@@ -1,12 +1,10 @@
 """
-validate  Functions that validate user inputs
+_validate  Functions that validate user inputs
 ----------
 The validate module contains functions that check user inputs and raise exceptions
 if the inputs are not valid. Some functions allow user inputs to be in multiple
 different formats. When this is the case, the function will return the input in 
-a standard format for internal processing. For example, the "raster"
-function accepts both file paths and numpy 2D arrays, but will return the
-validated raster as a numpy 2D array.
+a standard format for internal processing.
 
 Note on dtypes:
     In general, it is best to use numpy scalar types to indicate the allowed
@@ -19,33 +17,27 @@ Note on loaded arrays:
     As a rule, these tests only check the data elements of an array. That is,
     NoData elements are not included in the tests.
 ----------
-Array shape and type:
-    scalar          - Validates an input scalar
-    vector          - Validates an input vector
-    matrix          - Validates an input matrix
-
-Rasters:
-    raster          - Check that an input is a valid raster. Returns raster and NoData value
+File IO:
     output_path     - Check that an input is a valid path for an output raster
-
-Numeric arrays:
-    positive        - Checks that all elements are positive
-    integers        - Checks that all elements are integers (NOT that the dtype is an int)
-    inrange         - Checks that all elements are within a given range (inclusive)
-    mask            - Checks that an array is boolean-like (all 1s and 0s)
-    flow            - Checks that an array consists of TauDEM-style D8 flow directions
 
 Low-level:
     shape_          - Check that array shape is valid
     dtype_          - Checks that array dtype is valid
     nonsingleton    - Locate nonsingleton dimensions
 
-Raster utilities:
-    _raster_type    - Checks that an input is a valid raster type
-    _raster_file    - Checks that a file-based raster is valid
-    _raster_array   - Checks that a raster array is valid.
+Array shape and type:
+    scalar          - Validates an input scalar
+    vector          - Validates an input vector
+    matrix          - Validates an input matrix
 
-Array Utilities:
+Array elements:
+    positive        - Checks that all elements are positive
+    integers        - Checks that all elements are integers (NOT that the dtype is an int)
+    inrange         - Checks that all elements are within a given range (inclusive)
+    mask            - Checks that an array is boolean-like (all 1s and 0s)
+    flow            - Checks that an array consists of TauDEM-style D8 flow directions
+
+Array elements utilities:
     _check_bound    - Compares the elements of an ndarray to a bound
     _isdata         - Returns the data mask for an ndarray
     _data_elements  - Returns the data elements of an ndarray
@@ -55,25 +47,23 @@ Array Utilities:
 
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, Union
-from warnings import catch_warnings, simplefilter
 
 import numpy as np
-import rasterio
 from numpy import integer as int_
 from numpy import issubdtype as istype
 from numpy import unsignedinteger as uint_
 
+from pfdf._utils import aslist, astuple, data_mask
 from pfdf.errors import DimensionError, ShapeError
 from pfdf.typing import (
-    Boolean_Array,
-    Boolean_Mask,
+    BooleanArray,
+    BooleanMask,
     Mask,
-    Matrix_Array,
-    Raster_Array,
-    Real_Array,
-    Scalar_Array,
-    Validated_Raster,
-    Vector_Array,
+    MatrixArray,
+    OutputPath,
+    RealArray,
+    ScalarArray,
+    VectorArray,
     dtypes,
     nodata,
     scalar,
@@ -81,13 +71,65 @@ from pfdf.typing import (
     shape2d,
     strs,
 )
-from pfdf._utils import aslist, astuple, data_mask, real
 
 # Type aliases
-Output_Path = Union[None, Path]
+OutputPath = Union[None, Path]
 save = bool
-DataMask = Union[None, Boolean_Array]
+DataMask = Union[None, BooleanArray]
 index = Tuple[int, ...]
+
+
+#####
+# File IO
+#####
+
+
+def output_path(path: Any, overwrite: bool) -> OutputPath:
+    """
+    output_path  Validate and parse options for an output raster path
+    ----------
+    output_path(path, overwrite)
+    Validates the Path for an output raster. A valid path may either be None (for
+    returning the raster directly as an array), or convertible to a Path object.
+    Returns the Path to the output file (which may be None).
+
+    When a file path is provided, ensures the output file ends with a ".tif"
+    extension. Files ending with a (case-insensitive)".tif" or ".tiff" are given
+    a (lowercase) ".tif" extension. Otherwise, appends ".tif" to the end of the
+    file name.
+
+    If the file already exists and overwrite is set to False, raises a FileExistsError.
+    ----------
+    Inputs:
+        path: The user-provided Path to an output raster.
+
+    Outputs:
+        None|pathlib.Path: The Path for the output raster - this may be None if
+            not saving.
+
+    Raises:
+        FileExistsError: If the file exists and overwrite=False
+    """
+
+    # If saving, get an absolute Path
+    if path is not None:
+        path = Path(path).resolve()
+
+        # Optionally prevent overwriting
+        if not overwrite and path.is_file():
+            raise FileExistsError(
+                f"Output file already exists:\n\t{path}\n"
+                'If you want to replace existing files, use the "overwrite" option.'
+            )
+
+        # Ensure a .tif extension
+        extension = path.suffix
+        if extension.lower() in [".tiff", ".tif"]:
+            path = path.with_suffix(".tif")
+        else:
+            name = path.name + ".tif"
+            path = path.with_name(name)
+    return path
 
 
 #####
@@ -184,7 +226,7 @@ def nonsingleton(array: np.ndarray) -> List[bool]:
 #####
 
 
-def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> Scalar_Array:
+def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray:
     """
     scalar  Validate an input represents a scalar
     ----------
@@ -228,7 +270,7 @@ def vector(
     *,
     dtype: Optional[dtypes] = None,
     length: Optional[int] = None,
-) -> Vector_Array:
+) -> VectorArray:
     """
     vector  Validate an input represents a 1D numpy array
     ----------
@@ -286,7 +328,7 @@ def matrix(
     *,
     dtype: Optional[dtypes] = None,
     shape: Optional[shape2d] = None,
-) -> Matrix_Array:
+) -> MatrixArray:
     """
     matrix  Validate input represents a 2D numpy array
     ----------
@@ -347,250 +389,16 @@ def matrix(
 
 
 #####
-# Rasters
-#####
-
-
-def raster(
-    raster: Any,
-    name: str,
-    *,
-    shape: Optional[shape2d] = None,
-    load: bool = True,
-    numpy_nodata: Optional[scalar] = None,
-    nodata_name: str = "nodata",
-) -> Tuple[Validated_Raster, nodata]:
-    """
-    raster  Check input is valid raster and return in requested format
-    ----------
-    raster(raster, name)
-    Checks that the input is a valid raster. Valid rasters may be:
-        * A string with the path to a raster file path,
-        * A pathlib.Path to a raster file,
-        * An open rasterio.DatasetReader object, or
-        * A numpy 2D array with real-valued dtype
-
-    Returns the raster as a numpy 2D array. If the input was not a numpy array,
-    then the function will read the raster from file. Rasters will always be
-    read from band 1.
-
-    Raises exceptions if:
-        * a raster file does not exist
-        * a raster file cannot be opened by rasterio
-        * a numpy array does not have 2 dimensions
-        * a numpy array dtype is not an integer, floating, or boolean dtype
-        * the input is some other type
-
-    raster(..., *, shape)
-    Require the raster to have the specified shape. Raises a ShapeError if this
-    condition is not met.
-
-    raster(..., *, load=False)
-    Indicates that file-based rasters (those derived from a string, pathlib.Path,
-    or rasterio.DatasetReader object) should not be loaded into memory after
-    validating. If the input was a file-based raster, returns a pathlib.Path
-    object for the validated raster file instead of a numpy array. Input numpy
-    arrays are not affected and still return a numpy array.
-
-    raster(..., *, numpy_nodata)
-    raster(..., *, numpy_nodata, nodata_name)
-    Specifies a value to treat as NoData when the input raster is a numpy array.
-    If the raster is a valid numpy array, also validates this NoData value.
-    If the raster is file-based, this value is ignored and the NoData value is
-    instead determined from the file metadata. The "nodata_name" allows you to
-    customize the error message if the NoData value is not valid. The default
-    name is 'nodata'.
-    ----------
-    Inputs:
-        raster: The input being checked
-        name: The name of the input for use in error messages
-        shape: (Optional) A required shape for the raster. A 2-tuple, first
-            element is rows, second element is columns. If an element is -1,
-            disables shape checking for that axis.
-        load: True (default) if validated file-based rasters should be loaded
-            into memory and returned as a numpy array. If False, returns a
-            pathlib.Path object for file-based rasters.
-        numpy_nodata: A value to treat as NoData in the case that the raster is
-            a numpy array.
-        nodata_name: A name for the NoData value for use in error messages.
-            Default is 'nodata'.
-
-    Outputs:
-        numpy 2D array | pathlib.Path: The validated raster
-        numpy 1D array | None: The NoData value for the raster
-    """
-
-    raster, isfile = _raster_type(raster, name)
-    if isfile:
-        return _raster_file(raster, name, shape, load)
-    else:
-        return _raster_array(raster, name, shape, numpy_nodata, nodata_name)
-
-
-def _raster_type(raster: Any, name: str) -> Validated_Raster:
-    """Checks that an input raster is a valid type (str, Path, DatasetReader, or
-    numpy array), and raises a TypeError if not. If a file-based raster, converts
-    to a Path object and checks that the file exists. Raises a FileNotFoundError
-    if not. Returns the raster and whether the raster is file-based (as opposed
-    to a numpy array)."""
-
-    # Convert string to Path
-    if isinstance(raster, str):
-        raster = Path(raster)
-
-    # If Path, require file exists
-    if isinstance(raster, Path):
-        raster = raster.resolve(strict=True)
-        isfile = True
-
-    # If DatasetReader, check that the associated file exists. Get the
-    # associated Path to allow loading within a context manager without closing
-    # the user's object
-    elif isinstance(raster, rasterio.DatasetReader):
-        raster = Path(raster.name)
-        if not raster.exists():
-            raise FileNotFoundError(
-                f"The raster file associated with the input rasterio.DatasetReader "
-                f"object no longer exists.\nFile: {raster}"
-            )
-        isfile = True
-
-    # Numpy arrays are allowed, and are not file-based
-    elif isinstance(raster, np.ndarray):
-        isfile = False
-
-    # Anything else is invalid
-    else:
-        raise TypeError(
-            f"{name} is not a recognized raster type. Allowed types are: "
-            "str, pathlib.Path, rasterio.DatasetReader, or 2D numpy.ndarray"
-        )
-
-    # Return the pre-processed raster and type
-    return raster, isfile
-
-
-def _raster_file(
-    raster: Path, name: str, shape: Union[shape2d, None], load: bool
-) -> Tuple[Path, nodata]:
-    """Checks that a file-based raster has a valid dtype and shape. Optionally
-    loads the raster into memory. Returns the raster and its NoData value."""
-
-    # Always validate the first band
-    band = 1
-
-    # Suppress georeferencing warnings
-    with catch_warnings():
-        simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
-
-        # Get file metadata, use to validate the raster
-        with rasterio.open(raster) as file:
-            dtype_(name, allowed=real, actual=file.dtypes[band - 1])
-            if shape is not None:
-                shape_(
-                    name,
-                    ["rows", "columns"],
-                    required=shape,
-                    actual=(file.height, file.width),
-                )
-
-            # Get NoData value. Optionally load into memory
-            if load:
-                raster = file.read(band)
-            nodata = file.nodata
-
-    # Return the raster and NoData values
-    return raster, nodata
-
-
-def _raster_array(
-    raster: Raster_Array,
-    name: str,
-    shape: Union[shape2d, None],
-    nodata: nodata,
-    nodata_name: str,
-) -> Tuple[Raster_Array, nodata]:
-    """Checks that a user-provided numpy raster has a valid shape and dtype.
-    If a NoData value was provided, validates the value and converts it to the
-    same dtype as the raster. Returns the raster and NoData value."""
-
-    # Validate shape and dtype
-    raster = matrix(raster, name, shape=shape, dtype=real)
-
-    # Validate NoData
-    if nodata is not None:
-        nodata = scalar(nodata, nodata_name, real)
-        nodata = nodata.astype(raster.dtype)
-
-    # Return raster and NoData
-    return raster, nodata
-
-
-def output_path(path: Any, overwrite: bool) -> Tuple[Output_Path, save]:
-    """
-    output_path  Validate and parse options for an output raster path
-    ----------
-    output_path(path, overwrite)
-    Validates the Path for an output raster. A valid path may either be None (for
-    returning the raster directly as an array), or convertible to a Path object.
-    Returns the Path to the output file (which may be None), and a bool indicating
-    whether the output raster should be saved to file.
-
-    When a file path is provided, ensures the output file ends with a ".tif"
-    extension. Files ending with ".tif" or ".tiff" (case-insensitive) are given
-    to a ".tif" extension. Otherwise, appends ".tif" to the end of the file name.
-
-    If the file already exists and overwrite is set to False, raises a FileExistsError.
-    ----------
-    Inputs:
-        path: The user-provided Path to an output raster.
-
-    Outputs:
-        (None|pathlib.Path, bool): A 2-tuple. First element is the Path for the
-            output raster - this may be None if not saving. Second element
-            indicates whether the output raster should be saved to file.
-
-    Raises:
-        FileExistsError: If the file exists and overwrite=False
-    """
-
-    # Note whether saving to file
-    if path is None:
-        save = False
-    else:
-        save = True
-
-        # If saving, get an absolute Path
-        path = Path(path).resolve()
-
-        # Optionally prevent overwriting
-        if not overwrite and path.is_file():
-            raise FileExistsError(
-                f"Output file already exists:\n\t{path}\n"
-                'If you want to replace existing files, use the "overwrite" option.'
-            )
-
-        # Ensure a .tif extension
-        extension = path.suffix
-        if extension.lower() in [".tiff", ".tif"]:
-            path = path.with_suffix(".tif")
-        else:
-            name = path.name + ".tif"
-            path = path.with_name(name)
-    return path, save
-
-
-#####
 # Loaded arrays
 #####
 
 
 def positive(
-    array: Real_Array,
+    array: RealArray,
     name: str,
     *,
     allow_zero: bool = False,
-    isdata: Optional[Boolean_Array] = None,
+    isdata: Optional[BooleanArray] = None,
     nodata: Optional[scalar] = None,
 ) -> None:
     """
@@ -639,10 +447,10 @@ def positive(
 
 
 def integers(
-    array: Real_Array,
+    array: RealArray,
     name: str,
     *,
-    isdata: Optional[Boolean_Array] = None,
+    isdata: Optional[BooleanArray] = None,
     nodata: Optional[scalar] = None,
 ) -> None:
     """
@@ -683,12 +491,12 @@ def integers(
 
 
 def inrange(
-    array: Real_Array,
+    array: RealArray,
     name: str,
     min: Optional[scalar] = None,
     max: Optional[scalar] = None,
     *,
-    isdata: Optional[Boolean_Array] = None,
+    isdata: Optional[BooleanArray] = None,
     nodata: Optional[scalar] = None,
 ) -> None:
     """
@@ -730,9 +538,9 @@ def mask(
     array: Mask,
     name: str,
     *,
-    isdata: Optional[Boolean_Array] = None,
+    isdata: Optional[BooleanArray] = None,
     nodata: Optional[scalar] = None,
-) -> Boolean_Mask:
+) -> BooleanMask:
     """
     mask  Validates a boolean-like mask
     ----------
@@ -775,10 +583,10 @@ def mask(
 
 
 def flow(
-    array: Real_Array,
+    array: RealArray,
     name: str,
     *,
-    isdata: Optional[Boolean_Array] = None,
+    isdata: Optional[BooleanArray] = None,
     nodata: Optional[scalar] = None,
 ):
     """
@@ -817,7 +625,7 @@ def flow(
 
 
 def _check_bound(
-    array: Real_Array,
+    array: RealArray,
     name: str,
     isdata: DataMask,
     operator: str,
@@ -865,7 +673,7 @@ def _check_bound(
         _check(passed, f"{description} {bound}", array, name, isdata)
 
 
-def _isdata(array: Real_Array, isdata: Boolean_Array, nodata: nodata) -> DataMask:
+def _isdata(array: RealArray, isdata: BooleanArray, nodata: nodata) -> DataMask:
     """Parses isdata/nodata options and returns the data mask for the array
     (i.e. the mask of element that are not NoData). Note that if both options are
     None, then the data mask will be None, as no mask is necessary."""
@@ -874,7 +682,7 @@ def _isdata(array: Real_Array, isdata: Boolean_Array, nodata: nodata) -> DataMas
     return isdata
 
 
-def _data_elements(array: Real_Array, isdata: DataMask) -> Real_Array:
+def _data_elements(array: RealArray, isdata: DataMask) -> RealArray:
     """Returns the data elements of an array. (The elements that are not NoData)"""
     if isdata is None:
         return array
@@ -883,9 +691,9 @@ def _data_elements(array: Real_Array, isdata: DataMask) -> Real_Array:
 
 
 def _check(
-    passed: Boolean_Array,
+    passed: BooleanArray,
     description: str,
-    array: Real_Array,
+    array: RealArray,
     name: str,
     isdata: DataMask,
 ):
@@ -902,9 +710,9 @@ def _check(
 
 
 def _first_failure(
-    array: Real_Array,
+    array: RealArray,
     isdata: DataMask,
-    passed: Boolean_Array,
+    passed: BooleanArray,
 ) -> Tuple[index, scalar]:
     """
     _first_failure  Returns the indices and value of the first invalid data element

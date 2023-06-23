@@ -1,9 +1,9 @@
 """
-utils  Low-level utilities used throughout the package
+_utils  Low-level utilities used throughout the package
 ----------
 This module provides a variety of low-level functions used throughout the package.
-Broadly, these include functions for basic input parsing, raster IO, and functions
-to help locate NoData elements.
+Broadly, these include functions for basic input parsing, and functions to help 
+locate NoData elements.
 ----------
 Misc:
     real            - A list of numpy dtypes considered to be real-valued numbers
@@ -13,11 +13,6 @@ Sequence conversion:
     aslist          - Returns an input as a list
     astuple         - Returns an input as a tuple
 
-Rasters:
-    load_raster     - Returns a pre-validated raster as a numpy array
-    save_raster     - Saves a 2D numpy array raster to a GeoTIFF file
-    raster_shape    - Returns the shape of a file-based or numpy raster
-
 NoData:
     data_mask       - Returns the data mask for a raster array
     nodata_mask     - Returns the NoData mask for a raster array
@@ -26,22 +21,12 @@ NoData:
     has_nodata      - True if an array contains NoData values
 """
 
-from pathlib import Path
-from typing import Any, List, Optional, Tuple
-from warnings import catch_warnings, simplefilter
+from typing import Any, List, Tuple
 
-import rasterio
 from numpy import any as any_
-from numpy import bool_, floating, integer, isnan, ndarray
+from numpy import bool_, floating, integer, isnan
 
-from pfdf.typing import (
-    Data_Mask,
-    Raster_Array,
-    Real_Array,
-    Validated_Raster,
-    nodata,
-    scalar,
-)
+from pfdf.typing import DataMask, RealArray, nodata
 
 # Combination numpy dtypes
 real = [integer, floating, bool_]
@@ -93,124 +78,11 @@ def astuple(input: Any) -> Tuple:
 
 
 #####
-# Raster IO
-#####
-
-
-def load_raster(
-    raster: Validated_Raster,
-    *,
-    band: int = 1,
-) -> Raster_Array:
-    """
-    load_raster  Returns a raster as a numpy.ndarray
-    ----------
-    load_raster(raster)
-    Returns the input raster as a numpy.ndarray, loading data into memory if
-    given a raster file. This function is intended to be used in conjunction
-    with the validate.raster function with the load=False option, and enables
-    the loading of validated raster file at a later point. If given a numpy array,
-    returns the array back as output. If given a file-based raster, uses rasterio to
-    load the first band.
-
-    load_raster(..., *, band)
-    Loads the indicated raster band. The band option is ignored is the input is
-    a numpy array.
-    ----------
-    Inputs:
-        raster: The Path to a raster file or a raster as a 2D numpy array
-        band: The raster band to load from file. Default is band 1.
-
-    Outputs:
-        numpy 2D array: The raster as a numpy.ndarray
-    """
-
-    # If not a numpy array, load from file. Temporarily suppress georef warning
-    if not isinstance(raster, ndarray):
-        with catch_warnings():
-            simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
-            with rasterio.open(raster) as file:
-                raster = file.read(band)
-    return raster
-
-
-def save_raster(
-    raster: Raster_Array, path: Path, nodata: Optional[scalar] = None
-) -> None:
-    """
-    save_raster  Saves a numpy array (raster) to a GeoTIFF file
-    ----------
-    save_raster(raster, path)
-    Saves a 2D numpy array to the indicated GeoTIFF file. If the array is boolean,
-    saves as an int8 dtype. Note that this function does not currently support
-    geotransform options.
-
-    save_raster(raster, path, nodata)
-    Also specifies a nodata value for the raster. The nodata value is saved in
-    the GeoTIFF metadata (rather than as a nodata mask).
-    ----------
-    Inputs:
-        raster: A numpy 2D array. Should be an integer, floating, or boolean dtype
-        path: The path to the file in which to write the raster
-        nodata: A nodata value that should be saved in the GeoTIFF metadata.
-
-    Saves:
-        A GeoTIFF file matching the "path" input.
-    """
-
-    # Rasterio does not accept boolean dtype, so convert to int8 first
-    if raster.dtype == bool:
-        raster = raster.astype("int8")
-
-    # Temporarily disable the NotGeoreferencedWarning. This should eventually be
-    # replaced with functionality for crs and transform options.
-    with catch_warnings():
-        simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
-
-        # Save the raster
-        with rasterio.open(
-            path,
-            "w",
-            driver="GTiff",
-            height=raster.shape[0],
-            width=raster.shape[1],
-            count=1,
-            dtype=raster.dtype,
-            nodata=nodata,
-        ) as file:
-            file.write(raster, 1)
-
-
-def raster_shape(raster: Validated_Raster):
-    """
-    raster_shape  Returns the 2D shape of a file-based or numpy raster
-    ----------
-    raster_shape(raster)
-    Returns the 2D shape of a validated raster. Supports both file-based and
-    numpy rasters.
-    ----------
-    Inputs:
-        raster: The raster to return the shape of
-
-    Outputs:
-        (int, int): The 2D shape of the raster
-    """
-
-    if isinstance(raster, ndarray):
-        return raster.shape
-    else:
-        with catch_warnings():
-            simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
-            with rasterio.open(raster) as raster:
-                return (raster.height, raster.width)
-
-
-#####
 # NoData
 #####
 
 
-def data_mask(raster: Real_Array, nodata: nodata) -> Data_Mask:
+def data_mask(raster: RealArray, nodata: nodata) -> DataMask:
     """
     data_mask  Returns the valid data mask for a raster
     ----------
@@ -236,12 +108,12 @@ def data_mask(raster: Real_Array, nodata: nodata) -> Data_Mask:
         return raster != nodata
 
 
-def isdata(raster: Real_Array, nodata: nodata) -> Data_Mask:
+def isdata(raster: RealArray, nodata: nodata) -> DataMask:
     "An alias for data mask"
     return data_mask(raster, nodata)
 
 
-def nodata_mask(raster: Real_Array, nodata: nodata) -> Data_Mask:
+def nodata_mask(raster: RealArray, nodata: nodata) -> DataMask:
     """
     nodata_mask  Returns the NoData mask for a raster
     ----------
@@ -266,12 +138,12 @@ def nodata_mask(raster: Real_Array, nodata: nodata) -> Data_Mask:
         return raster == nodata
 
 
-def isnodata(raster: Real_Array, nodata: nodata) -> Data_Mask:
+def isnodata(raster: RealArray, nodata: nodata) -> DataMask:
     "An alias for nodata_mask"
     return nodata_mask(raster, nodata)
 
 
-def has_nodata(array: Real_Array, nodata: nodata) -> bool:
+def has_nodata(array: RealArray, nodata: nodata) -> bool:
     """
     has_nodata  True if any elements of an array are NoData
     ----------

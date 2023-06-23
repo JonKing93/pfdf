@@ -32,10 +32,9 @@ nptyping Primer:
 """
 
 from pathlib import Path
-from typing import Any, Dict, Sequence, Tuple, Union
+from typing import Any, Sequence, Tuple, Union
 
 from nptyping import Bool, Floating, Integer, NDArray, Shape
-from rasterio import DatasetReader
 
 # Singular / plural
 strs = Union[str, Sequence[str]]
@@ -45,52 +44,50 @@ dtypes = Union[type, Sequence[type]]
 
 # Paths
 Pathlike = Union[str, Path]
-Pathdict = Dict[str, Path]
+OutputPath = Union[Path, None]
 
 # Inputs that are literally shapes
 shape = ints
 shape2d = Tuple[int, int]
 
 # Generic array shapes
-Scalar_Shape = Shape["1"]
-Vector_Shape = Shape["Elements"]
-Matrix_Shape = Shape["Rows, Columns"]
+ScalarShape = Shape["1"]
+VectorShape = Shape["Elements"]
+MatrixShape = Shape["Rows, Columns"]
 
 # Generic real-valued arrays
-Real_Array = NDArray[Any, Floating]
-Scalar_Array = NDArray[Scalar_Shape, Floating]
-Vector_Array = NDArray[Vector_Shape, Floating]
-Matrix_Array = NDArray[Matrix_Shape, Floating]
+RealArray = NDArray[Any, Floating]
+ScalarArray = NDArray[ScalarShape, Floating]
+VectorArray = NDArray[VectorShape, Floating]
+MatrixArray = NDArray[MatrixShape, Floating]
 
 # Real-valued array inputs
-scalar = Union[int, float, Scalar_Array]
-vector = Union[ints, floats, Vector_Array]
-matrix = Union[ints, floats, Matrix_Array]
+scalar = Union[int, float, ScalarArray]
+vector = Union[ints, floats, VectorArray]
+matrix = Union[ints, floats, MatrixArray]
 
-# Rasters
-Raster_Array = Matrix_Array  # alias for clarity
-Raster = Union[str, Path, DatasetReader, Raster_Array]
-Validated_Raster = Union[Path, Raster_Array]
-Output_Raster = Union[Path, Raster_Array]
+# Rasters (internal)
+RasterArray = MatrixArray
+ValidatedRaster = Union[Path, RasterArray]
 
 # Generic Masks
 Mask = Union[  # This is for user-provided masks
-    NDArray[Matrix_Shape, Integer],
-    NDArray[Matrix_Shape, Floating],
-    NDArray[Matrix_Shape, Bool],
+    NDArray[MatrixShape, Integer],
+    NDArray[MatrixShape, Floating],
+    NDArray[MatrixShape, Bool],
 ]
-Boolean_Mask = NDArray[Matrix_Shape, Bool]  # This is a validated mask for internal use
-Boolean_Array = NDArray[Any, Bool]
+BooleanMask = NDArray[MatrixShape, Bool]  # This is a validated mask for internal use
+BooleanArray = NDArray[Any, Bool]
 
 # NoData values
-nodata = Union[None, Scalar_Array]
-Data_Mask = Union[None, Boolean_Array]
+nodata = Union[None, ScalarArray]
+DataMask = Union[None, BooleanArray]
 
 # Segments
-Segments_Shape = Shape["Segments"]
-Segment_Values = NDArray[Segments_Shape, Floating]
+SegmentsShape = Shape["Segments"]
+SegmentValues = NDArray[SegmentsShape, Floating]
 
 # Burn severities
-Threshold_Sequence = Sequence[scalar]
-Threshold_Array = NDArray[Shape["3 thresholds"], Floating]
-Thresholds = Union[Threshold_Sequence, Threshold_Array]
+ThresholdSequence = Sequence[scalar]
+ThresholdArray = NDArray[Shape["3 thresholds"], Floating]
+Thresholds = Union[ThresholdSequence, ThresholdArray]
