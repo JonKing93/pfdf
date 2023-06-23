@@ -651,7 +651,7 @@ class TestBasins:
             segments3.basins(values3)
         assert_contains(error, "upslope_basins")
 
-
+@pytest.mark.taudem
 class TestCatchmentMean:
     def test_have_npixels(_, segments3, flow3, catchment3):
         # Use npixels=1 (instead of real N) to check not calculating internally
