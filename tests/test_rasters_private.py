@@ -220,8 +220,9 @@ class TestValidated:
         with rasterio.open(fraster) as reader:
             reader.close()
             fraster.unlink()
-            with pytest.raises(FileNotFoundError):
-                validated(fraster, "")
+            with pytest.raises(FileNotFoundError) as error:
+                validated(reader, "")
+            assert_contains(error, 'rasterio.DatasetReader', 'no longer exists')
 
     def test_invalid_type(_):
         with pytest.raises(TypeError) as error:
