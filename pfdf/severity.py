@@ -40,19 +40,19 @@ from typing import Any, Dict, Optional, Set
 
 import numpy as np
 
-from pfdf import _validate
+from pfdf import _validate as validate
+from pfdf._rasters import output, validated
+from pfdf._utils import astuple, nodata_mask, real
+from pfdf.rasters import OutputRaster, Raster
 from pfdf.typing import (
-    Output_Raster,
     Pathlike,
-    Raster,
-    Raster_Array,
-    Threshold_Array,
+    RasterArray,
+    ThresholdArray,
     Thresholds,
-    Vector_Array,
+    VectorArray,
     scalar,
     strs,
 )
-from pfdf._utils import astuple, nodata_mask, real, save_raster
 
 # The classification scheme used in the module
 _classification = {
@@ -90,13 +90,13 @@ def mask(
     *,
     path: Optional[Pathlike] = None,
     overwrite: bool = False,
-) -> Output_Raster:
+) -> OutputRaster:
     """
     mask  Generates a burn severity mask
     ----------
     mask(severity, descriptions)
     Given a burn severity raster, locates pixels that match any of the specified
-    burn severity levels. Returns a numpy 2D array holding the mask of matching
+    burn severity levels. Returns a NumpyRaster holding the mask of matching
     pixels. Pixels that match one of the specified burn severities will have a
     value of 1. All other pixels will be 0.
 
@@ -107,7 +107,7 @@ def mask(
     mask(..., *, path)
     mask(..., *, path, overwrite)
     Saves the burn severity mask to the indicated file. Returns the Path to the
-    saved raster rather than a numpy array. Set overwrite=True to allow the
+    saved raster rather than a NumpyRaster. Set overwrite=True to allow the
     output to overwrite an existing file. Otherwise, raises a FileExistsError
     if the file already exists.
     ----------
@@ -120,29 +120,22 @@ def mask(
             False (default) to prevent replacement.
 
     Outputs:
-        numpy 2D bool array | pathlib.Path: The burn severity mask or Path to
-            a saved mask.
+        NumpyRaster | pathlib.Path: The burn severity mask
     """
 
     # Validate inputs
     descriptions = _validate_descriptions(descriptions)
-    path, save = _validate.output_path(path, overwrite)
-    severity, _ = _validate.raster(severity, "burn severity raster")
+    path = validate.output_path(path, overwrite)
+    severity = validated(severity, "burn severity raster")
 
-    # Get the queried classes and build the severity mask
+    # Get the queried classes and return the severity mask
     classes = [
         number
         for number, description in _classification.items()
         if description in descriptions
     ]
-    mask = np.isin(severity, classes)
-
-    # Optionally save. Return the mask
-    if save:
-        save_raster(mask, path)
-        return path
-    else:
-        return mask
+    mask = np.isin(severity.values, classes)
+    return output(mask, path)
 
 
 def estimate(
@@ -152,7 +145,7 @@ def estimate(
     path: Optional[Pathlike] = None,
     overwrite: bool = False,
     nodata: Optional[scalar] = None,
-) -> Output_Raster:
+) -> OutputRaster:
     """
     estimate  Estimates a BARC4-like burn severity raster from dNBR, BARC256, or other burn-severity measure
     ----------
@@ -168,7 +161,7 @@ def estimate(
         3 - moderate:  [ 250, 500)
         4 - high:      [ 500, Inf]
 
-    NoData values are set to 0. Returns a numpy 2D array holding the estimated
+    NoData values are set to 0. Returns a NumpyRaster object holding the estimated
     BARC4 burn severity raster.
 
     estimate(raster, thresholds)
@@ -205,18 +198,19 @@ def estimate(
         nodata: Indicates the dNBR NoData value for when dNBR is a numpy array.
 
     Outputs:
-        numpy 2D array | pathlib.Path: The BARC4 burn severity estimate or the
+        NumpyRaster | pathlib.Path: The BARC4 burn severity estimate or the
             Path to a saved estimate.
     """
 
     # Validate inputs
     thresholds = _validate_thresholds(thresholds)
-    path, save = _validate.output_path(path, overwrite)
-    raster, nodata = _validate.raster(raster, "input raster", numpy_nodata=nodata)
+    path = validate.output_path(path, overwrite)
+    raster = validated(raster, "input raster")
 
     # Preallocate. Get nodata mask
     severity = np.empty(raster.shape, dtype="int8")
-    nodata = nodata_mask(raster, nodata)
+    nodata = nodata_mask(raster.values, raster.nodata)
+    raster = raster.values
 
     # Get the burn severity classes
     severity[raster < thresholds[0]] = 1
@@ -227,13 +221,7 @@ def estimate(
     # Fill NoData
     if nodata is not None:
         severity[nodata] = 0
-
-    # Optionally save. Return raster
-    if save:
-        save_raster(severity, path, nodata=0)
-        return path
-    else:
-        return severity
+    return output(severity, path, nodata=0)
 
 
 #####
@@ -257,9 +245,9 @@ def _validate_descriptions(descriptions: Any) -> Set[str]:
     return set(descriptions)
 
 
-def _validate_thresholds(thresholds: Any) -> Threshold_Array:
+def _validate_thresholds(thresholds: Any) -> ThresholdArray:
     "Checks that thresholds are sorted and not NaN"
-    thresholds = _validate.vector(thresholds, "thresholds", dtype=real, length=3)
+    thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
     nans = np.isnan(thresholds)
     if np.any(nans):
         bad = np.argwhere(nans)[0]
@@ -270,7 +258,7 @@ def _validate_thresholds(thresholds: Any) -> Threshold_Array:
     return thresholds
 
 
-def _compare(thresholds: Vector_Array, names: strs) -> None:
+def _compare(thresholds: VectorArray, names: strs) -> None:
     "Checks that the second threshold is >= the first threshold"
     if thresholds[1] < thresholds[0]:
         raise ValueError(
@@ -279,10 +267,7 @@ def _compare(thresholds: Vector_Array, names: strs) -> None:
 
 
 def _classify(
-    severity: Raster_Array,
-    raster: Raster_Array,
-    thresholds: Threshold_Array,
-    value: int,
+    severity: RasterArray, raster: RasterArray, thresholds: ThresholdArray, value: int
 ) -> None:
     "Locates a severity class using 2 thresholds"
     mask = (raster >= thresholds[0]) & (raster < thresholds[1])
