@@ -25,7 +25,7 @@ The tests are organized as follows:
 
 RUN THE TESTS:
     * Install pytest, rasterio, and numpy
-    * Run `pytest tests/test_segments.py --cov=dfha.segments --cov-fail-under=95`
+    * Run `pytest tests/test_segments.py --cov=pfdf.segments --cov-fail-under=95`
       from the OS command line.
 """
 
@@ -35,10 +35,10 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha import _validate, segments
-from dfha._rasters import Raster as _Raster
-from dfha.errors import RasterShapeError
-from dfha.segments import Segments
+from pfdf import _validate, segments
+from pfdf._rasters import Raster as _Raster
+from pfdf.errors import RasterShapeError
+from pfdf.segments import Segments
 
 
 #####

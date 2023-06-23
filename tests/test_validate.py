@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from dfha import _validate
-from dfha._rasters import Raster
+from pfdf import _validate
+from pfdf._rasters import Raster
 
 #####
 # Fixtures and testing utilities
@@ -490,7 +490,7 @@ class TestIntegers:
             _validate.integers(array, self.name)
         assert_contains(error, self.name)
 
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:pfdf.validate")
     def test_nan(self):
         a = np.array([np.nan, np.nan])
         with pytest.raises(ValueError) as error:
@@ -603,7 +603,7 @@ class TestFlow:
         a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
         _validate.flow(a, "test name")
 
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:pfdf.validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
     def test_invalid(_, value):
         a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)

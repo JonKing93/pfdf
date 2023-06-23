@@ -22,10 +22,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from dfha import dem
-from dfha._rasters import Raster as _Raster
-from dfha.errors import DimensionError, ShapeError
-from dfha.rasters import NumpyRaster
+from pfdf import dem
+from pfdf._rasters import Raster as _Raster
+from pfdf.errors import DimensionError, ShapeError
+from pfdf.rasters import NumpyRaster
 
 #####
 # Testing Utilities
@@ -720,7 +720,7 @@ class TestUpslopePixels:
         expected = _Raster(fareau).values
         assert np.array_equal(output, expected)
 
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:pfdf.validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
     def test_check(_, fflow8, value):
         flow = _Raster(fflow8).values.astype(float)
@@ -775,7 +775,7 @@ class TestUpslopeSum:
         expected = _Raster(fareaw).values
         assert np.array_equal(output, expected)
 
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:pfdf.validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, 0, 1.1, -3, 9))
     def test_check(_, fflow8, fweights, value):
         flow = _Raster(fflow8).values.astype(float)

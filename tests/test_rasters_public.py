@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha.rasters import NumpyRaster
+from pfdf.rasters import NumpyRaster
 
 
 #####

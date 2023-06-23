@@ -9,7 +9,7 @@ Requirements:
 import numpy as np
 import pytest
 
-from dfha import _utils
+from pfdf import _utils
 
 
 #####

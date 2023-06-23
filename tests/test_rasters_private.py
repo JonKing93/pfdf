@@ -4,10 +4,10 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha._rasters import Raster as _Raster
-from dfha._rasters import output, validated
-from dfha.errors import DimensionError, ShapeError
-from dfha.rasters import NumpyRaster
+from pfdf._rasters import Raster as _Raster
+from pfdf._rasters import output, validated
+from pfdf.errors import DimensionError, ShapeError
+from pfdf.rasters import NumpyRaster
 
 
 #####

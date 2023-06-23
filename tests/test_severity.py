@@ -7,10 +7,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from dfha import severity
-from dfha._rasters import Raster as _Raster, output
-from dfha.errors import ShapeError
-from dfha.rasters import NumpyRaster
+from pfdf import severity
+from pfdf._rasters import Raster as _Raster, output
+from pfdf.errors import ShapeError
+from pfdf.rasters import NumpyRaster
 
 #####
 # Testing utilities
