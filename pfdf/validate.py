@@ -63,8 +63,8 @@ from numpy import integer as int_
 from numpy import issubdtype as istype
 from numpy import unsignedinteger as uint_
 
-from dfha.errors import DimensionError, ShapeError
-from dfha.typing import (
+from pfdf.errors import DimensionError, ShapeError
+from pfdf.typing import (
     Boolean_Array,
     Boolean_Mask,
     Mask,
@@ -81,7 +81,7 @@ from dfha.typing import (
     shape2d,
     strs,
 )
-from dfha.utils import aslist, astuple, data_mask, real
+from pfdf.utils import aslist, astuple, data_mask, real
 
 # Type aliases
 Output_Path = Union[None, Path]

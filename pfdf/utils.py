@@ -34,7 +34,7 @@ import rasterio
 from numpy import any as any_
 from numpy import bool_, floating, integer, isnan, ndarray
 
-from dfha.typing import (
+from pfdf.typing import (
     Data_Mask,
     Raster_Array,
     Real_Array,

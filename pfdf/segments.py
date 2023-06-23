@@ -42,21 +42,21 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 import numpy as np
 from nptyping import Bool, Floating, Integer, NDArray, Shape
 
-from dfha import dem, validate
-from dfha.errors import RasterShapeError, ShapeError
-from dfha.typing import (
+from pfdf import dem, validate
+from pfdf.errors import RasterShapeError, ShapeError
+from pfdf.typing import (
     Raster,
     Raster_Array,
     Scalar_Array,
-    Segments_Shape,
     Segment_Values,
+    Segments_Shape,
     Validated_Raster,
     Vector_Shape,
     ints,
     nodata,
     scalar,
 )
-from dfha.utils import has_nodata, isdata, load_raster, real
+from pfdf.utils import has_nodata, isdata, load_raster, real
 
 # Type aliases
 Pixel_Indices = NDArray[Shape["Pixels"], Integer]
@@ -683,9 +683,9 @@ class Segments:
         two directions perpendicular to stream flow. A given slope is calculated using
         the maximum DEM height within N pixels of the processing pixel in the
         associated direction. Here, the number of pixels searched in each direction
-        (N) is set is equal to the "neighborhood" input. For example, consider a 
-        pixel flowing east with neighborhood=4. Confinement angles are calculated 
-        using slopes to the north and south. The north slope is determined using the 
+        (N) is set is equal to the "neighborhood" input. For example, consider a
+        pixel flowing east with neighborhood=4. Confinement angles are calculated
+        using slopes to the north and south. The north slope is determined using the
         maximum DEM height in the 4 pixels north of the stream segment pixel via:
 
             slope = max height / (N * DEM resolution * scale)
@@ -735,7 +735,9 @@ class Segments:
             nodata_name="flow_nodata",
         )
         validate.flow(flow, "flow_directions", nodata=flow_nodata)
-        dem, dem_nodata = self._validate(dem, "dem", nodata=dem_nodata, nodata_name="dem_nodata")
+        dem, dem_nodata = self._validate(
+            dem, "dem", nodata=dem_nodata, nodata_name="dem_nodata"
+        )
 
         # Compute mean confinement angles
         return self._confinement(

@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha import validate
-from dfha.errors import DimensionError, ShapeError
+from pfdf import validate
+from pfdf.errors import DimensionError, ShapeError
 
 #####
 # Fixtures and testing utilities
@@ -802,7 +802,7 @@ class TestFlow:
         a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)
         validate.flow(a, "test name")
 
-    @pytest.mark.filterwarnings("ignore::RuntimeWarning:dfha.validate")
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning:pfdf.validate")
     @pytest.mark.parametrize("value", (np.nan, np.inf, -np.inf, 0, 1.1, 6.7, 9, -900))
     def test_invalid(_, value):
         a = np.array([1, 2, 5, 4, 8, 6, 7, 2, 4, 3, 5, 4, 6, 7, 8]).astype(type)

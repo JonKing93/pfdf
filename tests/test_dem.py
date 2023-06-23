@@ -23,13 +23,16 @@ import numpy as np
 import pytest
 import rasterio
 
-from dfha import dem
-from dfha.errors import DimensionError, ShapeError
-from dfha.utils import load_raster, save_raster
+from pfdf import dem
+from pfdf.errors import DimensionError, ShapeError
+from pfdf.utils import load_raster, save_raster
 
 #####
 # Testing Utilities
 #####
+
+# DEM should only be tested with TauDEM
+pytestmark = pytest.mark.taudem
 
 # TauDEM floating-point fill value
 fmin = np.finfo("float32").min

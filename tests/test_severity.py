@@ -7,9 +7,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from dfha import severity
-from dfha.errors import ShapeError
-from dfha.utils import load_raster
+from pfdf import severity
+from pfdf.errors import ShapeError
+from pfdf.utils import load_raster
 
 #####
 # Testing utilities

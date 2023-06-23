@@ -29,16 +29,15 @@ RUN THE TESTS:
       from the OS command line.
 """
 
-from copy import deepcopy
 from math import sqrt
 
 import numpy as np
 import pytest
 import rasterio
 
-from dfha import segments, validate
-from dfha.errors import RasterShapeError
-from dfha.segments import Segments
+from pfdf import segments, validate
+from pfdf.errors import RasterShapeError
+from pfdf.segments import Segments
 
 
 #####
@@ -548,7 +547,9 @@ class TestValidate:
         assert nodata == -999
 
     def test_str_noload(_, segments5, stream_path):
-        output, nodata = segments5._validate(str(stream_path), "", nodata=None, load=False)
+        output, nodata = segments5._validate(
+            str(stream_path), "", nodata=None, load=False
+        )
         assert output == stream_path
         assert nodata == -999
 
@@ -663,6 +664,7 @@ class TestBasins:
         assert np.array_equal(output, expected, equal_nan=True)
 
 
+@pytest.mark.taudem
 class TestCatchmentMean:
     def test_have_npixels(_, segments3, flow3, catchment3):
         # Use npixels=1 (instead of real N) to check not calculating internally

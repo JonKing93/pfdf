@@ -2,7 +2,7 @@
 test_errors  Unit tests for the errors module
 """
 
-from dfha import errors
+from pfdf import errors
 
 
 class TestShapeError:

@@ -9,7 +9,7 @@ Stream Segments:
     RasterShapeError    - When a raster shape does not match that of the stream raster
 """
 
-from dfha.typing import shape
+from pfdf.typing import shape
 
 
 class DimensionError(Exception):
