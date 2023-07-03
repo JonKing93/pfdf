@@ -52,6 +52,10 @@ markers = [
     "taudem: Tests that require TauDEM commands",
     "arcpy: Tests that require ArcPy functions",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning:nptyping.typing_",
+    "ignore::DeprecationWarning:rasterio",
+]
 
 [tool.isort]
 profile = "black"

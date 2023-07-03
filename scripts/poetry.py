@@ -23,8 +23,6 @@ import subprocess
 
 MIN_COVERAGE = 75
 
-ignore_npt_warning = "-W ignore::DeprecationWarning:nptyping.typing_ "
-
 
 def tests():
     """
@@ -41,15 +39,14 @@ def tests():
         f"--cov-fail-under={MIN_COVERAGE}",
         "--cov-report",
         "xml:coverage.xml",
-        ignore_npt_warning,
     ]
     run(command)
     run(["coverage", "report"])
 
+
 def all_tests():
     "Can be used by developers with a TauDEM installation to validate all tests"
-    command = ["pytest", "tests", ignore_npt_warning]
-    run(command)
+    run(["pytest", "tests"])
 
 
 def format():
