@@ -170,7 +170,7 @@ class Raster:
     def _from_npr(self, npr: NumpyRaster) -> None:
         "Initializes objects from a NumpyRaster"
 
-        self.from_array(npr.array)
+        self._from_array(npr.array)
         self.nodata = npr.nodata
 
     #####

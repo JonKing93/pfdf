@@ -41,7 +41,7 @@ from typing import Any, Dict, Optional, Set
 import numpy as np
 
 from pfdf import _validate as validate
-from pfdf._rasters import output, validated
+from pfdf._rasters import Raster as _Raster
 from pfdf._utils import astuple, nodata_mask, real
 from pfdf.rasters import OutputRaster, Raster
 from pfdf.typing import (
@@ -126,7 +126,7 @@ def mask(
     # Validate inputs
     descriptions = _validate_descriptions(descriptions)
     path = validate.output_path(path, overwrite)
-    severity = validated(severity, "burn severity raster")
+    severity = _Raster.validate(severity, "burn severity raster")
 
     # Get the queried classes and return the severity mask
     classes = [
@@ -135,7 +135,7 @@ def mask(
         if description in descriptions
     ]
     mask = np.isin(severity.values, classes)
-    return output(mask, path)
+    return _Raster.output(mask, path)
 
 
 def estimate(
@@ -205,7 +205,7 @@ def estimate(
     # Validate inputs
     thresholds = _validate_thresholds(thresholds)
     path = validate.output_path(path, overwrite)
-    raster = validated(raster, "input raster")
+    raster = _Raster.validate(raster, "input raster")
 
     # Preallocate. Get nodata mask
     severity = np.empty(raster.shape, dtype="int8")
@@ -221,7 +221,7 @@ def estimate(
     # Fill NoData
     if nodata is not None:
         severity[nodata] = 0
-    return output(severity, path, nodata=0)
+    return _Raster.output(severity, path, nodata=0)
 
 
 #####
