@@ -3,7 +3,7 @@ _rasters  Internal processing of raster datasets
 ----------
 This module contains utilities to help manage raster datasets internally within
 the package. In particular, the module defines the "Raster" class, which stores a
-raster dataset and its metadata values. Use the "validated" command to validate
+raster dataset and its metadata values. Use the "Raster.validate" command to validate
 a user-provided raster and return it as a Raster object. This object is then
 suitable for internal processing.
 
@@ -20,10 +20,6 @@ importing the Raster class via:
 ----------
 Classes:
     Raster      - Internal representation of raster datasets
-
-IO Functions:
-    validated   - Validates a user-provided raster and returns as a Raster object
-    output      - Converts a raster array to a form suitable for users
 """
 
 from pathlib import Path
@@ -57,9 +53,9 @@ class Raster:
 
     Also, it is always best to use validated Rasters for internal processing.
     As such, the recommended way to obtain a Raster object for a user-provided
-    raster is by calling the "_validate" function (rather than calling the
-    Raster constructor directly). But the constructor is fine for rasters computed
-    internally by the package.
+    raster is by calling Raster.validate (rather than calling the Raster constructor
+    directly). But the constructor is fine for rasters computed internally by
+    the package.
 
     Finally, note that setting the ".values" property directly has additional
     requirements/consequences. First, the new "values" array must match the
@@ -68,29 +64,36 @@ class Raster:
     ----------
     PROPERTIES:
     Data:
-        path        - The path to a file-based raster
-        values      - The data values in the raster. None if not loaded
+        path            - The path to a file-based raster
+        values          - The data values in the raster. None if not loaded
 
     Metadata:
-        shape       - The 2D shape of the raster (nRows, nCols)
-        dtype       - The numpy dtype of the raster
-        nodata      - The NoData value
+        shape           - The 2D shape of the raster (nRows, nCols)
+        dtype           - The numpy dtype of the raster
+        nodata          - The NoData value
 
-    Private:
-        _values     - The saved data values
+    Internal:
+        _values         - The saved data values
 
     METHODS:
     Object Creation:
-        __init__    - Creates a new Raster object
-        from_file   - Initializes object from a file-based raster
-        from_array  - Initializes object from a numpy array
-        from_npr    - Initializes object from a NumpyRaster object
+        __init__        - Creates a new Raster object
+        _from_file       - Initializes object from a file-based raster
+        _from_array      - Initializes object from a numpy array
+        _from_npr        - Initializes object from a NumpyRaster object
+        _from_pysheds    - Initialize object from a pysheds.sview.Raster object
 
-    IO:
-        load        - Loads raster values into memory. (Does nothing if already loaded)
-        save        - Saves raster values to a GeoTIFF
-        as_npr      - Returns the raster as a NumpyRaster object
-        as_input    - Returns the raster in a form suitable as a user-facing function input
+    File IO:
+        load            - Loads raster values into memory. (Does nothing if already loaded)
+        save            - Saves raster values to a GeoTIFF
+
+    User IO:
+        validate        - Validates a user-provided raster and returns as a Raster object
+        output          - Returns a computed numpy array or pysheds Raster as user-facing output
+
+    Conversions:
+        as_npr          - Returns the raster as a NumpyRaster object
+        as_input        - Returns the raster in a form suitable as input to a user-facing function
     """
 
     #####
@@ -121,26 +124,31 @@ class Raster:
             Raster: The Raster object for the dataset
         """
 
-        # Initialize object
+        # Initialize properties
+        self.path = None
+        self._values = None
+        self.shape = None
+        self.dtype = None
+        self.nodata = None
+
+        # Build object
         if isinstance(raster, Path):
-            self.from_file(raster)
+            self._from_file(raster)
         elif isinstance(raster, np.ndarray):
-            self.from_array(raster)
+            self._from_array(raster)
         elif isinstance(raster, NumpyRaster):
-            self.from_npr(raster)
+            self._from_npr(raster)
 
         # Optionally load file-based rasters
         if load:
             self.load()
 
-    def from_file(self, path: Path) -> None:
+    def _from_file(self, path: Path) -> None:
         "Initializes object from a file-based raster"
-        # Always read the first band
-        band = 1
 
-        # Record data properties
+        # Record path. Always read the first band
         self.path = path
-        self._values = None
+        band = 1
 
         # Suppress georeferencing warnings
         with catch_warnings():
@@ -152,19 +160,14 @@ class Raster:
                 self.dtype = file.dtypes[band - 1]
                 self.nodata = file.nodata
 
-    def from_array(self, array: np.ndarray) -> None:
+    def _from_array(self, array: np.ndarray) -> None:
         "Initializes object from a numpy array"
 
-        # Data properties
-        self.path = None
         self._values = array
-
-        # Metadata
         self.shape = array.shape
         self.dtype = array.dtype
-        self.nodata = None
 
-    def from_npr(self, npr: NumpyRaster) -> None:
+    def _from_npr(self, npr: NumpyRaster) -> None:
         "Initializes objects from a NumpyRaster"
 
         self.from_array(npr.array)
@@ -192,7 +195,7 @@ class Raster:
         self.shape = values.shape
 
     #####
-    # IO
+    # File IO
     #####
 
     def load(self) -> None:
@@ -261,6 +264,124 @@ class Raster:
             ) as file:
                 file.write(self.values, band)
 
+    #####
+    # User IO
+    #####
+
+    @staticmethod
+    def validate(
+        raster: Any,
+        name: str,
+        *,
+        shape: Optional[shape2d] = None,
+        load: bool = True,
+    ) -> "Raster":
+        """
+        validate  Check input is valid raster and return as Raster object
+        ----------
+        validate(raster, name)
+        Checks that the input is a valid raster. Valid rasters may be:
+
+            * A string with the path to a raster file path,
+            * A pathlib.Path to a raster file,
+            * An open rasterio.DatasetReader object, or
+            * A numpy 2D array with real-valued dtype
+            * A NumpyRaster object
+
+        Returns the raster as a Raster object. If the input is not a numpy array or
+        NumpyRaster, then the function will read the raster from file. Rasters will
+        always be read from band 1.
+
+        Raises exceptions if:
+            * a raster file does not exist
+            * a raster file cannot be opened by rasterio
+            * a numpy array does not have 2 dimensions
+            * a numpy array dtype is not an integer, floating, or boolean dtype
+            * the input is some other type
+
+        validated(..., *, shape)
+        Require the raster to have the specified shape. Raises a ShapeError if this
+        condition is not met.
+
+        validated(..., *, load=False)
+        Indicates that file-based rasters (those derived from a string, pathlib.Path,
+        or rasterio.DatasetReader object) should not be loaded into memory after
+        validating. If the input was a file-based raster, returns a pathlib.Path
+        object for the validated raster file instead of a numpy array. Input numpy
+        arrays are not affected and still return a numpy array.
+        ----------
+        Inputs:
+            raster: The input being checked
+            name: The name of the input for use in error messages
+            shape: (Optional) A required shape for the raster. A 2-tuple, first
+                element is rows, second element is columns. If an element is -1,
+                disables shape checking for that axis.
+            load: True (default) if validated file-based rasters should be loaded
+                into memory and returned as a numpy array. If False, returns a
+                pathlib.Path object for file-based rasters.
+
+        Outputs:
+            Raster: The validated Raster
+        """
+
+        # Convert string to Path
+        if isinstance(raster, str):
+            raster = Path(raster)
+
+        # If Path, require file exists
+        if isinstance(raster, Path):
+            raster = raster.resolve(strict=True)
+
+        # If DatasetReader, check that the associated file exists. Get the
+        # associated Path to allow loading within a context manager without closing
+        # the user's object
+        elif isinstance(raster, rasterio.DatasetReader):
+            raster = Path(raster.name)
+            if not raster.exists():
+                raise FileNotFoundError(
+                    f"The raster file associated with the input rasterio.DatasetReader "
+                    f"object no longer exists.\nFile: {raster}"
+                )
+
+        # Otherwise, must be a numpy array or NumpyRaster object
+        elif not isinstance(raster, (np.ndarray, NumpyRaster)):
+            raise TypeError(
+                f"{name} is not a recognized raster type. Allowed types are: "
+                "str, pathlib.Path, rasterio.DatasetReader, 2D numpy.ndarray, and NumpyRaster objects"
+            )
+
+        # Initialize Raster object
+        raster = Raster(raster, load)
+
+        # Validate
+        if raster.path is None:
+            raster.values = validate.matrix(raster.values, name)
+        validate.dtype_(name, allowed=real, actual=raster.dtype)
+        if shape is not None:
+            validate.shape_(
+                name, ["rows", "columns"], required=shape, actual=raster.shape
+            )
+        return raster
+
+    @staticmethod
+    def output(
+        raster: RasterArray, path: OutputPath, nodata: nodata = None
+    ) -> OutputRaster:
+        """Returns a numpy array in a form suitable as user output.
+        If a path is specified, saves the raster and returns the path. Otherwise,
+        returns the raster as a NumpyRaster object. Optionally sets a NoData value."""
+
+        raster = Raster(raster)
+        raster.nodata = nodata
+        if path is None:
+            return raster.as_npr()
+        else:
+            raster.save(path)
+            return path
+
+    #####
+    # Conversions
+    #####
     def as_npr(self) -> NumpyRaster:
         """Returns the raster as a NumpyRaster."""
         self.load()
@@ -272,129 +393,3 @@ class Raster:
             return self.as_npr()
         else:
             return self.path
-
-
-def output(
-    raster: RasterArray, path: OutputPath, nodata: nodata = None
-) -> OutputRaster:
-    """
-    _output  Returns a raster numpy array as user-facing raster output
-    ----------
-    _output(raster, path)
-    Returns a numpy array raster in an output form suitable for users. If the
-    path is provided, saves the raster to the path and returns the path. If the
-    path is None, returns a NumpyRaster object for the array.
-
-    _output(raster, path, nodata)
-    Associates a NoData value with the output raster. If returning a Path, the
-    NoData value will be included in the raster file metadata. If returning a
-    NumpyRaster, nodata is accessible via the ".nodata" property.
-    ----------
-    Inputs:
-        raster: A numpy array raster being returned to the user
-        path: The Path to the intended output file, or None if not saving
-        nodata: A NoData value for the raster
-
-    Outputs:
-        pathlib.Path | NumpyRaster: The output raster
-    """
-    raster = Raster(raster)
-    raster.nodata = nodata
-    if path is None:
-        return raster.as_npr()
-    else:
-        raster.save(path)
-        return path
-
-
-def validated(
-    raster: Any,
-    name: str,
-    *,
-    shape: Optional[shape2d] = None,
-    load: bool = True,
-) -> Raster:
-    """
-    validated  Check input is valid raster and return as Raster object
-    ----------
-    validated(raster, name)
-    Checks that the input is a valid raster. Valid rasters may be:
-
-        * A string with the path to a raster file path,
-        * A pathlib.Path to a raster file,
-        * An open rasterio.DatasetReader object, or
-        * A numpy 2D array with real-valued dtype
-        * A NumpyRaster object
-
-    Returns the raster as a Raster object. If the input is not a numpy array or
-    NumpyRaster, then the function will read the raster from file. Rasters will
-    always be read from band 1.
-
-    Raises exceptions if:
-        * a raster file does not exist
-        * a raster file cannot be opened by rasterio
-        * a numpy array does not have 2 dimensions
-        * a numpy array dtype is not an integer, floating, or boolean dtype
-        * the input is some other type
-
-    validated(..., *, shape)
-    Require the raster to have the specified shape. Raises a ShapeError if this
-    condition is not met.
-
-    validated(..., *, load=False)
-    Indicates that file-based rasters (those derived from a string, pathlib.Path,
-    or rasterio.DatasetReader object) should not be loaded into memory after
-    validating. If the input was a file-based raster, returns a pathlib.Path
-    object for the validated raster file instead of a numpy array. Input numpy
-    arrays are not affected and still return a numpy array.
-    ----------
-    Inputs:
-        raster: The input being checked
-        name: The name of the input for use in error messages
-        shape: (Optional) A required shape for the raster. A 2-tuple, first
-            element is rows, second element is columns. If an element is -1,
-            disables shape checking for that axis.
-        load: True (default) if validated file-based rasters should be loaded
-            into memory and returned as a numpy array. If False, returns a
-            pathlib.Path object for file-based rasters.
-
-    Outputs:
-        Raster: The validated Raster
-    """
-
-    # Convert string to Path
-    if isinstance(raster, str):
-        raster = Path(raster)
-
-    # If Path, require file exists
-    if isinstance(raster, Path):
-        raster = raster.resolve(strict=True)
-
-    # If DatasetReader, check that the associated file exists. Get the
-    # associated Path to allow loading within a context manager without closing
-    # the user's object
-    elif isinstance(raster, rasterio.DatasetReader):
-        raster = Path(raster.name)
-        if not raster.exists():
-            raise FileNotFoundError(
-                f"The raster file associated with the input rasterio.DatasetReader "
-                f"object no longer exists.\nFile: {raster}"
-            )
-
-    # Otherwise, must be a numpy array or NumpyRaster object
-    elif not isinstance(raster, (np.ndarray, NumpyRaster)):
-        raise TypeError(
-            f"{name} is not a recognized raster type. Allowed types are: "
-            "str, pathlib.Path, rasterio.DatasetReader, 2D numpy.ndarray, and NumpyRaster objects"
-        )
-
-    # Initialize Raster object
-    raster = Raster(raster, load)
-
-    # Validate
-    if raster.path is None:
-        raster.values = validate.matrix(raster.values, name)
-    validate.dtype_(name, allowed=real, actual=raster.dtype)
-    if shape is not None:
-        validate.shape_(name, ["rows", "columns"], required=shape, actual=raster.shape)
-    return raster
