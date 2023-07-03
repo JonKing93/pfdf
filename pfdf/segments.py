@@ -45,7 +45,6 @@ from nptyping import Bool, Floating, Integer, NDArray, Shape
 from pfdf import _validate as validate
 from pfdf import dem
 from pfdf._rasters import Raster as _Raster
-from pfdf._rasters import validated
 from pfdf._utils import has_nodata, isdata, real
 from pfdf.errors import RasterShapeError, ShapeError
 from pfdf.rasters import Raster
@@ -235,7 +234,7 @@ class Segments:
 
         # Validate
         name = "stream_raster"
-        stream = validated(stream_raster, name)
+        stream = _Raster.validate(stream_raster, name)
         data_mask = isdata(stream.values, stream.nodata)
         validate.positive(stream.values, name, allow_zero=True, isdata=data_mask)
         validate.integers(stream.values, name, isdata=data_mask)
@@ -311,7 +310,7 @@ class Segments:
         """
 
         try:
-            return validated(raster, name, shape=self._raster_shape, load=load)
+            return _Raster.validate(raster, name, shape=self._raster_shape, load=load)
         except ShapeError as error:
             raise RasterShapeError(name, error)
 

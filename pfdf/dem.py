@@ -94,7 +94,6 @@ from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 
 from pfdf import _validate as validate
 from pfdf._rasters import Raster as _Raster
-from pfdf._rasters import validated
 from pfdf._utils import nodata_mask
 from pfdf.rasters import OutputRaster, Raster
 from pfdf.typing import BooleanMask, OutputPath, Pathlike, shape2d, strs
@@ -740,7 +739,7 @@ def _validate_mask(check: bool, raster: Any, shape: shape2d) -> BooleanMask:
         numpy 2D bool array: The loaded valid data mask
     """
 
-    mask = validated(raster, "mask", shape=shape)
+    mask = _Raster.validate(raster, "mask", shape=shape)
     if check:
         return validate.mask(mask.values, "mask", nodata=mask.nodata)
     else:
@@ -802,7 +801,7 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[_Raster]:
 
     # Validate each raster
     for r, raster, name in zip(indices, rasters, names):
-        rasters[r] = validated(raster, name, shape=shape, load=False)
+        rasters[r] = _Raster.validate(raster, name, shape=shape, load=False)
 
         # Additional rasters must match the shape of the first
         if nrasters > 1 and r == 0:
