@@ -6,7 +6,6 @@ import pytest
 import rasterio
 
 from pfdf._rasters import Raster as _Raster
-from pfdf._rasters import output, validated
 from pfdf.errors import DimensionError, ShapeError
 from pfdf.rasters import NumpyRaster
 
@@ -178,38 +177,38 @@ class TestAsInput:
 
 class TestValidated:
     def test_string(_, fraster):
-        output = validated(str(fraster), "")
+        output = _Raster.validate(str(fraster), "")
         assert isinstance(output, _Raster)
 
     def test_path(_, fraster):
-        output = validated(fraster, "")
+        output = _Raster.validate(fraster, "")
         assert isinstance(output, _Raster)
 
     def test_reader(_, fraster):
         with catch_warnings():
             simplefilter("ignore", rasterio.errors.NotGeoreferencedWarning)
             with rasterio.open(fraster) as input:
-                output = validated(input, "")
+                output = _Raster.validate(input, "")
             assert isinstance(output, _Raster)
 
     def test_array(_, araster):
-        output = validated(araster, "")
+        output = _Raster.validate(araster, "")
         assert isinstance(output, _Raster)
 
     def test_npr(_, araster):
         input = NumpyRaster(araster)
-        output = validated(input, "")
+        output = _Raster.validate(input, "")
         assert isinstance(output, _Raster)
 
     def test_bad_string(_):
         input = "not-a-file"
         with pytest.raises(FileNotFoundError):
-            validated(input, "")
+            _Raster.validate(input, "")
 
     def test_missing_file(_, fraster):
         fraster.unlink()
         with pytest.raises(FileNotFoundError):
-            validated(fraster, "")
+            _Raster.validate(fraster, "")
 
     def test_old_reader(_, fraster):
         with catch_warnings():
@@ -218,47 +217,47 @@ class TestValidated:
                 reader.close()
                 fraster.unlink()
                 with pytest.raises(FileNotFoundError) as error:
-                    validated(reader, "")
+                    _Raster.validate(reader, "")
                 assert_contains(error, "rasterio.DatasetReader", "no longer exists")
 
     def test_invalid_type(_):
         with pytest.raises(TypeError) as error:
-            validated(5, "test name")
+            _Raster.validate(5, "test name")
         assert_contains(error, "test name")
 
     def test_shape(_, araster):
-        output = validated(araster, "", shape=(2, 4))
+        output = _Raster.validate(araster, "", shape=(2, 4))
         assert isinstance(output, _Raster)
 
     def test_invalid_shape(_, araster):
         with pytest.raises(ShapeError) as error:
-            validated(araster, "test name", shape=(3, 5))
+            _Raster.validate(araster, "test name", shape=(3, 5))
         assert_contains(error, "test name")
 
     def test_invalid_dtype(_, araster):
         araster = araster.astype("complex")
         with pytest.raises(TypeError) as error:
-            validated(araster, "test name")
+            _Raster.validate(araster, "test name")
         assert_contains(error, "test name")
 
     def test_not_matrix(_, araster):
         araster = np.stack((araster, araster), axis=1)
         with pytest.raises(DimensionError) as error:
-            validated(araster, "test name")
+            _Raster.validate(araster, "test name")
         assert_contains(error, "test name")
 
     def test_load(_, fraster, araster):
-        output = validated(fraster, "")
+        output = _Raster.validate(fraster, "")
         assert isinstance(output, _Raster)
         assert np.array_equal(output.values, araster)
 
     def test_noload(_, fraster):
-        output = validated(fraster, "", load=False)
+        output = _Raster.validate(fraster, "", load=False)
         assert isinstance(output, _Raster)
         assert output.values is None
 
     def test_noload_array(_, araster):
-        output = validated(araster, "", load=False)
+        output = _Raster.validate(araster, "", load=False)
         assert isinstance(output, _Raster)
         assert np.array_equal(output.values, araster)
 
@@ -266,7 +265,7 @@ class TestValidated:
 class TestOutput:
     def test_nopath(_):
         a = np.arange(0, 8).reshape(2, 4)
-        out = output(a, path=None, nodata=0)
+        out = _Raster.output(a, path=None, nodata=0)
 
         assert isinstance(out, NumpyRaster)
         assert out.nodata == 0
@@ -275,7 +274,7 @@ class TestOutput:
     def test_nopath(_, tmp_path):
         path = Path(tmp_path) / "output.tif"
         a = np.arange(0, 8).reshape(2, 4)
-        out = output(a, path, nodata=0)
+        out = _Raster.output(a, path, nodata=0)
 
         assert out == path
         out = _Raster(path)
