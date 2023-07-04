@@ -98,7 +98,7 @@ from pfdf import _validate as validate
 from pfdf._rasters import Raster as _Raster
 from pfdf._utils import nodata_mask
 from pfdf.rasters import OutputRaster, Raster
-from pfdf.typing import BooleanMask, OutputPath, Pathlike, shape2d, strs
+from pfdf.typing import BooleanMask, OutputPath, Pathlike, shape2d
 
 # Type aliases
 Option = Union[None, bool]  # None: Default, bool: User-specified
@@ -528,7 +528,7 @@ def pitremove(dem_path: Path, pitfilled_path: Path, verbose: bool) -> None:
         A file matching the "pitfilled" path
     """
 
-    pitremove = f"PitRemove -z {dem_path} -fel {pitfilled_path}"
+    pitremove = f"pitremove -z {dem_path} -fel {pitfilled_path}"
     _run_taudem(pitremove, verbose)
 
 
@@ -557,7 +557,7 @@ def flow_d8(
     """
 
     flow_d8 = (
-        f"D8FlowDir -fel {pitfilled_path} -p {flow_directions_path} -sd8 {slopes_path}"
+        f"d8flowdir -fel {pitfilled_path} -p {flow_directions_path} -sd8 {slopes_path}"
     )
     _run_taudem(flow_d8, verbose)
 
@@ -586,7 +586,7 @@ def flow_dinf(
         Files matching the "flow_directions" and "slopes" paths.
     """
 
-    flow_dinf = f"DInfFlowDir -fel {pitfilled_path} -ang {flow_directions_path} -slp {slopes_path}"
+    flow_dinf = f"dinfflowdir -fel {pitfilled_path} -ang {flow_directions_path} -slp {slopes_path}"
     _run_taudem(flow_dinf, verbose)
 
 
@@ -622,7 +622,7 @@ def area_d8(
         A file matching the "area" path.
     """
 
-    area_d8 = f"AreaD8 -p {flow_directions_path} -ad8 {area_path} -nc"
+    area_d8 = f"aread8 -p {flow_directions_path} -ad8 {area_path} -nc"
     if weights_path is not None:
         area_d8 += f" -wg {weights_path}"
     _run_taudem(area_d8, verbose)
@@ -664,7 +664,7 @@ def relief_dinf(
     # longest (max)imum flow path. The "-thresh 0.49" option mimics results for a
     #  D8 flow model. The "-nc" flag causes the routine to account for edge contamination.
     relief = (
-        f"DinfDistUp -fel {pitfilled_path} -ang {flow_directions_path}"
+        f"dinfdistup -fel {pitfilled_path} -ang {flow_directions_path}"
         + f" -slp {slopes_path} -du {relief_path} -m max v -thresh 0.49 -nc"
     )
     _run_taudem(relief, verbose)
@@ -906,7 +906,7 @@ def _run_taudem(command: str, verbose: bool) -> None:
     Outputs: None
     """
 
-    if os.name == 'posix':
+    if os.name == "posix":
         command = shlex.split(command)
     return subprocess.run(command, capture_output=not verbose, check=True)
 

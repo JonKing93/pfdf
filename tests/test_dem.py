@@ -368,7 +368,7 @@ class TestRunTaudem:
     def test_verbose(_, tmp_path, fraster, capfd):
         dem_data = fraster
         pitfilled = tmp_path / "pitfilled.tif"
-        command = f"PitRemove -z {dem_data} -fel {pitfilled}"
+        command = f"pitremove -z {dem_data} -fel {pitfilled}"
         dem._run_taudem(command, verbose=True)
         stdout = capfd.readouterr().out
         assert stdout != ""
@@ -376,7 +376,7 @@ class TestRunTaudem:
     def test_quiet(_, tmp_path, fraster, capfd):
         dem_data = fraster
         pitfilled = tmp_path / "pitfilled.tif"
-        command = f"PitRemove -z {dem_data} -fel {pitfilled}"
+        command = f"pitremove -z {dem_data} -fel {pitfilled}"
         dem._run_taudem(command, verbose=False)
         stdout = capfd.readouterr().out
         assert stdout == ""
@@ -384,7 +384,7 @@ class TestRunTaudem:
     def test_failed(_, tmp_path):
         dem_data = tmp_path / "not-a-file.tif"
         pitfilled = tmp_path / "pitfilled.tif"
-        command = f"PitRemove -z {dem_data} -fel {pitfilled}"
+        command = f"pitremove -z {dem_data} -fel {pitfilled}"
         with pytest.raises(subprocess.CalledProcessError):
             dem._run_taudem(command, verbose=False)
 
