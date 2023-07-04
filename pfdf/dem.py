@@ -86,6 +86,8 @@ Utilities:
     _output             - Returns an output raster as a NumpyRaster or Path
 """
 
+import os
+import shlex
 import subprocess
 from math import pi
 from pathlib import Path
@@ -876,7 +878,7 @@ def _paths(
     return rasters
 
 
-def _run_taudem(command: strs, verbose: bool) -> None:
+def _run_taudem(command: str, verbose: bool) -> None:
     """
     _run_taudem  Runs a TauDEM command as a subprocess
     ----------
@@ -885,6 +887,9 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     messages to the console. If verbose=False, suppresses these messages. Raises
     a CalledProcessError if the TauDEM process does not complete successfully
     (i.e. the process returns an exit code not equal to 0).
+
+    Note that this function expects a single string as input, which faciliates
+    the handling of backslashes in windows path names.
     ----------
     Inputs:
         command: The arguments used to run a TauDEM command
@@ -901,6 +906,8 @@ def _run_taudem(command: strs, verbose: bool) -> None:
     Outputs: None
     """
 
+    if os.name == 'posix':
+        command = shlex.split(command)
     return subprocess.run(command, capture_output=not verbose, check=True)
 
 
