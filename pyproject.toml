@@ -42,10 +42,10 @@ coverage = "*"
 safety = "^2.1.1"
 
 [tool.poetry.scripts]
-tests = "scripts.poetry:tests"
-all_tests = "scripts.poetry:all_tests"
-format = "scripts.poetry:format"
-lint = "scripts.poetry:lint"
+tests = "scripts.dev:tests"
+all_tests = "scripts.dev:all_tests"
+format = "scripts.dev:format"
+lint = "scripts.dev:lint"
 
 [tool.pytest.ini_options]
 markers = [
