@@ -198,6 +198,12 @@ def segments3(stream3):
     return Segments(stream3)
 
 
+@pytest.fixture
+def indices3():
+    indices = {1: ([1, 2], [0, 0]), 2: ([0, 0, 1], [1, 2, 1]), 3: ([2], [2])}
+    return index_dict(indices)
+
+
 # Raster for network with 3 segments
 @pytest.fixture
 def values3():
@@ -210,34 +216,58 @@ def values3():
     )
 
 
-# Values raster for testing catchment mean
+# Catchment mean fixtures
 @pytest.fixture
-def catchment3():
-    return np.array([[1, 6, 7], [2, 5, 8], [3, 4, 9]])
+def segments_ca():
+    stream = np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 0, 2, 2, 0],
+            [0, 1, 2, 0, 0],
+            [0, 1, 0, 3, 0],
+            [0, 0, 0, 0, 0],
+        ]
+    )
+    return Segments(stream)
 
 
-# Flow raster for catchment means
 @pytest.fixture
-def flow3():
-    return np.array([[7, 1, 3], [7, 3, 7], [7, 3, 1]])
-
-
-# Data mask for catchment means
-@pytest.fixture
-def mask3():
+def flow_ca():
     return np.array(
         [
-            [0, 1, 1],
-            [1, 0, 1],
-            [1, 0, 0],
+            [3, 3, 3, 3, 3],
+            [5, 7, 1, 3, 1],
+            [5, 7, 3, 7, 1],
+            [5, 7, 3, 1, 1],
+            [7, 7, 7, 7, 7],
         ]
     )
 
 
 @pytest.fixture
-def indices3():
-    indices = {1: ([1, 2], [0, 0]), 2: ([0, 0, 1], [1, 2, 1]), 3: ([2], [2])}
-    return index_dict(indices)
+def values_ca():
+    return np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 1, 6, 7, 0],
+            [0, 2, 5, 8, 0],
+            [0, 3, 4, 9, 0],
+            [0, 0, 0, 0, 0],
+        ]
+    )
+
+
+@pytest.fixture
+def mask_ca():
+    return np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0],
+            [0, 1, 0, 0, 0],
+            [0, 1, 0, 1, 0],
+            [0, 0, 0, 0, 0],
+        ]
+    )
 
 
 # A stream raster for confinement angle tests
