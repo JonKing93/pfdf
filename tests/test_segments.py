@@ -657,9 +657,9 @@ class Test_Summary:
         assert np.array_equal(output, expected)
 
     def test_nodata(_, segments3, values3):
-        expected = np.array([-8.5, 3, 2.2])
+        expected = np.array([np.nan, 3, 2.2])
         raster = _Raster(values3)
-        raster.nodata = -8.5
+        raster.nodata = -8
         output = segments3._summary(raster, np.mean)
         assert np.array_equal(output, expected, equal_nan=True)
 
