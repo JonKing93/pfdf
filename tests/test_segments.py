@@ -198,6 +198,12 @@ def segments3(stream3):
     return Segments(stream3)
 
 
+@pytest.fixture
+def indices3():
+    indices = {1: ([1, 2], [0, 0]), 2: ([0, 0, 1], [1, 2, 1]), 3: ([2], [2])}
+    return index_dict(indices)
+
+
 # Raster for network with 3 segments
 @pytest.fixture
 def values3():
@@ -210,34 +216,58 @@ def values3():
     )
 
 
-# Values raster for testing catchment mean
+# Catchment mean fixtures
 @pytest.fixture
-def catchment3():
-    return np.array([[1, 6, 7], [2, 5, 8], [3, 4, 9]])
+def segments_ca():
+    stream = np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 0, 2, 2, 0],
+            [0, 1, 2, 0, 0],
+            [0, 1, 0, 3, 0],
+            [0, 0, 0, 0, 0],
+        ]
+    )
+    return Segments(stream)
 
 
-# Flow raster for catchment means
 @pytest.fixture
-def flow3():
-    return np.array([[7, 1, 3], [7, 3, 7], [7, 3, 1]])
-
-
-# Data mask for catchment means
-@pytest.fixture
-def mask3():
+def flow_ca():
     return np.array(
         [
-            [0, 1, 1],
-            [1, 0, 1],
-            [1, 0, 0],
+            [3, 3, 3, 3, 3],
+            [5, 7, 1, 3, 1],
+            [5, 7, 3, 7, 1],
+            [5, 7, 3, 1, 1],
+            [7, 7, 7, 7, 7],
         ]
     )
 
 
 @pytest.fixture
-def indices3():
-    indices = {1: ([1, 2], [0, 0]), 2: ([0, 0, 1], [1, 2, 1]), 3: ([2], [2])}
-    return index_dict(indices)
+def values_ca():
+    return np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 1, 6, 7, 0],
+            [0, 2, 5, 8, 0],
+            [0, 3, 4, 9, 0],
+            [0, 0, 0, 0, 0],
+        ]
+    )
+
+
+@pytest.fixture
+def mask_ca():
+    return np.array(
+        [
+            [0, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0],
+            [0, 1, 0, 0, 0],
+            [0, 1, 0, 1, 0],
+            [0, 0, 0, 0, 0],
+        ]
+    )
 
 
 # A stream raster for confinement angle tests
@@ -653,35 +683,35 @@ class TestBasins:
 
 
 class TestCatchmentMean:
-    def test_have_npixels(_, segments3, flow3, catchment3):
+    def test_have_npixels(_, segments_ca, flow_ca, values_ca):
         # Use npixels=1 (instead of real N) to check not calculating internally
         # Value should be sum rather than mean.
         npixels = np.ones((3,))
         expected = np.array([6, 22, 17]).reshape(-1)
-        output = segments3.catchment_mean(flow3, catchment3, npixels=npixels)
+        output = segments_ca.catchment_mean(flow_ca, values_ca, npixels=npixels)
         assert np.array_equal(output, expected)
 
-    def test_npixels_0(_, segments3, flow3, catchment3):
+    def test_npixels_0(_, segments_ca, flow_ca, values_ca):
         npixels = np.array([0, 1, 1])
         expected = np.array([np.nan, 22, 17]).reshape(-1)
-        output = segments3.catchment_mean(flow3, catchment3, npixels=npixels)
+        output = segments_ca.catchment_mean(flow_ca, values_ca, npixels=npixels)
         assert np.array_equal(output, expected, equal_nan=True)
 
-    def test_standard(_, segments3, flow3, catchment3):
+    def test_standard(_, segments_ca, flow_ca, values_ca):
         expected = np.array([2, 5.5, 8.5]).reshape(-1)
-        output = segments3.catchment_mean(flow3, catchment3)
+        output = segments_ca.catchment_mean(flow_ca, values_ca)
         assert np.array_equal(output, expected)
 
-    def test_masked(_, segments3, flow3, catchment3, mask3):
-        expected = np.array([2.5, 6.5, 8]).reshape(-1)
-        output = segments3.catchment_mean(flow3, catchment3, mask=mask3)
+    def test_masked(_, segments_ca, flow_ca, values_ca, mask_ca):
+        expected = np.array([2.5, 6.5, 9]).reshape(-1)
+        output = segments_ca.catchment_mean(flow_ca, values_ca, mask=mask_ca)
         assert np.array_equal(output, expected)
 
-    def test_mask_and_npixels(_, segments3, flow3, catchment3, mask3):
+    def test_mask_and_npixels(_, segments_ca, flow_ca, values_ca, mask_ca):
         npixels = np.ones((3,))
-        expected = np.array([5, 13, 8])
-        output = segments3.catchment_mean(
-            flow3, catchment3, npixels=npixels, mask=mask3
+        expected = np.array([5, 13, 9])
+        output = segments_ca.catchment_mean(
+            flow_ca, values_ca, npixels=npixels, mask=mask_ca
         )
         assert np.array_equal(output, expected)
 
