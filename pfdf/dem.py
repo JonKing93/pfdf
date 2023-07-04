@@ -96,7 +96,7 @@ from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 
 from pfdf import _validate as validate
 from pfdf._rasters import Raster as _Raster
-from pfdf._utils import nodata_mask
+from pfdf._utils import default_nodata, nodata_mask
 from pfdf.rasters import OutputRaster, Raster
 from pfdf.typing import BooleanMask, OutputPath, Pathlike, shape2d
 
@@ -808,6 +808,11 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[_Raster]:
         # Additional rasters must match the shape of the first
         if nrasters > 1 and r == 0:
             shape = rasters[0].shape
+
+        # Provide a sensible NoData if there is none (otherwise TauDEM defaults
+        # to 0, which is not desired)
+        if rasters[r].nodata is None:
+            rasters[r].nodata = default_nodata(rasters[r].dtype)
     return rasters
 
 

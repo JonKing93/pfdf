@@ -131,3 +131,22 @@ class TestHasNodata:
     def test_number(_, band1):
         assert _utils.has_nodata(band1, 5) == True
         assert _utils.has_nodata(band1, -999) == False
+
+
+class TestDefaultNodata:
+    @pytest.mark.parametrize("dtype", ("float32", "float64"))
+    def test_float(_, dtype):
+        output = _utils.default_nodata(dtype)
+        assert np.isnan(output)
+
+    @pytest.mark.parametrize(
+        "dtype, expected",
+        (("uint16", 0), ("uint32", 0), ("int16", -32768), ("int32", -2147483648)),
+    )
+    def test_int(_, dtype, expected):
+        output = _utils.default_nodata(dtype)
+        assert output == expected
+
+    def test_bool(_):
+        output = _utils.default_nodata(bool)
+        assert output == False

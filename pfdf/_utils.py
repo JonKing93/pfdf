@@ -19,12 +19,13 @@ NoData:
     isdata          - An alias for data_mask
     isnodata        - An alias for nodata_mask
     has_nodata      - True if an array contains NoData values
+    default_nodata  - Returns a default NoData value for a dtype
 """
 
 from typing import Any, List, Tuple
 
 from numpy import any as any_
-from numpy import bool_, floating, integer, isnan
+from numpy import bool_, floating, iinfo, integer, isnan, issubdtype, nan
 
 from pfdf.typing import DataMask, RealArray, nodata
 
@@ -164,3 +165,33 @@ def has_nodata(array: RealArray, nodata: nodata) -> bool:
     else:
         nodata = nodata_mask(array, nodata)
         return any_(nodata)
+
+
+def default_nodata(dtype: type) -> nodata:
+    """
+    default_nodata  Returns a default NoData value based on dtype
+    ----------
+    default_nodata(dtype)
+    Returns a default NoData value for the provided dtype. If a floating dtype,
+    the default NoData is NaN. If an integer dtype, the NoData value is the minimum
+    value supported by the dtype. If boolean, NoData is set to False.
+
+    This function exists to support third-party libraries that expect a NoData
+    value for raster datasets. For example, TauDEM will automatically set nodata=0
+    when NoData is None. However, this is not desired as 0 is often a valid data
+    value (for example, as a masked value in an upslope sum). This function
+    circumvents those issues by providing a sensible default.
+    ----------
+    Inputs:
+        dtype: The dtype whose default NoData value is being queried. Should be
+            a floating, integer, or boolean dtype.
+
+    Outputs:
+        int | float | False: The NoData value for the dtype
+    """
+    if issubdtype(dtype, floating):
+        return nan
+    elif issubdtype(dtype, integer):
+        return iinfo(dtype).min
+    elif issubdtype(dtype, bool_):
+        return False
