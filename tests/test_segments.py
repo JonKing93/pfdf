@@ -683,35 +683,35 @@ class TestBasins:
 
 
 class TestCatchmentMean:
-    def test_have_npixels(_, segments3, flow3, catchment3):
+    def test_have_npixels(_, segments_ca, flow_ca, values_ca):
         # Use npixels=1 (instead of real N) to check not calculating internally
         # Value should be sum rather than mean.
         npixels = np.ones((3,))
         expected = np.array([6, 22, 17]).reshape(-1)
-        output = segments3.catchment_mean(flow3, catchment3, npixels=npixels)
+        output = segments_ca.catchment_mean(flow_ca, values_ca, npixels=npixels)
         assert np.array_equal(output, expected)
 
-    def test_npixels_0(_, segments3, flow3, catchment3):
+    def test_npixels_0(_, segments_ca, flow_ca, values_ca):
         npixels = np.array([0, 1, 1])
         expected = np.array([np.nan, 22, 17]).reshape(-1)
-        output = segments3.catchment_mean(flow3, catchment3, npixels=npixels)
+        output = segments_ca.catchment_mean(flow_ca, values_ca, npixels=npixels)
         assert np.array_equal(output, expected, equal_nan=True)
 
-    def test_standard(_, segments3, flow3, catchment3):
+    def test_standard(_, segments_ca, flow_ca, values_ca):
         expected = np.array([2, 5.5, 8.5]).reshape(-1)
-        output = segments3.catchment_mean(flow3, catchment3)
+        output = segments_ca.catchment_mean(flow_ca, values_ca)
         assert np.array_equal(output, expected)
 
-    def test_masked(_, segments3, flow3, catchment3, mask3):
-        expected = np.array([2.5, 6.5, 8]).reshape(-1)
-        output = segments3.catchment_mean(flow3, catchment3, mask=mask3)
+    def test_masked(_, segments_ca, flow_ca, values_ca, mask_ca):
+        expected = np.array([2.5, 6.5, 9]).reshape(-1)
+        output = segments_ca.catchment_mean(flow_ca, values_ca, mask=mask_ca)
         assert np.array_equal(output, expected)
 
-    def test_mask_and_npixels(_, segments3, flow3, catchment3, mask3):
+    def test_mask_and_npixels(_, segments_ca, flow_ca, values_ca, mask_ca):
         npixels = np.ones((3,))
-        expected = np.array([5, 13, 8])
-        output = segments3.catchment_mean(
-            flow3, catchment3, npixels=npixels, mask=mask3
+        expected = np.array([5, 13, 9])
+        output = segments_ca.catchment_mean(
+            flow_ca, values_ca, npixels=npixels, mask=mask_ca
         )
         assert np.array_equal(output, expected)
 
