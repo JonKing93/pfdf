@@ -364,7 +364,6 @@ class TestPaths:
         assert output[3] == tmp_path / "output-2.tif"
 
 
-@pytest.mark.taudem
 class TestRunTaudem:
     def test_verbose(_, tmp_path, fraster, capfd):
         dem_data = fraster
@@ -405,7 +404,6 @@ class TestOutput:
 #####
 
 
-@pytest.mark.taudem
 class TestPitRemove:
     def test(_, fdem, fpitfilled, tmp_path):
         pitfilled = tmp_path / "output.tif"
@@ -418,7 +416,6 @@ class TestPitRemove:
         assert np.array_equal(output.values, expected.values)
 
 
-@pytest.mark.taudem
 class TestFlowD8:
     def test(_, fpitfilled, fflow8, fslopes8, tmp_path):
         flow = tmp_path / "output-1.tif"
@@ -438,7 +435,6 @@ class TestFlowD8:
         assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
 
-@pytest.mark.taudem
 class TestFlowDinf:
     def test_flow_dinf(_, fpitfilled, fflowi, fslopesi, tmp_path):
         flow = tmp_path / "output-1.tif"
@@ -458,7 +454,6 @@ class TestFlowDinf:
         assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
 
-@pytest.mark.taudem
 class TestAreaD8:
     def test_unweighted(_, fflow8, fareau, tmp_path):
         area = tmp_path / "output.tif"
@@ -481,7 +476,6 @@ class TestAreaD8:
         assert np.array_equal(output, expected)
 
 
-@pytest.mark.taudem
 class TestReliefDinf:
     def test(_, fpitfilled, fflowi, fslopesi, frelief, tmp_path):
         relief = tmp_path / "output.tif"
@@ -499,7 +493,6 @@ class TestReliefDinf:
 #####
 
 
-@pytest.mark.taudem
 class TestPitfill:
     def test_verbose(_, fdem, capfd):
         dem.pitfill(fdem, verbose=True)
@@ -546,7 +539,6 @@ class TestPitfill:
         assert np.array_equal(output, expected)
 
 
-@pytest.mark.taudem
 class TestFlowDirections:
     def test_verbose(_, fpitfilled, capfd):
         dem.flow_directions("D8", fpitfilled, verbose=True)
@@ -685,7 +677,6 @@ class TestFlowDirections:
         assert np.allclose(output, expected, rtol=0, atol=1e-7)
 
 
-@pytest.mark.taudem
 class TestUpslopePixels:
     def test_warnings(_, fflow8, capfd):
         _Raster(fflow8).values
@@ -745,7 +736,6 @@ class TestUpslopePixels:
         dem.upslope_pixels(flow, check=False)
 
 
-@pytest.mark.taudem
 class TestUpslopeSum:
     def test_verbose(_, fflow8, fweights, capfd):
         dem.upslope_sum(fflow8, fweights, verbose=True)
@@ -821,7 +811,6 @@ class TestUpslopeSum:
         dem.upslope_sum(fflow8, fweights, mask, check=False)
 
 
-@pytest.mark.taudem
 class TestRelief:
     def test_verbose(_, fpitfilled, fflowi, fslopesi, capfd):
         dem.relief(fpitfilled, fflowi, fslopesi, verbose=True)

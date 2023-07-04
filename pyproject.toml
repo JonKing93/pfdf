@@ -43,15 +43,10 @@ safety = "^2.1.1"
 
 [tool.poetry.scripts]
 tests = "scripts.dev:tests"
-all_tests = "scripts.dev:all_tests"
 format = "scripts.dev:format"
 lint = "scripts.dev:lint"
 
 [tool.pytest.ini_options]
-markers = [
-    "taudem: Tests that require TauDEM commands",
-    "arcpy: Tests that require ArcPy functions",
-]
 filterwarnings = [
     "ignore::DeprecationWarning:nptyping.typing_",
     "ignore::DeprecationWarning:rasterio",

@@ -9,8 +9,7 @@ To run a script, enter:
 from a command line (not the Python interactive shell).
 ----------
 Poetry Scripts:
-    tests               - Runs the (pure Python) tests intended for the Gitlab pipeline
-    all_tests           - Runs all tests, including those requiring TauDEM
+    tests               - Runs the tests
     format              - Applies isort and black formatters to the code
     lint                - Checks that all code is formatted correctly
 
@@ -26,15 +25,12 @@ MIN_COVERAGE = 75
 
 def tests():
     """
-    Runs all tests intended for the Gitlab pipeline. These are the tests that
-    do not require a TauDEM installation. Also generates a coverage report and
-    requires a minimum coverage.
+    Runs all tests intended for the Gitlab pipeline. Requires minimum coverage
+    and generates a coverage report.
     """
     command = [
         "pytest",
         "tests",
-        "-k",
-        "not taudem",
         "--cov=pfdf",
         f"--cov-fail-under={MIN_COVERAGE}",
         "--cov-report",
@@ -42,11 +38,6 @@ def tests():
     ]
     run(command)
     run(["coverage", "report"])
-
-
-def all_tests():
-    "Can be used by developers with a TauDEM installation to validate all tests"
-    run(["pytest", "tests"])
 
 
 def format():
