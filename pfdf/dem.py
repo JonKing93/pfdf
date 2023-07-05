@@ -94,9 +94,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 
+from pfdf import _nodata
 from pfdf import _validate as validate
 from pfdf._rasters import Raster as _Raster
-from pfdf._utils import default_nodata, nodata_mask
 from pfdf.rasters import OutputRaster, Raster
 from pfdf.typing import BooleanMask, OutputPath, Pathlike, shape2d
 
@@ -415,10 +415,10 @@ def upslope_sum(
     # Optionally mask the pixel values. Ensure NoData values remain Nodata
     if mask is not None:
         values.load()
-        nodata = nodata_mask(values.values, values.nodata)
+        nodatas = _nodata.mask(values.values, values.nodata)
         values.values = values.values * mask
-        if nodata is not None:
-            values.values[nodata] = values.nodata
+        if nodatas is not None:
+            values.values[nodatas] = values.nodata
 
     # Compute sum using temp files as needed
     with TemporaryDirectory() as temp:
@@ -817,7 +817,7 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[_Raster]:
         # Provide a sensible NoData if there is none (otherwise TauDEM defaults
         # to 0, which is not desired)
         if rasters[r].nodata is None:
-            rasters[r].nodata = default_nodata(rasters[r].dtype)
+            rasters[r].nodata = _nodata.default(rasters[r].dtype)
     return rasters
 
 

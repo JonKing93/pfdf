@@ -42,10 +42,11 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 import numpy as np
 from nptyping import Bool, Floating, Integer, NDArray, Shape
 
+from pfdf import _nodata
 from pfdf import _validate as validate
 from pfdf import dem
 from pfdf._rasters import Raster as _Raster
-from pfdf._utils import has_nodata, isdata, real
+from pfdf._utils import real
 from pfdf.errors import RasterShapeError, ShapeError
 from pfdf.rasters import Raster
 from pfdf.typing import (
@@ -235,7 +236,7 @@ class Segments:
         # Validate
         name = "stream_raster"
         stream = _Raster.validate(stream_raster, name)
-        data_mask = isdata(stream.values, stream.nodata)
+        data_mask = _nodata.mask(stream.values, stream.nodata, invert=True)
         validate.positive(stream.values, name, allow_zero=True, isdata=data_mask)
         validate.integers(stream.values, name, isdata=data_mask)
 
@@ -370,7 +371,7 @@ class Segments:
 
             # Get flow-directions. If any are NoData, set confinement to NaN
             flows = flow_directions.values[pixels]
-            if has_nodata(flows, flow_directions.nodata):
+            if _nodata.isin(flows, flow_directions.nodata):
                 theta[i] = np.nan
                 continue
 
@@ -415,7 +416,7 @@ class Segments:
             values = raster.values[pixels]
 
             # Compute statistic or set to NaN if NoData is present
-            if has_nodata(values, raster.nodata):
+            if _nodata.isin(values, raster.nodata):
                 summary[i] = np.nan
             else:
                 summary[i] = statistic(values)
@@ -1008,7 +1009,7 @@ class _Kernel:
         nodata: NoData value for the DEM"""
         direction = self.directions[flow]
         heights = dem[direction(self)]
-        if has_nodata(heights, nodata):
+        if _nodata.isin(heights, nodata):
             return np.nan
         else:
             return np.amax(heights)

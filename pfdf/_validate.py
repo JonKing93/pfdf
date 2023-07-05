@@ -53,7 +53,8 @@ from numpy import integer as int_
 from numpy import issubdtype as istype
 from numpy import unsignedinteger as uint_
 
-from pfdf._utils import aslist, astuple, data_mask
+from pfdf import _nodata
+from pfdf._utils import aslist, astuple
 from pfdf.errors import DimensionError, ShapeError
 from pfdf.typing import (
     BooleanArray,
@@ -678,7 +679,7 @@ def _isdata(array: RealArray, isdata: BooleanArray, nodata: nodata) -> DataMask:
     (i.e. the mask of element that are not NoData). Note that if both options are
     None, then the data mask will be None, as no mask is necessary."""
     if isdata is None and nodata is not None:
-        isdata = data_mask(array, nodata)
+        isdata = _nodata.mask(array, nodata, invert=True)
     return isdata
 
 

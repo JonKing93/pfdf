@@ -40,9 +40,10 @@ from typing import Any, Dict, Optional, Set
 
 import numpy as np
 
+from pfdf import _nodata
 from pfdf import _validate as validate
 from pfdf._rasters import Raster as _Raster
-from pfdf._utils import astuple, nodata_mask, real
+from pfdf._utils import astuple, real
 from pfdf.rasters import OutputRaster, Raster
 from pfdf.typing import (
     Pathlike,
@@ -209,7 +210,7 @@ def estimate(
 
     # Preallocate. Get nodata mask
     severity = np.empty(raster.shape, dtype="int8")
-    nodata = nodata_mask(raster.values, raster.nodata)
+    nodatas = _nodata.mask(raster.values, raster.nodata)
     raster = raster.values
 
     # Get the burn severity classes
@@ -219,8 +220,8 @@ def estimate(
     severity[raster >= thresholds[2]] = 4
 
     # Fill NoData
-    if nodata is not None:
-        severity[nodata] = 0
+    if nodatas is not None:
+        severity[nodatas] = 0
     return _Raster.output(severity, path, nodata=0)
 
 
