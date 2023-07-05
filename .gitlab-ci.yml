@@ -16,6 +16,7 @@ build:
     - source activate ./env
     - poetry install --with dev
   artifacts:
+    expire_in: 1 hour
     paths:
       - env
 
@@ -35,6 +36,7 @@ test:
     - poetry run tests
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
+    expire_in: 1 hour
     reports:
       coverage_report:
         coverage_format: cobertura
