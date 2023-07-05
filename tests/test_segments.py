@@ -263,8 +263,8 @@ def mask_ca():
         [
             [0, 0, 0, 0, 0],
             [0, 0, 1, 1, 0],
-            [0, 1, 0, 0, 0],
             [0, 1, 0, 1, 0],
+            [0, 1, 0, 0, 0],
             [0, 0, 0, 0, 0],
         ]
     )
@@ -703,13 +703,13 @@ class TestCatchmentMean:
         assert np.array_equal(output, expected)
 
     def test_masked(_, segments_ca, flow_ca, values_ca, mask_ca):
-        expected = np.array([2.5, 6.5, 9]).reshape(-1)
+        expected = np.array([2.5, 6.5, 8]).reshape(-1)
         output = segments_ca.catchment_mean(flow_ca, values_ca, mask=mask_ca)
         assert np.array_equal(output, expected)
 
     def test_mask_and_npixels(_, segments_ca, flow_ca, values_ca, mask_ca):
         npixels = np.ones((3,))
-        expected = np.array([5, 13, 9])
+        expected = np.array([5, 13, 8])
         output = segments_ca.catchment_mean(
             flow_ca, values_ca, npixels=npixels, mask=mask_ca
         )

@@ -60,7 +60,9 @@ class Raster:
     Finally, note that setting the ".values" property directly has additional
     requirements/consequences. First, the new "values" array must match the
     dtype of the object (i.e. dtype cannot change). Setting the values will also
-    change the path to None, and will also update the shape.
+    change the path to None, and will also update the shape. Note that if you
+    *do* want to change the dtype of the values, you must first set the dtype
+    explicitly to the new type, then change the values.
     ----------
     PROPERTIES:
     Data:
