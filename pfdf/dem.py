@@ -809,6 +809,11 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[_Raster]:
         if nrasters > 1 and r == 0:
             shape = rasters[0].shape
 
+        # Boolean rasters should be converted to int8 to avoid setting False as NoData
+        if rasters[r].dtype == bool:
+            rasters[r].dtype = "int8"
+            rasters[r].values = rasters[r].values.astype("int8")
+
         # Provide a sensible NoData if there is none (otherwise TauDEM defaults
         # to 0, which is not desired)
         if rasters[r].nodata is None:
