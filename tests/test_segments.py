@@ -303,7 +303,7 @@ class TestKernel:
     def test_init(_):
         kernel = segments._Kernel(4, 100, 250)
         assert isinstance(kernel, segments._Kernel)
-        assert kernel.N == 4
+        assert kernel.neighborhood == 4
         assert kernel.nRows == 100
         assert kernel.nCols == 250
         assert kernel.row is None
@@ -633,7 +633,7 @@ class Test_Confinement:
         dem = _Raster(demc)
         flow = _Raster(flowc)
         flow.nodata = 1
-        output = segmentsc._confinement(dem, flow, N=1, resolution=1)
+        output = segmentsc._confinement(dem, flow, neighborhood=1, resolution=1)
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_dem_nodata(_, segmentsc, flowc, demc):
@@ -745,7 +745,7 @@ class TestConfinement:
     def test_invalid_N(_, segmentsc, demc, flowc):
         with pytest.raises(ValueError) as error:
             segmentsc.confinement(demc, flowc, -2, 1)
-        assert_contains(error, "N")
+        assert_contains(error, "neighborhood")
 
     def test_invalid_resolution(_, segmentsc, demc, flowc):
         with pytest.raises(ValueError) as error:

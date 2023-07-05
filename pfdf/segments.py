@@ -165,40 +165,6 @@ class Segments:
         _summary                    - Computes a summary statistic for a set of stream segments
     """
 
-    # The statistical function for each type of summary value
-    _stats = {
-        "basins": np.amax,
-        "confinement": np.mean,
-        "development": np.mean,
-        "pixels": np.amax,
-        "slope": np.mean,
-    }
-
-    #####
-    # Properties
-    #####
-    @property
-    def ids(self) -> SegmentValues:
-        "A numpy 1D array listing the stream segment IDs for the object."
-        # (Use a numpy array so user can apply logical indexing when filtering)
-        ids = list(self.indices.keys())
-        return np.array(ids)
-
-    @property
-    def indices(self) -> indices:
-        """
-        A dict mapping each stream segment ID to the indices of its associated
-        pixels in the stream segment raster. The value of each key is a 2-tuple
-        whose elements are numpy 1D arrays. The first array lists the row indices
-        of the pixels, and the second array lists the column indices.
-        """
-        return self._indices
-
-    @property
-    def raster_shape(self) -> Tuple[int, int]:
-        "The shape of the stream link raster used to define the stream segments"
-        return self._raster_shape
-
     #####
     # Dunders
     #####
@@ -272,6 +238,44 @@ class Segments:
         else:
             list = ", ".join([str(id) for id in self.ids])
         return f"Stream Segments: {list}"
+
+    #####
+    # Class Variables
+    #####
+
+    # The statistical function for each type of summary value
+    _stats = {
+        "basins": np.amax,
+        "confinement": np.mean,
+        "development": np.mean,
+        "pixels": np.amax,
+        "slope": np.mean,
+    }
+
+    #####
+    # Properties
+    #####
+    @property
+    def ids(self) -> SegmentValues:
+        "A numpy 1D array listing the stream segment IDs for the object."
+        # (Use a numpy array so user can apply logical indexing when filtering)
+        ids = list(self.indices.keys())
+        return np.array(ids)
+
+    @property
+    def indices(self) -> indices:
+        """
+        A dict mapping each stream segment ID to the indices of its associated
+        pixels in the stream segment raster. The value of each key is a 2-tuple
+        whose elements are numpy 1D arrays. The first array lists the row indices
+        of the pixels, and the second array lists the column indices.
+        """
+        return self._indices
+
+    @property
+    def raster_shape(self) -> Tuple[int, int]:
+        "The shape of the stream link raster used to define the stream segments"
+        return self._raster_shape
 
     #####
     # Raster Validation
@@ -351,7 +355,7 @@ class Segments:
         self,
         dem: _Raster,
         flow_directions: _Raster,
-        N: ScalarArray,
+        neighborhood: ScalarArray,
         resolution: ScalarArray,
     ) -> SegmentValues:
         """Computes mean confinement angle. Assumes that all inputs are valid
@@ -361,8 +365,8 @@ class Segments:
 
         # Preallocate. Initialize kernel. Get flow lengths
         theta = np.empty(len(self))
-        kernel = _Kernel(N, *self.raster_shape)
-        lateral_length = resolution * N
+        kernel = _Kernel(neighborhood, *self.raster_shape)
+        lateral_length = resolution * neighborhood
         diagonal_length = lateral_length * sqrt(2)
 
         # Get pixels for each stream segment.
@@ -577,13 +581,13 @@ class Segments:
         self,
         dem: Raster,
         flow_directions: Raster,
-        N: scalar,
+        neighborhood: scalar,
         resolution: scalar,
     ) -> SegmentValues:
         """
         confinement  Returns the mean confinement angle of each stream segment
         ----------
-        self.confinement(segments, dem, flow_directions, N, resolution)
+        self.confinement(segments, dem, flow_directions, neighborhood, resolution)
         Computes the mean confinement angle for each stream segment. Returns these
         angles as a numpy 1D array. The order of angles matches the order of
         segment IDs in the object.
@@ -597,10 +601,11 @@ class Segments:
         The confinement angle for a given pixel is calculated using the slopes in the
         two directions perpendicular to stream flow. A given slope is calculated using
         the maximum DEM height within N pixels of the processing pixel in the
-        associated direction. For example, consider a pixel flowing east with N=4.
-        Confinement angles are calculated using slopes to the north and south. The
-        north slope is determined using the maximum DEM height in the 4 pixels north
-        of the stream segment pixel via:
+        associated direction. Here, the number of pixels searched in each direction
+        (N) is set is equal to the "neighborhood" input. For example, consider a
+        pixel flowing east with neighborhood=4. Confinement angles are calculated
+        using slopes to the north and south. The north slope is determined using the
+        maximum DEM height in the 4 pixels north of the stream segment pixel via:
 
             slope = max height / (N * DEM resolution * scale)
 
@@ -616,7 +621,7 @@ class Segments:
             dem: A raster of digital elevation model (DEM) data.
             flow_directions: A raster with TauDEM-style D8 flow directions for
                 the DEM pixels
-            N: The number of raster pixels to search for maximum heights
+            neighborhood: The number of raster pixels to search for maximum heights
             resolution: The resolution of the DEM. Should use the same units as
                 the DEM data.
 
@@ -625,9 +630,9 @@ class Segments:
         """
 
         # Validate N and resolution
-        N = validate.scalar(N, "N", real)
-        validate.positive(N, "N")
-        validate.integers(N, "N")
+        neighborhood = validate.scalar(neighborhood, "neighborhood", real)
+        validate.positive(neighborhood, "neighborhood")
+        validate.integers(neighborhood, "neighborhood")
         resolution = validate.scalar(resolution, "resolution", real)
         validate.positive(resolution, "resolution")
 
@@ -637,7 +642,7 @@ class Segments:
         dem = self._validate(dem, "dem")
 
         # Compute mean confinement angles
-        return self._confinement(dem, flow, N, resolution)
+        return self._confinement(dem, flow, neighborhood, resolution)
 
     def copy(self) -> "Segments":
         """
@@ -840,35 +845,35 @@ class _Kernel:
     ----------
     PROPERTIES:
         Focal Statistics Environment:
-            N           - The size of the kernel
-            nRows       - The number of raster rows
-            nCols       - The number of raster columns
-            row         - The row index of the processing cell
-            col         - The column index of the processing cell
+            neighborhood    - The size of the kernel neighborhood
+            nRows           - The number of raster rows
+            nCols           - The number of raster columns
+            row             - The row index of the processing cell
+            col             - The column index of the processing cell
 
         Reference:
-            directions  - Lists kernel direction functions in the same order as D8 flow directions
+            directions      - Lists kernel direction functions in the same order as D8 flow directions
 
     METHODS:
         Creation:
-            __init__    - Create a _Kernel object
-            update      - Update the processing cell
+            __init__        - Create a _Kernel object
+            update          - Update the processing cell
 
         Directions:
             (These methods return the indices for a particular direction)
             left, right, up, down, upleft, upright, downleft, downright
 
         Direction types:
-            vertical    - Indices for up or down
-            horizontal  - Indices for left or right
-            identity    - Indices for upleft or downright (derived from the diagonal of an identity matrix)
-            exchange    - Indices for upright or downleft (derived from the counter-diagonal of an exchange matrix)
+            vertical        - Indices for up or down
+            horizontal      - Indices for left or right
+            identity        - Indices for upleft or downright (derived from the diagonal of an identity matrix)
+            exchange        - Indices for upright or downleft (derived from the counter-diagonal of an exchange matrix)
 
         Index utilities:
-            lateral     - Returns indices for lateral directions (up, down, left, right)
-            diagonal    - Returns indices for diagonal directions (upleft, upright, downleft, downright)
-            indices     - Returns the N indices preceding or following a processing cell index
-            limit       - Limits indices to the N values closest to the processing cell index
+            lateral         - Returns indices for lateral directions (up, down, left, right)
+            diagonal        - Returns indices for diagonal directions (upleft, upright, downleft, downright)
+            indices         - Returns the N indices preceding or following a processing cell index
+            limit           - Limits indices to the N values closest to the processing cell index
 
         Confinement Slopes:
             orthogonal_slopes   - Returns the slopes perpendicular to the flow direction
@@ -876,13 +881,13 @@ class _Kernel:
     """
 
     # Focal statistics environment
-    def __init__(self, N: int, nRows: int, nCols: int) -> None:
+    def __init__(self, neighborhood: int, nRows: int, nCols: int) -> None:
         """
-        N: The kernel size. Sometimes called the kernel half-step. (May be even)
+        neighborhood: The kernel size. Sometimes called the kernel half-step. (May be even)
         nRows: The number of raster rows
         nCols: The number of raster columns
         """
-        self.N = N
+        self.neighborhood = neighborhood
         self.nRows = nRows
         self.nCols = nCols
         self.row = None
@@ -981,11 +986,11 @@ class _Kernel:
         before: True for up/left, False for down/right
         """
         if before:
-            start = max(0, index - self.N)
+            start = max(0, index - self.neighborhood)
             stop = index
         else:
             start = index + 1
-            stop = min(nMax, index + self.N + 1)
+            stop = min(nMax, index + self.neighborhood + 1)
         return list(range(start, stop))
 
     @staticmethod
