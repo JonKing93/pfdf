@@ -31,7 +31,8 @@ import rasterio
 
 from pfdf import _validate as validate
 from pfdf._utils import real
-from pfdf.rasters import NumpyRaster, OutputRaster
+from pfdf import rasters
+from pfdf.rasters import RasterOutput
 from pfdf.typing import OutputPath, RasterArray, nodata, shape2d
 
 
@@ -48,8 +49,8 @@ class Raster:
     Note that this class is strictly intended for internal use, as all properties
     have read-write access. As such, Raster objects should not appear in user-facing
     type hints, and should not be returned as output from user-facing functions.
-    Either return the Raster path, or see the "as_npr" method to return the
-    raster as a (user-facing) NumpyRaster object.
+    Either return the Raster path, or see the "as_user_raster" method to return the
+    raster as a user-facing rasters.Raster object.
 
     Also, it is always best to use validated Rasters for internal processing.
     As such, the recommended way to obtain a Raster object for a user-provided
@@ -82,8 +83,7 @@ class Raster:
         __init__        - Creates a new Raster object
         _from_file       - Initializes object from a file-based raster
         _from_array      - Initializes object from a numpy array
-        _from_npr        - Initializes object from a NumpyRaster object
-        _from_pysheds    - Initialize object from a pysheds.sview.Raster object
+        _from_raster     - Initializes object from a rasters.Raster object
 
     File IO:
         load            - Loads raster values into memory. (Does nothing if already loaded)
@@ -94,8 +94,8 @@ class Raster:
         output          - Returns a computed numpy array or pysheds Raster as user-facing output
 
     Conversions:
-        as_npr          - Returns the raster as a NumpyRaster object
-        as_input        - Returns the raster in a form suitable as input to a user-facing function
+        as_user_raster  - Returns the raster as a rasters.Raster object
+        as_input        - Returns raster in a form suitable as a dem module function input
     """
 
     #####
@@ -103,19 +103,19 @@ class Raster:
     #####
 
     def __init__(
-        self, raster: Union[Path, np.ndarray, NumpyRaster], load: bool = True
+        self, raster: Union[Path, np.ndarray, rasters.Raster], load: bool = True
     ) -> None:
         """
         __init__  Creates a new Raster object
         ----------
         Raster(raster)
-        Creates a Raster object from a Path, numpy array, or NumpyRaster object.
+        Creates a Raster object from a Path, numpy array, or rasters.Raster object.
         If the input raster is a Path, loads its data values into memory.
 
         Raster(raster, load=False)
         Creates a Raster object, but does not load file-based raster values
         into memory. See the "load" method to load values at a later point. Note
-        that this option has no effect on numpy arrays and NumpyRaster objects.
+        that this option has no effect on numpy arrays and rasters.Raster objects.
         ----------
         Inputs:
             raster: The raster dataset
@@ -138,8 +138,8 @@ class Raster:
             self._from_file(raster)
         elif isinstance(raster, np.ndarray):
             self._from_array(raster)
-        elif isinstance(raster, NumpyRaster):
-            self._from_npr(raster)
+        elif isinstance(raster, rasters.Raster):
+            self._from_raster(raster)
 
         # Optionally load file-based rasters
         if load:
@@ -169,11 +169,11 @@ class Raster:
         self.shape = array.shape
         self.dtype = array.dtype
 
-    def _from_npr(self, npr: NumpyRaster) -> None:
-        "Initializes objects from a NumpyRaster"
+    def _from_raster(self, raster: rasters.Raster) -> None:
+        "Initializes objects from a rasters.Raster"
 
-        self._from_array(npr.array)
-        self.nodata = npr.nodata
+        self._from_array(raster.array)
+        self.nodata = raster.nodata
 
     #####
     # Data values
@@ -288,10 +288,10 @@ class Raster:
             * A pathlib.Path to a raster file,
             * An open rasterio.DatasetReader object, or
             * A numpy 2D array with real-valued dtype
-            * A NumpyRaster object
+            * A rasters.Raster object
 
         Returns the raster as a Raster object. If the input is not a numpy array or
-        NumpyRaster, then the function will read the raster from file. Rasters will
+        rasters.Raster, then the function will read the raster from file. Rasters will
         always be read from band 1.
 
         Raises exceptions if:
@@ -345,11 +345,12 @@ class Raster:
                     f"object no longer exists.\nFile: {raster}"
                 )
 
-        # Otherwise, must be a numpy array or NumpyRaster object
-        elif not isinstance(raster, (np.ndarray, NumpyRaster)):
+        # Otherwise, must be a numpy array or UserRaster object
+        elif not isinstance(raster, (np.ndarray, rasters.Raster)):
             raise TypeError(
                 f"{name} is not a recognized raster type. Allowed types are: "
-                "str, pathlib.Path, rasterio.DatasetReader, 2D numpy.ndarray, and NumpyRaster objects"
+                "str, pathlib.Path, rasterio.DatasetReader, "
+                "2D numpy.ndarray, and rasters.Raster objects"
             )
 
         # Initialize Raster object
@@ -368,15 +369,15 @@ class Raster:
     @staticmethod
     def output(
         raster: RasterArray, path: OutputPath, nodata: nodata = None
-    ) -> OutputRaster:
+    ) -> RasterOutput:
         """Returns a numpy array in a form suitable as user output.
         If a path is specified, saves the raster and returns the path. Otherwise,
-        returns the raster as a NumpyRaster object. Optionally sets a NoData value."""
+        returns the raster as a UserRaster object. Optionally sets a NoData value."""
 
         raster = Raster(raster)
         raster.nodata = nodata
         if path is None:
-            return raster.as_npr()
+            return raster.as_user_raster()
         else:
             raster.save(path)
             return path
@@ -384,14 +385,14 @@ class Raster:
     #####
     # Conversions
     #####
-    def as_npr(self) -> NumpyRaster:
-        """Returns the raster as a NumpyRaster."""
+    def as_user_raster(self) -> rasters.Raster:
+        """Returns the raster as a rasters.Raster object."""
         self.load()
-        return NumpyRaster(self.values, nodata=self.nodata)
+        return rasters.Raster(self.values, nodata=self.nodata)
 
-    def as_input(self) -> OutputRaster:
+    def as_input(self) -> RasterOutput:
         "Returns raster in a form suitable as a dem module function input"
         if self.path is None:
-            return self.as_npr()
+            return self.as_user_raster()
         else:
             return self.path
