@@ -25,7 +25,7 @@ import pytest
 from pfdf import dem
 from pfdf._rasters import Raster as _Raster
 from pfdf.errors import DimensionError, ShapeError
-from pfdf.rasters import NumpyRaster
+from pfdf.rasters import Raster
 
 #####
 # Testing Utilities
@@ -48,8 +48,8 @@ def araster():
 @pytest.fixture
 def fraster(araster, tmp_path):
     path = tmp_path / "raster.tif"
-    npr = NumpyRaster(araster, nodata=200)
-    _Raster(npr).save(path)
+    raster = Raster(araster, nodata=200)
+    _Raster(raster).save(path)
     return path
 
 
@@ -57,8 +57,8 @@ def fraster(araster, tmp_path):
 def file_raster(raster, dtype, folder, name, nodata=None):
     path = folder / (name + ".tif")
     raster = raster.astype(dtype)
-    npr = NumpyRaster(raster, nodata=nodata)
-    _Raster(npr).save(path)
+    raster = Raster(raster, nodata=nodata)
+    _Raster(raster).save(path)
     return path
 
 

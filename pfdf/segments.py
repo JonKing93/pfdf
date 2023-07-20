@@ -286,12 +286,12 @@ class Segments:
         name: str,
         *,
         load: bool = True,
-    ) -> _Raster:
+    ) -> Raster:
         """
         _validate  Check input raster if compatible with stream segment pixel indices
         ----------
         self._validate(raster, name)
-        Validates the input raster. Loads the data values and returns as a _Raster
+        Validates the input raster. Loads the data values and returns as a Raster
         object. Note that a valid raster must both (1) meet the criteria
         described in rasters._validate, and (2) have a shape matching the shape of
         the raster used to define the stream segments. Raises a RasterShapeError
@@ -307,7 +307,7 @@ class Segments:
                 values loaded into memory. False to not load file-based rasters
 
         Outputs:
-            _Raster: The validated _Raster object
+            Raster: The validated Raster object
 
         Raises:
             RasterShapeError: If the shape of the input raster does not match
@@ -353,8 +353,8 @@ class Segments:
     #####
     def _confinement(
         self,
-        dem: _Raster,
-        flow_directions: _Raster,
+        dem: Raster,
+        flow_directions: Raster,
         neighborhood: ScalarArray,
         resolution: ScalarArray,
     ) -> SegmentValues:
@@ -394,7 +394,7 @@ class Segments:
             theta[i] = self._confinement_angle(slopes)
         return theta
 
-    def _summary(self, raster: _Raster, statistic: StatFunction) -> SegmentValues:
+    def _summary(self, raster: Raster, statistic: StatFunction) -> SegmentValues:
         """
         _summary  Returns a summary value for each stream segment
         ----------
@@ -556,7 +556,7 @@ class Segments:
         flow = flow.as_input()
         values = values.as_input()
         if mask is not None:
-            mask = mask.as_npr()
+            mask = mask.as_user_raster()
 
         # Compute pixel counts if not provided
         if npixels is None:
@@ -566,14 +566,14 @@ class Segments:
                 npixels = dem.upslope_sum(flow, values=mask, check=False)
 
             # Summarize pixel counts for stream segments
-            npixels = _Raster(npixels)
+            npixels = Raster(npixels)
             npixels = self._summary(npixels, np.amax)
         npixels = npixels.astype(float)
         npixels[npixels == 0] = np.nan
 
         # Compute mean values
         upslope_sums = dem.upslope_sum(flow, values, mask, check=False)
-        upslope_sums = _Raster(upslope_sums)
+        upslope_sums = Raster(upslope_sums)
         segment_sums = self._summary(upslope_sums, np.amax)
         return segment_sums / npixels
 
@@ -1020,12 +1020,12 @@ class _Kernel:
             return np.amax(heights)
 
     def orthogonal_slopes(
-        self, flow: FlowNumber, length: scalar, dem: _Raster
+        self, flow: FlowNumber, length: scalar, dem: Raster
     ) -> NDArray[Shape["1 pixel, 2 rotations"], Floating]:
         """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
         length: The lateral or diagonal flow length across 1 pixel
-        dem: The DEM _Raster"""
+        dem: The DEM Raster"""
 
         # Get raster values
         nodata = dem.nodata

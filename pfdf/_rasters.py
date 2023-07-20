@@ -12,11 +12,6 @@ hints should not reference these objects, and user-facing functions should not
 return Raster objects as output. You can use the "output" function to return a
 computed raster array in a form suitable for users, and see also the IO methods
 of the Raster class for additional options.
-
-Note: To avoid confusion with the user-facing "Raster" type hint, we recommend
-importing the Raster class via:
-
-    from pfdf._rasters import Raster as _Raster
 ----------
 Classes:
     Raster      - Internal representation of raster datasets

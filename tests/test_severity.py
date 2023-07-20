@@ -10,7 +10,7 @@ import pytest
 from pfdf import severity
 from pfdf._rasters import Raster as _Raster
 from pfdf.errors import ShapeError
-from pfdf.rasters import NumpyRaster
+from pfdf.rasters import Raster
 
 #####
 # Testing utilities
@@ -213,7 +213,7 @@ class TestEstimate:
         assert np.array_equal(output.array, estimate_thresh)
 
     def test_nodata(_, dnbr, estimate_nodata):
-        dnbr = NumpyRaster(dnbr, nodata=-1)
+        dnbr = Raster(dnbr, nodata=-1)
         output = severity.estimate(dnbr)
         assert np.array_equal(output.array, estimate_nodata)
 
