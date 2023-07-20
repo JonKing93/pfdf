@@ -7,7 +7,7 @@ import rasterio
 
 from pfdf._rasters import Raster as _Raster
 from pfdf.errors import DimensionError, ShapeError
-from pfdf.rasters import NumpyRaster
+from pfdf.rasters import Raster
 
 
 #####
@@ -51,7 +51,7 @@ class TestRasterInit:
         assert raster.nodata is None
 
     def test_npr(_, araster):
-        npr = NumpyRaster(araster, nodata=-999)
+        npr = Raster(araster, nodata=-999)
         raster = _Raster(npr)
         assert raster.path is None
         assert np.array_equal(raster.values, araster)
@@ -142,31 +142,31 @@ class TestSave:
         assert np.array_equal(raster.values, araster.astype("int8"))
 
 
-class TestAsNpr:
+class TestAsUserRaster:
     def test_array(_, araster):
         raster = _Raster(araster)
-        npr = raster.as_npr()
-        assert isinstance(npr, NumpyRaster)
-        assert np.array_equal(npr.array, araster)
-        assert npr.shape == araster.shape
-        assert npr.dtype == araster.dtype
-        assert npr.nodata is None
+        raster = raster.as_user_raster()
+        assert isinstance(raster, Raster)
+        assert np.array_equal(raster.array, araster)
+        assert raster.shape == araster.shape
+        assert raster.dtype == araster.dtype
+        assert raster.nodata is None
 
     def test_file(_, fraster, araster):
         raster = _Raster(fraster)
-        npr = raster.as_npr()
-        assert isinstance(npr, NumpyRaster)
-        assert np.array_equal(npr.array, araster)
-        assert npr.shape == araster.shape
-        assert npr.dtype == araster.dtype
-        assert npr.nodata == 1
+        raster = raster.as_user_raster()
+        assert isinstance(raster, Raster)
+        assert np.array_equal(raster.array, araster)
+        assert raster.shape == araster.shape
+        assert raster.dtype == araster.dtype
+        assert raster.nodata == 1
 
 
 class TestAsInput:
-    def test_npr(_, araster):
+    def test_raster(_, araster):
         raster = _Raster(araster)
         output = raster.as_input()
-        assert isinstance(output, NumpyRaster)
+        assert isinstance(output, Raster)
         assert np.array_equal(output.array, araster)
 
     def test_path(_, fraster):
@@ -196,7 +196,7 @@ class TestValidated:
         assert isinstance(output, _Raster)
 
     def test_npr(_, araster):
-        input = NumpyRaster(araster)
+        input = Raster(araster)
         output = _Raster.validate(input, "")
         assert isinstance(output, _Raster)
 
@@ -267,7 +267,7 @@ class TestOutput:
         a = np.arange(0, 8).reshape(2, 4)
         out = _Raster.output(a, path=None, nodata=0)
 
-        assert isinstance(out, NumpyRaster)
+        assert isinstance(out, Raster)
         assert out.nodata == 0
         assert np.array_equal(out.array, a)
 

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import rasterio
 
-from pfdf.rasters import NumpyRaster
+from pfdf.rasters import Raster
 
 
 #####
@@ -44,10 +44,10 @@ def assert_contains(error, *strings):
 #####
 
 
-class TestNumpyRaster:
+class TestRaster:
     def test_standard(_):
         a = np.arange(0, 10).reshape(2, 5)
-        npr = NumpyRaster(a, nodata=-999)
+        npr = Raster(a, nodata=-999)
         assert np.array_equal(npr.array, a)
         assert npr.shape == (2, 5)
         assert npr.dtype == a.dtype
@@ -56,15 +56,15 @@ class TestNumpyRaster:
     def test_invalid_nodata(_):
         a = np.arange(0, 10).reshape(2, 5)
         with pytest.raises(TypeError) as error:
-            NumpyRaster(a, nodata="invalid")
+            Raster(a, nodata="invalid")
         assert_contains(error, "nodata")
 
     def test_invalid_array(_):
         with pytest.raises(TypeError) as error:
-            NumpyRaster("invalid")
+            Raster("invalid")
         assert_contains(error, "input raster")
 
     def test_nodata_cast_dtype(_):
         a = np.arange(0, 10).reshape(2, 5).astype(int)
-        npr = NumpyRaster(a, nodata=2.2)
+        npr = Raster(a, nodata=2.2)
         assert npr.nodata == 2
