@@ -56,6 +56,7 @@ class Raster:
         dtype       - The dtype of the raster
         nodata      - The NoData value for the raster
     """
+
     """
     Internal Properties:
         _array:

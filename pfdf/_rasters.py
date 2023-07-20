@@ -25,8 +25,8 @@ import numpy as np
 import rasterio
 
 from pfdf import _validate as validate
-from pfdf._utils import real
 from pfdf import rasters
+from pfdf._utils import real
 from pfdf.rasters import RasterOutput
 from pfdf.typing import OutputPath, RasterArray, nodata, shape2d
 

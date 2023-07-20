@@ -44,7 +44,7 @@ from pfdf import _nodata as nodata
 from pfdf import _validate as validate
 from pfdf._rasters import Raster
 from pfdf._utils import astuple, real
-from pfdf.rasters import RasterOutput, RasterInput
+from pfdf.rasters import RasterInput, RasterOutput
 from pfdf.typing import (
     Pathlike,
     RasterArray,

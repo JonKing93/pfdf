@@ -97,7 +97,7 @@ from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 from pfdf import _nodata as nodata
 from pfdf import _validate as validate
 from pfdf._rasters import Raster
-from pfdf.rasters import RasterOutput, RasterInput
+from pfdf.rasters import RasterInput, RasterOutput
 from pfdf.typing import BooleanMask, OutputPath, Pathlike, shape2d
 
 # Type aliases
