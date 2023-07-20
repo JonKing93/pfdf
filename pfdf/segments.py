@@ -45,10 +45,10 @@ from nptyping import Bool, Floating, Integer, NDArray, Shape
 from pfdf import _nodata
 from pfdf import _validate as validate
 from pfdf import dem
-from pfdf._rasters import Raster as _Raster
+from pfdf._rasters import Raster
 from pfdf._utils import real
 from pfdf.errors import RasterShapeError, ShapeError
-from pfdf.rasters import Raster
+from pfdf.rasters import RasterInput
 from pfdf.typing import (
     RasterArray,
     ScalarArray,
@@ -168,7 +168,7 @@ class Segments:
     #####
     # Dunders
     #####
-    def __init__(self, stream_raster: Raster) -> None:
+    def __init__(self, stream_raster: RasterInput) -> None:
         """
         Segments  Returns an object defining a set of stream segments
         ----------
@@ -201,7 +201,7 @@ class Segments:
 
         # Validate
         name = "stream_raster"
-        stream = _Raster.validate(stream_raster, name)
+        stream = Raster.validate(stream_raster, name)
         data_mask = _nodata.mask(stream.values, stream.nodata, invert=True)
         validate.positive(stream.values, name, allow_zero=True, isdata=data_mask)
         validate.integers(stream.values, name, isdata=data_mask)
@@ -315,7 +315,7 @@ class Segments:
         """
 
         try:
-            return _Raster.validate(raster, name, shape=self._raster_shape, load=load)
+            return Raster.validate(raster, name, shape=self._raster_shape, load=load)
         except ShapeError as error:
             raise RasterShapeError(name, error)
 
@@ -429,7 +429,7 @@ class Segments:
     #####
     # User Methods
     #####
-    def basins(self, upslope_basins: Raster) -> SegmentValues:
+    def basins(self, upslope_basins: RasterInput) -> SegmentValues:
         """
         basins  Returns the maximum number of upslope basins for each stream segment
         ----------
@@ -453,8 +453,8 @@ class Segments:
 
     def catchment_mean(
         self,
-        flow_directions: Raster,
-        values: Raster,
+        flow_directions: RasterInput,
+        values: RasterInput,
         *,
         mask: Optional[Raster] = None,
         npixels: Optional[SegmentValues] = None,
@@ -579,8 +579,8 @@ class Segments:
 
     def confinement(
         self,
-        dem: Raster,
-        flow_directions: Raster,
+        dem: RasterInput,
+        flow_directions: RasterInput,
         neighborhood: scalar,
         resolution: scalar,
     ) -> SegmentValues:
@@ -658,7 +658,7 @@ class Segments:
         """
         return deepcopy(self)
 
-    def development(self, upslope_development: Raster) -> SegmentValues:
+    def development(self, upslope_development: RasterInput) -> SegmentValues:
         """
         development  Returns the mean number of developed upslope pixels for each stream segment
         ----------
@@ -679,7 +679,7 @@ class Segments:
         development = self._validate(upslope_development, "upslope_development")
         return self._summary(development, self._stats["development"])
 
-    def pixels(self, upslope_pixels: Raster) -> SegmentValues:
+    def pixels(self, upslope_pixels: RasterInput) -> SegmentValues:
         """
         pixels  Returns the maximum number of upslope pixels for each stream segment
         ----------
@@ -760,7 +760,7 @@ class Segments:
         for id in segments:
             del self.indices[id]
 
-    def slope(self, slopes: Raster) -> SegmentValues:
+    def slope(self, slopes: RasterInput) -> SegmentValues:
         """
         slope  Returns the mean slope for each stream segment
         ----------
@@ -778,7 +778,7 @@ class Segments:
         slopes = self._validate(slopes, "slopes")
         return self._summary(slopes, self._stats["slope"])
 
-    def summary(self, statistic: Statistic, raster: Raster) -> SegmentValues:
+    def summary(self, statistic: Statistic, raster: RasterInput) -> SegmentValues:
         """
         summary  Computes a summary statistic for each stream segment
         ----------

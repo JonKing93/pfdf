@@ -35,7 +35,7 @@ Note that file-based rasters are loaded using rasterio, and so support nearly al
 common raster file formats. When possible, we recommend working with GeoTIFF formats,
 but you can find a complete list of supported formats here: https://gdal.org/drivers/raster/index.html
 
-Output rasters are returned as a NumpyRaster by default, or are saved to a GeoTIFF
+Output rasters are returned as a Raster by default, or are saved to a GeoTIFF
 file if a path is provided. The module ensures that the output path always ends
 in a "tif" extension - appending one to the file name, or converting ".tiff" to
 ".tif" as necessary. As such, the final output path may vary slightly from the
@@ -83,7 +83,7 @@ Utilities:
     _validate_output    - Validate a user-provided path for an output raster file
     _paths              - Return paths for the rasters used by a TauDEM routine
     _run_taudem         - Runs a TauDEM routine as a subprocess
-    _output             - Returns an output raster as a NumpyRaster or Path
+    _output             - Returns an output raster as a Raster or Path
 """
 
 import os
@@ -94,16 +94,16 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 
-from pfdf import _nodata
+from pfdf import _nodata as nodata
 from pfdf import _validate as validate
-from pfdf._rasters import Raster as _Raster
-from pfdf.rasters import OutputRaster, Raster
+from pfdf._rasters import Raster
+from pfdf.rasters import RasterOutput, RasterInput
 from pfdf.typing import BooleanMask, OutputPath, Pathlike, shape2d
 
 # Type aliases
 Option = Union[None, bool]  # None: Default, bool: User-specified
-FlowSlopes = Tuple[OutputRaster, OutputRaster]
-FlowOutput = Union[OutputRaster, FlowSlopes]
+FlowSlopes = Tuple[RasterOutput, RasterOutput]
+FlowOutput = Union[RasterOutput, FlowSlopes]
 
 # Configuration
 verbose_by_default: bool = False  # Whether to print TauDEM messages to console
@@ -115,23 +115,23 @@ overwrite_by_default: bool = False  # Whether to overwrite files
 
 
 def pitfill(
-    dem: Raster,
+    dem: RasterInput,
     *,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
-) -> OutputRaster:
+) -> RasterOutput:
     """
     pitfill  Fills pits (depressions) in a DEM
     ----------
     pitfill(dem)
     Runs the TauDEM pitfilling routine on the input DEM. Returns the pitfilled
-    DEM as a NumpyRaster object.
+    DEM as a Raster object.
 
     pitfill(..., *, path)
     pitfill(..., *, path, overwrite)
     Saves the pitfilled DEM to file. Returns the absolute Path to the saved file
-    rather than a NumpyRaster. Use the "overwrite" option to allow/prevent saved
+    rather than a Raster. Use the "overwrite" option to allow/prevent saved
     output from replacing an existing file. If not set, uses the default overwrite
     permission for the module (initially set as False). If "path" is not provided,
     then "overwrite" is ignored.
@@ -152,7 +152,7 @@ def pitfill(
             the module (initially set as False).
 
     Outputs:
-        NumpyRaster | pathlib.Path: The pitfilled DEM
+        Raster | pathlib.Path: The pitfilled DEM
 
     Saves:
         Optionally saves the pitfilled DEM to a file matching the "path" input
@@ -173,7 +173,7 @@ def pitfill(
 
 def flow_directions(
     type: Literal["D8", "DInf"],
-    pitfilled: Raster,
+    pitfilled: RasterInput,
     *,
     path: Optional[Pathlike] = None,
     return_slopes: Optional[bool] = False,
@@ -186,13 +186,13 @@ def flow_directions(
     ----------
     flow_directions(type, pitfilled)
     Computes D8 or D-Infinity flow directions from a pitfilled DEM. Returns the
-    flow directions as a NumpyRaster object. D8 flow directions are numbered from
+    flow directions as a Raster object. D8 flow directions are numbered from
     1 to 8 proceeding counter-clockwise from right.
 
     flow_directions(..., *, path)
     flow_directions(..., *, path, overwrite)
     Saves the flow directions to file. Returns the absolute Path to the saved file
-    rather than a NumpyRaster. Use the "overwrite" option to allow/prevent saved
+    rather than a Raster. Use the "overwrite" option to allow/prevent saved
     rasters from replacing an existing file. If not set, uses the default overwrite
     permission for the module (initially set as False).
 
@@ -223,12 +223,12 @@ def flow_directions(
             the module (initially set as False).
 
     Outputs:
-        NumpyRaster | pathlib.Path: The flow directions
+        Raster | pathlib.Path: The flow directions
 
         2-Tuple (flow_directions, flow_slopes): If also returning flow slopes,
             returns a 2-tuple whose first element is the flow directions and
             second element is the flow slopes. Each output raster may either be
-            a NumpyRaster or Path, depending on whether the associated output
+            a Raster or Path, depending on whether the associated output
             path was provided.
 
     Saves:
@@ -270,13 +270,13 @@ def flow_directions(
 
 
 def upslope_pixels(
-    flow_directions: Raster,
+    flow_directions: RasterInput,
     *,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
     check: bool = True,
-) -> OutputRaster:
+) -> RasterOutput:
     """
     upslope_pixels  Computes the number of upslope pixels over a DEM
     ----------
@@ -284,12 +284,12 @@ def upslope_pixels(
     Uses D8 flow directions to compute the number of upslope pixels for a DEM.
     Upslope pixel counts can be combined with the DEM resolution to give the
     total upslope (contributing) area for the DEM. Returns the upslope pixel
-    counts as a NumpyRaster object.
+    counts as a Raster object.
 
     upslope_pixels(..., *, path)
     upslope_pixels(..., *, path, overwrite)
     Saves the upslope pixel raster to file. Returns the absolute Path to the saved file
-    rather than a NumpyRaster. Use the "overwrite" option to allow/prevent saved
+    rather than a Raster. Use the "overwrite" option to allow/prevent saved
     output from replacing an existing file. If not set, uses the default overwrite
     permission for the module (initially set as False). If "path" is not provided,
     then "overwrite" is ignored.
@@ -316,7 +316,7 @@ def upslope_pixels(
             the module (initially set as False).
 
     Outputs:
-        NumpyRaster | pathlib.Path: The raster of upslope pixel counts
+        Raster | pathlib.Path: The raster of upslope pixel counts
 
     Saves:
         Optionally saves upslope area to a path matching the "path" input.
@@ -337,21 +337,21 @@ def upslope_pixels(
 
 
 def upslope_sum(
-    flow_directions: Raster,
-    values: Raster,
+    flow_directions: RasterInput,
+    values: RasterInput,
     mask: Optional[Raster] = None,
     *,
     path: Optional[Pathlike] = None,
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
     check: bool = True,
-) -> OutputRaster:
+) -> RasterOutput:
     """
     upslope_sum  Computes a weighted sum of upslope pixels
     ----------
     upslope_sum(flow_directions, values)
     Computes a sum over upslope pixels. Each pixel is given a value denoted by
-    the "values" raster. Returns the sum raster as a NumpyRaster object.
+    the "values" raster. Returns the sum raster as a Raster object.
 
     upslope_sum(flow_directions, values, mask)
     Computes sums using only the pixels indicated by a valid data mask. True
@@ -361,7 +361,7 @@ def upslope_sum(
     upslope_sum(..., *, path)
     upslope_sum(..., *, path, overwrite)
     Saves the upslope sum raster to file. Returns the absolute Path to the saved file
-    rather than a NumpyRaster. Use the "overwrite" option to allow/prevent saved
+    rather than a Raster. Use the "overwrite" option to allow/prevent saved
     output from replacing an existing file. If not set, uses the default overwrite
     permission for the module (initially set as False). If "path" is not provided,
     then "overwrite" is ignored.
@@ -395,7 +395,7 @@ def upslope_sum(
             the module (initially set as False).
 
     Outputs:
-        NumpyRaster | pathlib.Path: The upslope sum raster
+        Raster | pathlib.Path: The upslope sum raster
 
     Saves:
         Optionally saves the upslope sum raster to a path matching the "path" input.
@@ -415,7 +415,7 @@ def upslope_sum(
     # Optionally mask the pixel values. Ensure NoData values remain Nodata
     if mask is not None:
         values.load()
-        nodatas = _nodata.mask(values.values, values.nodata)
+        nodatas = nodata.mask(values.values, values.nodata)
         values.values = values.values * mask
         if nodatas is not None:
             values.values[nodatas] = values.nodata
@@ -436,18 +436,18 @@ def relief(
     verbose: Optional[bool] = None,
     overwrite: Optional[bool] = None,
     check: bool = True,
-) -> OutputRaster:
+) -> RasterOutput:
     """
     relief  Computes the vertical relief along the longest flow path
     ----------
     relief(pitfilled, flow_directions, slopes)
     Computes the vertical relief along the longest flow path. Requires D-infinity
-    flow directions and slopes. Returns the relief raster as a NumpyRaster object.
+    flow directions and slopes. Returns the relief raster as a Raster object.
 
     relief(..., *, path)
     relief(..., *, path, overwrite)
     Saves the relief raster to file. Returns the absolute Path to the saved file
-    rather than a NumpyRaster. Use the "overwrite" option to allow/prevent saved
+    rather than a Raster. Use the "overwrite" option to allow/prevent saved
     output from replacing an existing file. If not set, uses the default overwrite
     permission for the module (initially set as False). If "path" is not provided,
     then "overwrite" is ignored.
@@ -477,7 +477,7 @@ def relief(
             the module (initially set as False).
 
     Outputs:
-        NumpyRaster | pathlib.Path: The vertical relief raster.
+        Raster | pathlib.Path: The vertical relief raster.
 
     Saves:
         Optionally saves the vertical relief to a path matching the "path" input.
@@ -675,7 +675,7 @@ def relief_dinf(
 #####
 
 
-def _validate_d8(check: bool, flow: _Raster) -> None:
+def _validate_d8(check: bool, flow: Raster) -> None:
     """
     _validate_d8  Optionally validates D8 flow directions
     ----------
@@ -695,8 +695,8 @@ def _validate_d8(check: bool, flow: _Raster) -> None:
 
 def _validate_dinf(
     check: bool,
-    flow: _Raster,
-    slopes: _Raster,
+    flow: Raster,
+    slopes: Raster,
 ) -> None:
     """
     _validate_dinf  Optionally validates D-Infinity flow directions and slopes
@@ -741,7 +741,7 @@ def _validate_mask(check: bool, raster: Any, shape: shape2d) -> BooleanMask:
         numpy 2D bool array: The loaded valid data mask
     """
 
-    mask = _Raster.validate(raster, "mask", shape=shape)
+    mask = Raster.validate(raster, "mask", shape=shape)
     if check:
         return validate.mask(mask.values, "mask", nodata=mask.nodata)
     else:
@@ -779,7 +779,7 @@ def _options(verbose: Option, overwrite: Option) -> Tuple[bool, bool]:
     return verbose, overwrite
 
 
-def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[_Raster]:
+def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[Raster]:
     """
     _validate_inputs  Validates user-provided input rasters
     ----------
@@ -793,7 +793,7 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[_Raster]:
         names: The names of the rasters for use in error messages.
 
     Outputs:
-        _Raster list: The validated rasters.
+        Raster list: The validated rasters.
     """
 
     # Setup. Get indices. First raster may be any shape
@@ -803,7 +803,7 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[_Raster]:
 
     # Validate each raster
     for r, raster, name in zip(indices, rasters, names):
-        rasters[r] = _Raster.validate(raster, name, shape=shape, load=False)
+        rasters[r] = Raster.validate(raster, name, shape=shape, load=False)
 
         # Additional rasters must match the shape of the first
         if nrasters > 1 and r == 0:
@@ -817,7 +817,7 @@ def _validate_inputs(rasters: List[Any], names: Sequence[str]) -> List[_Raster]:
         # Provide a sensible NoData if there is none (otherwise TauDEM defaults
         # to 0, which is not desired)
         if rasters[r].nodata is None:
-            rasters[r].nodata = _nodata.default(rasters[r].dtype)
+            rasters[r].nodata = nodata.default(rasters[r].dtype)
     return rasters
 
 
@@ -847,7 +847,7 @@ def _validate_output(path: Any, overwrite: bool) -> Tuple[OutputPath, bool]:
 def _paths(
     temp: TemporaryDirectory,
     names: Sequence[str],
-    rasters: List[Union[_Raster, Path, None]],
+    rasters: List[Union[Raster, Path, None]],
 ) -> List[Path]:
     """
     _paths  Returns file paths for the rasters needed for a routine
@@ -859,7 +859,7 @@ def _paths(
     Inputs:
         temp: A tempfile.TemporaryDirectory to hold temporary raster files.
         names: A name for each raster. Used to create temporary file names.
-        rasters: A list of rasters for the routine. Inputs should be _Raster objects,
+        rasters: A list of rasters for the routine. Inputs should be Raster objects,
             outputs should be Paths (if user-provided) or None (if writing to a temp file)
 
     Output:
@@ -875,7 +875,7 @@ def _paths(
         tempfile = temp / (name + ".tif")
 
         # Input rasters: Get path if file-based. Otherwise, write to temp file
-        if isinstance(raster, _Raster):
+        if isinstance(raster, Raster):
             if raster.path is None:
                 raster.save(tempfile)
                 rasters[r] = tempfile
@@ -921,18 +921,18 @@ def _run_taudem(command: str, verbose: bool) -> None:
     return subprocess.run(command, capture_output=not verbose, check=True)
 
 
-def _output(raster: Path, saved: bool) -> OutputRaster:
+def _output(raster: Path, saved: bool) -> RasterOutput:
     """
     _output  Returns the final output form of a TauDEM output raster.
     ----------
     _output(raster, saved)
     If saving the raster to file, returns the absolute Path to the file. If not
-    saving, returns the raster as a NumpyRaster object.
+    saving, returns the raster as a Raster object.
     ----------
     Inputs:
         raster: The absolute Path to a TauDEM output raster
         saved: True if returning the Path to a saved raster. False if returning a
-            NumpyRaster object.
+            Raster object.
 
     Outputs:
         pathlib.Path | numpy 2D array: The raster as a numpy array, or the Path
@@ -940,5 +940,5 @@ def _output(raster: Path, saved: bool) -> OutputRaster:
     """
 
     if not saved:
-        raster = _Raster(raster).as_npr()
+        raster = Raster(raster).as_user_raster()
     return raster
