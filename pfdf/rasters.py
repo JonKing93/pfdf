@@ -1,15 +1,19 @@
 """
 rasters  Classes to facilitate working with rasters
 ----------
-The rasters module provides the NumpyRaster class, which allows users to more 
+The rasters module provides the Raster class, which allows users to more 
 easily use numpy arrays as raster datasets. Specifically, the class allows users
 to tag numpy arrays with raster metadata (such as NoData values). Please see the
-documentation of the NumpyRaster class for details.
+documentation of the Raster class for details.
 
-Additionally, this module provides several type hints derived from NumpyRasters.
+Additionally, this module provides several type hints derived from Rasters.
 ----------
 Classes:
-    NumpyRaster     - Adds raster metadata values to a numpy array
+    Raster          - Adds raster metadata values to a numpy array
+
+Type Hints:
+    RasterInput     - A raster dataset used as input to a pfdf routine
+    RasterOutput    - An output raster produced by a pfdf routine
 """
 
 from pathlib import Path
@@ -22,15 +26,15 @@ from pfdf._utils import real
 from pfdf.typing import RasterArray, nodata, scalar, shape2d
 
 
-class NumpyRaster:
+class Raster:
     """
-    NumpyRaster  Adds raster metadata values to numpy arrays
+    Raster  Adds raster metadata values to numpy arrays
     ----------
-    The NumpyRaster class allows users to associate metadata values with rasters
+    The Raster class allows users to associate metadata values with rasters
     represented by numpy arrays. These objects can then be passed as input to
     commands in the pfdf package. Currently, the class supports raster NoData values.
 
-    To use the class, call "NumpyRaster" on a 2D real-valued numpy array that
+    To use the class, call "Raster" on a 2D real-valued numpy array that
     represents a raster dataset. The "nodata" option allows you to associate a
     NoData value with the dataset.
 
@@ -52,22 +56,21 @@ class NumpyRaster:
         dtype       - The dtype of the raster
         nodata      - The NoData value for the raster
     """
-
     """
-    Private Properties:
+    Internal Properties:
         _array:
         _nodata
     """
 
     def __init__(self, raster: RasterArray, *, nodata: Optional[scalar] = None) -> None:
         """
-        __init__  Returns a new NumpyRaster object
+        __init__  Returns a new Raster object
         ----------
-        NumpyRaster(raster)
-        Creates a NumpyRaster object from a 2D numpy array. Sets the NoData value
+        Raster(raster)
+        Creates a Raster object from a 2D numpy array. Sets the NoData value
         to None.
 
-        NumpyRaster(raster, *, nodata)
+        Raster(raster, *, nodata)
         Specifies a NoData value for the numpy array raster. The input NoData
         value will be converted to the same dtype as the array.
         ----------
@@ -76,7 +79,7 @@ class NumpyRaster:
             nodata: A NoData value for the raster
 
         Outputs:
-            NumpyRaster: The new NumpyRaster object
+            Raster: The new Raster object
 
         """
         self._array = validate.matrix(raster, "input raster", dtype=real)
@@ -105,6 +108,6 @@ class NumpyRaster:
         return self._nodata
 
 
-# NumpyRaster type aliases
-Raster = Union[str, Path, rasterio.DatasetReader, RasterArray, NumpyRaster]
-OutputRaster = Union[Path, NumpyRaster]
+# Raster type aliases
+RasterInput = Union[str, Path, rasterio.DatasetReader, RasterArray, Raster]
+RasterOutput = Union[Path, Raster]
