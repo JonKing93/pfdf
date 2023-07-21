@@ -45,6 +45,7 @@ safety = "^2.1.1"
 tests = "scripts.dev:tests"
 format = "scripts.dev:format"
 lint = "scripts.dev:lint"
+pipeline = "scripts.dev:pipeline"
 
 [tool.pytest.ini_options]
 filterwarnings = [
