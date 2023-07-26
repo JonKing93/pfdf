@@ -7,9 +7,14 @@ Numpy Arrays:
 
 Stream Segments:
     RasterShapeError    - When a raster shape does not match that of the stream raster
+
+Staley 2017 Models:
+    DurationsError      - When a queried rainfall duration is not reported in Staley et al., 2017
 """
 
-from pfdf.typing import shape
+import numpy as np
+
+from pfdf.typing import VectorArray, shape
 
 
 class DimensionError(Exception):
@@ -46,5 +51,19 @@ class RasterShapeError(Exception):
         message = (
             f"The shape of the {name} raster {cause.actual} does not match the "
             f"shape of the stream segment raster used to derive the segments {cause.required}."
+        )
+        super().__init__(message)
+
+
+class DurationsError(Exception):
+    "When queried rainfall durations are not reported in Staley et al., 2017"
+
+    def __init__(self, durations: VectorArray, allowed: VectorArray) -> None:
+        valid = np.isin(durations, allowed)
+        bad = np.argwhere(valid == 0)[0][0]
+        allowed = ", ".join([str(value) for value in allowed])
+        message = (
+            f"Duration {bad} ({durations[bad]}) is not an allowed value. "
+            f"Allowed values are: {allowed}"
         )
         super().__init__(message)

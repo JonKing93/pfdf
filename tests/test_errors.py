@@ -36,3 +36,14 @@ class TestRasterShapeError:
             "The shape of the test raster (9, 10) does not match the shape of the "
             "stream segment raster used to derive the segments (10, 10)."
         )
+
+
+class TestDurationsError:
+    def test(_):
+        durations = [5, 1, 2, 3]
+        allowed = [2, 3, 4]
+        error = errors.DurationsError(durations, allowed)
+        assert isinstance(error, Exception)
+        assert error.args[0] == (
+            "Duration 0 (5) is not an allowed value. Allowed values are: 2, 3, 4"
+        )
