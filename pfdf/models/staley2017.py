@@ -174,7 +174,7 @@ def solve(
     rainfall required within the rainfall duration associated with its parameters.
     For example, if using parameters for a 15-minute rainfall duration, the accumulation
     describes the total rainfall required within a 15-minute window. Accumulation
-    units are the units of the rainfall values used to calibrate the model's parameters. 
+    units are the units of the rainfall values used to calibrate the model's parameters.
     For the 4 models described in the paper, accumulations are in mm.
 
     The returned output will be a 3D numpy array. The first dimension is

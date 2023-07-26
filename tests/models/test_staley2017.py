@@ -392,8 +392,8 @@ class TestSolve:
         F = [0.3, 0.4, 0.5, 0.6, 0.7]
         S = [0.4, 0.5, 0.9, 0.2, 0.3]
 
-        F = np.array(F).reshape(-1,1)
-        S = np.array(S).reshape(-1,1)
+        F = np.array(F).reshape(-1, 1)
+        S = np.array(S).reshape(-1, 1)
 
         F = np.hstack((F, F, F))
         S = np.hstack((S, S))

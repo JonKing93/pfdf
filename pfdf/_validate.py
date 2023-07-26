@@ -367,9 +367,9 @@ def matrix(
 
     # Handle vector and scalar cases. Optionally check type
     input = np.array(input)
-    if input.ndim==0:
-        input = input.reshape(1,1)
-    elif input.ndim==1:
+    if input.ndim == 0:
+        input = input.reshape(1, 1)
+    elif input.ndim == 1:
         input = input.reshape(input.size, 1)
     dtype_(name, allowed=dtype, actual=input.dtype)
 
