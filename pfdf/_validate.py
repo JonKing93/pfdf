@@ -365,9 +365,12 @@ def matrix(
         ShapeError: If the input does not have an allowed shape
     """
 
-    # Optionally check type
+    # Handle vector and scalar cases. Optionally check type
     input = np.array(input)
-    input = np.atleast_2d(input)
+    if input.ndim==0:
+        input = input.reshape(1,1)
+    elif input.ndim==1:
+        input = input.reshape(input.size, 1)
     dtype_(name, allowed=dtype, actual=input.dtype)
 
     # Can't be empty
