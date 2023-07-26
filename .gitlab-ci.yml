@@ -1,23 +1,32 @@
-image: code.usgs.gov:5001/devops/images/usgs/python:3.9
+image: continuumio/miniconda3:latest
 
 stages:
   - build
-  - lint
   - test
 
-cache:
-  paths:
-    - .venv
+before_script:
+  - source activate ./env
 
 build:
   stage: build
+  before_script:
+    - echo "Stops attempt to activate env before env is built..."
   script:
-    - poetry config virtualenvs.in-project true
+    - conda env create --file environment.yml --prefix env
+    - source activate ./env
     - poetry install --with dev
+  artifacts:
+    expire_in: 1 hour
+    paths:
+      - env
+
+safety:
+  stage: test
+  script:
     - poetry run safety check
 
 lint:
-  stage: lint
+  stage: test
   script:
     - poetry run lint
 
@@ -27,6 +36,7 @@ test:
     - poetry run tests
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
+    expire_in: 1 hour
     reports:
       coverage_report:
         coverage_format: cobertura

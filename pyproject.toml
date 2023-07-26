@@ -42,15 +42,15 @@ coverage = "*"
 safety = "^2.1.1"
 
 [tool.poetry.scripts]
-tests = "scripts.poetry:tests"
-all_tests = "scripts.poetry:all_tests"
-format = "scripts.poetry:format"
-lint = "scripts.poetry:lint"
+tests = "scripts.dev:tests"
+format = "scripts.dev:format"
+lint = "scripts.dev:lint"
+pipeline = "scripts.dev:pipeline"
 
 [tool.pytest.ini_options]
-markers = [
-    "taudem: Tests that require TauDEM commands",
-    "arcpy: Tests that require ArcPy functions",
+filterwarnings = [
+    "ignore::DeprecationWarning:nptyping.typing_",
+    "ignore::DeprecationWarning:rasterio",
 ]
 
 [tool.isort]

@@ -9,10 +9,10 @@ To run a script, enter:
 from a command line (not the Python interactive shell).
 ----------
 Poetry Scripts:
-    tests               - Runs the (pure Python) tests intended for the Gitlab pipeline
-    all_tests           - Runs all tests, including those requiring TauDEM
+    tests               - Runs the tests
     format              - Applies isort and black formatters to the code
     lint                - Checks that all code is formatted correctly
+    pipeline            - Runs the checks implemented in the Gitlab pipeline
 
 Other Functions:
     run                 - Runs a command as a subprocess
@@ -21,35 +21,31 @@ Other Functions:
 from typing import List
 import subprocess
 
-MIN_COVERAGE = 75
+MIN_COVERAGE = 94
 
-ignore_npt_warning = "-W ignore::DeprecationWarning:nptyping.typing_ "
+
+def pipeline():
+    "Runs the steps of the Gitlab pipeline"
+    run(["safety", "check"])
+    lint()
+    tests()
 
 
 def tests():
     """
-    Runs all tests intended for the Gitlab pipeline. These are the tests that
-    do not require a TauDEM installation. Also generates a coverage report and
-    requires a minimum coverage.
+    Runs all tests intended for the Gitlab pipeline. Requires minimum coverage
+    and generates a coverage report.
     """
     command = [
         "pytest",
         "tests",
-        "-k",
-        "not taudem",
         "--cov=pfdf",
         f"--cov-fail-under={MIN_COVERAGE}",
         "--cov-report",
         "xml:coverage.xml",
-        ignore_npt_warning,
     ]
     run(command)
     run(["coverage", "report"])
-
-def all_tests():
-    "Can be used by developers with a TauDEM installation to validate all tests"
-    command = ["pytest", "tests", ignore_npt_warning]
-    run(command)
 
 
 def format():
