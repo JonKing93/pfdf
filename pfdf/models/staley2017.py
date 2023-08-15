@@ -293,7 +293,7 @@ def burn_gradient(
     ----------
     burn_gradient(segments, flow_directions, gradients, isburned)
     Computes the mean gradient of upslope pixels burned at a given severity for
-    each stream segment. Note that gradients are defined as sin(theta) here. 
+    each stream segment. Note that gradients are defined as sin(theta) here.
     Returns a numpy 1D array with the gradient for each segment.
 
     burn_gradient(..., *, check=False)
@@ -418,9 +418,9 @@ def scaled_dnbr(
     scaled_dnbr  Computes mean dNBR/1000 for a set of stream segment catchments
     ----------
     scaled_dnbr(segments, npixels, flow_directions, dNBR)
-    Computes mean scaled dNBR for a set of stream segments. Mean dNBR is first 
+    Computes mean scaled dNBR for a set of stream segments. Mean dNBR is first
     calculated over all pixels in the catchment area of each stream segment. This
-    value is then divided by 1000 to place the final value roughly on an interval 
+    value is then divided by 1000 to place the final value roughly on an interval
     from 0 to 1.
 
     scaled_dnbr(..., *, check=False)
