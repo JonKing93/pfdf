@@ -56,7 +56,7 @@ class RasterShapeError(Exception):
 
 
 class DurationsError(Exception):
-    "When queried rainfall durations are not reported in Staley et al., 2017"
+    "When queried rainfall durations are not reported in Table 4 of Staley et al., 2017"
 
     def __init__(self, durations: VectorArray, allowed: VectorArray) -> None:
         valid = np.isin(durations, allowed)

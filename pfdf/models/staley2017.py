@@ -1,8 +1,8 @@
 """
-staley2017  Implements the logistic models presented in Staley et al., 2017
+staley2017  Implements the logistic regression models presented in Staley et al., 2017
 ----------
-This module solves the logistic models presented in Staley et al., 2017 (see
-citation below) - specifically, these are logistic models of form:
+This module solves the logistic regression models presented in Staley et al., 2017 
+(see citation below) - specifically, these are logistic models of form:
 
     R = [ln(p / (1-p)) - B] / (Ct*T + Cf*F + Cs*S)          Equation 1
 
@@ -19,7 +19,7 @@ at the specified probability level. The "solve" function provides a generalized
 solution to logistic models of this form, and can solve for multiple stream segments,
 parameter values, and probability thresholds simultaneously.
 
-The M1, M2, M3, and M4 model classes provide additional utilities for implementing
+The M1, M2, M3, and M4 model classes provide additional support for implementing
 the four specific models described in the paper. Each class provides a "parameters"
 method, which returns the appropriate B, Ct, Cf, and Cs values published in the paper. 
 Each class also provides a "variables" method, which returns the T, F, and S
@@ -36,7 +36,7 @@ keys are the corresponding terms of the model. Continuing the example:
     >>> B, Ct, Cf, Cs = parameters.values()
     >>> T, F, S = variables.values()
 
-We re-emphasize that the "solve" function provides a general solution to Equation
+We re-emphasize that the "solve" function provides a general solutiofn to Equation
 1, so users are not required to use any of the M1-4 models. Rather, they are
 a convenience for common use cases. We recommend users read a model's documentation
 for additional details on its implementation and use.
@@ -147,7 +147,7 @@ def solve(
 
     All of the inputs to this function should be real-valued numpy arrays.
     The three variables - T, F, and S - represent the terrain steepness,
-    wildfire intensity, and surface properties variables for the model. In
+    wildfire severity, and surface properties variables for the model. In
     most cases, these are 1D arrays with one element per stream segment
     being assessed. Variables can also be 2D arrays - see below for details
     for this less common use case.
@@ -199,8 +199,8 @@ def solve(
         B: The intercepts of the link equation
         Ct: The coefficients for the terrain steepness variable
         T: The terrain steepness variable
-        Cf: The coefficients for the wildfire intensity variable
-        F: The wildfire intensity variable
+        Cf: The coefficients for the wildfire severity variable
+        F: The wildfire severity variable
         Cs: The coefficients for the surface properties variable
         S: The surface properties variable
         always_3d: True to always return a 3D numpy array. If false (default),
@@ -293,7 +293,8 @@ def burn_gradient(
     ----------
     burn_gradient(segments, flow_directions, gradients, isburned)
     Computes the mean gradient of upslope pixels burned at a given severity for
-    each stream segment. Returns a numpy 1D array with the gradient for each segment.
+    each stream segment. Note that gradients are defined as sin(theta) here. 
+    Returns a numpy 1D array with the gradient for each segment.
 
     burn_gradient(..., *, check=False)
     Disables validation checks of input rasters. This can speed up the
@@ -417,9 +418,10 @@ def scaled_dnbr(
     scaled_dnbr  Computes mean dNBR/1000 for a set of stream segment catchments
     ----------
     scaled_dnbr(segments, npixels, flow_directions, dNBR)
-    Computes mean scaled dNBR for a set of stream segments. Mean dNBR is calculated
-    over the full catchment area of each stream segment. This value is then scaled
-    by 1000 to place the final value roughly on an interval from 0 to 1.
+    Computes mean scaled dNBR for a set of stream segments. Mean dNBR is first 
+    calculated over all pixels in the catchment area of each stream segment. This
+    value is then divided by 1000 to place the final value roughly on an interval 
+    from 0 to 1.
 
     scaled_dnbr(..., *, check=False)
     Disables validation checks of input rasters. This can speed up the
@@ -463,9 +465,9 @@ def scaled_thickness(
     ----------
     scaled_thickness(segments, npixels, flow_directions, soil_thickness)
     Computes mean scaled soil thickness for a set of stream segments. Mean soil
-    thickness is computed over the full catchment area of each stream segment.
-    These values are then scaled by 100 to place them roughly on the interval
-    from 0 to 1.
+    thickness is computed over all pixels in the catchment area of each stream
+    segment. These values are then divided by 100 to place them roughly on the
+    interval from 0 to 1.
 
     scaled_thicknesss(..., *, check=False)
     Disables validation checks of input rasters. This can speed up the
@@ -697,7 +699,7 @@ class M1(Model):
         variables       - Returns the terrain, fire, and soil variables for a set of stream segments
     """
 
-    # Model parameters
+    # Model parameters (15, 30, 60 minute)
     B = [-3.63, -3.61, -3.21]
     Ct = [0.41, 0.26, 0.17]
     Cf = [0.67, 0.39, 0.20]
@@ -775,7 +777,7 @@ class M2(Model):
         variables       - Returns the terrain, fire, and soil variables for a set of stream segments
     """
 
-    # Model parameters
+    # Model parameters (15, 30, 60 minute)
     B = [-3.62, -3.61, -3.22]
     Ct = [0.64, 0.42, 0.27]
     Cf = [0.65, 0.38, 0.19]
@@ -853,7 +855,7 @@ class M3(Model):
         variables       - Returns the terrain, fire, and soil variables for a set of stream segments
     """
 
-    # Model parameters
+    # Model parameters (15, 30, 60 minute)
     B = [-3.71, -3.79, -3.46]
     Ct = [0.32, 0.21, 0.14]
     Cf = [0.33, 0.19, 0.10]
@@ -932,7 +934,7 @@ class M4(Model):
         variables       - Returns the terrain, fire, and soil variables for a set of stream segments
     """
 
-    # Model parameters
+    # Model parameters (15, 30, 60 minute)
     B = [-3.60, -3.64, -3.30]
     Ct = [0.51, 0.33, 0.20]
     Cf = [0.82, 0.46, 0.24]
