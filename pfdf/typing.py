@@ -92,10 +92,11 @@ ThresholdSequence = Sequence[scalar]
 ThresholdArray = NDArray[Shape["3 thresholds"], Floating]
 Thresholds = Union[ThresholdSequence, ThresholdArray]
 
-# Staley 2017
+# Models
 Durations = NDArray[Shape["Durations"], Floating]
 DurationValues = Durations  # same shape, but different name for clarity
 Pvalues = NDArray[Shape["Pvalues"], Floating]
 Parameters = NDArray[Shape["Runs"], Floating]
-Variables = NDArray[Shape["Parameters, Runs"], Floating]
-Intensities = NDArray[Shape["Segments, Runs, Pvalues"], Floating]
+Variables = NDArray[Shape["Segments, Runs"], Floating]
+Accumulations = NDArray[Shape["Segments, Runs, Pvalues"], Floating]
+Volumes = NDArray[Shape["Segments, Runs"], Floating]
