@@ -355,7 +355,7 @@ class Segments:
         self,
         dem: Raster,
         flow_directions: Raster,
-        neighborhood: ScalarArray,
+        neighborhood: int,
         resolution: ScalarArray,
     ) -> SegmentValues:
         """Computes mean confinement angle. Assumes that all inputs are valid
@@ -642,7 +642,7 @@ class Segments:
         dem = self._validate(dem, "dem")
 
         # Compute mean confinement angles
-        return self._confinement(dem, flow, neighborhood, resolution)
+        return self._confinement(dem, flow, neighborhood[0], resolution)
 
     def copy(self) -> "Segments":
         """
@@ -887,6 +887,7 @@ class _Kernel:
         nRows: The number of raster rows
         nCols: The number of raster columns
         """
+
         self.neighborhood = neighborhood
         self.nRows = nRows
         self.nCols = nCols
