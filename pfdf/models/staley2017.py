@@ -104,9 +104,9 @@ from pfdf.errors import DurationsError
 from pfdf.rasters import Raster
 from pfdf.segments import Segments
 from pfdf.typing import (
+    Accumulations,
     Durations,
     DurationValues,
-    Accumulations,
     Parameters,
     Pvalues,
     SegmentValues,
