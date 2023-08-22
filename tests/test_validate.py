@@ -129,9 +129,9 @@ class TestScalar:
         assert _validate.scalar(a, "", dtype=np.floating) == a
 
     def test_empty(self):
-        with pytest.raises(_validate.DimensionError) as error:
+        with pytest.raises(_validate.EmptyArrayError) as error:
             _validate.scalar([], self.name)
-        assert_contains(error, self.name, "0 elements")
+        assert_contains(error, self.name)
 
     def test_failed_list(self):
         a = [1, 2, 3, 4]
@@ -203,7 +203,7 @@ class TestVector:
         assert_contains(error, self.name, string)
 
     def test_empty(self):
-        with pytest.raises(_validate.DimensionError) as error:
+        with pytest.raises(_validate.EmptyArrayError) as error:
             _validate.vector([], self.name)
         assert_contains(error, self.name)
 
@@ -282,7 +282,7 @@ class TestMatrix:
         assert_contains(error, self.name, string)
 
     def test_empty(self):
-        with pytest.raises(_validate.DimensionError) as error:
+        with pytest.raises(_validate.EmptyArrayError) as error:
             _validate.matrix([], self.name)
         assert_contains(error, self.name)
 
