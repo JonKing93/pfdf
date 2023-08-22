@@ -75,6 +75,13 @@ poetry run tests
 
 You can also use `poetry run pytest <pytest args>` to run specific tests in the suite.
 
+### Gitlab Pipeline
+
+The Gitlab pipeline runs the safety check, lint, and testing scripts, and all three scripts must pass before code can be merged. You can confirm that these checks pass using:
+```
+poetry run pipeline
+```
+
 
 
 ## Status
