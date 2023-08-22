@@ -92,11 +92,15 @@ ThresholdSequence = Sequence[scalar]
 ThresholdArray = NDArray[Shape["3 thresholds"], Floating]
 Thresholds = Union[ThresholdSequence, ThresholdArray]
 
-# Models
+# Generic Models
+Variables = NDArray[Shape["Segments, Runs"], Floating]
+Parameters = NDArray[Shape["Runs"], Floating]
+
+# Staley 2017
 Durations = NDArray[Shape["Durations"], Floating]
 DurationValues = Durations  # same shape, but different name for clarity
 Pvalues = NDArray[Shape["Pvalues"], Floating]
-Parameters = NDArray[Shape["Runs"], Floating]
-Variables = NDArray[Shape["Segments, Runs"], Floating]
 Accumulations = NDArray[Shape["Segments, Runs, Pvalues"], Floating]
+
+# Gartner 2014
 Volumes = NDArray[Shape["Segments, Runs"], Floating]

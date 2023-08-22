@@ -106,7 +106,7 @@ from pfdf.segments import Segments
 from pfdf.typing import (
     Durations,
     DurationValues,
-    Intensities,
+    Accumulations,
     Parameters,
     Pvalues,
     SegmentValues,
@@ -134,7 +134,7 @@ def solve(
     S: Variables,
     *,
     always_3d: bool = False,
-) -> Intensities:
+) -> Accumulations:
     """
     solve  Computes rainfall accumulations by solving the logistic model from Staley et al., 2017
     ----------
