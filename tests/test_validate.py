@@ -9,6 +9,7 @@ import pytest
 
 from pfdf import _validate
 from pfdf._rasters import Raster
+from pfdf.errors import DimensionError, EmptyArrayError, ShapeError
 
 #####
 # Fixtures and testing utilities
@@ -56,7 +57,7 @@ class TestShape:
 
     @pytest.mark.parametrize("required, axis", [((2, 5), "rows"), ((10, 2), "columns")])
     def test_failed(self, required, axis):
-        with pytest.raises(_validate.ShapeError) as error:
+        with pytest.raises(ShapeError) as error:
             _validate.shape_(self.name, self.axes, required, self.shape)
         assert_contains(error, self.name, axis)
 
@@ -105,6 +106,36 @@ class TestNonsingleton:
 #####
 
 
+class TestArray:
+    def test_scalar(_):
+        a = 1
+        expected = np.atleast_1d(np.array(a))
+        output = _validate.array(a, "")
+        assert np.array_equal(output, expected)
+
+    def test_ND(_):
+        a = np.arange(0, 27).reshape(3, 3, 3)
+        output = _validate.array(a, "")
+        assert np.array_equal(a, output)
+
+    def test_empty(_):
+        a = np.array([])
+        with pytest.raises(EmptyArrayError) as error:
+            _validate.array(a, "test name")
+        assert_contains(error, "test name")
+
+    def test_dtype(_):
+        a = np.arange(0, 10, dtype=float)
+        output = _validate.array(a, "", dtype=float)
+        assert np.array_equal(a, output)
+
+    def test_dtype_failed(_):
+        a = np.arange(0, 10, dtype=float)
+        with pytest.raises(TypeError) as error:
+            _validate.array(a, "test name", dtype=int)
+        assert_contains(error, "test name")
+
+
 class TestScalar:
     name = "test name"
 
@@ -129,19 +160,19 @@ class TestScalar:
         assert _validate.scalar(a, "", dtype=np.floating) == a
 
     def test_empty(self):
-        with pytest.raises(_validate.EmptyArrayError) as error:
+        with pytest.raises(EmptyArrayError) as error:
             _validate.scalar([], self.name)
         assert_contains(error, self.name)
 
     def test_failed_list(self):
         a = [1, 2, 3, 4]
-        with pytest.raises(_validate.DimensionError) as error:
+        with pytest.raises(DimensionError) as error:
             _validate.scalar(a, self.name)
         assert_contains(error, self.name, f"{len(a)} elements")
 
     def test_failed_numpy(self):
         a = np.array([1, 2, 3, 4])
-        with pytest.raises(_validate.DimensionError) as error:
+        with pytest.raises(DimensionError) as error:
             _validate.scalar(a, self.name)
         assert_contains(error, self.name, f"{a.size} elements")
 
@@ -203,20 +234,20 @@ class TestVector:
         assert_contains(error, self.name, string)
 
     def test_empty(self):
-        with pytest.raises(_validate.EmptyArrayError) as error:
+        with pytest.raises(EmptyArrayError) as error:
             _validate.vector([], self.name)
         assert_contains(error, self.name)
 
     def test_ND_failed(self):
         a = np.arange(0, 10).reshape(2, 5)
-        with pytest.raises(_validate.DimensionError) as error:
+        with pytest.raises(DimensionError) as error:
             _validate.vector(a, self.name)
         assert_contains(error, self.name)
 
     @pytest.mark.parametrize("length", [(1), (2), (3)])
     def test_length_failed(self, length):
         a = np.arange(0, 10)
-        with pytest.raises(_validate.ShapeError) as error:
+        with pytest.raises(ShapeError) as error:
             _validate.vector(a, self.name, length=length)
         assert_contains(error, self.name, f"{len(a)} element(s)")
 
@@ -282,7 +313,7 @@ class TestMatrix:
         assert_contains(error, self.name, string)
 
     def test_empty(self):
-        with pytest.raises(_validate.EmptyArrayError) as error:
+        with pytest.raises(EmptyArrayError) as error:
             _validate.matrix([], self.name)
         assert_contains(error, self.name)
 
@@ -291,7 +322,7 @@ class TestMatrix:
         [(np.arange(0, 27).reshape(3, 3, 3)), (np.arange(0, 10).reshape(1, 2, 5))],
     )
     def test_ND(self, array):
-        with pytest.raises(_validate.DimensionError) as error:
+        with pytest.raises(DimensionError) as error:
             _validate.matrix(array, self.name)
         assert_contains(error, self.name)
 
@@ -300,9 +331,30 @@ class TestMatrix:
     )
     def test_shape_failed(self, shape, axis):
         a = np.arange(0, 10).reshape(2, 5)
-        with pytest.raises(_validate.ShapeError) as error:
+        with pytest.raises(ShapeError) as error:
             _validate.matrix(a, self.name, shape=shape)
         assert_contains(error, self.name, axis)
+
+
+#####
+# Array Operations
+#####
+
+
+class TestBroadcastable:
+    def test(_):
+        a = (4, 5, 1, 3, 1, 7)
+        b = (5, 6, 1, 1, 7)
+        output = _validate.broadcastable(a, "", b, "")
+        expected = (4, 5, 6, 3, 1, 7)
+        assert output == expected
+
+    def test_failed(_):
+        a = (4, 5)
+        b = (5, 6)
+        with pytest.raises(ValueError) as error:
+            _validate.broadcastable(a, "test-name-1", b, "test-name-2")
+        assert_contains(error, "test-name-1", "test-name-2")
 
 
 #####
@@ -621,3 +673,29 @@ class TestFlow:
         a = np.array([-3, -2, -1, 0, 1, 2, 3, 4])
         isdata = np.array([False] * 4 + [True] * 4)
         _validate.flow(a, "", isdata=isdata)
+
+
+class TestDefined:
+    def test_pass(_):
+        a = np.arange(100)
+        _validate.defined(a, "")
+
+    def test_fail(_):
+        a = np.array([1, 2, np.nan, 4])
+        with pytest.raises(ValueError) as error:
+            _validate.defined(a, "test name")
+        assert_contains(error, "test name")
+
+
+class TestSorted:
+    @pytest.mark.parametrize(
+        "a", (np.array([1, 2, 3]), np.array([1, 2, 2, 2, 3]), np.array([1, np.nan, 3]))
+    )
+    def test_pass(_, a):
+        _validate.sorted(a, "")
+
+    def test_fail(_):
+        a = np.array([1, 4, 3, 5, 6])
+        with pytest.raises(ValueError) as error:
+            _validate.sorted(a, "test name")
+        assert_contains(error, "test name")
