@@ -78,7 +78,7 @@ def emergency(
     Also specifies the parameters to use in the model. These are the intercept (B),
     rainfall intensitiy coefficient (Ci), burned area coefficient (Cb), and relief
     coefficient (Cr). By default, each coefficient is set to the value presented
-    in Gartner et al., 2014. This syntax allows you to run the model using different 
+    in Gartner et al., 2014. This syntax allows you to run the model using different
     parameter values - for example, for an updated model calibration.
 
     In this case, the model solves the generalized equation:

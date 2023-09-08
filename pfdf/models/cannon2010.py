@@ -109,8 +109,8 @@ def hazard(
     hazard(..., *, h_thresholds)
     Specify custom thresholds for the (p)robability, (v)olume, and (h)azard
     classification scores. Each set of thresholds must be a set of N positive values
-    in an increasing order. Note that N defines the number of breakpoints, so 
-    the number of classifications will be N+1. Elements of p_thresholds must be 
+    in an increasing order. Note that N defines the number of breakpoints, so
+    the number of classifications will be N+1. Elements of p_thresholds must be
     on the interval from 0 to 1, v_thresholds must be positive, and h_thresholds
     must be positive integers.
 
