@@ -3,19 +3,16 @@ gartner2014  Functions that implement the debris-flow volume models of Gartner e
 ----------
 This module contains functions that solve the two debris-flow volume models
 presented as Equations 2 and 3 in Gartner et al., 2014 (see citation below). 
-Specifically, these equations are an:
+Specifically, these equations are:
 
-Emergency Assessment Model:
-    V = exp[ 4.22 +  0.39 * sqrt(i15)  +  0.36 * ln(Bmh)  +  0.13 * sqrt(R) ]
-    
-Long-Term Model:
+Long-Term Model (Equation 2):
     V = exp[ 6.07 + 0.71*ln(i60) + 0.22*ln(Bt) - 0.24*ln(T) + 0.49*ln(A) + 0.03*sqrt(R) ]
 
-(The long-term model is Equation 2 from the paper, and the emergency model is 
-Equation 3).
-
+Emergency Assessment Model (Equation 3):
+    V = exp[ 4.22 +  0.39 * sqrt(i15)  +  0.36 * ln(Bmh)  +  0.13 * sqrt(R) ]
+    
 Users can use the "emergency" and "longterm" functions to solve the associated
-model. Also, these functions are generalized so that users can run the models
+models. Also, these functions are generalized so that users can run the models
 with different parameter values (model intercept and coefficients) if desired.
 For example, to test and compare updated model calibrations.
 
@@ -23,6 +20,7 @@ CITATION:
 Gartner, J. E., Cannon, S. H., & Santi, P. M. (2014). Empirical models for 
 predicting volumes of sediment deposited by debris flows and sediment-laden floods
  in the transverse ranges of southern California. Engineering Geology, 176, 45-56.
+https://doi.org/10.1016/j.enggeo.2014.04.008
 ----------
 User Functions:
     emergency   - Runs the emergency assessment model
@@ -60,7 +58,7 @@ def emergency(
     keepdims: bool = False
 ) -> Volumes:
     """
-    emergency  Solves the emergency assessment model (Equation 3 from the paper)
+    emergency  Solves the emergency assessment model (Equation 3 from Gartner et al., 2014)
     ----------
     emergency(i15, Bmh, R)
     Solves the emergency assessment model given peak 15-minute rainfall intensity
@@ -80,8 +78,8 @@ def emergency(
     Also specifies the parameters to use in the model. These are the intercept (B),
     rainfall intensitiy coefficient (Ci), burned area coefficient (Cb), and relief
     coefficient (Cr). By default, each coefficient is set to the value presented
-    in the paper. This syntax allows you to run the model using different parameter
-    values - for example, for an updated model calibration.
+    in Gartner et al., 2014. This syntax allows you to run the model using different 
+    parameter values - for example, for an updated model calibration.
 
     In this case, the model solves the generalized equation:
         V = exp[ B +  Ci * sqrt(i15)  +  Cb * ln(Bmh)  +  Cr * sqrt(R) ]
@@ -175,7 +173,7 @@ def longterm(
     Also specifies the parameters to use in the model. These are the intercept (B),
     rainfall intensitiy coefficient (Ci), burned area coefficient (Cb), elapsed
     time coefficient (Ct), total area coefficient (Ca), and relief coefficient (Cr).
-    By default, each coefficient is set to the value presented in the paper.
+    By default, each coefficient is set to the value presented in Gartner et al., 2014.
     This syntax allows you to run the model using different parameter values -
     for example, for an updated model calibration.
 

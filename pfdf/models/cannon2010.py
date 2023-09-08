@@ -5,14 +5,18 @@ OVERVIEW:
 This module implements the combined relative hazard classification model presented
 in Cannon et al., 2010 (see citation below). This model determines a relative
 hazard class for a debris flow by considering both the probability and potential
-sediment volume of the debris flow. In brief, the model computes a score for
-both probability and volume. These scores are added together, and the combined
-score is used to determine a final hazard classification. Additional information
-on the hazard scores and classifications is provided below.
+sediment volume of the debris flow. In brief, the model classifies both probability
+and volumes and assigns a hazard score to each class. These two scores are then 
+added together, and the combined score is used to determine a final hazard 
+classification. Additional information on the hazard scores and classifications
+is provided below.
 
 Most users will want to start with the "hazard" function. This function returns
-combined relative hazard classes for a set of debris flow, given the debris flow
-probabilities and potential sediment volumes. 
+combined relative hazard classes for a set of debris flows, given the debris flow
+probabilities and potential sediment volumes. Note that you can use the
+pfdf.models.staley2017 module to compute debris flow probabilities, and the
+pfdf.models.gartner2014 module to compute potential sediment volumes (although
+the use of these modules is not strictly required).
 
 Advanced users may also be interested in the "pscore", "vscore", and "hscore" 
 methods, which can be used to calculate the individual (p)robability, (v)olume, 
@@ -39,22 +43,24 @@ Then, the relevant scores are assigned as follows:
 
 Values      | Score
 ----------- | -----
-[-Inf, T1]  |   1
+[0, T1]  |   1
 (T1, T2]    |   2
 ...         |   ...
 (T_n-1, Tn] |   N
 (Tn, Inf]   |   N+1
 NaN         |   NaN
 
-Note that some thresholds have additional requirements, and so the edge intervals
-may be further restricted from the infinite values indicated here. For example, 
-volume thresholds are required to be positive, so volume values with a score
-of 1 will actually be restricted to the interval [0, T1].
+Note that N is the number of break points, and so the number of classification
+groups will be N+1. Also note that, because probability values are restricted to
+the interval from 0 to 1, the final bracket for custom probability thresholds
+will be (Tn, 1].
 
 CITATION:
 Cannon, S. H., Gartner, J. E., Rupert, M. G., Michael, J. A., Rea, A. H., 
 & Parrett, C. (2010). Predicting the probability and volume of postwildfire debris 
-flows in the intermountain western United States. Bulletin, 122(1-2), 127-144.
+flows in the intermountain western United States. Geological Society of America
+Bulletin, 122(1-2), 127-144. 
+https://doi.org/10.1130/B26459.1
 ----------
 User Functions:
     hazard  - Determines the combined relative hazard classes for a set of debris flows
@@ -103,8 +109,10 @@ def hazard(
     hazard(..., *, h_thresholds)
     Specify custom thresholds for the (p)robability, (v)olume, and (h)azard
     classification scores. Each set of thresholds must be a set of N positive values
-    in an increasing order. Elements of p_thresholds must be on the interval from
-    0 to 1, v_thresholds must be positive, and h_thresholds must be positive integers.
+    in an increasing order. Note that N defines the number of breakpoints, so 
+    the number of classifications will be N+1. Elements of p_thresholds must be 
+    on the interval from 0 to 1, v_thresholds must be positive, and h_thresholds
+    must be positive integers.
 
     Specifying v_thresholds relaxes the unit requirements for the input sediment
     volumes. When this is the case, v_thresholds and volumes must use the same
@@ -180,6 +188,9 @@ def pscore(
         (T_n-1, Tn] |   N
         (Tn, 1]     |   N+1
         NaN         |   NaN
+
+    Note that N is the number of breakpoints, so the number of classification
+    groups will be N+1.
     ----------
     Inputs:
         probabilities: An array of debris flow probabilities. Values should be on
@@ -229,7 +240,8 @@ def vscore(volumes: RealArray, thresholds: vector = [1e3, 1e4, 1e5]):
         NaN         |   NaN
 
     Note that this syntax permits any units for volumes, so long as the values in
-    the volumes and thresholds arrays use the same units.
+    the volumes and thresholds arrays use the same units. Also note that N is the
+    number of breakpoints, so the number of classification groups will be N+1.
     ----------
     Inputs:
         volumes: An array of potential debris-flow sediment volumes. If specifying
@@ -280,6 +292,9 @@ def hscore(combined: RealArray, thresholds: vector = [3, 6]):
         (T_n-1, Tn]    |   N
         (Tn, 1]        |   N+1
         NaN            |   NaN
+
+    Note that N is the number of breakpoints, so the number of classification
+    groups will be N+1.
     ----------
     Inputs:
         combined: The combined relative hazard scores. This is the sum of the

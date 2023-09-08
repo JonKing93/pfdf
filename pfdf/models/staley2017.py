@@ -65,6 +65,7 @@ Staley, D. M., Negri, J. A., Kean, J. W., Laber, J. L., Tillery, A. C., &
 Youberg, A. M. (2017). Prediction of spatially explicit rainfall intensity–duration
 thresholds for post-fire debris-flow generation in the western United States. 
 Geomorphology, 278, 149-162.
+https://doi.org/10.1016/j.geomorph.2016.10.019
 ----------
 *FOR USERS*
 
