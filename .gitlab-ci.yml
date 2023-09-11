@@ -1,4 +1,4 @@
-image: code.usgs.gov:5001/devops/images/usgs/python:3.11
+image: python:3.11
 
 stages:
   - build
@@ -9,7 +9,7 @@ build:
   script:
     - pip install poetry
     - poetry install --with dev
-    
+
 safety:
   stage: test
   script:
