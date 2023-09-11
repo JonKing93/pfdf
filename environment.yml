@@ -1,7 +1,0 @@
-name: pfdf
-dependencies:
-  - conda-forge::taudem=5.3.8
-  - python=3.9
-  - pip
-  - pip:
-    - poetry

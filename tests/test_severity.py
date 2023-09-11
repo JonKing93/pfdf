@@ -8,9 +8,7 @@ import numpy as np
 import pytest
 
 from pfdf import severity
-from pfdf._rasters import Raster as _Raster
-from pfdf.errors import ShapeError
-from pfdf.rasters import Raster
+from pfdf.raster import Raster
 
 #####
 # Testing utilities
@@ -84,7 +82,7 @@ class TestValidateDescriptions:
     def test_invalid(_):
         with pytest.raises(TypeError) as error:
             severity._validate_descriptions(5)
-        assert_contains(error, "not a string")
+        assert_contains(error, "must be a string")
 
     def test_sequence(_):
         input = ["moderate", "high"]
@@ -123,46 +121,25 @@ class TestMask:
     def test_single(_, rseverity):
         output = severity.mask(rseverity, "moderate")
         expected = rseverity == 3
-        assert np.array_equal(output.array, expected)
+        assert np.array_equal(output.values, expected)
 
     def test_multiple(_, rseverity):
         levels = ["high", "moderate"]
         output = severity.mask(rseverity, levels)
         expected = (rseverity == 3) | (rseverity == 4)
-        assert np.array_equal(output.array, expected)
-
-    def test_save(_, rseverity, tmp_path):
-        path = Path(tmp_path) / "output.tif"
-        levels = ["high", "moderate"]
-        output = severity.mask(rseverity, levels, path=path)
-
-        assert path.is_file()
-        assert output == path
-        output = _Raster(path)
-        expected = (rseverity == 3) | (rseverity == 4)
-        expected = expected.astype("int8")
         assert np.array_equal(output.values, expected)
 
 
 class TestEstimate:
     def test(_, dnbr, estimate):
         output = severity.estimate(dnbr)
-        assert np.array_equal(output.array, estimate)
+        assert np.array_equal(output.values, estimate)
 
     def test_thresholds(_, dnbr, thresholds, estimate_thresh):
         output = severity.estimate(dnbr, thresholds)
-        assert np.array_equal(output.array, estimate_thresh)
+        assert np.array_equal(output.values, estimate_thresh)
 
     def test_nodata(_, dnbr, estimate_nodata):
-        dnbr = Raster(dnbr, nodata=-1)
+        dnbr = Raster.from_array(dnbr, nodata=-1)
         output = severity.estimate(dnbr)
-        assert np.array_equal(output.array, estimate_nodata)
-
-    def test_save(_, dnbr, estimate, tmp_path):
-        path = Path(tmp_path) / "output.tif"
-        output = severity.estimate(dnbr, path=path)
-
-        assert path.is_file()
-        assert output == path
-        output = _Raster(path)
-        assert np.array_equal(output.values, estimate)
+        assert np.array_equal(output.values, estimate_nodata)

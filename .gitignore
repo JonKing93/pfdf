@@ -12,6 +12,3 @@ coverage.lcov
 # Poetry package and environment
 .venv
 dist
-
-# ArcPy Geodatabases
-**.gdb

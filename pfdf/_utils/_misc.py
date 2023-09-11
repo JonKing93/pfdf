@@ -1,11 +1,11 @@
 """
-_utils  Low-level utilities used throughout the package
+misc  Miscellaneous low-level utilities
 ----------
-This module provides a variety of low-level functions used throughout the package.
+Note that the contents of this module should be imported directly from _utils.
+Do not import from misc itself.
 ----------
 Misc:
     real            - A list of numpy dtypes considered to be real-valued numbers
-    any_defined     - True if any input is not None
     classify        - Classify array values based on thresholds
 
 Sequence conversion:
@@ -13,26 +13,18 @@ Sequence conversion:
     astuple         - Returns an input as a tuple
 """
 
-from typing import Any, List, Tuple
+from typing import Any
 
 from numpy import bool_, digitize, floating, inf, integer, isnan, nan
 
-from pfdf import _nodata
+from pfdf._utils import nodata_
 from pfdf.typing import RealArray, VectorArray, scalar
 
 # Combination numpy dtypes
 real = [integer, floating, bool_]
 
 
-def any_defined(*args: Any) -> bool:
-    "any_defined  True if any input is not None. Otherwise False."
-    for arg in args:
-        if arg is not None:
-            return True
-    return False
-
-
-def aslist(input: Any) -> List:
+def aslist(input: Any) -> list:
     """
     aslist  Returns an input as a list
     ----------
@@ -48,7 +40,7 @@ def aslist(input: Any) -> List:
     return input
 
 
-def astuple(input: Any) -> Tuple:
+def astuple(input: Any) -> tuple:
     """
     astuple  Returns an input as a tuple
     ----------
@@ -97,7 +89,7 @@ def classify(
     """
 
     # Locate NoDatas and classify array
-    nodatas = _nodata.mask(array, nodata)
+    nodatas = nodata_.mask(array, nodata)
     bins = [-inf] + list(thresholds) + [inf]
     classes = digitize(array, bins, right=True)
 

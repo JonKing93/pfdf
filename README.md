@@ -6,17 +6,15 @@ A Python library to implement post-wildfire debris-flow hazard assessments.
 
 ### Prerequisites
 
-This installation requires both [git](https://git-scm.com/downloads) and [conda](https://docs.conda.io/en/latest/miniconda.html). You can check that these are installed by entering:
+This installation requires both [git](https://git-scm.com/downloads) and [Python 3.11+](https://www.python.org/downloads/). You can check that these are installed by entering:
 ```
 git --version
 ```
 and
 ```
-conda --version
+python --version
 ```
 from the command line.
-
-If conda is not installed, we recommend using the miniconda installer, rather than the full anaconda suite.
 
 
 ### Clone
@@ -25,29 +23,25 @@ First, you should clone this repository to your local machine. You can do this v
 git clone https://code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment
 ```
 
-### Conda Environment
-Next, you will need to set up a conda environment for the package. Navigate to the main folder of cloned repository, then enter:
-```
-conda env create --file environment.yml
-```
-This will use the `environment.yml` file included in the repository to create a conda environment named `pfdf`. This environment includes Python 3.9, [TauDEM](https://hydrology.usu.edu/taudem/taudem5/documentation.html) and [poetry](https://python-poetry.org/).
-
-Note that if you want to create an environment with a name other than `pfdf`, you can do so using:
-```
-conda env create --file environment.yml --name <some other name>
-```
-
 ### Poetry Install
-Finally, use poetry to install the package. From the repository folder, enter:
+
+You can install the package using [poetry](https://python-poetry.org/docs/). You can install poetry itself by entering:
+```
+pip install poetry
+```
+at the command line.
+
+To install the `pfdf` package, you should first navigate to the cloned repository. Then enter:
 ```
 poetry install
 ```
+in the command line.
 
-If you plan to develop `pfdf`, you should instead use:
+If you plan to develope `pfdf`, you should instead use:
 ```
 poetry install --with dev
 ```
-This will include various development packages in the installation (for example: pytest for testing, isort and black for linting, etc)
+which will add various developement packages to the installation (for example: pytest for testing, isort and black for linting, etc).
 
 
 ## Developer scripts
