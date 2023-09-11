@@ -29,30 +29,19 @@ User Functions:
     estimate                - Estimates burn severity from dNBR, BARC256, or burn-severity measure
     classification          - Returns a dict with the BARC4 classification scheme
 
-Private:
-    _validate_thresholds    - Checks that severity level thresholds are valid
+Internal:
     _validate_descriptions  - Checks that burn severity descriptions are recognized
-    _compare                - Compares two severity-level thresholds
-    _classify               - Locates a burn severity class using two thresholds 
 """
 
 from typing import Any, Dict, Optional, Set
 
 import numpy as np
 
-from pfdf import _nodata as nodata
 from pfdf import _validate as validate
 from pfdf._rasters import Raster
-from pfdf._utils import astuple, real
+from pfdf._utils import astuple, classify, real
 from pfdf.rasters import RasterInput, RasterOutput
-from pfdf.typing import (
-    Pathlike,
-    RasterArray,
-    ThresholdArray,
-    Thresholds,
-    VectorArray,
-    strs,
-)
+from pfdf.typing import Pathlike, Thresholds, strs
 
 # The classification scheme used in the module
 _classification = {
@@ -155,10 +144,10 @@ def estimate(
     raster pixel using an integer from 1 to 4. The classification scheme is as follows:
 
         Classification - Interpretation: dNBR Range
-        1 - unburned:  [-Inf, 125)
-        2 - low:       [ 125, 250)
-        3 - moderate:  [ 250, 500)
-        4 - high:      [ 500, Inf]
+        1 - unburned:  [-Inf, 125]
+        2 - low:       ( 125, 250]
+        3 - moderate:  ( 250, 500]
+        4 - high:      ( 500, Inf]
 
     NoData values are set to 0. Returns a Raster object holding the estimated
     BARC4 burn severity raster.
@@ -173,7 +162,7 @@ def estimate(
     The "thresholds" input should have 3 elements. In order, these should
     be the thresholds between (1) unburned and low severity, (2) low and moderate
     severity, and (3) moderate and high severity. Each threshold defines the
-    upper bound (exclusive) of the less-burned class, and the lower bound (inclusive)
+    upper bound (inclusive) of the less-burned class, and the lower bound (exclusive)
     of the more-burned class. The thresholds must be in increasing order.
 
     estimate(..., *, path)
@@ -196,24 +185,14 @@ def estimate(
     """
 
     # Validate inputs
-    thresholds = _validate_thresholds(thresholds)
+    thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
+    validate.defined(thresholds, "thresholds")
+    validate.sorted(thresholds, "thresholds")
     path = validate.output_path(path, overwrite)
     raster = Raster.validate(raster, "input raster")
 
-    # Preallocate. Get nodata mask
-    severity = np.empty(raster.shape, dtype="int8")
-    nodatas = nodata.mask(raster.values, raster.nodata)
-    raster = raster.values
-
-    # Get the burn severity classes
-    severity[raster < thresholds[0]] = 1
-    _classify(severity, raster, thresholds[0:2], 2)
-    _classify(severity, raster, thresholds[1:3], 3)
-    severity[raster >= thresholds[2]] = 4
-
-    # Fill NoData
-    if nodatas is not None:
-        severity[nodatas] = 0
+    # Get the burn severity classes and return as raster
+    severity = classify(raster.values, thresholds, nodata=raster.nodata, nodata_to=0)
     return Raster.output(severity, path, nodata=0)
 
 
@@ -236,32 +215,3 @@ def _validate_descriptions(descriptions: Any) -> Set[str]:
                 f"Recognized values are: {allowed}"
             )
     return set(descriptions)
-
-
-def _validate_thresholds(thresholds: Any) -> ThresholdArray:
-    "Checks that thresholds are sorted and not NaN"
-    thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
-    nans = np.isnan(thresholds)
-    if np.any(nans):
-        bad = np.argwhere(nans)[0]
-        raise ValueError(f"thresholds cannot be NaN, but threshold {bad} is NaN.")
-    names = ["unburned-low", "low-moderate", "moderate-high"]
-    _compare(thresholds[0:2], names[0:2])
-    _compare(thresholds[1:], names[1:])
-    return thresholds
-
-
-def _compare(thresholds: VectorArray, names: strs) -> None:
-    "Checks that the second threshold is >= the first threshold"
-    if thresholds[1] < thresholds[0]:
-        raise ValueError(
-            f"The {names[1]} threshold ({thresholds[1]}) is less than the {names[0]} threshold ({thresholds[0]})."
-        )
-
-
-def _classify(
-    severity: RasterArray, raster: RasterArray, thresholds: ThresholdArray, value: int
-) -> None:
-    "Locates a severity class using 2 thresholds"
-    mask = (raster >= thresholds[0]) & (raster < thresholds[1])
-    severity[mask] = value

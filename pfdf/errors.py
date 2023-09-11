@@ -4,17 +4,22 @@ errors  Classes that define custom exceptions
 Numpy Arrays:
     DimensionError      - When a numpy array has invalid nonsingleton dimensions
     ShapeError          - When a numpy axis has an invalid shape
+    EmptyArrayError     - When a numpy array has no elements
 
 Stream Segments:
     RasterShapeError    - When a raster shape does not match that of the stream raster
-
-Staley 2017 Models:
-    DurationsError      - When a queried rainfall duration is not reported in Staley et al., 2017
 """
 
 import numpy as np
 
 from pfdf.typing import VectorArray, shape
+
+
+class EmptyArrayError(Exception):
+    "When a numpy array has no elements"
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
 
 class DimensionError(Exception):

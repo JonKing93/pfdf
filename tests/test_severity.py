@@ -51,7 +51,7 @@ def dnbr():
 # The expected severity estimate
 @pytest.fixture
 def estimate():
-    return np.array([[1, 1, 3, 3], [1, 4, 1, 2], [4, 4, 1, 4]]).astype("int8")
+    return np.array([[1, 1, 3, 2], [1, 4, 1, 2], [4, 4, 1, 4]]).astype("int64")
 
 
 @pytest.fixture
@@ -62,13 +62,13 @@ def thresholds():
 # The expected estimate for thresholds [0, 300, 700]
 @pytest.fixture
 def estimate_thresh():
-    return np.array([[1, 2, 3, 2], [1, 4, 1, 2], [3, 4, 1, 4]]).astype("int8")
+    return np.array([[1, 2, 2, 2], [1, 4, 1, 2], [3, 3, 1, 4]]).astype("int64")
 
 
 # The expected severity estimate when -1 is NoData
 @pytest.fixture
 def estimate_nodata():
-    return np.array([[0, 1, 3, 3], [1, 4, 0, 2], [4, 4, 0, 4]]).astype("int8")
+    return np.array([[0, 1, 3, 2], [1, 4, 0, 2], [4, 4, 0, 4]]).astype("int64")
 
 
 #####
@@ -106,65 +106,6 @@ class TestValidateDescriptions:
         input = ["moderate", "high", "high", "high"]
         output = severity._validate_descriptions(input)
         assert output == set(input)
-
-
-class TestValidateThresholds:
-    def test_sequence(_):
-        values = [1, 2, 3]
-        output = severity._validate_thresholds(values)
-        expected = np.array(values).reshape(-1)
-        assert np.array_equal(output, expected)
-
-    def test_numpy(_):
-        values = np.array([1, 2, 3])
-        output = severity._validate_thresholds(values)
-        assert np.array_equal(output, values)
-
-    @pytest.mark.parametrize("values", ([1, 2], [1, 2, 3, 4]))
-    def test_not_3(_, values):
-        with pytest.raises(ShapeError):
-            severity._validate_thresholds(values)
-
-    def test_invalid(_):
-        with pytest.raises(TypeError):
-            severity._validate_thresholds("invalid")
-
-    def test_unsorted(_):
-        values = [2, 1, 3]
-        with pytest.raises(ValueError) as error:
-            severity._validate_thresholds(values)
-        assert_contains(error, "unburned-low", "low-moderate")
-
-    def test_nan(_):
-        values = np.full((3,), np.nan)
-        with pytest.raises(ValueError):
-            severity._validate_thresholds(values)
-
-
-class TestCompare:
-    def test_valid(_):
-        values = np.array([1, 2])
-        names = ["test1", "test2"]
-        severity._compare(values, names)
-
-    def test_invalid(_):
-        values = np.array([2, 1])
-        names = ["test1", "test2"]
-        with pytest.raises(ValueError) as error:
-            severity._compare(values, names)
-        assert_contains(error, "test1", "test2")
-
-
-class TestClassify:
-    def test(_, rseverity, dnbr):
-        expected = np.zeros(rseverity.shape, dtype=float)
-        thresholds = [200, 700]
-        mask = (dnbr >= thresholds[0]) & (dnbr < thresholds[1])
-        expected[mask] = 4
-
-        array = np.zeros(rseverity.shape, dtype=float)
-        severity._classify(array, dnbr, thresholds, 4)
-        assert np.array_equal(array, expected)
 
 
 #####

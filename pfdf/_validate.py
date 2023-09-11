@@ -26,16 +26,22 @@ Low-level:
     nonsingleton    - Locate nonsingleton dimensions
 
 Array shape and type:
+    array           - Validates an input array
     scalar          - Validates an input scalar
     vector          - Validates an input vector
     matrix          - Validates an input matrix
 
-Array elements:
-    positive        - Checks that all elements are positive
-    integers        - Checks that all elements are integers (NOT that the dtype is an int)
-    inrange         - Checks that all elements are within a given range (inclusive)
-    mask            - Checks that an array is boolean-like (all 1s and 0s)
+Array Operations:
+    broadcastable   - Checks that array shapes can be broadcasted
+
+Numeric array elements:
+    defined         - Checks that an array does not contain NaN elements
     flow            - Checks that an array consists of TauDEM-style D8 flow directions
+    inrange         - Checks that all elements are within a given range (inclusive)
+    integers        - Checks that all elements are integers (NOT that the dtype is an int)
+    mask            - Checks that an array is boolean-like (all 1s and 0s)
+    positive        - Checks that all elements are positive
+    sorted          - Checks that array elements are sorted
 
 Array elements utilities:
     _check_bound    - Compares the elements of an ndarray to a bound
@@ -55,7 +61,7 @@ from numpy import unsignedinteger as uint_
 
 from pfdf import _nodata
 from pfdf._utils import aslist, astuple
-from pfdf.errors import DimensionError, ShapeError
+from pfdf.errors import DimensionError, EmptyArrayError, ShapeError
 from pfdf.typing import (
     BooleanArray,
     BooleanMask,
@@ -227,6 +233,40 @@ def nonsingleton(array: np.ndarray) -> List[bool]:
 #####
 
 
+def array(input: Any, name: str, dtype=None) -> RealArray:
+    """
+    array  Validates an input numpy array
+    ----------
+    array(input, name)
+    Converts the input to a numpy array with at least 1 dimension. Raises an
+    EmptyArrayError if the array does not contain any elements.
+
+    array(input, name, dtype)
+    Also checks the input is derived from one of the listed dtypes.
+    ----------
+    Inputs:
+        input: The input being checked
+        name: The name of the input for use in error messages.
+        dtype: A list of allowed dtypes
+
+    Outputs:
+        numpy array (at least 1D): The input as a numpy array
+
+    Raises:
+        EmptyArrayError - If the array is empty
+    """
+
+    # Convert to array with minimum of 1D
+    input = np.array(input)
+    input = np.atleast_1d(input)
+
+    # Can't be empty. Optionally check dtype
+    if input.size == 0:
+        raise EmptyArrayError(f"{name} does not have any elements.")
+    dtype_(name, allowed=dtype, actual=input.dtype)
+    return input
+
+
 def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray:
     """
     scalar  Validate an input represents a scalar
@@ -247,22 +287,15 @@ def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray
         numpy 1D array: The input as a 1D numpy array.
 
     Raises:
-        ShapeError: If the input has more than one element
-        TypeError: If the input does not have an allowed dtype
+        DimensionError: If the input has more than one element
     """
 
-    # Optionally check dtype
-    input = np.array(input)
-    dtype_(name, allowed=dtype, actual=input.dtype)
-
-    # No non-singleton dimensions
+    input = array(input, name, dtype)
     if input.size != 1:
         raise DimensionError(
             f"{name} must have exactly 1 element, but it has {input.size} elements instead."
         )
-
-    # Return as 1D array
-    return input.reshape(1)
+    return input
 
 
 def vector(
@@ -297,28 +330,20 @@ def vector(
         numpy 1D array: The input as a 1D numpy array
 
     Raises:
-        TypeError: If the input does not have an allowed dtype
-        DimensionError: If the input does not have exactly 1 dimension
-        ShapeError: If the input does not have the specified length
+        DimensionError: If the input has more than 1 non-singleton dimension
     """
 
-    # Optionally check dtype
-    input = np.array(input)
-    input = np.atleast_1d(input)
-    dtype_(name, allowed=dtype, actual=input.dtype)
+    # Initial validation
+    input = array(input, name, dtype)
 
-    # Can't be empty
-    if input.size == 0:
-        raise DimensionError(f"{name} does not have any elements.")
-
-    # Only 1 non-singleton dimension
+    # Only 1 non-singleton dimension is allowed
     nonsingletons = nonsingleton(input)
     if sum(nonsingletons) > 1:
         raise DimensionError(
             f"{name} can only have 1 dimension with a length greater than 1."
         )
 
-    # Optionally check length
+    # Optionally check shape. Return as 1D vector.
     shape_(name, "element(s)", required=length, actual=input.size)
     return input.reshape(-1)
 
@@ -365,17 +390,10 @@ def matrix(
         ShapeError: If the input does not have an allowed shape
     """
 
-    # Handle vector and scalar cases. Optionally check type
-    input = np.array(input)
-    if input.ndim == 0:
-        input = input.reshape(1, 1)
-    elif input.ndim == 1:
+    # Initial validation. Handle vector shapes
+    input = array(input, name, dtype)
+    if input.ndim == 1:
         input = input.reshape(input.size, 1)
-    dtype_(name, allowed=dtype, actual=input.dtype)
-
-    # Can't be empty
-    if input.size == 0:
-        raise DimensionError(f"{name} does not have any elements.")
 
     # Only the first 2 dimensions can be non-singleton
     if input.ndim > 2:
@@ -393,8 +411,238 @@ def matrix(
 
 
 #####
-# Loaded arrays
+# Array Operations
 #####
+
+
+def broadcastable(shape1: shape, name1: str, shape2: shape, name2: str) -> shape:
+    """
+    broadcastable  Checks that two array shapes can be broadcasted
+    ----------
+    broadcastable(shape1, name1, shape2, name2
+    Checks that the input arrays have broadcastable shapes. Raises a ValueError
+    if not. If the shapes are compatible, returns the broadcasted shape.
+    ----------
+    Inputs:
+        shape1: The first shape being checked
+        name1: The name of the array associated with shape1
+        shape2: The second shape being checked
+        name2: The name of the array associated with shape2
+
+    Outputs:
+        int tuple: The broadcasted shape
+
+    Raises:
+        ValueError  - If the arrays are not broadcastable
+    """
+
+    try:
+        return np.broadcast_shapes(shape1, shape2)
+    except ValueError:
+        raise ValueError(
+            f"The shape of the {name1} array ({shape1}) cannot be broadcasted "
+            f"with the shape of the {name2} array ({shape2})."
+        )
+
+
+#####
+# Numeric array elements
+#####
+
+
+def defined(array: RealArray, name: str) -> None:
+    """
+    defined  Checks that an array does not contain NaN elements
+    ----------
+    defined(array, name)
+    Checks that an array does not contain NaN elements. Raises a ValueError if
+    NaN elements are present.
+    ----------
+    Inputs:
+        array: The array being checked
+        name: A name for the array for use in error messages
+
+    Raises:
+        ValueError: If the array contains NaN elements
+    """
+
+    nans = np.isnan(array)
+    if np.any(nans):
+        index, _ = _first_failure(array, None, passed=~nans)
+        raise ValueError(
+            f"{name} cannot contain NaN elements, but element {index} is NaN."
+        )
+
+
+def flow(
+    array: RealArray,
+    name: str,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+):
+    """
+    flow  Checks that an array represents TauDEM-style D8 flow directions
+    ----------
+    flow(array, name)
+    Checks that all elements of the input array are integers on the interval 1 to 8.
+    Raises a ValueError if not.
+
+    flow(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    valid data mask are checked.
+
+    flow(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching the NoData
+    value are not checked. This option is ignored if "isdata" is also provided.
+    ----------
+    Inputs:
+        array: The input array being checked
+        name: A name for the array for use in error messages
+        isdata: A valid data mask for the array
+        nodata: A NoData value for the array
+    """
+
+    isdata = _isdata(array, isdata, nodata)
+    _check_bound(array, name, isdata, ">=", 1)
+    _check_bound(array, name, isdata, "<=", 8)
+    integers(array, name, isdata=isdata)
+
+
+def inrange(
+    array: RealArray,
+    name: str,
+    min: Optional[scalar] = None,
+    max: Optional[scalar] = None,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+) -> None:
+    """
+    inrange  Checks the elements of a numpy array are within a given range
+    ----------
+    inrange(array, name, min, max)
+    Checks that the elements of a real-valued numpy array are all within a
+    specified range. min and max are optional arguments, you can specify a single
+    one to only check an upper or a lower bound. Use both to check elements are
+    within a range. Uses an inclusive comparison (values equal to a bound will
+    pass validation).
+
+    inrange(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    data mask will be validated.
+
+    inrange(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching the NoData
+    value will not be validated. This option is ignored if "isdata" is also provided.
+    ----------
+    Inputs:
+        array: The ndarray being checked
+        name: The name of the array for use in error messages
+        min: An optional lower bound (inclusive)
+        max: An optional upper bound (inclusive)
+        isdata: A valid data mask for the array
+        nodata: A NoData value for the array.
+
+    Raises:
+        ValueError: If any element is not within the bounds
+    """
+
+    isdata = _isdata(array, isdata, nodata)
+    _check_bound(array, name, isdata, ">=", min)
+    _check_bound(array, name, isdata, "<=", max)
+
+
+def integers(
+    array: RealArray,
+    name: str,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+) -> None:
+    """
+    integers  Checks the elements of a numpy array are all integers
+    ----------
+    integers(array, name)
+    Checks that the elements of the input numpy array are all integers. Raises a
+    ValueError if not.
+
+    Note that this function *IS NOT* checking the dtype of the input array. Rather
+    it checks that each element is an integer. Thus, arrays of floating-point
+    integers (e.g. 1.0, 2.000, -3.0) will pass the test.
+
+    integers(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    data mask will be validated.
+
+    integers(..., *, nodata)
+    Specifies a NoData value for the array. Elements matching the NoData value
+    will not be checked. This option is ignored if "isdata" is also provided.
+    ----------
+    Inputs:
+        array: The numeric ndarray being checked.
+        name: A name of the input for use in error messages.
+        isdata: A valid data mask for the array
+        NoData: A NoData value for the array
+
+    Raises:
+        ValueError: If the array contains non-integer elements
+    """
+
+    # Integer and boolean dtype always pass. If not one of these, test the data elements
+    if not istype(array.dtype, int_) and array.dtype != bool:
+        isdata = _isdata(array, isdata, nodata)
+        data = _data_elements(array, isdata)
+        isinteger = np.mod(data, 1) == 0
+        _check(isinteger, "integers", array, name, isdata)
+
+
+def mask(
+    array: Mask,
+    name: str,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+) -> BooleanMask:
+    """
+    mask  Validates a boolean-like mask
+    ----------
+    mask(array, name)
+    Checks that the elements in an array are all 0 or 1. Raises a ValueError if
+    not. If the array is valid, returns it as a boolean dtype.
+
+    mask(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    mask are checked. False elements of the data mask are set as False in the
+    output array.
+
+    mask(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching this value
+    are set to False in the output array. This option is ignored if "isdata" is
+    also provided.
+    ----------
+    Inputs:
+        array: The ndarray being validated
+        name: A name for the array for use in error messages.
+        isdata: A valid data mask for the array.
+        nodata: A NoData value for the array.
+
+    Outputs:
+        boolean numpy array: The mask array with a boolean dtype.
+    """
+
+    # Boolean dtype is always valid. Otherwise, test the valid data elements.
+    if array.dtype != bool:
+        isdata = _isdata(array, isdata, nodata)
+        data = _data_elements(array, isdata)
+        valid = np.isin(data, [0, 1])
+        _check(valid, "0 or 1", array, name, isdata)
+
+        # Convert NoData values to 0. Return as boolean dtype
+        array = array.astype(bool)
+        if isdata is not None:
+            array[~isdata] = False
+    return array
 
 
 def positive(
@@ -450,177 +698,26 @@ def positive(
         _check_bound(array, name, isdata, operator, bound=0)
 
 
-def integers(
-    array: RealArray,
-    name: str,
-    *,
-    isdata: Optional[BooleanArray] = None,
-    nodata: Optional[scalar] = None,
-) -> None:
+def sorted(array: RealArray, name: str) -> None:
     """
-    integers  Checks the elements of a numpy array are all integers
+    sorted  Checks that array values are sorted in ascending order
     ----------
-    integers(array, name)
-    Checks that the elements of the input numpy array are all integers. Raises a
-    ValueError if not.
-
-    Note that this function *IS NOT* checking the dtype of the input array. Rather
-    it checks that each element is an integer. Thus, arrays of floating-point
-    integers (e.g. 1.0, 2.000, -3.0) will pass the test.
-
-    integers(..., *, isdata)
-    Specifies a valid data mask for the array. Only the True elements of the
-    data mask will be validated.
-
-    integers(..., *, nodata)
-    Specifies a NoData value for the array. Elements matching the NoData value
-    will not be checked. This option is ignored if "isdata" is also provided.
+    sorted(array, name)
+    Checks that the elements of an array are sorted in ascending order. Raises a
+    ValueError if not. Note that this function checks the flattened versions of
+    N-dimensional arrays. Also, NaN values are treated as unknown, and so will
+    not cause the validation to fail.
     ----------
     Inputs:
-        array: The numeric ndarray being checked.
-        name: A name of the input for use in error messages.
-        isdata: A valid data mask for the array
-        NoData: A NoData value for the array
-
-    Raises:
-        ValueError: If the array contains non-integer elements
-    """
-
-    # Integer and boolean dtype always pass. If not one of these, test the data elements
-    if not istype(array.dtype, int_) and array.dtype != bool:
-        isdata = _isdata(array, isdata, nodata)
-        data = _data_elements(array, isdata)
-        isinteger = np.mod(data, 1) == 0
-        _check(isinteger, "integers", array, name, isdata)
-
-
-def inrange(
-    array: RealArray,
-    name: str,
-    min: Optional[scalar] = None,
-    max: Optional[scalar] = None,
-    *,
-    isdata: Optional[BooleanArray] = None,
-    nodata: Optional[scalar] = None,
-) -> None:
-    """
-    inrange  Checks the elements of a numpy array are within a given range
-    ----------
-    inrange(array, name, min, max)
-    Checks that the elements of a real-valued numpy array are all within a
-    specified range. min and max are optional arguments, you can specify a single
-    one to only check an upper or a lower bound. Use both to check elements are
-    within a range. Uses an inclusive comparison (values equal to a bound will
-    pass validation).
-
-    inrange(..., *, isdata)
-    Specifies a valid data mask for the array. Only the True elements of the
-    data mask will be validated.
-
-    inrange(..., *, nodata)
-    Specifies a NoData value for the array. Array elements matching the NoData
-    value will not be validated. This option is ignored if "isdata" is also provided.
-    ----------
-    Inputs:
-        array: The ndarray being checked
+        array: The array being checked
         name: The name of the array for use in error messages
-        min: An optional lower bound (inclusive)
-        max: An optional upper bound (inclusive)
-        isdata: A valid data mask for the array
-        nodata: A NoData value for the array.
 
     Raises:
-        ValueError: If any element is not within the bounds
+        ValueError: If array elements are not sorted in ascending order
     """
 
-    isdata = _isdata(array, isdata, nodata)
-    _check_bound(array, name, isdata, ">=", min)
-    _check_bound(array, name, isdata, "<=", max)
-
-
-def mask(
-    array: Mask,
-    name: str,
-    *,
-    isdata: Optional[BooleanArray] = None,
-    nodata: Optional[scalar] = None,
-) -> BooleanMask:
-    """
-    mask  Validates a boolean-like mask
-    ----------
-    mask(array, name)
-    Checks that the elements in an array are all 0 or 1. Raises a ValueError if
-    not. If the array is valid, returns it as a boolean dtype.
-
-    mask(..., *, isdata)
-    Specifies a valid data mask for the array. Only the True elements of the
-    mask are checked. False elements of the data mask are set as False in the
-    output array.
-
-    mask(..., *, nodata)
-    Specifies a NoData value for the array. Array elements matching this value
-    are set to False in the output array. This option is ignored if "isdata" is
-    also provided.
-    ----------
-    Inputs:
-        array: The ndarray being validated
-        name: A name for the array for use in error messages.
-        isdata: A valid data mask for the array.
-        nodata: A NoData value for the array.
-
-    Outputs:
-        boolean numpy array: The mask array with a boolean dtype.
-    """
-
-    # Boolean dtype is always valid. Otherwise, test the valid data elements.
-    if array.dtype != bool:
-        isdata = _isdata(array, isdata, nodata)
-        data = _data_elements(array, isdata)
-        valid = np.isin(data, [0, 1])
-        _check(valid, "0 or 1", array, name, isdata)
-
-        # Convert NoData values to 0. Return as boolean dtype
-        array = array.astype(bool)
-        if isdata is not None:
-            array[~isdata] = False
-    return array
-
-
-def flow(
-    array: RealArray,
-    name: str,
-    *,
-    isdata: Optional[BooleanArray] = None,
-    nodata: Optional[scalar] = None,
-):
-    """
-    flow  Checks that an array represents TauDEM-style D8 flow directions
-    ----------
-    flow(array, name)
-    Checks that all elements of the input array are integers on the interval 1 to 8.
-    Raises a ValueError if not.
-
-    flow(..., *, isdata)
-    Specifies a valid data mask for the array. Only the True elements of the
-    valid data mask are checked.
-
-    flow(..., *, nodata)
-    Specifies a NoData value for the array. Array elements matching the NoData
-    value are not checked. This option is ignored if "isdata" is also provided.
-    ----------
-    Inputs:
-        array: The input array being checked
-        name: A name for the array for use in error messages
-        isdata: A valid data mask for the array
-        nodata: A NoData value for the array
-
-    Raises:
-    """
-
-    isdata = _isdata(array, isdata, nodata)
-    _check_bound(array, name, isdata, ">=", 1)
-    _check_bound(array, name, isdata, "<=", 8)
-    integers(array, name, isdata=isdata)
+    if np.any(array[:-1] > array[1:]):
+        raise ValueError(f"The elements of {name} must be sorted in increasing order.")
 
 
 #####

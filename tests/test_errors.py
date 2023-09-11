@@ -5,6 +5,14 @@ test_errors  Unit tests for the errors module
 from pfdf import errors
 
 
+class TestEmptyArrayError:
+    def test(_):
+        message = "test message"
+        error = errors.EmptyArrayError(message)
+        assert isinstance(error, Exception)
+        assert error.args[0] == message
+
+
 class TestShapeError:
     def test(_):
         error = errors.ShapeError("array", "columns", 1, (2, 5), (2, 6))
