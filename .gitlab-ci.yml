@@ -1,25 +1,15 @@
-image: continuumio/miniconda3:latest
+image: code.usgs.gov:5001/devops/images/usgs/python:3.11
 
 stages:
   - build
   - test
 
-before_script:
-  - source activate ./env
-
 build:
   stage: build
-  before_script:
-    - echo "Stops attempt to activate env before env is built..."
   script:
-    - conda env create --file environment.yml --prefix env
-    - source activate ./env
+    - pip install poetry
     - poetry install --with dev
-  artifacts:
-    expire_in: 1 hour
-    paths:
-      - env
-
+    
 safety:
   stage: test
   script:
