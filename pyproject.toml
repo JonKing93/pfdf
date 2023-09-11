@@ -32,7 +32,7 @@ pysheds = "*"
 numba = "^0.57"
 rasterio = "*"
 affine = "*"
-fiona = "*"
+shapely = "*"
 scipy = "^1.10"
 
 [tool.poetry.group.dev]
