@@ -430,7 +430,7 @@ def boolean(
         nodata: A NoData value for the array.
 
     Outputs:
-        boolean numpy array: The mask array with a boolean dtype.
+        boolean numpy array: The array with a boolean dtype.
     """
 
     # Boolean dtype is always valid. Otherwise, test the valid data elements.
