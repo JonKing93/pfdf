@@ -77,8 +77,6 @@ from pfdf.errors import (
 )
 from pfdf.typing import (
     BooleanArray,
-    BooleanMask,
-    Mask,
     MatrixArray,
     RealArray,
     ScalarArray,
