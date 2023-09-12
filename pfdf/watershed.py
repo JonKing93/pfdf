@@ -7,12 +7,13 @@ functions in this module are for raster-wide analyses. Please see the "segments"
 module if you are instead interested in computing values for individual stream
 segments or stream segment basins.
 
-The typical workflow for using the watershed module is to first use the "flow"
-function to compute D8 flow directions from a DEM. These flow directions are 
-an essential input to all other watershed functions. With the flow directions,
-flow accumulation (also referred to as upslope area), D8 flow slopes, and the
-vertical relief of watershed pixels. We note that the accumulation function 
-essentially counts the number of upslope pixels in its base configuratio.
+The typical workflow for using the watershed module is to first use the "condition"
+function to condition a DEM (i.e. filling pits and resolving flats). Then, use the
+"flow" function to compute D8 flow directions from a DEM. These flow directions are
+an essential input to all other watershed functions. With the flow directions, users
+can compute flow accumulation (also referred to as upslope area), D8 flow slopes, 
+and the vertical relief of watershed pixels. We note that the accumulation function 
+essentially counts the number of upslope pixels in its base configuration.
 However, it can also be set to compute weighted and masked sums over upslope areas.
 
 The module also contains the "catchment" and "network" functions, which can be
@@ -33,7 +34,8 @@ where X represents the raster cell, and the numbers represent flow to the
 adjacent neighbor.
 ----------
 Functions:
-    flow            - Computes D8 flow directions from a DEM
+    condition       - Conditions a DEM by filling pit, filling depressions, and/or resolving flats
+    flow            - Computes D8 flow directions from a conditioned DEM
     slopes          - Computes D8 flow slopes
     relief          - Computes vertical relief to the nearest ridge cell
     accumulation    - Computes basic, weighted, or masked flow accumulation
@@ -66,25 +68,83 @@ _FLOW_OPTIONS = {"routing": "d8", "dirmap": (3, 2, 1, 8, 7, 6, 5, 4)}
 # User Functions
 #####
 
+def condition(
+        dem: RasterInput,
+        *,
+        fill_pits: bool = True, 
+        fill_depressions: bool = False, 
+        resolve_flats: bool = True
+    ) -> Raster:
+    """
+    condition  Conditions a DEM to resolve pits, depressions, and/or flats
+    ----------
+    condition(dem)
+    Conditions a DEM to fill pits and resolve flats. A pit is defined as a single
+    cell lower than all its surrounding neighbors. When a pit is filled, its
+    elevation is raised to match that of its lowest neighbor. Flats are sets of
+    adjacent cells with the same elevation, such that there are multiple possible
+    flow directions. When a flat is resolved, the elevations of the associated
+    cells are minutely adjusted so that their elevations no longer match.
+
+    condition(dem, *, fill_pits=False)
+    condition(dem, *, fill_depressions=True)
+    condition(dem, *, resolve_flats=False)
+    Allows you to specify which steps should be implemented to condition the DEM.
+    By default, fills pits and resolves flats. Set these options to False to disable
+    these steps. If all options are enabled, fills pits first, then fills depressions,
+    then resolves flats.
+
+    A depression is a set of multiple adjacent cells that are all lower than their 
+    surrounding neighbors. When a depression is filled, the elevations of all the 
+    low cells are set to match the elevation of the lowest cell surrounding the 
+    depression. Note that filling depressions can result in unrealistically large 
+    flat areas that adversely affect the calculation of flow directions (even after
+    resolving flats). As such, depression filling is disabled by default.
+    ----------
+    Inputs:
+        dem: A digital elevation model raster
+        fill_pits: Set to True (default) to fill pits. Set to False to disable this step
+        fill_depressions: Set to True to fill depressions. Set to False (default)
+            to disable this step
+        resolve_flats: Set to True (default) to resolve flats. Set to False to
+            disable this step.
+
+    Outputs:
+        Raster: A conditioned DEM raster
+    """
+
+    # Validate. Get metadata and convert to pysheds
+    dem = Raster(dem, "dem")
+    dem, metadata = _to_pysheds(dem)
+
+    # Condition DEM
+    grid = Grid.from_raster(dem, nodata=nan)
+    if fill_pits:
+        dem = grid.fill_pits(dem, nodata_out=nan)
+    if fill_depressions:
+        dem = grid.fill_depressions(dem, nodata_out=nan)
+    if resolve_flats:
+        dem = grid.resolve_flats(dem, nodata_out=nan)
+    return Raster.from_array(dem, nodata=nan, **metadata)
+
 
 def flow(dem: RasterInput) -> Raster:
     """
-    flow  Compute D8 flow directions from a DEM
+    flow  Compute D8 flow directions from a conditioned DEM
     ----------
     flow(dem)
-    Returns D8 flow directions for the input DEM. First, conditions the DEM to
-    resolve pits, flats, and depressions. Then computes D8 flow directions. Flow
-    direction numbers follow the TauDEM style, as follows:
+    Computes D8 flow directions for a conditioned DEM. Flow direction numbers
+    follow the TauDEM style, as follows:
 
         4 3 2
         5 X 1
         6 7 8
 
     Values of 0 indicate NoData - these may results from NoData values in the
-    original DEM, as well as any unresolved pits, flats or depressions.
+    original DEM, as well as any unresolved pits, depressions, or flats.
     ----------
     Inputs:
-        dem: A digital elevation model raster
+        dem: A conditioned digital elevation model raster
 
     Outputs:
         Raster: The D8 flow directions for the DEM
@@ -94,13 +154,8 @@ def flow(dem: RasterInput) -> Raster:
     dem = Raster(dem, "dem")
     dem, metadata = _to_pysheds(dem)
 
-    # Condition DEM
-    grid = Grid.from_raster(dem, nodata=nan)
-    dem = grid.fill_pits(dem, nodata_out=nan)
-    # dem = grid.fill_depressions(dem)
-    dem = grid.resolve_flats(dem)
-
     # Compute flow directions
+    grid = Grid.from_raster(dem, nodata=nan)
     flow = grid.flowdir(dem, flats=0, pits=0, nodata_out=0, **_FLOW_OPTIONS)
     return Raster.from_array(flow, nodata=0, **metadata)
 
