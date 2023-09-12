@@ -3,8 +3,8 @@ raster  A class and type hint for working with raster datasets
 ----------
 This module provides the "Raster" class, which pfdf uses to manage raster datasets.
 The class can acquire raster values and metadata from a variety of raster formats,
-and all computed rasters are returned as Raster objects. (And please see the Raster
-documentation for additional details). The module also provides the "RasterInput" 
+and all computed rasters are returned as Raster objects. (And please see the docstring
+of the Raster class for additional details). The module also provides the "RasterInput" 
 type hint, which denotes all types that pfdf accepts as representing a raster.
 
 Users may be particularly interested in the "Raster.from_array" and "Raster.save"
@@ -397,7 +397,7 @@ class Raster:
         missing from the Raster object. These default values are as follows:
 
             nodata: 0
-            affine (transform): Affine(1,0,0,0,0,1)
+            affine (transform): Affine(1,0,0,0,1,0)
             crs: EPSG 4326
 
         Please see the documentation on pysheds rasters for additional details on
