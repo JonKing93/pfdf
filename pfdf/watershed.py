@@ -22,6 +22,15 @@ users will not need to use these functions and should instead use the
 pfdf.segments.Segments class to build and manage the stream segments in a drainage
 network.
 
+NODATA VALUES:
+This module relies on the pysheds library, which will assign a default NoData 
+value of 0 to any raster that does not have a NoData value. This can cause
+unexpected results when a DEM has valid 0 values and does not have a NoData value.
+This most commonly occurs when using raw numpy arrays as DEM inputs, as these
+arrays do not have associated NoData values. If you want to use a numpy array as
+an input DEM, and the array contains valid 0 values - consider using the
+Raster.from_array method to tag the array with a placeholder NoData value.
+
 FLOW DIRECTION SCHEME:
 All functions in this module produce/expect D8 flow directions that conform to
 the TauDEM style. For a given raster cell, the TauDEM style is as follows:
@@ -44,16 +53,16 @@ Functions:
 
 Internal:
     _to_pysheds         - Converts a raster to pysheds and returns metadata
+    _fix_nodata         - Sets numeric NoData values to NaN in a pysheds raster
     _geojson_to_shapely - Converts a stream network GeoJSON to a list of shapely LineStrings
     _split_segments     - Splits stream network segments longer than a specified length
     _split              - Splits a stream segment into pieces shorter than a specified length
 """
-from math import ceil
+from math import ceil, isnan, nan
 from typing import Any, Optional
 
 import numpy as np
 from geojson.feature import FeatureCollection
-from numpy import nan
 from pysheds.grid import Grid
 from pysheds.sview import Raster as pysheds_raster
 from shapely import LineString
@@ -71,13 +80,14 @@ _FLOW_OPTIONS = {"routing": "d8", "dirmap": (3, 2, 1, 8, 7, 6, 5, 4)}
 # User Functions
 #####
 
+
 def condition(
-        dem: RasterInput,
-        *,
-        fill_pits: bool = True, 
-        fill_depressions: bool = False, 
-        resolve_flats: bool = True
-    ) -> Raster:
+    dem: RasterInput,
+    *,
+    fill_pits: bool = True,
+    fill_depressions: bool = False,
+    resolve_flats: bool = True
+) -> Raster:
     """
     condition  Conditions a DEM to resolve pits, depressions, and/or flats
     ----------
@@ -95,12 +105,13 @@ def condition(
     Allows you to specify which steps should be implemented to condition the DEM.
     By default, fills pits and resolves flats. Set these options to False to disable
     these steps. If all options are enabled, fills pits first, then fills depressions,
-    then resolves flats.
+    then resolves flats. Note that at least one of these options must be set to
+    True, raises a ValueError if not.
 
-    A depression is a set of multiple adjacent cells that are all lower than their 
-    surrounding neighbors. When a depression is filled, the elevations of all the 
-    low cells are set to match the elevation of the lowest cell surrounding the 
-    depression. Note that filling depressions can result in unrealistically large 
+    A depression is a set of multiple adjacent cells that are all lower than their
+    surrounding neighbors. When a depression is filled, the elevations of all the
+    low cells are set to match the elevation of the lowest cell surrounding the
+    depression. Note that filling depressions can result in unrealistically large
     flat areas that adversely affect the calculation of flow directions (even after
     resolving flats). As such, depression filling is disabled by default.
     ----------
@@ -116,17 +127,27 @@ def condition(
         Raster: A conditioned DEM raster
     """
 
+    # Must use at least one conditioning algorithm
+    if not fill_pits and not fill_depressions and not resolve_flats:
+        raise ValueError(
+            "At least one of the fill_pits, fill_depressions, and resolve_flats "
+            "options must be set to True."
+            )
+
     # Validate. Get metadata and convert to pysheds
     dem = Raster(dem, "dem")
     dem, metadata = _to_pysheds(dem)
 
-    # Condition DEM
+    # Condition DEM. Note that the fill_depressions and resolve_flats algorithms
+    # neglect numeric NoData values, so correct for this as necessary
     grid = Grid.from_raster(dem, nodata=nan)
     if fill_pits:
         dem = grid.fill_pits(dem, nodata_out=nan)
     if fill_depressions:
+        dem = _fix_nodata(dem)
         dem = grid.fill_depressions(dem, nodata_out=nan)
     if resolve_flats:
+        dem = _fix_nodata(dem)
         dem = grid.resolve_flats(dem, nodata_out=nan)
     return Raster.from_array(dem, nodata=nan, **metadata)
 
@@ -337,12 +358,12 @@ def catchment(flow: RasterInput, row: scalar, column: scalar) -> Raster:
     catchment  Returns the catchment mask for a DEM pixel
     ----------
     catchment(flow, row, column)
-    Determines the catchment area for the DEM pixel at the indicated row and
-    column. Returns a mask for the catchment area. The mask will have the same
-    shape as the input flow directions raster - True values indicated pixels
-    that are in the catchment area, False values are outside of the catchment.
-    Any NoData values in the flow directions will become False values in the
-    catchment mask.
+    Determines the extent of the catchment upstream of the DEM pixel at the
+    indicated row and column. Returns a mask for this catchment extent. The mask
+    will have the same shape as the input flow directions raster - True values
+    indicated pixels that are in the upstream catchment extent, False values are
+    outside of the catchment. Any NoData values in the flow directions will become
+    False values in the catchment mask.
     ----------
     Inputs:
         flow: D8 flow directions for the DEM (in the TauDEM style)
@@ -350,16 +371,16 @@ def catchment(flow: RasterInput, row: scalar, column: scalar) -> Raster:
         column: The column index of the queried pixel in the DEM
 
     Outputs:
-        Raster: The catchment mask for the queried pixel
+        Raster: The upstream catchment mask for the queried pixel
     """
 
     # Validate
     row = validate.scalar(row, "row", dtype=real)
     validate.integers(row, "row")
-    validate.inrange(row, "row", min=0, max=flow.shape[0]-1)
+    validate.inrange(row, "row", min=0, max=flow.shape[0] - 1)
     column = validate.scalar(column, "column")
     validate.integers(column, "column")
-    validate.inrange(column, "column", min=0, max=flow.shape[1]-1)
+    validate.inrange(column, "column", min=0, max=flow.shape[1] - 1)
     flow = Raster(flow, "flow directions")
     validate.flow(flow.values, flow.name, nodata=flow.nodata)
 
@@ -450,6 +471,15 @@ def _to_pysheds(raster: Raster) -> tuple[pysheds_raster, dict[str, Any]]:
     metadata = {"transform": raster.transform, "crs": raster.crs}
     raster = raster.as_pysheds()
     return raster, metadata
+
+def _fix_nodata(raster: pysheds_raster) -> pysheds_raster:
+    "Sets numeric NoData values to NaN in a pysheds Raster"
+    if not isnan(raster.nodata):
+        raster = raster.astype(float)
+        nodata = nodata_.mask(raster, raster.nodata)
+        raster[nodata] = nan
+        raster.nodata = nan
+    return raster
 
 
 def _geojson_to_shapely(segments: FeatureCollection) -> list[LineString]:

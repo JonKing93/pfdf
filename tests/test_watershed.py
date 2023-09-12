@@ -77,8 +77,11 @@ def masked_segments(segments):
     ]
 
 
-# @pytest.fixture
-# def split_segments(masked_segments):
+def assert_contains(error, *strings):
+    "Check exception message contains specific strings"
+    message = error.value.args[0]
+    for string in strings:
+        assert string in message
 
 
 #####
@@ -103,6 +106,18 @@ def test_to_pysheds():
     assert list(metadata.keys()) == ["transform", "crs"]
     assert metadata["transform"] == transform
     assert metadata["crs"] == crs
+
+
+def test_fix_nodata():
+    a = np.arange(10).reshape(2,5)
+    a = Raster.from_array(a, nodata=0)
+    a = a.as_pysheds()
+    a = watershed._fix_nodata(a)
+    expected = np.array([[nan,1,2,3,4],[5,6,7,8,9]])
+    assert isinstance(a, pysheds_raster)
+    assert np.array_equal(a, expected, equal_nan=True)
+    assert isnan(a.nodata)
+
 
 
 def test_geojson_to_shapely(network_flow, segments):
@@ -160,6 +175,118 @@ def test_split_segments():
 #####
 
 
+class TestCondition:
+    def test_none(_):
+        dem = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 1, 2, 4, 0],
+                [0, 5, 1, 5, 0],
+                [0, 6, 9, 6, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        with pytest.raises(ValueError) as error:
+            watershed.condition(dem, fill_pits=False, fill_depressions=False, resolve_flats=False)
+        assert_contains(error, 'fill_pits', 'fill_depressions', 'resolve_flats')
+
+    def test_pits(_):
+        dem = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 2, 2, 4, 0],
+                [0, 5, 1, 5, 0],
+                [0, 6, 9, 6, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        expected = np.array(
+            [
+                [nan, nan, nan, nan, nan],
+                [nan, 2, 2, 4, nan],
+                [nan, 5, 2, 5, nan],
+                [nan, 6, 9, 6, nan],
+                [nan, nan, nan, nan, nan],
+            ]
+        )
+        output = watershed.condition(
+            dem, fill_pits=True, fill_depressions=False, resolve_flats=False
+        ).values
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_depressions(_):
+        dem = np.array(
+            [
+                [0, 0, 0, 0, 0, 0],
+                [0, 3, 3, 3, 3, 0],
+                [0, 3, 2, 2, 3, 0],
+                [0, 3, 2, 2, 3, 0],
+                [0, 3, 3, 3, 3, 0],
+                [0, 0, 0, 0, 0, 0],
+            ]
+        )
+        expected = np.array(
+            [
+                [nan, nan, nan, nan, nan, nan],
+                [nan, 3, 3, 3, 3, nan],
+                [nan, 3, 3, 3, 3, nan],
+                [nan, 3, 3, 3, 3, nan],
+                [nan, 3, 3, 3, 3, nan],
+                [nan, nan, nan, nan, nan, nan],
+            ]
+        )
+        output = watershed.condition(
+            dem, fill_pits=False, fill_depressions=True, resolve_flats=False
+        ).values
+        print(output)
+        print(expected)
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_flats(_):
+        dem = np.array(
+            [
+                [0, 0, 0, 0, 0, 0],
+                [0, 3, 5, 6, 8, 0],
+                [0, 3, 3, 3, 9, 0],
+                [0, 3, 3, 3, 9, 0],
+                [0, 3, 3, 3, 8, 0],
+                [0, 0, 0, 0, 0, 0],
+            ]
+        )
+        expected = np.array(
+            [
+                [nan, nan, nan, nan, nan, nan],
+                [nan, 3.00002, 5.0, 6.0, 8.0, nan],
+                [nan, 3.00002, 3.00002, 3.00002, 9.0, nan],
+                [nan, 3.00001, 3.00001, 3.00002, 9.0, nan],
+                [nan, 3.00000, 3.00001, 3.00002, 8.0, nan],
+                [nan, nan, nan, nan, nan, nan],
+            ]
+        )
+        output = watershed.condition(
+            dem, fill_pits=False, fill_depressions=False, resolve_flats=True
+        ).values
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_default(_):
+        dem = np.array(
+            [
+                [0, 0, 0, 0, 0, 0],
+                [0, 3, 5, 6, 8, 0],
+                [0, 3, 0, 0, 9, 0],
+                [0, 3, 0, 0, 9, 0],
+                [0, 3, 3, 3, 8, 0],
+                [0, 0, 0, 0, 0, 0],
+            ]
+        )
+        dem = Raster.from_array(dem, nodata=-999)
+        expected = watershed.condition(
+            dem, fill_pits=True, fill_depressions=False, resolve_flats=True
+        ).values
+        output = watershed.condition(dem).values
+        assert np.array_equal(output, expected, equal_nan=True)
+
+
 class TestFlow:
     def test(_):
         dem = np.array(
@@ -181,6 +308,7 @@ class TestFlow:
             ]
         )
         dem = Raster.from_array(dem, nodata=-999)
+        dem = watershed.condition(dem)
         flow = watershed.flow(dem)
         assert isinstance(flow, Raster)
         assert np.array_equal(flow.values, expected)
@@ -257,11 +385,7 @@ class TestRelief:
             ]
         )
         flow = watershed.flow(dem)
-        print(flow.values)
         relief = watershed.relief(dem, flow)
-
-        print(relief.values)
-        print(expected)
 
         assert isinstance(relief, Raster)
         assert np.array_equal(relief.values, expected, equal_nan=True)
