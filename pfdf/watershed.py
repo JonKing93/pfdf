@@ -132,7 +132,7 @@ def condition(
         raise ValueError(
             "At least one of the fill_pits, fill_depressions, and resolve_flats "
             "options must be set to True."
-            )
+        )
 
     # Validate. Get metadata and convert to pysheds
     dem = Raster(dem, "dem")
@@ -471,6 +471,7 @@ def _to_pysheds(raster: Raster) -> tuple[pysheds_raster, dict[str, Any]]:
     metadata = {"transform": raster.transform, "crs": raster.crs}
     raster = raster.as_pysheds()
     return raster, metadata
+
 
 def _fix_nodata(raster: pysheds_raster) -> pysheds_raster:
     "Sets numeric NoData values to NaN in a pysheds Raster"

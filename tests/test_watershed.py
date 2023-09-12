@@ -109,15 +109,14 @@ def test_to_pysheds():
 
 
 def test_fix_nodata():
-    a = np.arange(10).reshape(2,5)
+    a = np.arange(10).reshape(2, 5)
     a = Raster.from_array(a, nodata=0)
     a = a.as_pysheds()
     a = watershed._fix_nodata(a)
-    expected = np.array([[nan,1,2,3,4],[5,6,7,8,9]])
+    expected = np.array([[nan, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
     assert isinstance(a, pysheds_raster)
     assert np.array_equal(a, expected, equal_nan=True)
     assert isnan(a.nodata)
-
 
 
 def test_geojson_to_shapely(network_flow, segments):
@@ -187,8 +186,10 @@ class TestCondition:
             ]
         )
         with pytest.raises(ValueError) as error:
-            watershed.condition(dem, fill_pits=False, fill_depressions=False, resolve_flats=False)
-        assert_contains(error, 'fill_pits', 'fill_depressions', 'resolve_flats')
+            watershed.condition(
+                dem, fill_pits=False, fill_depressions=False, resolve_flats=False
+            )
+        assert_contains(error, "fill_pits", "fill_depressions", "resolve_flats")
 
     def test_pits(_):
         dem = np.array(
