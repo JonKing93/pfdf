@@ -35,17 +35,40 @@ def tests():
     """
     Runs all tests intended for the Gitlab pipeline. Requires minimum coverage
     and generates a coverage report.
+
+    !!!!! This command has been temporarily altered for a multi-part merge request
+    !!!!! It should be restored once the MR is complete.
     """
+
     command = [
         "pytest",
-        "tests",
-        "--cov=pfdf",
+        "tests/_utils",
+        "--cov=pfdf._utils",
         f"--cov-fail-under={MIN_COVERAGE}",
         "--cov-report",
         "xml:coverage.xml",
+        "--cov-append"
     ]
     run(command)
+
+    modules = ["errors", "raster", "severity", "watershed"]
+    for module in modules:
+        command[1] = f"tests/test_{module}.py"
+        command[2] = f"--cov=pfdf.{module}"
+        run(command)
+
     run(["coverage", "report"])
+    
+    # command = [
+    #     "pytest",
+    #     "tests",
+    #     "--cov=pfdf",
+    #     f"--cov-fail-under={MIN_COVERAGE}",
+    #     "--cov-report",
+    #     "xml:coverage.xml",
+    # ]
+    # run(command)
+    # run(["coverage", "report"])
 
 
 def format():

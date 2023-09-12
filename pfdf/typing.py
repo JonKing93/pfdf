@@ -32,23 +32,23 @@ nptyping Primer:
 """
 
 from pathlib import Path
-from typing import Any, Sequence, Tuple, Union
+from typing import Any, Literal, Sequence
 
 from nptyping import Bool, Floating, Integer, NDArray, Shape
 
 # Singular / plural
-strs = Union[str, Sequence[str]]
-ints = Union[int, Sequence[int]]
-floats = Union[float, Sequence[float]]
-dtypes = Union[type, Sequence[type]]
+strs = str | Sequence[str]
+ints = int | Sequence[int]
+floats = float | Sequence[float]
+dtypes = type | Sequence[type]
 
 # Paths
-Pathlike = Union[str, Path]
-OutputPath = Union[Path, None]
+Pathlike = str | Path
+OutputPath = Path | None
 
 # Inputs that are literally shapes
 shape = ints
-shape2d = Tuple[int, int]
+shape2d = tuple[int, int]
 
 # Generic array shapes
 ScalarShape = Shape["1"]
@@ -62,26 +62,22 @@ VectorArray = NDArray[VectorShape, Floating]
 MatrixArray = NDArray[MatrixShape, Floating]
 
 # Real-valued array inputs
-scalar = Union[int, float, ScalarArray]
-vector = Union[ints, floats, VectorArray]
-matrix = Union[ints, floats, MatrixArray]
-
-# Rasters (internal)
-RasterArray = MatrixArray
-ValidatedRaster = Union[Path, RasterArray]
+scalar = int | float | ScalarArray
+vector = ints | floats | VectorArray
+matrix = ints | floats | MatrixArray
 
 # Generic Masks
-Mask = Union[  # This is for user-provided masks
-    NDArray[MatrixShape, Integer],
-    NDArray[MatrixShape, Floating],
-    NDArray[MatrixShape, Bool],
-]
+Mask = (  # This is for user-provided masks
+    NDArray[MatrixShape, Integer]
+    | NDArray[MatrixShape, Floating]
+    | NDArray[MatrixShape, Bool]
+)
 BooleanMask = NDArray[MatrixShape, Bool]  # This is a validated mask for internal use
 BooleanArray = NDArray[Any, Bool]
 
 # NoData values
-nodata = Union[None, ScalarArray]
-DataMask = Union[None, BooleanArray]
+nodata = ScalarArray | None
+DataMask = BooleanArray | None
 
 # Segments
 SegmentsShape = Shape["Segments"]
@@ -90,7 +86,7 @@ SegmentValues = NDArray[SegmentsShape, Floating]
 # Burn severities
 ThresholdSequence = Sequence[scalar]
 ThresholdArray = NDArray[Shape["3 thresholds"], Floating]
-Thresholds = Union[ThresholdSequence, ThresholdArray]
+Thresholds = ThresholdSequence | ThresholdArray
 
 # Generic Models
 Variables = NDArray[Shape["Segments, Runs"], Floating]

@@ -33,15 +33,13 @@ Internal:
     _validate_descriptions  - Checks that burn severity descriptions are recognized
 """
 
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 import numpy as np
 
-from pfdf import _validate as validate
-from pfdf._rasters import Raster
-from pfdf._utils import astuple, classify, real
-from pfdf.rasters import RasterInput, RasterOutput
-from pfdf.typing import Pathlike, Thresholds, strs
+from pfdf._utils import aslist, classify, real, validate
+from pfdf.raster import Raster, RasterInput
+from pfdf.typing import Thresholds, strs
 
 # The classification scheme used in the module
 _classification = {
@@ -57,7 +55,7 @@ _classification = {
 #####
 
 
-def classification() -> Dict[int, str]:
+def classification() -> dict[int, str]:
     """
     classification  Returns the BARC4 burn severity classification scheme
     ----------
@@ -73,13 +71,7 @@ def classification() -> Dict[int, str]:
     return _classification
 
 
-def mask(
-    severity: RasterInput,
-    descriptions: strs,
-    *,
-    path: Optional[Pathlike] = None,
-    overwrite: bool = False,
-) -> RasterOutput:
+def mask(severity: RasterInput, descriptions: strs) -> Raster:
     """
     mask  Generates a burn severity mask
     ----------
@@ -92,30 +84,19 @@ def mask(
     Note that the burn severity descriptions are strings describing the appropriate
     burn severity levels. The supported strings are: "unburned", "low", "moderate",
     and "high".
-
-    mask(..., *, path)
-    mask(..., *, path, overwrite)
-    Saves the burn severity mask to the indicated file. Returns the Path to the
-    saved raster rather than a Raster. Set overwrite=True to allow the
-    output to overwrite an existing file. Otherwise, raises a FileExistsError
-    if the file already exists.
     ----------
     Inputs:
         severity: A BARC4-like burn severity raster.
         descriptions: A list of strings indicating the burn severity levels that
             should be set as True in the returned mask
-        path: A path for a saved burned severity mask
-        overwrite: True to allow saved output to replace existing files. Set to
-            False (default) to prevent replacement.
 
     Outputs:
-        Raster | pathlib.Path: The burn severity mask
+        Raster: The burn severity mask
     """
 
-    # Validate inputs
+    # Validate
     descriptions = _validate_descriptions(descriptions)
-    path = validate.output_path(path, overwrite)
-    severity = Raster.validate(severity, "burn severity raster")
+    severity = Raster(severity, "burn severity raster")
 
     # Get the queried classes and return the severity mask
     classes = [
@@ -124,16 +105,10 @@ def mask(
         if description in descriptions
     ]
     mask = np.isin(severity.values, classes)
-    return Raster.output(mask, path)
+    return Raster.from_array(mask, transform=severity.transform, crs=severity.crs)
 
 
-def estimate(
-    raster: RasterInput,
-    thresholds: Thresholds = [125, 250, 500],
-    *,
-    path: Optional[Pathlike] = None,
-    overwrite: bool = False,
-) -> RasterOutput:
+def estimate(raster: RasterInput, thresholds: Thresholds = [125, 250, 500]) -> Raster:
     """
     estimate  Estimates a BARC4-like burn severity raster from dNBR, BARC256, or other burn-severity measure
     ----------
@@ -164,54 +139,37 @@ def estimate(
     severity, and (3) moderate and high severity. Each threshold defines the
     upper bound (inclusive) of the less-burned class, and the lower bound (exclusive)
     of the more-burned class. The thresholds must be in increasing order.
-
-    estimate(..., *, path)
-    estimate(..., *, path, overwrite)
-    Saves the estimated BARC4 severity to the indicated path. Returns the Path
-    to the saved raster. By default, the function will raise an exception if the
-    saved raster would replace an existing file. Set overwrite=True to allow
-    saved output to replace files.
     ----------
     Inputs:
-        dNBR: A raster holding dNBR data
+        raster: A raster holding the data used to classify burn severity
         thresholds: The 3 thresholds to use to distinguish between burn severity classes
-        path: A file in which to save the estimated BARC4 burn severity.
-        overwrite: True to allow saved burn severities to replace existing files.
-            False to prevent replacement.
 
     Outputs:
-        Raster | pathlib.Path: The BARC4 burn severity estimate or the
-            Path to a saved estimate.
+        Raster: The BARC4 burn severity estimate
     """
 
-    # Validate inputs
+    # Validate
     thresholds = validate.vector(thresholds, "thresholds", dtype=real, length=3)
     validate.defined(thresholds, "thresholds")
     validate.sorted(thresholds, "thresholds")
-    path = validate.output_path(path, overwrite)
-    raster = Raster.validate(raster, "input raster")
+    raster = Raster(raster, "input raster")
 
     # Get the burn severity classes and return as raster
     severity = classify(raster.values, thresholds, nodata=raster.nodata, nodata_to=0)
-    return Raster.output(severity, path, nodata=0)
+    return Raster.from_array(
+        severity, nodata=0, transform=raster.transform, crs=raster.crs
+    )
 
 
 #####
 # Utilities
 #####
-
-
-def _validate_descriptions(descriptions: Any) -> Set[str]:
+def _validate_descriptions(descriptions: Any) -> set[str]:
     "Checks that burn severity descriptions are recognized"
-    descriptions = astuple(descriptions)
+
+    descriptions = aslist(descriptions)
     allowed = tuple(_classification.values())
     for d, description in enumerate(descriptions):
-        if not isinstance(description, str):
-            raise TypeError("Description {d} is not a string.")
-        elif description not in allowed:
-            allowed = ", ".join(allowed)
-            raise ValueError(
-                f"Description {d} ({description}) is not a recognized burn severity level. "
-                f"Recognized values are: {allowed}"
-            )
+        name = f"descriptions[{d}] ({description})"
+        descriptions[d] = validate.option(description, name, allowed)
     return set(descriptions)

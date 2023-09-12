@@ -1,10 +1,10 @@
 """
-_validate  Functions that validate user inputs
+validate  Functions that validate input numpy arrays
 ----------
-The validate module contains functions that check user inputs and raise exceptions
-if the inputs are not valid. Some functions allow user inputs to be in multiple
-different formats. When this is the case, the function will return the input in 
-a standard format for internal processing.
+The validate module contains functions that check user inputs and raise
+exceptions if the inputs are not valid. Some functions allow user inputs to be 
+in multiple different formats. When this is the case, the function will return
+the input in a standard format for internal processing.
 
 Note on dtypes:
     In general, it is best to use numpy scalar types to indicate the allowed
@@ -13,37 +13,41 @@ Note on dtypes:
     example, int may alias to numpy.int32, so would not be suitable to allow
     all integer types. Instead, use numpy.integer to enable all integer types.
 
-Note on loaded arrays:
-    As a rule, these tests only check the data elements of an array. That is,
-    NoData elements are not included in the tests.
+Note on array elements:
+    As a rule, tests that check the elements of an array only check the *valid*
+    data elements. NoData elements are ignored and will not trigger errors.
 ----------
-File IO:
-    output_path     - Check that an input is a valid path for an output raster
-
 Low-level:
     shape_          - Check that array shape is valid
     dtype_          - Checks that array dtype is valid
     nonsingleton    - Locate nonsingleton dimensions
 
-Array shape and type:
+Shape and type:
     array           - Validates an input array
     scalar          - Validates an input scalar
     vector          - Validates an input vector
     matrix          - Validates an input matrix
 
-Array Operations:
-    broadcastable   - Checks that array shapes can be broadcasted
-
-Numeric array elements:
+Array elements:
     defined         - Checks that an array does not contain NaN elements
-    flow            - Checks that an array consists of TauDEM-style D8 flow directions
-    inrange         - Checks that all elements are within a given range (inclusive)
+    boolean         - Checks that all elements are 0 or 1 (NOT that the dtype is bool)
     integers        - Checks that all elements are integers (NOT that the dtype is an int)
-    mask            - Checks that an array is boolean-like (all 1s and 0s)
     positive        - Checks that all elements are positive
+    inrange         - Checks that all elements are within a given range (inclusive)
     sorted          - Checks that array elements are sorted
+    flow            - Checks that an array consists of TauDEM-style D8 flow directions
 
-Array elements utilities:
+Raster metadata:
+    nodata          - Checks that a NoData value is valid and castable to the raster dtype
+    transform       - Checks that a raster affine transform is valid
+    crs             - Checks that a coordinate reference system is valid
+
+Misc:
+    broadcastable   - Checks that array shapes can be broadcasted
+    option          - Checks that a string is a recognized option
+    output_path     - Checks that a path is suitable for an output file
+
+Elements utilities:
     _check_bound    - Compares the elements of an ndarray to a bound
     _isdata         - Returns the data mask for an ndarray
     _data_elements  - Returns the data elements of an ndarray
@@ -52,22 +56,28 @@ Array elements utilities:
 """
 
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Sequence
 
 import numpy as np
+import rasterio.transform
+from affine import Affine
 from numpy import integer as int_
 from numpy import issubdtype as istype
 from numpy import unsignedinteger as uint_
+from rasterio import CRS
+from rasterio.errors import CRSError as RasterioCrsError
 
-from pfdf import _nodata
-from pfdf._utils import aslist, astuple
-from pfdf.errors import DimensionError, EmptyArrayError, ShapeError
+from pfdf._utils import aslist, astuple, nodata_, real
+from pfdf.errors import (
+    CrsError,
+    DimensionError,
+    EmptyArrayError,
+    ShapeError,
+    TransformError,
+)
 from pfdf.typing import (
     BooleanArray,
-    BooleanMask,
-    Mask,
     MatrixArray,
-    OutputPath,
     RealArray,
     ScalarArray,
     VectorArray,
@@ -79,64 +89,9 @@ from pfdf.typing import (
     strs,
 )
 
-# Type aliases
-OutputPath = Union[None, Path]
-save = bool
-DataMask = Union[None, BooleanArray]
-index = Tuple[int, ...]
-
-
-#####
-# File IO
-#####
-
-
-def output_path(path: Any, overwrite: bool) -> OutputPath:
-    """
-    output_path  Validate and parse options for an output raster path
-    ----------
-    output_path(path, overwrite)
-    Validates the Path for an output raster. A valid path may either be None (for
-    returning the raster directly as an array), or convertible to a Path object.
-    Returns the Path to the output file (which may be None).
-
-    When a file path is provided, ensures the output file ends with a ".tif"
-    extension. Files ending with a (case-insensitive)".tif" or ".tiff" are given
-    a (lowercase) ".tif" extension. Otherwise, appends ".tif" to the end of the
-    file name.
-
-    If the file already exists and overwrite is set to False, raises a FileExistsError.
-    ----------
-    Inputs:
-        path: The user-provided Path to an output raster.
-
-    Outputs:
-        None|pathlib.Path: The Path for the output raster - this may be None if
-            not saving.
-
-    Raises:
-        FileExistsError: If the file exists and overwrite=False
-    """
-
-    # If saving, get an absolute Path
-    if path is not None:
-        path = Path(path).resolve()
-
-        # Optionally prevent overwriting
-        if not overwrite and path.is_file():
-            raise FileExistsError(
-                f"Output file already exists:\n\t{path}\n"
-                'If you want to replace existing files, use the "overwrite" option.'
-            )
-
-        # Ensure a .tif extension
-        extension = path.suffix
-        if extension.lower() in [".tiff", ".tif"]:
-            path = path.with_suffix(".tif")
-        else:
-            name = path.name + ".tif"
-            path = path.with_name(name)
-    return path
+# Type alias
+DataMask = BooleanArray | None
+index = tuple[int, ...]
 
 
 #####
@@ -198,6 +153,7 @@ def shape_(name: str, axes: strs, required: shape, actual: shape) -> None:
     Raises:
         ShapeError: If the array does not have the required shape.
     """
+
     # Convert inputs to sequences
     if required is not None:
         axes = aslist(axes)
@@ -205,13 +161,14 @@ def shape_(name: str, axes: strs, required: shape, actual: shape) -> None:
         actual = astuple(actual)
 
         # Check the length of each dimension
-        indices = range(0, len(axes))
-        for axis, index, required_, actual_ in zip(axes, indices, required, actual):
-            if required_ != -1 and required_ != actual_:
-                raise ShapeError(name, axis, index, required, actual)
+        for axis, required, actual in zip(axes, required, actual):
+            if required != -1 and required != actual:
+                raise ShapeError(
+                    f"{name} must have {required} {axis}, but it has {actual} {axis} instead."
+                )
 
 
-def nonsingleton(array: np.ndarray) -> List[bool]:
+def nonsingleton(array: np.ndarray) -> list[bool]:
     """
     nonsingleton  Finds the non-singleton dimensions of a numpy array
     ----------
@@ -223,13 +180,13 @@ def nonsingleton(array: np.ndarray) -> List[bool]:
         array: The ndarray being inspected
 
     Returns:
-        List[bool]: Indicates the non-singleton dimensions.
+        list[bool]: Indicates the non-singleton dimensions.
     """
     return [shape > 1 for shape in array.shape]
 
 
 #####
-# Array shapes and types
+# Shapes and types
 #####
 
 
@@ -411,42 +368,7 @@ def matrix(
 
 
 #####
-# Array Operations
-#####
-
-
-def broadcastable(shape1: shape, name1: str, shape2: shape, name2: str) -> shape:
-    """
-    broadcastable  Checks that two array shapes can be broadcasted
-    ----------
-    broadcastable(shape1, name1, shape2, name2
-    Checks that the input arrays have broadcastable shapes. Raises a ValueError
-    if not. If the shapes are compatible, returns the broadcasted shape.
-    ----------
-    Inputs:
-        shape1: The first shape being checked
-        name1: The name of the array associated with shape1
-        shape2: The second shape being checked
-        name2: The name of the array associated with shape2
-
-    Outputs:
-        int tuple: The broadcasted shape
-
-    Raises:
-        ValueError  - If the arrays are not broadcastable
-    """
-
-    try:
-        return np.broadcast_shapes(shape1, shape2)
-    except ValueError:
-        raise ValueError(
-            f"The shape of the {name1} array ({shape1}) cannot be broadcasted "
-            f"with the shape of the {name2} array ({shape2})."
-        )
-
-
-#####
-# Numeric array elements
+# Array elements
 #####
 
 
@@ -474,83 +396,55 @@ def defined(array: RealArray, name: str) -> None:
         )
 
 
-def flow(
+def boolean(
     array: RealArray,
     name: str,
-    *,
-    isdata: Optional[BooleanArray] = None,
-    nodata: Optional[scalar] = None,
-):
-    """
-    flow  Checks that an array represents TauDEM-style D8 flow directions
-    ----------
-    flow(array, name)
-    Checks that all elements of the input array are integers on the interval 1 to 8.
-    Raises a ValueError if not.
-
-    flow(..., *, isdata)
-    Specifies a valid data mask for the array. Only the True elements of the
-    valid data mask are checked.
-
-    flow(..., *, nodata)
-    Specifies a NoData value for the array. Array elements matching the NoData
-    value are not checked. This option is ignored if "isdata" is also provided.
-    ----------
-    Inputs:
-        array: The input array being checked
-        name: A name for the array for use in error messages
-        isdata: A valid data mask for the array
-        nodata: A NoData value for the array
-    """
-
-    isdata = _isdata(array, isdata, nodata)
-    _check_bound(array, name, isdata, ">=", 1)
-    _check_bound(array, name, isdata, "<=", 8)
-    integers(array, name, isdata=isdata)
-
-
-def inrange(
-    array: RealArray,
-    name: str,
-    min: Optional[scalar] = None,
-    max: Optional[scalar] = None,
     *,
     isdata: Optional[BooleanArray] = None,
     nodata: Optional[scalar] = None,
 ) -> None:
     """
-    inrange  Checks the elements of a numpy array are within a given range
+    boolean  Checks that array elements are all 0s and 1s
     ----------
-    inrange(array, name, min, max)
-    Checks that the elements of a real-valued numpy array are all within a
-    specified range. min and max are optional arguments, you can specify a single
-    one to only check an upper or a lower bound. Use both to check elements are
-    within a range. Uses an inclusive comparison (values equal to a bound will
-    pass validation).
+    boolean(array, name)
+    Checks that the elements of the input numpy array are all 0s and 1s. Raises
+    a Value error if not. Note that this function *IS NOT* check the dtype of the
+    input array. Rather, it checks that each element is 0 or 1. Thus, array of
+    floating points 0s and 1s (1.0, 0.0) will pass the test. If the array is valid,
+    returns the array as a boolean dtype.
 
-    inrange(..., *, isdata)
+    boolean(..., *, isdata)
     Specifies a valid data mask for the array. Only the True elements of the
-    data mask will be validated.
+    data mask will be validated. False elements will be set to False in the
+    returned boolean array.
 
-    inrange(..., *, nodata)
-    Specifies a NoData value for the array. Array elements matching the NoData
-    value will not be validated. This option is ignored if "isdata" is also provided.
+    boolean(, *, nodata)
+    Specifies a NoData value for the array. Elements matching the NoData value
+    will not be checked and will be set to False in the returned boolean array.
+    This option is ignored if "isdata" is also provided.
     ----------
     Inputs:
-        array: The ndarray being checked
-        name: The name of the array for use in error messages
-        min: An optional lower bound (inclusive)
-        max: An optional upper bound (inclusive)
-        isdata: A valid data mask for the array
+        array: The ndarray being validated
+        name: A name for the array for use in error messages.
+        isdata: A valid data mask for the array.
         nodata: A NoData value for the array.
 
-    Raises:
-        ValueError: If any element is not within the bounds
+    Outputs:
+        boolean numpy array: The array with a boolean dtype.
     """
 
-    isdata = _isdata(array, isdata, nodata)
-    _check_bound(array, name, isdata, ">=", min)
-    _check_bound(array, name, isdata, "<=", max)
+    # Boolean dtype is always valid. Otherwise, test the valid data elements.
+    if array.dtype != bool:
+        isdata = _isdata(array, isdata, nodata)
+        data = _data_elements(array, isdata)
+        valid = np.isin(data, [0, 1])
+        _check(valid, "0 or 1", array, name, isdata)
+
+        # Convert NoData values to 0. Return as boolean dtype
+        array = array.astype(bool)
+        if isdata is not None:
+            array[~isdata] = False
+    return array
 
 
 def integers(
@@ -565,11 +459,9 @@ def integers(
     ----------
     integers(array, name)
     Checks that the elements of the input numpy array are all integers. Raises a
-    ValueError if not.
-
-    Note that this function *IS NOT* checking the dtype of the input array. Rather
-    it checks that each element is an integer. Thus, arrays of floating-point
-    integers (e.g. 1.0, 2.000, -3.0) will pass the test.
+    ValueError if not. Note that this function *IS NOT* checking the dtype of the
+    input array. Rather it checks that each element is an integer. Thus, arrays
+    of floating-point integers (e.g. 1.0, 2.000, -3.0) will pass the test.
 
     integers(..., *, isdata)
     Specifies a valid data mask for the array. Only the True elements of the
@@ -595,54 +487,6 @@ def integers(
         data = _data_elements(array, isdata)
         isinteger = np.mod(data, 1) == 0
         _check(isinteger, "integers", array, name, isdata)
-
-
-def mask(
-    array: Mask,
-    name: str,
-    *,
-    isdata: Optional[BooleanArray] = None,
-    nodata: Optional[scalar] = None,
-) -> BooleanMask:
-    """
-    mask  Validates a boolean-like mask
-    ----------
-    mask(array, name)
-    Checks that the elements in an array are all 0 or 1. Raises a ValueError if
-    not. If the array is valid, returns it as a boolean dtype.
-
-    mask(..., *, isdata)
-    Specifies a valid data mask for the array. Only the True elements of the
-    mask are checked. False elements of the data mask are set as False in the
-    output array.
-
-    mask(..., *, nodata)
-    Specifies a NoData value for the array. Array elements matching this value
-    are set to False in the output array. This option is ignored if "isdata" is
-    also provided.
-    ----------
-    Inputs:
-        array: The ndarray being validated
-        name: A name for the array for use in error messages.
-        isdata: A valid data mask for the array.
-        nodata: A NoData value for the array.
-
-    Outputs:
-        boolean numpy array: The mask array with a boolean dtype.
-    """
-
-    # Boolean dtype is always valid. Otherwise, test the valid data elements.
-    if array.dtype != bool:
-        isdata = _isdata(array, isdata, nodata)
-        data = _data_elements(array, isdata)
-        valid = np.isin(data, [0, 1])
-        _check(valid, "0 or 1", array, name, isdata)
-
-        # Convert NoData values to 0. Return as boolean dtype
-        array = array.astype(bool)
-        if isdata is not None:
-            array[~isdata] = False
-    return array
 
 
 def positive(
@@ -698,6 +542,50 @@ def positive(
         _check_bound(array, name, isdata, operator, bound=0)
 
 
+def inrange(
+    array: RealArray,
+    name: str,
+    min: Optional[scalar] = None,
+    max: Optional[scalar] = None,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+) -> None:
+    """
+    inrange  Checks the elements of a numpy array are within a given range
+    ----------
+    inrange(array, name, min, max)
+    Checks that the elements of a real-valued numpy array are all within a
+    specified range. min and max are optional arguments, you can specify a single
+    one to only check an upper or a lower bound. Use both to check elements are
+    within a range. Uses an inclusive comparison (values equal to a bound will
+    pass validation).
+
+    inrange(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    data mask will be validated.
+
+    inrange(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching the NoData
+    value will not be validated. This option is ignored if "isdata" is also provided.
+    ----------
+    Inputs:
+        array: The ndarray being checked
+        name: The name of the array for use in error messages
+        min: An optional lower bound (inclusive)
+        max: An optional upper bound (inclusive)
+        isdata: A valid data mask for the array
+        nodata: A NoData value for the array.
+
+    Raises:
+        ValueError: If any element is not within the bounds
+    """
+
+    isdata = _isdata(array, isdata, nodata)
+    _check_bound(array, name, isdata, ">=", min)
+    _check_bound(array, name, isdata, "<=", max)
+
+
 def sorted(array: RealArray, name: str) -> None:
     """
     sorted  Checks that array values are sorted in ascending order
@@ -720,8 +608,219 @@ def sorted(array: RealArray, name: str) -> None:
         raise ValueError(f"The elements of {name} must be sorted in increasing order.")
 
 
+def flow(
+    array: RealArray,
+    name: str,
+    *,
+    isdata: Optional[BooleanArray] = None,
+    nodata: Optional[scalar] = None,
+):
+    """
+    flow  Checks that an array represents TauDEM-style D8 flow directions
+    ----------
+    flow(array, name)
+    Checks that all elements of the input array are integers on the interval 1 to 8.
+    Raises a ValueError if not.
+
+    flow(..., *, isdata)
+    Specifies a valid data mask for the array. Only the True elements of the
+    valid data mask are checked.
+
+    flow(..., *, nodata)
+    Specifies a NoData value for the array. Array elements matching the NoData
+    value are not checked. This option is ignored if "isdata" is also provided.
+    ----------
+    Inputs:
+        array: The input array being checked
+        name: A name for the array for use in error messages
+        isdata: A valid data mask for the array
+        nodata: A NoData value for the array
+    """
+
+    isdata = _isdata(array, isdata, nodata)
+    _check_bound(array, name, isdata, ">=", 1)
+    _check_bound(array, name, isdata, "<=", 8)
+    integers(array, name, isdata=isdata)
+
+
 #####
-# Loaded Array Utilities
+# Raster metadata
+#####
+
+
+def nodata(nodata, dtype) -> scalar:
+    """
+    nodata  Checks a NoData value is valid and castable to the raster dtype
+    ----------
+    nodata(nodata, dtype)
+    Checks that a user provided NoData value is a scalar, real-valued element
+    that can be safely casted to the raster dtype. If so, returns the casted
+    NoData value. Raises a TypeError if casting is not safe.
+    ----------
+    Inputs:
+        nodata: A user provided NoData value
+        dtype: The dtype of the raster associated with the NoData value
+
+    Outputs:
+        numpy scalar: The NoData value casted to the appropriate dtype
+    """
+
+    # Require scalar, real-valued element
+    nodata = scalar(nodata, "nodata", dtype=real)
+    nodata = nodata[0]
+
+    # Require safe casting to the raster dtype
+    if not np.can_cast(nodata, dtype):
+        raise TypeError(
+            f"Cannot safely cast the NoData value ({nodata}) to the raster dtype ({dtype})."
+        )
+    return nodata.astype(dtype)
+
+
+def crs(crs: Any) -> CRS:
+    """
+    crs  Checks that CRS is convertible to a rasterio.crs.CRS object
+    ----------
+    crs(crs)
+    Checks that the input CRS is convertible to a rasterio.crs.CRS object. Raises
+    a TypeError if not. If valid, returns the associated rasterio.crs.CRS object.
+    ----------
+    Inputs:
+        crs: A user provided coordinate reference system
+
+    Outputs:
+        rasterio.crs.CRS: The validated CRS
+    """
+
+    try:
+        return CRS.from_user_input(crs)
+    except RasterioCrsError:
+        raise CrsError(
+            "Unsupported CRS. A valid CRS must be be convertible to a rasterio.crs.CRS object. "
+        )
+
+
+def transform(transform: Any) -> Affine:
+    """
+    transform  Checks that an input is convertible to an affine.Affine object
+    ----------
+    transform(transform)
+    Checsk that the input affine transformation is convertible to an affine.Affine
+    object via the rasterio API. If valid, returns the affine.Affine object. Otherwise,
+    raises a TypeError.
+    ----------
+    Inputs:
+        transform: A user provided affine transformation
+
+    Outputs:
+        affine.Affine: The affine transformation
+    """
+
+    try:
+        return rasterio.transform.guard_transform(transform)
+    except Exception:
+        raise TransformError(
+            "Unsupported transform. A valid transformation must be convertible to "
+            "an affine.Affine object via the rasterio API. If problems persist, "
+            "consider using an affine.Affine object directly as the transform."
+        )
+
+
+#####
+# Misc
+#####
+
+
+def broadcastable(shape1: shape, name1: str, shape2: shape, name2: str) -> shape:
+    """
+    broadcastable  Checks that two array shapes can be broadcasted
+    ----------
+    broadcastable(shape1, name1, shape2, name2
+    Checks that the input arrays have broadcastable shapes. Raises a ValueError
+    if not. If the shapes are compatible, returns the broadcasted shape.
+    ----------
+    Inputs:
+        shape1: The first shape being checked
+        name1: The name of the array associated with shape1
+        shape2: The second shape being checked
+        name2: The name of the array associated with shape2
+
+    Outputs:
+        int tuple: The broadcasted shape
+
+    Raises:
+        ValueError  - If the arrays are not broadcastable
+    """
+
+    try:
+        return np.broadcast_shapes(shape1, shape2)
+    except ValueError:
+        raise ValueError(
+            f"The shape of the {name1} array ({shape1}) cannot be broadcasted "
+            f"with the shape of the {name2} array ({shape2})."
+        )
+
+
+def option(input: Any, name: str, allowed: Sequence[str]) -> str:
+    """
+    option  Checks that an input string selects a recognized option
+    ----------
+    option(input, allowed)
+    First checks that an input is a string (TypeError if not). Then, checks that
+    the (case-insensitive) input belongs to a list of allowed options (ValueError
+    if not). If valid, returns a lowercased version of the input.
+    ----------
+    Inputs:
+        input: The input option being checked
+        name: A name to identify the option in error messages
+        allowed: A list of allowed strings
+
+    Outputs:
+        lowercased string: The lowercased version of the input
+    """
+
+    # Require a string
+    if not isinstance(input, str):
+        raise TypeError(f"{name} must be a string.")
+
+    # Require member of allowed list
+    input_lowered = input.lower()
+    if input_lowered not in allowed:
+        allowed = ", ".join(allowed)
+        raise ValueError(
+            f"{name} ({input}) is not a recognized option. Supported options are: {allowed}"
+        )
+    return input_lowered
+
+
+def output_path(path: Any, overwrite: bool) -> Path:
+    """
+    output_path  Checks that a path is suitable for an output file
+    ----------
+    output_path(path, overwrite)
+    Checks that an input path is resolvable. Raises a FileExistsError if overwrite=False
+    and the file already exists. Otherwise, returns the resolved pathlib.Path to the file.
+    ----------
+    Inputs:
+        path: A user provided path for an output file
+        overwrite: True if the file can already exist. False to raise an error
+            for exists (i.e. prevent overwriting)
+
+    Outputs:
+        pathlib.Path: The resolved path to the output file
+    """
+
+    path = Path(path).resolve()
+    if (not overwrite) and path.exists():
+        raise FileExistsError(
+            f"Output file already exists:\n\t{path}\n"
+            'If you want to replace existing files, set "overwrite=True"'
+        )
+    return path
+
+
+#####
+# Element Utilities
 #####
 
 
@@ -779,7 +878,7 @@ def _isdata(array: RealArray, isdata: BooleanArray, nodata: nodata) -> DataMask:
     (i.e. the mask of element that are not NoData). Note that if both options are
     None, then the data mask will be None, as no mask is necessary."""
     if isdata is None and nodata is not None:
-        isdata = _nodata.mask(array, nodata, invert=True)
+        isdata = nodata_.mask(array, nodata, invert=True)
     return isdata
 
 
@@ -814,7 +913,7 @@ def _first_failure(
     array: RealArray,
     isdata: DataMask,
     passed: BooleanArray,
-) -> Tuple[index, scalar]:
+) -> tuple[index, scalar]:
     """
     _first_failure  Returns the indices and value of the first invalid data element
     ----------
@@ -834,7 +933,7 @@ def _first_failure(
             the validation check
 
     Outputs:
-        Tuple[int, ...]: The index of the first invalid data element in the array
+        tuple[int, ...]: The index of the first invalid data element in the array
         int | float | bool: The value of the invalid data element
     """
 

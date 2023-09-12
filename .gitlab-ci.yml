@@ -1,19 +1,21 @@
-image: continuumio/miniconda3:latest
+image: python:3.11
 
 stages:
   - build
   - test
 
 before_script:
-  - source activate ./env
+  - source env/bin/activate
 
 build:
   stage: build
   before_script:
     - echo "Stops attempt to activate env before env is built..."
   script:
-    - conda env create --file environment.yml --prefix env
-    - source activate ./env
+    - pip install virtualenv
+    - virtualenv env
+    - source env/bin/activate
+    - pip install poetry
     - poetry install --with dev
   artifacts:
     expire_in: 1 hour

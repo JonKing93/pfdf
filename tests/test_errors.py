@@ -1,57 +1,51 @@
-"""
-test_errors  Unit tests for the errors module
-"""
+import pytest
 
-from pfdf import errors
-
-
-class TestEmptyArrayError:
-    def test(_):
-        message = "test message"
-        error = errors.EmptyArrayError(message)
-        assert isinstance(error, Exception)
-        assert error.args[0] == message
-
-
-class TestShapeError:
-    def test(_):
-        error = errors.ShapeError("array", "columns", 1, (2, 5), (2, 6))
-        assert isinstance(error, Exception)
-        assert error.index == 1
-        assert error.required == (2, 5)
-        assert error.actual == (2, 6)
-        assert (
-            error.args[0] == "array must have 5 columns, but it has 6 columns instead."
-        )
+from pfdf.errors import (
+    ArrayError,
+    CrsError,
+    DimensionError,
+    DurationsError,
+    EmptyArrayError,
+    RasterCrsError,
+    RasterError,
+    RasterShapeError,
+    RasterTransformError,
+    ShapeError,
+    TransformError,
+)
 
 
-class TestDimensionError:
-    def test(_):
-        message = "test message"
-        error = errors.DimensionError(message)
-        assert isinstance(error, Exception)
-        assert error.args[0] == message
+def check(error, message, type):
+    assert isinstance(error, type)
+    assert error.args[0] == message
 
 
-class TestRasterShapeError:
-    def test(_):
-        name = "test"
-        cause = errors.ShapeError(name, "rows", 0, required=(10, 10), actual=(9, 10))
-        error = errors.RasterShapeError(name, cause)
-
-        assert isinstance(error, Exception)
-        assert error.args[0] == (
-            "The shape of the test raster (9, 10) does not match the shape of the "
-            "stream segment raster used to derive the segments (10, 10)."
-        )
+@pytest.mark.parametrize(
+    "error", (ArrayError, CrsError, TransformError, RasterError, DurationsError)
+)
+def test_base_error(error):
+    message = "test message"
+    error = error(message)
+    check(error, message, Exception)
 
 
-class TestDurationsError:
-    def test(_):
-        durations = [5, 1, 2, 3]
-        allowed = [2, 3, 4]
-        error = errors.DurationsError(durations, allowed)
-        assert isinstance(error, Exception)
-        assert error.args[0] == (
-            "Duration 0 (5) is not an allowed value. Allowed values are: 2, 3, 4"
-        )
+@pytest.mark.parametrize("error", (EmptyArrayError, DimensionError, ShapeError))
+def test_array_error(error):
+    message = "test message"
+    error = error(message)
+    check(error, message, ArrayError)
+
+
+@pytest.mark.parametrize(
+    "error, SecondaryError",
+    (
+        (RasterShapeError, ShapeError),
+        (RasterTransformError, TransformError),
+        (RasterCrsError, CrsError),
+    ),
+)
+def test_raster_error(error, SecondaryError):
+    message = "test message"
+    error = error(message)
+    check(error, message, RasterError)
+    assert isinstance(error, SecondaryError)
