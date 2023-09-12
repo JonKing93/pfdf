@@ -43,7 +43,10 @@ Functions:
     network         - Builds a stream segment raster
 
 Internal:
-    _to_pysheds     - Converts a raster to pysheds and returns metadata
+    _to_pysheds         - Converts a raster to pysheds and returns metadata
+    _geojson_to_shapely - Converts a stream network GeoJSON to a list of shapely LineStrings
+    _split_segments     - Splits stream network segments longer than a specified length
+    _split              - Splits a stream segment into pieces shorter than a specified length
 """
 from math import ceil
 from typing import Any, Optional
@@ -353,10 +356,10 @@ def catchment(flow: RasterInput, row: scalar, column: scalar) -> Raster:
     # Validate
     row = validate.scalar(row, "row", dtype=real)
     validate.integers(row, "row")
-    validate.inrange(row, "row", min=1, max=flow.shape[0])
+    validate.inrange(row, "row", min=0, max=flow.shape[0]-1)
     column = validate.scalar(column, "column")
     validate.integers(column, "column")
-    validate.inrange(column, "column", min=1, max=flow.shape[1])
+    validate.inrange(column, "column", min=0, max=flow.shape[1]-1)
     flow = Raster(flow, "flow directions")
     validate.flow(flow.values, flow.name, nodata=flow.nodata)
 
