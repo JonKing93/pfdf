@@ -3,6 +3,7 @@ nodata_  Functions that facilitate working with NoData values in raster datasets
 ----------
 Functions:
     default     - Returns the default NoData value for a dtype
+    equal       - True if two NoData values are equal
     fill        - Fills indicated array elements with a NoData value
     isin        - True if an array contains NoData elements
     mask        - Returns the NoData mask or valid data mask for a raster
@@ -43,6 +44,33 @@ def default(dtype: type) -> int | float | bool:
         return iinfo(dtype).min
     elif issubdtype(dtype, bool_):
         return False
+
+
+def equal(nodata1, nodata2):
+    """
+    equal  True if two NoData values are equal
+    ----------
+    equal(nodata1, nodata2)
+    True if two NoData values are equal. Otherwise False. NoData values are
+    considered equal if they are the same numeric value, both None, or both NaN.
+    ----------
+    Inputs:
+        nodata1: The first nodata value in the comparison
+        nodata2: The second nodata value in the comparison
+
+    Outputs:
+        bool: True if the two NoData values are equal. Otherwise False
+    """
+
+    if (
+        nodata1 is not None
+        and nodata2 is not None
+        and isnan(nodata1)
+        and isnan(nodata2)
+    ):
+        return True
+    else:
+        return nodata1 == nodata2
 
 
 def fill(array: RealArray, masks: tuple[DataMask], nodata: nodata) -> RealArray:

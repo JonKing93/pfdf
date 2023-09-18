@@ -1,3 +1,4 @@
+from math import isnan, nan, sqrt
 from pathlib import Path
 
 import numpy as np
@@ -6,6 +7,7 @@ import rasterio
 from affine import Affine
 from pysheds.sview import Raster as pysheds_raster
 from pysheds.sview import ViewFinder
+from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 
 from pfdf.errors import (
@@ -60,16 +62,28 @@ def fraster(tmp_path, araster, transform, crs):
 
 
 def check(output, name, araster, transform, crs):
-    "Checks a raster object matches expected values"
+    "Checks a raster object's properties match expected values"
+
     assert isinstance(output, Raster)
-    assert np.array_equal(output.values, araster)
     assert output.name == name
-    assert output.shape == araster.shape
-    assert output.size == araster.size
+    assert np.array_equal(output.values, araster)
     assert output.dtype == araster.dtype
     assert output.nodata == -999
-    assert output.transform == transform
+
+    assert output.shape == araster.shape
+    assert output.size == araster.size
+    assert output.height == araster.shape[0]
+    assert output.width == araster.shape[1]
+
     assert output.crs == crs
+    assert output.transform == transform
+    left, top = transform * (0, 0)
+    right, bottom = transform * araster.shape
+    assert output.bounds == BoundingBox(left, bottom, right, top)
+
+    assert output.resolution == (transform[0], transform[4])
+    assert output.pixel_area == transform[0] * transform[4]
+    assert output.pixel_diagonal == sqrt(transform[0] ** 2 + transform[4] ** 2)
 
 
 def assert_contains(error, *strings):
@@ -80,7 +94,7 @@ def assert_contains(error, *strings):
 
 
 #####
-# Tests
+# Object Creation
 #####
 
 
@@ -170,18 +184,14 @@ class TestRasterInit:
             Raster(araster, "test name")
         assert_contains(error, "test name")
 
-
-class TestSetName:
-    def test_string(_, araster):
-        output = Raster(araster, "test")
-        output.name = "different name"
-        assert output.name == "different name"
-
-    def test_not_string(_, araster):
-        output = Raster(araster, "test")
-        with pytest.raises(TypeError) as error:
-            output.name = 5
-        assert_contains(error, "raster name must be a string")
+    def test_bad_affine(_, araster):
+        raster = Raster(araster)
+        raster._transform = Affine(1, 2, 3, 4, 5, 6)
+        with pytest.raises(TransformError) as error:
+            Raster(raster, "test name")
+        assert_contains(
+            error, "The raster transform must only support scaling and translation."
+        )
 
 
 def test_from_file(fraster, araster, transform, crs):
@@ -267,19 +277,136 @@ class TestFromArray:
         assert_contains(error, "crs", "rasterio.crs.CRS")
 
 
-def test_metadata(fraster):
-    raster = Raster(fraster)
-    output = raster.metadata
-    assert isinstance(output, dict)
-    assert sorted(output.keys()) == sorted(
-        ["shape", "size", "dtype", "nodata", "transform", "crs"]
-    )
-    assert output["shape"] == raster.shape
-    assert output["size"] == raster.size
-    assert output["dtype"] == raster.dtype
-    assert output["nodata"] == raster.nodata
-    assert output["transform"] == raster.transform
-    assert output["crs"] == raster.crs
+#####
+# Misc Properties
+#####
+
+
+class TestSetName:
+    def test_string(_, araster):
+        output = Raster(araster, "test")
+        output.name = "different name"
+        assert output.name == "different name"
+
+    def test_not_string(_, araster):
+        output = Raster(araster, "test")
+        with pytest.raises(TypeError) as error:
+            output.name = 5
+        assert_contains(error, "raster name must be a string")
+
+
+class TestBounds:
+    def test_exists(_, fraster, transform):
+        raster = Raster(fraster)
+        left, top = transform * (0, 0)
+        right, bottom = transform * raster.shape
+        expected = BoundingBox(left, bottom, right, top)
+        assert raster.bounds == expected
+
+    def test_missing(_, araster):
+        raster = Raster(araster)
+        expected = BoundingBox(nan, nan, nan, nan)
+        assert raster.bounds == expected
+
+
+class TestResolution:
+    def test_exists(_, fraster, transform):
+        raster = Raster(fraster)
+        assert raster.resolution == (transform[0], transform[4])
+
+    def test_missing(_, araster):
+        raster = Raster(araster)
+        dx, dy = raster.resolution
+        assert isnan(dx)
+        assert isnan(dy)
+
+    def test_negative_scale(_, araster):
+        transform = Affine(-10, 0, 0, 0, -10, 0)
+        raster = Raster.from_array(araster, transform=transform)
+        dx, dy = raster.resolution
+        assert dx == 10
+        assert dy == 10
+
+
+class TestPixelArea:
+    def test_exists(_, fraster, transform):
+        raster = Raster(fraster)
+        assert raster.pixel_area == transform[0] * transform[4]
+
+    def test_missing(_, araster):
+        raster = Raster(araster)
+        assert isnan(raster.pixel_area)
+
+    def test_negative_scale(_, araster):
+        transform = Affine(10, 0, 0, 0, -10, 0)
+        raster = Raster.from_array(araster, transform=transform)
+        assert raster.pixel_area == 100
+
+
+class TestPixelDiagonal:
+    def test_exists(_, fraster, transform):
+        raster = Raster(fraster)
+        assert raster.pixel_diagonal == sqrt(transform[0] ** 2 + transform[4] ** 2)
+
+    def test_missing(_, araster):
+        raster = Raster(araster)
+        assert isnan(raster.pixel_diagonal)
+
+
+#####
+# Dunders
+#####
+
+
+class TestEq:
+    def test_same(_, fraster, araster, crs, transform):
+        raster = Raster(fraster)
+        other = Raster.from_array(araster, crs=crs, transform=transform, nodata=-999)
+        assert raster == other
+
+    def test_same_nan_nodata(_, araster):
+        araster[0, 0] = np.nan
+        raster = Raster.from_array(araster, nodata=np.nan)
+        other = araster.copy()
+        other = Raster.from_array(other, nodata=np.nan)
+        assert raster == other
+
+    def test_both_none_nodata(_, araster):
+        raster1 = Raster.from_array(araster)
+        raster2 = Raster.from_array(araster)
+        assert raster1 == raster2
+
+    def test_single_none_nodata(_, araster):
+        raster1 = Raster.from_array(araster)
+        raster2 = Raster.from_array(araster, nodata=-999)
+        assert raster1 != raster2
+
+    def test_other_type(_, fraster):
+        raster = Raster(fraster)
+        assert raster != 5
+
+    def test_other_nodata(_, fraster):
+        raster = Raster(fraster)
+        other = Raster(fraster)
+        other._nodata = 5
+        assert raster != other
+
+    def test_other_crs(_, fraster):
+        raster = Raster(fraster)
+        other = Raster(fraster)
+        other._crs = CRS.from_epsg(4000)
+        assert raster != other
+
+    def test_other_transform(_, fraster):
+        raster = Raster(fraster)
+        other = Raster(fraster)
+        other._transform = Affine(1, 2, 3, 4, 5, 6)
+        assert raster != other
+
+
+#####
+# IO
+#####
 
 
 class TestSave:
@@ -369,12 +496,38 @@ class TestAsPysheds:
         assert output.affine == transform
         assert output.crs == crs
 
+    def test_int8_with_nodata(_, araster, transform, crs):
+        araster = araster.astype("int8")
+        raster = Raster.from_array(araster, nodata=5, crs=crs, transform=transform)
+        output = raster.as_pysheds()
+        assert isinstance(output, pysheds_raster)
+        assert np.array_equal(output, araster)
+        assert output.nodata == 5
+        assert output.affine == transform
+        assert output.crs == crs
+
+    def test_int8_without_nodata(_, araster, transform, crs):
+        araster = araster.astype("int8")
+        raster = Raster.from_array(araster, crs=crs, transform=transform)
+        output = raster.as_pysheds()
+        assert isinstance(output, pysheds_raster)
+        assert np.array_equal(output, araster)
+        assert output.nodata == 0
+        assert output.affine == transform
+        assert output.crs == crs
+
 
 class TestValidate:
     def test_valid_raster(_, fraster, araster, transform, crs):
         raster = Raster(fraster, "a different name")
         output = raster._validate(fraster, "test")
         check(output, "test", araster, transform, crs)
+
+    def test_default_spatial(_, fraster, araster):
+        raster = Raster(fraster)
+        output = raster._validate(araster, "test")
+        assert output.crs == raster.crs
+        assert output.transform == raster.transform
 
     def test_bad_shape(_, fraster, transform, crs):
         raster = Raster(fraster, "self name")
@@ -386,18 +539,18 @@ class TestValidate:
             raster._validate(input, "test name")
         assert_contains(error, "test name", "self name")
 
-    @pytest.mark.parametrize("transform_", (None, Affine(1, 2, 3, 4, 5, 6)))
-    def test_bad_transform(_, fraster, araster, transform_, crs):
+    def test_bad_transform(_, fraster, araster, crs):
+        transform = Affine(9, 0, 0, 0, 9, 0)
         raster = Raster(fraster, "self name")
-        input = Raster.from_array(araster, crs=crs, transform=transform_)
+        input = Raster.from_array(araster, crs=crs, transform=transform)
         with pytest.raises(RasterTransformError) as error:
             raster._validate(input, "test name")
         assert_contains(error, "test name", "self name")
 
-    @pytest.mark.parametrize("crs_", (None, CRS.from_epsg(4000)))
-    def test_bad_crs(_, fraster, araster, transform, crs_):
+    def test_bad_crs(_, fraster, araster, transform):
+        crs = CRS.from_epsg(4000)
         raster = Raster(fraster, "self name")
-        input = Raster.from_array(araster, crs=crs_, transform=transform)
+        input = Raster.from_array(araster, crs=crs, transform=transform)
         with pytest.raises(RasterCrsError) as error:
             raster._validate(input, "test name")
         assert_contains(error, "test name", "self name")
