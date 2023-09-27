@@ -58,25 +58,27 @@ parameters and variables needed to implement this model:
     >>> T, F, S = s17.M1.variables(segments, <other args>)
 
 Note that the first input to any model's "variables" method is always a 
-pfdf.segments.Segments describing a particular stream segment network. The subsequent
-inputs will vary, as each model is calibrated to a different set of earth
-system variables.
+pfdf.segments.Segments object describing a particular stream segment network. 
+The subsequent inputs will vary, as each model is calibrated to a different set 
+of earth system variables.
     
-Then, to solve for probability given rainfall accumulations:
+Then, to solve for probability (given rainfall accumulations):
 
     >>> R = [0.1, 0.2, 0.3]
     >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
 
-Or to solve for accumulation given probabilities:
+Or to solve for accumulation (given probabilities):
 
     >>> p = [0.5, 0.75]
     >>> R = s17.accumulation(p, B, Cr, T, Cf, F, Cs, S)
 
 NOTE ON RASTER SHAPES:
 Each model's "variables" method uses a pfdf.segments.Segments object to
-calculate values from various input rasters. As such, the associated input rasters
-must always match the raster shape, crs, and (affine) transform associated with the
-stream segment raster.
+calculate values from various input rasters. As such, the input rasters must match
+the shape, crs, and (affine) transform of the flow directions raster used to derive
+the Segments object. Please see the documentation of the Segments class, and
+specifically the "Working with Input Rasters" section, for additional details on
+these requirements.
 
 DESIGNING NEW MODELS:
 Advanced users may be interested in implementing new models that follow the form
@@ -86,7 +88,7 @@ coefficients and variables to a function, and run as usual.
 
 CITATION:
 Staley, D. M., Negri, J. A., Kean, J. W., Laber, J. L., Tillery, A. C., & 
-Youberg, A. M. (2017). Prediction of spatially explicit rainfall intensity–duration
+Youberg, A. M. (2017). Prediction of spatially explicit rainfall intensity-duration
 thresholds for post-fire debris-flow generation in the western United States. 
 Geomorphology, 278, 149-162.
 https://doi.org/10.1016/j.geomorph.2016.10.019
@@ -189,11 +191,12 @@ def accumulation(
     units are the units of the rainfall values used to calibrate the model's parameters.
     For the 4 models described in the paper, accumulations are in mm.
 
-    The returned output will be a 3D numpy array. The first dimension is
-    stream segments, second dimension is parameter runs, and third dimension is
-    p-values. If only a single p-value is provided, the output is returned as a
-    2D array. If there is a single parameter run and a single p-value, then output
-    is returned as a 1D array. (Or see below for an option that always returns a 3D array).
+    The returned output will be a numpy array with up to 3 dimensions. The first
+    dimension is stream segments, second dimension is parameter runs, and third
+    dimension is p-values. If only a single p-value is provided, the output is
+    returned as a 2D array. If there is a single parameter run and a single p-value,
+    then output is returned as a 1D array. (Or see below for an option that always
+    returns a 3D array).
 
     As mentioned, one or more variable can also be a 2D array. In this case
     each row is a stream segment, and each column is a parameter run. Each
@@ -292,12 +295,12 @@ def probability(
     rainfall values used to calibrate the model's parameters. For the 4 models
     described in the paoer, accumulations are in mm.
 
-    The returned output will be a 3D numpy array. The first dimension is
-    stream segments, second dimension is parameter runs, and third dimension is
-    queried rainfall accumulations. If only a single accumulation is provided,
-    the output is returned as a 2D array. If there is a single parameter run and
-    a single rainfall accumulation, then output is returned as a 1D array. (Or
-    see below for an option that always returns a 3D array).
+    The returned output will be a numpy array with up to 3 dimensions. The first
+    dimension is stream segments, second dimension is parameter runs, and third
+    dimension is queried rainfall accumulations. If only a single accumulation is
+    provided, the output is returned as a 2D array. If there is a single parameter
+    run and a single rainfall accumulation, then output is returned as a 1D array.
+    (Or see below for an option that always returns a 3D array).
 
     As mentioned, one or more variable can also be a 2D array. In this case
     each row is a stream segment, and each column is a parameter run. Each

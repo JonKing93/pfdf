@@ -529,8 +529,8 @@ class TestAccumulation:
         assert np.array_equal(output, expected)
 
 
-def test_outlet_values(segments, flow):
-    output = segments._outlet_values(flow)
+def test_values_at_outlets(segments, flow):
+    output = segments._values_at_outlets(flow)
     expected = np.array([1, 7, 3, 5, 6, 7])
     assert np.array_equal(output, expected)
 

@@ -72,7 +72,7 @@ class Segments:
     Segments  Builds and manages a stream segment network
     ----------
     The Segments class is used to build and manage a stream segment network. Here,
-    a stream segment is approximately equal to the river bed of a drainage basin.
+    a stream segment is approximately equal to the stream bed of a catchment basin.
     The class provides a number of functions that compute summary values for each
     stream segment in the set. (For example, the confinement angle of each segment,
     or the mean slope in each segment's catchment basin). These calculations are
@@ -85,9 +85,10 @@ class Segments:
 
         1. Build a stream segment network by initializing a Segments object
         2. Compute data values needed to reduce the network to a set of model-worthy
-           segments. (e.g. confinement angle, mean catchment slope, the proportion
-           of burned upslope area)
-        3. Remove unworthy segments via the "remove" method
+           segments. (e.g. confinement angle, slope, the proportion of burned
+           upslope area)
+        3. Reduce the network to the model-worthy segments using the "remove" or
+           "keep" methods
         4. Use the Segments object to calculate inputs for various models
            (e.g. Gartner et al. 2014; Staley et al. 2017; Cannon et al. 2010)
         5. Use the "export" method to write the network (and associated data values)
@@ -95,14 +96,52 @@ class Segments:
 
     The following sections provide additional details for these procedures.
 
+    TERMINOLOGY:
+    Here we define the terms "stream segment", "catchment basin", and "outlet",
+    which are used throughout this documentation. We note that these definitions
+    can differ subtly for vector and raster representations of a stream segment
+    network. We begin here with vector definitions, and then describe the details
+    for the raster case.
+
+    *As Vectors*
+    A stream segment approximates a stream bed in a drainage area, and consists of
+    a set of points that proceed from upstream to downstream. If multiple segments
+    meet at a confluence point, then the upstream segments end at the confluence, and
+    a new segment begins at the confluence. Stream segments are well-represented
+    as polyline features.
+
+    The final point of a stream segment is its "outlet". All points that drain
+    into the stream segment will eventually flow through the outlet point (and
+    the outlet is the most upstream point at which this is the case). When multiple
+    segments join at a confluence, then the upstream outlets are *just before*
+    the confluence point. As such, no two stream segments will share the same outlet.
+    Outlets are well-represented at point features.
+
+    A "catchment basin" is the complete set of points that eventually drain into
+    a stream segment's outlet. If a stream segment is below a confluence point,
+    then its catchment basin will include the (necessarily smaller) catchment
+    basins of the upstream segments. Catchments are well-represented as polygon
+    features.
+
+    *As Rasters*
+    A stream segment network can also be represented using a raster (please
+    see the "Stream Segment Raster" section for details). In this case, a stream
+    segment is a set of linearly adjacent pixels that proceeds from upstream to
+    downstream. When a confluence occurs, the confluence pixel belongs to the
+    downstream segment. The outlet of each segment is its final (i.e. most downstream
+    pixel). Because confluence pixels belong to the downstream segment, no two
+    segments will ever share the same outlet pixel. A catchment basin is
+    the complete set of pixels that eventually flow into a stream segment's outlet
+    pixel. Note that the catchment pixels will always include all the stream segment
+    pixels (i.e. the stream segment pixels are a subset of the catchment pixels).
+
     BUILDING A NETWORK:
     You can build an initial stream segment network by initializing a Segments
     object. There are two essential input for this procedure: (1) A D8 flow
     directions raster (see the pfdf.watershed module to produce this), and
     (2) a raster mask indicating watershed pixels that may potentially be stream
     segments. Note that the flow direction raster must have (affine) transform
-    metadata. The raster is also required to have square pixels - rectangular
-    pixels are currently unsupported.
+    metadata.
 
     In part, the mask is used to limit stream segments to watershed pixels that
     likely represent a physical stream bed. To do so, the mask will typically
@@ -125,7 +164,7 @@ class Segments:
     segments spatially. "npixels" indicates the total number of pixels in the
     catchment of each segment. Each segment in the network is assigned a unique
     integer ID. The ID for a given segment is constant, so will not change if other
-    segments are removed from the netwokr. You can return the list of current
+    segments are removed from the network. You can return the list of current
     segment IDS using "ids".
 
     STREAM SEGMENT RASTER:
@@ -296,7 +335,7 @@ class Segments:
     Utilities:
         _preallocate            - Initializes an array to hold segment summary values
         _accumulation           - Computes flow accumulation for each segment
-        _outlet_values          - Returns the values at the outlet pixels
+        _values_at_outlets      - Returns the data values at the outlet pixels
 
     Statistics:
         _summarize              - Computes a generic summary statistic
@@ -321,12 +360,13 @@ class Segments:
         ----------
         Segments(flow, mask)
         Builds a Segments object to manage the stream segments in a drainage network.
-        Note that stream segments approximate the river beds in the drainage basin,
+        Note that stream segments approximate the river beds in the catchment basins,
         rather than the full catchment basins. The returned object records the
         pixels associated with each segment in the network.
 
-        The stream segment network is determined using a (TauDEM-style) D8 flow direction
-        raster and a raster mask. Note the the flow direction raster must have
+        The stream segment network is determined using a TauDEM-style D8 flow direction
+        raster and a raster mask (and please see the documentation of the pfdf.watershed
+        module for details of this style). Note the the flow direction raster must have
         (affine) transform metadata. The mask is used to indicate the pixels under
         consideration as stream segments. True pixels may possibly be assigned to a
         stream segment, False pixels will never be assiged to a stream segment. The
@@ -380,7 +420,8 @@ class Segments:
         self._segments = watershed.network(self.flow, mask, max_length)
 
         # Locate pixel indices for each segment. If the first two indices are
-        # identical, then this is downstream of a split point
+        # identical, then this is downstream of a split point (a point where a
+        # long stream segment was split into 2 pieces)
         split = False
         for s, segment in enumerate(self.segments):
             coords = np.array(segment.coords)
@@ -511,10 +552,10 @@ class Segments:
 
     def outlets(self) -> list[tuple[int, int]]:
         """
-        outlets  Returns the indices of the drainage basin outlets
+        outlets  Returns the indices of the catchment basin outlets
         ----------
         self.outlets()
-        Returns the row and column indices of the drainage basin outlets in the
+        Returns the row and column indices of the catchment basin outlets in the
         stream segment raster. There is one outlet per segment in the network.
         Each outlet is the most downstream pixel for the associated
         segment. Returns a list of 2-tuples with one element per stream
@@ -616,9 +657,9 @@ class Segments:
 
         # Otherwise, compute the accumulation at each outlet
         accumulation = watershed.accumulation(self.flow, weights, mask)
-        return self._outlet_values(accumulation)
+        return self._values_at_outlets(accumulation)
 
-    def _outlet_values(self, raster: Raster) -> SegmentValues:
+    def _values_at_outlets(self, raster: Raster) -> SegmentValues:
         "Returns the values at the segment outlets"
         values = self._preallocate()
         for k, outlet in enumerate(self.outlets()):
@@ -833,14 +874,15 @@ class Segments:
         mask: Optional[RasterInput] = None,
     ) -> SegmentValues:
         """
-        catchment  Compute a generic summary statistic over stream segment catchment basins
+        catchment  Compute a summary statistic over stream segment catchment basins
         ----------
         self.catchment(statistic, values)
-        Computes the indicated statistic over the catchment basin of each stream
-        segment using the input data values. Returns a numpy 1D array with one
-        element per stream segment. Supported statistics include: sum, mean,
-        median, min, max, and standard deviation. Note that the sum and mean
-        statistics usually compute much faster than the other statistics.
+        Computes the indicated statistic over the pixels in the catchment basin
+        of each stream segment using the input values as the data for each pixel.
+        Returns a numpy 1D array with one element per stream segment. Supported
+        statistics include: sum, mean, median, min, max, and standard deviation.
+        Note that the sum and mean statistics usually compute much faster than
+        the other statistics.
 
         self.catchment(statistic, values, mask)
         Computes masked statistics over the catchment basins. True elements in the
@@ -903,16 +945,16 @@ class Segments:
 
     def area(self, mask: Optional[RasterInput] = None) -> SegmentValues:
         """
-        area  Returns the upslope (contributing) area for each stream segment
+        area  Returns the area of the catchment basin for each stream segment
         ----------
         self.area()
-        Computes the total upslope (contributing) area for each stream segment.
-        The returned area will be in the same units as the pixel area property.
+        Computes the total area of the catchment basin for each stream segment.
+        The returned area will be in the same units as the pixel_area property.
 
         self.area(mask)
-        Computes a masked upslope area for each stream segment. True elements in
+        Computes a masked catchment area for each stream segment. True elements in
         the mask indicate pixels that should be included in the calculation of
-        upslope areas. False elements are ignored.
+        areas. False elements are ignored.
         ----------
         Inputs:
             mask: A raster mask whose True elements indicate the pixels that should
@@ -1133,7 +1175,7 @@ class Segments:
         nodata = relief.nodata
 
         # Compute outlet values and convert NoData to NaN
-        relief = self._outlet_values(relief)
+        relief = self._values_at_outlets(relief)
         nodatas = nodata_.mask(relief, nodata)
         relief[nodatas] = nan
         return relief
