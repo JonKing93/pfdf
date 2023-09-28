@@ -79,8 +79,7 @@ from typing import Any, Tuple
 
 import numpy as np
 
-from pfdf import _validate as validate
-from pfdf._utils import classify, real
+from pfdf._utils import classify, real, validate
 from pfdf.typing import RealArray, VectorArray, scalar, vector
 
 #####

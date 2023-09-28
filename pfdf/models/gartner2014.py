@@ -37,8 +37,7 @@ from typing import Any, Dict, Tuple
 
 from numpy import atleast_1d, exp, log, sqrt, squeeze
 
-from pfdf import _validate as validate
-from pfdf._utils import real
+from pfdf._utils import real, validate
 from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volumes
 
 #####

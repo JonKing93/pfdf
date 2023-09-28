@@ -19,17 +19,19 @@ Type Hint:
     RasterInput - Types that are convertible to a Raster object
 """
 
+from math import nan, sqrt
 from pathlib import Path
 from typing import Any, Optional, Self
 
 import numpy as np
 import rasterio
 from affine import Affine
-from pysheds.sview import Raster as pysheds_raster
+from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
+from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 
-from pfdf._utils import real, validate
+from pfdf._utils import nodata_, real, validate
 from pfdf.errors import RasterCrsError, RasterShapeError, RasterTransformError
 from pfdf.typing import MatrixArray, Pathlike, scalar, shape2d
 
@@ -38,14 +40,29 @@ class Raster:
     """
     Raster  Manages raster datasets and metadata
     ----------
-    OVERVIEW:
+    OVERVIEW AND PROPERTIES:
     The Raster class is used to manage raster datasets and metadata within the pfdf
     package. Use the ".values" property to return the data values for a raster.
-    Raster metadata is returned using the following properties: shape, size, dtype,
-    nodata, transform, and crs. Users can also return all metadata values in a
-    dict using the ".metadata" property. The values and metadata properties are
-    read-only, but Raster objects also include a read-write ".name" property,
-    which users can use to optionally label a raster dataset.
+    The dtype and nodata values return additional information about the data
+    values. Information about the array shape is available via the shape, size,
+    height, and width properties.
+
+    A number of properties provide spatial information about the raster. The crs
+    property reports the coordinate reference system associated with the raster,
+    and .transform reports the (affine) transformation matrix used to convert
+    pixel indices to spatial coordinates. The bounds property returns a rasterio
+    BoundingBox object that reports the spatial coordinates of the raster's corners.
+
+    Several other properties describe the pixels in the raster. The "resolution"
+    property reports the X-axis and Y-axis spacing between raster pixels. The
+    pixel_area property reports the area of a single pixel, and pixel_diagonal
+    reports the length across the diagonal of a single pixel.
+
+    Note that the (affine) transform may only support scaling and translation.
+    That is, the b and d coefficients of the transformation matrix must be 0.
+    Also, the bounds, resolution, pixel_area, and pixel_diagonal properties are
+    derived from the transform, so will return NaN values if the raster has no
+    transform.
 
     INPUT RASTERS:
     The pfdf package uses the Raster class to convert input rasters to a common
@@ -61,50 +78,75 @@ class Raster:
     affine transformation, or coordinate reference system. However, users can call
     the "Raster.from_array" method to add these metadata values to numpy arrays.
 
+    Some pfdf commands require multiple rasters as input. When this is the case,
+    the various rasters are usually required to have the same shape, crs, and
+    transform as the first input raster (the primary raster). If a secondary
+    raster does not have a CRS or transform, these values are assumed to match the
+    primary raster. So you can use georeferenced raster and a numpy array as a
+    primary and secondary raster - for example, a georeferenced raster of data
+    values and a boolean data mask.
+
     OUTPUT RASTERS:
     All rasters computed by pfdf are returned as Raster objects. Users can return
     the computed values using the aforementioned ".values" property. See also
     the "save" method to save an output raster to a GeoTIFF file format.
     ----------
     FOR USERS:
-    Properties:
-        name            - An optional name to identify the raster
-        values          - The data values associated with a raster
-        shape           - The shape of the raster array
-        size            - The size (number of elements) in the raster array
-        dtype           - The dtype of the raster array
-        nodata          - The NoData value associated with the raster
-        transform       - The Affine transformation used to map raster pixels to spatial coordinates
-        crs             - The coordinate reference system associated with the raster
-        metadata        - A dict with shape, dtype, nodata, transform, and crs metadata
-
     Object Creation:
         __init__        - Returns a raster object for a supported raster input
         from_array      - Creates a Raster object from a raw numpy array with optional metadata
+
+    Data Properties:
+        name            - An optional name to identify the raster
+        values          - The data values associated with a raster
+        dtype           - The dtype of the raster array
+        nodata          - The NoData value associated with the raster
+
+    Shape Properties:
+        shape           - The shape of the raster array
+        size            - The size (number of elements) in the raster array
+        height          - The number of rows in the raster array
+        width           - The number of columns in the raster array
+
+    Spatial Properties:
+        crs             - The coordinate reference system associated with the raster
+        transform       - The Affine transformation used to map raster pixels to spatial coordinates
+        bounds          - A BoundingBox with the spatial coordinates of the raster's corners
+
+    Pixel Properties:
+        resolution      - The spacing of raster pixels along the X and Y axes in the units of the transform
+        pixel_area      - The area of a raster pixel in the units of the transform squared
+        pixel_diagonal  - The length of the diagonal of a raster pixel in the units of the transform
 
     IO:
         save            - Saves a raster as a GeoTIFF
         as_pysheds      - Returns a Raster as a pysheds.sview.Raster object
 
+    Dunders:
+        __eq__          - True if the second object is a Raster with the same values, nodata, transform, and crs
+
     INTERNAL:
     Attributes:
-        _values         - Saved data values
-        _nodata         - NoData value
-        _transform      - Affine transformation
-        _crs            - Coordinate reference system
+        _name               - Identifying name
+        _values             - Saved data values
+        _nodata             - NoData value
+        _crs                - Coordinate reference system
+        _transform          - Affine transformation
 
     Initialization:
-        _from_file      - Builds object from a file-based raster
-        _from_pysheds   - Builds object from a pysheds.sview.Raster object
-        _from_raster    - Builds object from another pfdf.raster.Raster object
+        _from_file          - Builds object from a file-based raster
+        _from_pysheds       - Builds object from a pysheds.sview.Raster object
+        _from_raster        - Builds object from another pfdf.raster.Raster object
 
     Validation:
-        _validate       - Validates an input raster against the current Raster
+        _validate           - Validates an input raster against the current Raster
     """
 
     #####
     # Properties
     #####
+
+    ##### Data
 
     @property
     def name(self) -> str:
@@ -121,43 +163,74 @@ class Raster:
         return self._values
 
     @property
-    def shape(self) -> shape2d:
-        return self._values.shape
-
-    @property
-    def size(self) -> int:
-        return self._values.size
-
-    @property
     def dtype(self) -> np.dtype:
-        return self._values.dtype
+        return self.values.dtype
 
     @property
     def nodata(self) -> scalar:
         return self._nodata
 
+    ##### Shape
+
     @property
-    def transform(self) -> Affine:
-        return self._transform
+    def shape(self) -> shape2d:
+        return self.values.shape
+
+    @property
+    def size(self) -> int:
+        return self.values.size
+
+    @property
+    def height(self) -> int:
+        return self.values.shape[0]
+
+    @property
+    def width(self) -> int:
+        return self.values.shape[1]
+
+    ##### Spatial
 
     @property
     def crs(self) -> CRS:
         return self._crs
 
     @property
-    def metadata(self) -> dict[str, Any]:
-        return {
-            "shape": self.shape,
-            "size": self.size,
-            "dtype": self.dtype,
-            "nodata": self.nodata,
-            "transform": self.transform,
-            "crs": self.crs,
-        }
+    def transform(self) -> Affine:
+        return self._transform
+
+    @property
+    def bounds(self) -> BoundingBox:
+        if self.transform is None:
+            return BoundingBox(nan, nan, nan, nan)
+        else:
+            left, top = self.transform * (0, 0)
+            right, bottom = self.transform * self.shape
+            return BoundingBox(left, bottom, right, top)
+
+    ##### Pixels
+
+    @property
+    def resolution(self) -> tuple[float, float]:
+        if self.transform is None:
+            return (nan, nan)
+        else:
+            dx = abs(self.transform[0])
+            dy = abs(self.transform[4])
+            return (dx, dy)
+
+    @property
+    def pixel_area(self) -> float:
+        dx, dy = self.resolution
+        return dx * dy
+
+    @property
+    def pixel_diagonal(self) -> float:
+        dx, dy = self.resolution
+        return sqrt(dx**2 + dy**2)
 
     # Type hint equivalent to RasterInput, but using "Self" instead of "Raster"
     _RasterInput = (
-        Self | str | Path | rasterio.DatasetReader | MatrixArray | pysheds_raster
+        Self | str | Path | rasterio.DatasetReader | MatrixArray | PyshedsRaster
     )
 
     #####
@@ -202,16 +275,17 @@ class Raster:
             TypeError: If an input raster is not a supported type
         """
 
+        # Initialize attributes
+        self._name: str = None
+        self._values: MatrixArray = None
+        self._nodata: scalar = None
+        self._crs: CRS = None
+        self._transform: Affine = None
+
         # Set name
         if name is None:
             name = "raster"
         self.name = name
-
-        # Initialize attributes
-        self._values: MatrixArray = None
-        self._nodata: scalar = None
-        self._transform: Affine = None
-        self._crs: CRS = None
 
         # Convert string to Path
         if isinstance(raster, str):
@@ -233,7 +307,7 @@ class Raster:
                 )
 
         # Otherwise, must be an array-based object
-        elif not isinstance(raster, (np.ndarray, Raster, pysheds_raster)):
+        elif not isinstance(raster, (np.ndarray, Raster, PyshedsRaster)):
             raise TypeError(
                 f"{name} is not a recognized type. Allowed types are: "
                 "str, pathlib.Path, rasterio.DatasetReader, 2d numpy.ndarray, "
@@ -243,15 +317,17 @@ class Raster:
         # Build object and validate matrix
         if isinstance(raster, Path):
             self._from_file(raster)
-        elif isinstance(raster, pysheds_raster):
+        elif isinstance(raster, PyshedsRaster):
             self._from_pysheds(raster)
         elif isinstance(raster, Raster):
             self._from_raster(raster)
         elif isinstance(raster, np.ndarray):
             self._values = raster
 
-        # Validate array
+        # Validate array and affine transformation matrix
         self._values = validate.matrix(self._values, name, dtype=real)
+        if self.transform is not None:
+            validate.transform(self.transform)
 
     def _from_file(self, path: Path) -> None:
         "Initializes object from band 1 of a file-based raster"
@@ -269,7 +345,7 @@ class Raster:
         self._transform = raster._transform
         self._crs = raster._crs
 
-    def _from_pysheds(self, raster: pysheds_raster) -> None:
+    def _from_pysheds(self, raster: PyshedsRaster) -> None:
         "Initialize object from pysheds.sview.Raster"
         self._values = np.array(raster, copy=False)
         self._nodata = raster.nodata
@@ -312,10 +388,10 @@ class Raster:
         and Raster objects, or via the ".affine" property of pysheds rasters.
 
         The crs is the coordinate reference system used to locate spatial points.
-        This should be a rasterio.crs.CRS object. These can be obtained using the
-        ".crs" property from rasterio or Raster objects, and see also the rasterio
-        documentation for building these objects from formats such as well-known
-        text (WKT) and PROJ4 strings.
+        This input should a rasterio.crs.CRS object, or convertible to such an
+        object. CRS objects can be obtained using the ".crs" property from rasterio
+        or Raster objects, and see also the rasterio documentation for building
+        these objects from formats such as well-known text (WKT) and PROJ4 strings.
         ----------
         Inputs:
             array       - A 2D numpy array whose data values represent a raster
@@ -340,6 +416,39 @@ class Raster:
         if crs is not None:
             raster._crs = validate.crs(crs)
         return raster
+
+    #####
+    # Dunders
+    #####
+
+    def __eq__(self, other: Any) -> bool:
+        """
+        __eq__  Test Raster objects for equality
+        ----------
+        self == other
+        True if the other input is a Raster with the same values, nodata, transform,
+        and crs. Note that NaN values are interpreted as NoData, and so compare
+        as equal. Also note that the rasters are not required to have the same
+        name to test as equal.
+        ----------
+        Inputs:
+            other: A second input being compared to the Raster object
+
+        Outputs:
+            bool: True if the second input is a Raster with the same values,
+                nodata, transform, and crs. Otherwise False
+        """
+
+        if (
+            isinstance(other, Raster)
+            and nodata_.equal(self.nodata, other.nodata)
+            and self.transform == other.transform
+            and self.crs == other.crs
+            and np.array_equal(self.values, other.values, equal_nan=True)
+        ):
+            return True
+        else:
+            return False
 
     #####
     # IO
@@ -387,7 +496,7 @@ class Raster:
         ) as file:
             file.write(self._values, 1)
 
-    def as_pysheds(self) -> pysheds_raster:
+    def as_pysheds(self) -> PyshedsRaster:
         """
         as_pysheds  Converts a Raster to a pysheds.sview.Raster object
         ----------
@@ -407,26 +516,38 @@ class Raster:
             pysheds.sview.Raster: The Raster as a pysheds.sview.Raster object
         """
 
-        # Get available metadata
+        # Get spatial metadata
         metadata = {"shape": self.shape}
-        if self.nodata is not None:
-            metadata["nodata"] = self.nodata
         if self.transform is not None:
             metadata["affine"] = self.transform
         if self.crs is not None:
             metadata["crs"] = self.crs
 
-        # Pysheds crashes when using its default NoData value for boolean rasters,
-        # so set this explicitly as a boolean
-        if self.dtype == bool:
-            if self.nodata is None:
-                metadata["nodata"] = False
+        # Get nodata or default. Pysheds crashes when using its default NoData 0
+        # for boolean rasters, so need to set this explicitly to False
+        if self.nodata is None:
+            if self.dtype == bool:
+                nodata = np.zeros(1, bool)
             else:
-                metadata["nodata"] = bool(self.nodata)
+                nodata = np.zeros(1, self.dtype)
+        else:
+            nodata = self.nodata
 
-        # Initialize viewfinder and build raster.
+        # Get viewfinder nodata. Pysheds crashes for certain positive NoData values
+        # when using a signed integer raster, so set these initially to -1
+        if np.issubdtype(self.dtype, np.signedinteger):
+            metadata["nodata"] = -1
+        else:
+            metadata["nodata"] = nodata
+
+        # Initialize viewfinder and build raster
         view = ViewFinder(**metadata)
-        return pysheds_raster(self._values, view)
+        raster = PyshedsRaster(self.values, view)
+
+        # Restore signed integer nodata values
+        if np.issubdtype(self.dtype, np.signedinteger):
+            raster.nodata = nodata
+        return raster
 
     def _validate(self, raster: _RasterInput, name: str) -> Self:
         """
@@ -435,8 +556,10 @@ class Raster:
         self._validate(raster, name)
         Validates an input raster against the current Raster object. Checks that
         the second raster's metadata matches the shape, affine transform, and
-        crs of the current object. Raises various RasterErrors if these criteria
-        are not met. Otherwise, returns the validated raster dataset as a Raster object.
+        crs of the current object. If the second raster does not have a affine
+        transform or CRS, sets these values to match the current raster. Raises
+        various RasterErrors if the metadata criteria are not met. Otherwise, returns
+        the validated raster dataset as a Raster object.
         ----------
         Inputs:
             raster: The input raster being checked
@@ -451,17 +574,26 @@ class Raster:
             CrsError: If the raster has a different crs
         """
 
+        # Build raster, check shape
         raster = Raster(raster, name)
         if raster.shape != self.shape:
             raise RasterShapeError(
                 f"The shape of the {raster.name} {raster.shape}, does not "
                 f"match the shape of the {self.name} {self.shape}."
             )
+
+        # Transform
+        if raster.transform is None:
+            raster._transform = self.transform
         elif raster.transform != self.transform:
             raise RasterTransformError(
                 f"The affine transformation of the {raster.name}:\n{raster.transform}\n"
                 f"does not match the transform of the {self.name}:\n{self.transform}"
             )
+
+        # CRS
+        if raster.crs is None:
+            raster._crs = self.crs
         elif raster.crs != self.crs:
             raise RasterCrsError(
                 f"The CRS of the {raster.name} ({raster.crs}) does not "
@@ -473,6 +605,4 @@ class Raster:
 #####
 # Type Hints
 #####
-RasterInput = (
-    str | Path | rasterio.DatasetReader | MatrixArray | Raster | pysheds_raster
-)
+RasterInput = str | Path | rasterio.DatasetReader | MatrixArray | Raster | PyshedsRaster

@@ -1,81 +1,16 @@
-"""
-test_staley2017  Unit tests for the staley2017 module
-"""
-
 import numpy as np
 import pytest
+from affine import Affine
 
-from pfdf.errors import DurationsError, ShapeError
+from pfdf.errors import DimensionError, DurationsError, RasterShapeError, ShapeError
 from pfdf.models import staley2017 as s17
+from pfdf.raster import Raster
 from pfdf.segments import Segments
+from pfdf.utils import slope
 
 #####
-# Fixtures
+# Testing Utilities
 #####
-
-
-# Catchment mean fixtures
-@pytest.fixture
-def segments5():
-    stream = np.array(
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 2, 2, 0],
-            [0, 1, 2, 0, 0],
-            [0, 1, 0, 3, 0],
-            [0, 0, 0, 0, 0],
-        ]
-    )
-    return Segments(stream)
-
-
-@pytest.fixture
-def flow5():
-    return np.array(
-        [
-            [3, 3, 3, 3, 3],
-            [5, 7, 1, 3, 1],
-            [5, 7, 3, 7, 1],
-            [5, 7, 3, 1, 1],
-            [7, 7, 7, 7, 7],
-        ]
-    )
-
-
-@pytest.fixture
-def values5():
-    return np.array(
-        [
-            [0, 0, 0, 0, 0],
-            [0, 1, 6, 7, 0],
-            [0, 2, 5, 8, 0],
-            [0, 3, 4, 9, 0],
-            [0, 0, 0, 0, 0],
-        ]
-    )
-
-
-@pytest.fixture
-def mask5():
-    return np.array(
-        [
-            [0, 0, 0, 0, 0],
-            [0, 0, 1, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 0, 0],
-            [0, 0, 0, 0, 0],
-        ]
-    ).astype(bool)
-
-
-@pytest.fixture
-def areas():
-    return np.array([1, 4, 9]).reshape(-1)
-
-
-@pytest.fixture
-def npixels():
-    return np.ones((3,))
 
 
 def assert_contains(error, *strings):
@@ -84,80 +19,475 @@ def assert_contains(error, *strings):
         assert string in message
 
 
-def check_dict(output, expected):
-    assert isinstance(output, dict)
-    assert len(output) == len(expected)
-    assert output.keys() == expected.keys()
-    for key in output.keys():
-        assert np.array_equal(output[key], expected[key])
+@pytest.fixture
+def flow():
+    flow = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 7, 3, 3, 7, 3, 0],
+            [0, 7, 3, 3, 7, 3, 0],
+            [0, 1, 7, 3, 6, 5, 0],
+            [0, 5, 1, 7, 1, 1, 0],
+            [0, 5, 5, 7, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+        ]
+    )
+    return Raster.from_array(flow, nodata=0, transform=Affine(1, 0, 0, 0, 1, 0))
+
+
+@pytest.fixture
+def mask():
+    return np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 1, 1, 0],
+            [0, 1, 0, 0, 1, 1, 0],
+            [0, 1, 1, 0, 1, 1, 0],
+            [0, 0, 1, 1, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+        ]
+    ).astype(bool)
+
+
+@pytest.fixture
+def segments(flow, mask):
+    return Segments(flow, mask)
+
+
+@pytest.fixture
+def mask2(mask):
+    mask[:, 1:4] = False
+    return mask
+
+
+@pytest.fixture
+def slopes():
+    slopes = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0],
+            [10, 10, 10, 10, 10, 10, 10],
+            [20, 20, 20, 20, 20, 20, 20],
+            [25, 25, 25, 25, 25, 25, 25],
+            [29, 29, 29, 29, 29, 29, 29],
+            [31, 31, 31, 31, 31, 31, 31],
+            [35, 35, 35, 35, 35, 35, 35],
+        ]
+    )
+    return slope.from_degrees(slopes)
 
 
 #####
-# Variable Tests
+# Solver functions
 #####
 
 
-class TestBurnGradient:
-    def test(_, segments5, flow5, values5, mask5):
-        expected = np.array([2.5, 6.5, 8]).reshape(-1)
-        output = s17.burn_gradient(segments5, flow5, values5, mask5)
-        assert np.array_equal(output, expected)
+class TestCleanDimensions:
+    def test_clean(_):
+        a = np.ones((4, 4, 1))
+        output = s17._clean_dimensions(a, always_3d=False)
+        assert output.shape == (4, 4)
+        assert np.array_equal(output, np.ones((4, 4)))
+
+    def test_3d(_):
+        a = np.ones((4, 4, 1))
+        output = s17._clean_dimensions(a, always_3d=True)
+        assert output.shape == (4, 4, 1)
+        assert np.array_equal(a, output)
 
 
-@pytest.mark.parametrize("function", (s17.kf_factor, s17._kf_factor))
-class TestKFFactor:
-    def test(_, function, segments5, npixels, flow5, values5):
-        expected = np.array([6, 22, 17]).reshape(-1)
-        output = function(segments5, npixels, flow5, values5)
-        assert np.array_equal(output, expected)
+class TestValidate:
+    def test_valid_1_varcol(_):
+        PR = np.ones(4)
+        B = np.ones((6))
+        Ct = np.ones((6, 1, 1))
+        Cf = np.ones((1, 6, 1))
+        Cs = np.ones(6)
 
+        T = np.ones(7)
+        F = np.ones((7, 1))
+        S = np.ones((7, 1, 1, 1, 1))
 
-class TestRuggedness:
-    def test(_, segments5, values5, areas):
-        expected = np.array([3, 3.5, 3])
-        output = s17.ruggedness(segments5, areas, values5)
-        assert np.array_equal(output, expected)
+        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
 
-    @pytest.mark.parametrize("bad", (0, -1))
-    def test_nonpositive_area(_, segments5, values5, bad):
-        areas = np.array([bad, 4, 9])
-        with pytest.raises(ValueError) as error:
-            s17.ruggedness(segments5, areas, values5)
-        assert_contains(error, "areas")
+        queries = np.ones((1, 1, 4))
+        parameters = np.ones((1, 6, 1))
+        variables = np.ones((7, 1, 1))
 
-    @pytest.mark.parametrize("N", (2, 4))
-    def test_area_wrong_length(_, segments5, values5, N):
-        areas = np.ones((N,))
+        assert np.array_equal(PR, queries)
+        assert np.array_equal(B, parameters)
+        assert np.array_equal(Ct, parameters)
+        assert np.array_equal(Cf, parameters)
+        assert np.array_equal(Cs, parameters)
+        assert np.array_equal(T, variables)
+        assert np.array_equal(F, variables)
+        assert np.array_equal(S, variables)
+
+    def test_valid_nruns_varcol(_):
+        PR = np.ones(4)
+        B = np.ones((6))
+        Ct = np.ones((6, 1, 1))
+        Cf = np.ones((1, 6, 1))
+        Cs = np.ones(6)
+
+        T = np.ones((7, 6))
+        F = np.ones((7, 6, 1))
+        S = np.ones((7, 6, 1, 1, 1))
+
+        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+
+        queries = np.ones((1, 1, 4))
+        parameters = np.ones((1, 6, 1))
+        variables = np.ones((7, 6, 1))
+
+        assert np.array_equal(PR, queries)
+        assert np.array_equal(B, parameters)
+        assert np.array_equal(Ct, parameters)
+        assert np.array_equal(Cf, parameters)
+        assert np.array_equal(Cs, parameters)
+        assert np.array_equal(T, variables)
+        assert np.array_equal(F, variables)
+        assert np.array_equal(S, variables)
+
+    def test_invalid_vector(_):
+        PR = np.ones((4, 4))
+        B = np.ones(6)
+        Ct = np.ones(6)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
+
+        T = np.ones(7)
+        F = np.ones(7)
+        S = np.ones(7)
+
+        with pytest.raises(DimensionError) as error:
+            s17._validate(PR, "PR", B, Ct, Cf, Cs, T, F, S)
+        assert_contains(error, "PR")
+
+    def test_invalid_matrix(_):
+        PR = np.ones(4)
+        B = np.ones(6)
+        Ct = np.ones(6)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
+
+        T = np.ones((7, 6, 3))
+        F = np.ones(7)
+        S = np.ones(7)
+
+        with pytest.raises(DimensionError) as error:
+            s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+        assert_contains(error, "T")
+
+    def test_different_nruns(_):
+        PR = np.ones(4)
+        B = np.ones(6)
+        Ct = np.ones(7)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
+
+        T = np.ones(7)
+        F = np.ones(7)
+        S = np.ones(7)
         with pytest.raises(ShapeError) as error:
-            s17.ruggedness(segments5, areas, values5)
-        assert_contains(error, "areas")
+            s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+        assert_contains(error, "B has 6", "Ct has 7")
+
+    def test_different_nsegments(_):
+        PR = np.ones(4)
+        B = np.ones(6)
+        Ct = np.ones(6)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
+
+        T = np.ones(7)
+        F = np.ones(6)
+        S = np.ones(7)
+
+        with pytest.raises(ShapeError) as error:
+            s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+        assert_contains(error, "T has 7", "F has 6")
+
+    def test_bad_ncols(_):
+        PR = np.ones(4)
+        B = np.ones(6)
+        Ct = np.ones(6)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
+
+        T = np.ones((7, 4))
+        F = np.ones(7)
+        S = np.ones(7)
+        with pytest.raises(ShapeError) as error:
+            s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+        assert_contains(error, "T has 4 column(s)")
 
 
-class TestScaledDnbr:
-    def test(_, segments5, npixels, flow5, values5):
-        expected = np.array([6, 22, 17]).reshape(-1)
-        expected = expected / 1000
-        output = s17.scaled_dnbr(segments5, npixels, flow5, values5)
-        assert np.array_equal(output, expected)
+class TestAccumulation:
+    def test_invalid_parameters(_):
+        p = 0.5
+        B = np.ones(6)
+        Ct = np.ones(7)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
+
+        T = np.ones(7)
+        F = np.ones(7)
+        S = np.ones(7)
+        with pytest.raises(ShapeError) as error:
+            s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
+        assert_contains(error, "B has 6", "Ct has 7")
+
+    def test_invalid_p(_):
+        p = 2
+        B = np.ones(6)
+        Ct = np.ones(6)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
+        T = np.ones(7)
+        F = np.ones(7)
+        S = np.ones(7)
+        with pytest.raises(ValueError) as error:
+            s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
+        assert_contains(error, "p")
+
+    def test_ncols_1(_):
+        p = [0.5, 0.75]  # 2 probabilities
+        B, Ct, Cf, Cs = s17.M1.parameters()  # 3 thresholds
+        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
+        F = [0.3, 0.4, 0.5, 0.6, 0.7]
+        S = [0.4, 0.5, 0.9, 0.2, 0.3]
+
+        expected1 = np.array(
+            [
+                [6.44760213, 9.78319783, 17.63736264],
+                [5.12567071, 7.79360967, 14.11609499],
+                [3.40046838, 5.08450704, 9.42731278],
+                [4.85943775, 7.78017241, 12.89156627],
+                [3.33333333, 5.28550512, 8.53723404],
+            ]
+        )
+        expected2 = np.array(
+            [
+                [8.39895611, 12.76046691, 23.67369389],
+                [6.67694477, 10.16539786, 18.94728359],
+                [4.42961339, 6.63184829, 12.65378058],
+                [6.33013693, 10.14787131, 17.30366381],
+                [4.34216004, 6.89401506, 11.45907524],
+            ]
+        )
+        expected = np.stack((expected1, expected2), axis=2)
+        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
+        assert np.allclose(output, expected)
+
+    def test_ncols_nruns(_):
+        p = [0.5, 0.75]  # 2 probabilities
+        B, Ct, Cf, Cs = s17.M1.parameters()  # 3 thresholds
+        T = np.array([0.2, 0.22, 0.25, 0.5, 0.7, 1]).reshape(2, 3)
+        F = np.array([0.3, 0.4, 0.5, 0.6, 0.7, 0.8]).reshape(2, 3)
+        S = np.array([0.4, 0.5, 0.9, 0.2, 0.3, 0.55]).reshape(2, 3)
+
+        expected1 = np.array(
+            [[6.44760213, 7.79360967, 9.42731278], [4.85943775, 5.96694215, 7.11751663]]
+        )
+        expected2 = np.array(
+            [
+                [8.39895611, 10.16539786, 12.65378058],
+                [6.33013693, 7.78283023, 9.55346405],
+            ]
+        )
+        expected = np.stack((expected1, expected2), axis=2)
+        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
+
+        print(T.shape)
+        print(output.shape)
+        print(expected.shape)
+        assert np.allclose(output, expected)
+
+    def test_keep_trailing(_):
+        p = 0.5
+        B, Ct, Cf, Cs = s17.M1.parameters()  # 3 thresholds
+        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
+        F = [0.3, 0.4, 0.5, 0.6, 0.7]
+        S = [0.4, 0.5, 0.9, 0.2, 0.3]
+
+        expected = np.array(
+            [
+                [6.44760213, 9.78319783, 17.63736264],
+                [5.12567071, 7.79360967, 14.11609499],
+                [3.40046838, 5.08450704, 9.42731278],
+                [4.85943775, 7.78017241, 12.89156627],
+                [3.33333333, 5.28550512, 8.53723404],
+            ]
+        ).reshape(5, 3, 1)
+        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S, always_3d=True)
+        assert output.shape == expected.shape
+        assert np.allclose(output, expected)
+
+    def test_remove_trailing(_):
+        p = 0.5
+        B, Ct, Cf, Cs = s17.M1.parameters()  # 3 thresholds
+        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
+        F = [0.3, 0.4, 0.5, 0.6, 0.7]
+        S = [0.4, 0.5, 0.9, 0.2, 0.3]
+
+        expected = np.array(
+            [
+                [6.44760213, 9.78319783, 17.63736264],
+                [5.12567071, 7.79360967, 14.11609499],
+                [3.40046838, 5.08450704, 9.42731278],
+                [4.85943775, 7.78017241, 12.89156627],
+                [3.33333333, 5.28550512, 8.53723404],
+            ]
+        ).reshape(5, 3)
+        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S, always_3d=False)
+        assert output.shape == expected.shape
+        assert np.allclose(output, expected)
+
+    def test_invert(_):
+        p = 0.5
+        B, Ct, Cf, Cs = s17.M1.parameters(durations=15)
+        T = 0.2
+        F = 0.3
+        S = 0.4
+
+        R = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
+        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        assert np.allclose(output, p)
 
 
-class TestScaledThickness:
-    def test(_, segments5, npixels, flow5, values5):
-        expected = np.array([6, 22, 17]).reshape(-1)
-        expected = expected / 100
-        output = s17.scaled_thickness(segments5, npixels, flow5, values5)
-        assert np.array_equal(output, expected)
+class TestProbability:
+    def test_invalid_parameters(_):
+        R = 0.5
+        B = np.ones(6)
+        Ct = np.ones(7)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
 
+        T = np.ones(7)
+        F = np.ones(7)
+        S = np.ones(7)
+        with pytest.raises(ShapeError) as error:
+            s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        assert_contains(error, "B has 6", "Ct has 7")
 
-class TestUpslopeRatio:
-    def test(_, segments5, npixels, flow5, mask5):
-        expected = np.array([2, 2, 1]).reshape(-1)
-        output = s17.upslope_ratio(segments5, npixels, flow5, mask5)
-        assert np.array_equal(output, expected)
+    def test_invalid_R(_):
+        R = -2
+        B = np.ones(6)
+        Ct = np.ones(6)
+        Cf = np.ones(6)
+        Cs = np.ones(6)
+        T = np.ones(7)
+        F = np.ones(7)
+        S = np.ones(7)
+        with pytest.raises(ValueError) as error:
+            s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        assert_contains(error, "R")
+
+    def test_ncols_1(_):
+        R = [4, 5]
+        B, Ct, Cf, Cs = s17.M1.parameters()  # 3 thresholds
+        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
+        F = [0.3, 0.4, 0.5, 0.6, 0.7]
+        S = [0.4, 0.5, 0.9, 0.2, 0.3]
+
+        expected1 = np.array(
+            [
+                [0.2013304, 0.10583586, 0.07712972],
+                [0.31062478, 0.14714137, 0.09108984],
+                [0.65475346, 0.31647911, 0.13610789],
+                [0.34479458, 0.14754339, 0.09850031],
+                [0.67392689, 0.2935924, 0.15368325],
+            ]
+        )
+        expected2 = np.array(
+            [
+                [0.30682605, 0.14616523, 0.09112296],
+                [0.47776468, 0.21517654, 0.11174891],
+                [0.84651174, 0.4850045, 0.18130959],
+                [0.52622591, 0.21585281, 0.12292695],
+                [0.85996508, 0.45140389, 0.20915937],
+            ]
+        )
+        expected = np.stack((expected1, expected2), axis=2)
+
+        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        assert np.allclose(output, expected)
+
+    def test_ncols_nruns(_):
+        R = [4, 5]
+        B, Ct, Cf, Cs = s17.M1.parameters()  # 3 thresholds
+        T = np.array([0.2, 0.22, 0.25, 0.5, 0.7, 1]).reshape(2, 3)
+        F = np.array([0.3, 0.4, 0.5, 0.6, 0.7, 0.8]).reshape(2, 3)
+        S = np.array([0.4, 0.5, 0.9, 0.2, 0.3, 0.55]).reshape(2, 3)
+
+        expected1 = np.array(
+            [[0.2013304, 0.14714137, 0.13610789], [0.34479458, 0.23325894, 0.19686573]]
+        )
+        expected2 = np.array(
+            [[0.30682605, 0.21517654, 0.18130959], [0.52622591, 0.35778291, 0.27788039]]
+        )
+        expected = np.stack((expected1, expected2), axis=2)
+
+        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        assert np.allclose(output, expected)
+
+    def test_keep_trailing(_):
+        R = 4
+        B, Ct, Cf, Cs = s17.M1.parameters()  # 3 thresholds
+        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
+        F = [0.3, 0.4, 0.5, 0.6, 0.7]
+        S = [0.4, 0.5, 0.9, 0.2, 0.3]
+
+        expected = np.array(
+            [
+                [0.2013304, 0.10583586, 0.07712972],
+                [0.31062478, 0.14714137, 0.09108984],
+                [0.65475346, 0.31647911, 0.13610789],
+                [0.34479458, 0.14754339, 0.09850031],
+                [0.67392689, 0.2935924, 0.15368325],
+            ]
+        ).reshape(5, 3, 1)
+
+        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S, always_3d=True)
+        assert output.shape == expected.shape
+        assert np.allclose(output, expected)
+
+    def test_remove_trailing(_):
+        R = 4
+        B, Ct, Cf, Cs = s17.M1.parameters()  # 3 thresholds
+        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
+        F = [0.3, 0.4, 0.5, 0.6, 0.7]
+        S = [0.4, 0.5, 0.9, 0.2, 0.3]
+
+        expected = np.array(
+            [
+                [0.2013304, 0.10583586, 0.07712972],
+                [0.31062478, 0.14714137, 0.09108984],
+                [0.65475346, 0.31647911, 0.13610789],
+                [0.34479458, 0.14754339, 0.09850031],
+                [0.67392689, 0.2935924, 0.15368325],
+            ]
+        ).reshape(5, 3)
+
+        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S, always_3d=False)
+        assert output.shape == expected.shape
+        assert np.allclose(output, expected)
+
+    def test_invert(_):
+        R = 4
+        B, Ct, Cf, Cs = s17.M1.parameters(durations=15)
+        T = 0.2
+        F = 0.3
+        S = 0.4
+
+        p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
+        assert np.allclose(output, R)
 
 
 #####
-# Model Tests
+# Shared Model Methods
 #####
 
 
@@ -204,14 +534,22 @@ class TestUpslopeRatio:
 )
 class TestParameters:
     def test_all(_, model, parameters):
-        output = model.parameters()
-        check_dict(output, parameters)
+        B, Ct, Cf, Cs = model.parameters()
+        assert np.array_equal(B, parameters["B"])
+        assert np.array_equal(Ct, parameters["Ct"])
+        assert np.array_equal(Cf, parameters["Cf"])
+        assert np.array_equal(Cs, parameters["Cs"])
 
     def test_query(_, model, parameters):
         durations = [60, 15, 60]
-        expected = {key: [p[2], p[0], p[2]] for key, p in parameters.items()}
-        output = model.parameters(durations)
-        check_dict(output, expected)
+        B, Ct, Cf, Cs = model.parameters(durations)
+        parameters = {
+            key: np.array(values)[[2, 0, 2]] for key, values in parameters.items()
+        }
+        assert np.array_equal(B, parameters["B"])
+        assert np.array_equal(Ct, parameters["Ct"])
+        assert np.array_equal(Cf, parameters["Cf"])
+        assert np.array_equal(Cs, parameters["Cs"])
 
     def test_invalid(_, model, parameters):
         durations = 45
@@ -219,185 +557,138 @@ class TestParameters:
             model.parameters(durations)
 
 
-class TestVariableDict:
-    def test(_):
-        expected = {"T": 1, "F": True, "S": "test"}
-        output = s17.Model._variable_dict(1, True, "test")
-        assert output == expected
+class TestModelValidate:
+    def test_invalid_segments(_):
+        with pytest.raises(TypeError) as error:
+            s17.Model._validate(5, [], [])
+        assert_contains(error, "segments", "pfdf.segments.Segments")
+
+    def test_invalid_raster(_, segments, flow):
+        a = np.arange(10).reshape(2, 5)
+        with pytest.raises(RasterShapeError) as error:
+            s17.Model._validate(segments, [flow, a], ["flow", "test raster"])
+        assert_contains(error, "test raster")
+
+    def test_valid(_, segments, flow, mask):
+        rasters = [flow, mask]
+        raster1, raster2 = s17.Model._validate(segments, rasters, ["", ""])
+
+        expected1 = Raster.from_array(flow.values, nodata=0, transform=flow.transform)
+        expected2 = Raster.from_array(mask, transform=flow.transform)
+        assert raster1 == expected1
+        assert raster2 == expected2
+
+
+class TestTerrainMask:
+    def test_not_boolean(_, mask2, slopes):
+        mask = mask2.astype(int)
+        mask[0, 0] = 2
+        mask = Raster(mask, "mask")
+        with pytest.raises(ValueError) as error:
+            s17.Model._terrain_mask(mask, slopes, 23)
+        assert_contains(error, "mask")
+
+    def test_valid(_, mask, slopes):
+        slopes = Raster(slopes)
+        mask = Raster(mask)
+        output = s17.Model._terrain_mask(mask, slopes, threshold_degrees=23)
+        expected = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 1, 0, 1, 1, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        assert np.array_equal(output, expected)
+
+    def test_nodata(_, mask, slopes):
+        slopes[5, 3] = -999
+        slopes = Raster.from_array(slopes, nodata=-999)
+        mask = Raster(mask)
+        output = s17.Model._terrain_mask(mask, slopes, 23)
+        expected = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 1, 0, 1, 1, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        assert np.array_equal(output, expected)
+
+
+#####
+# Model variables
+#####
 
 
 class TestM1:
-    def test(_, segments5, npixels, flow5, values5, mask5):
-        T = np.array([2, 2, 1]).reshape(-1)
-        F = np.array([6, 22, 17]).reshape(-1) / 1000
-        S = np.array([6, 22, 17]).reshape(-1)
-        expected = {"T": T, "F": F, "S": S}
-        output = s17.M1.variables(
-            segments5,
-            npixels,
-            flow5,
-            high_moderate_23=mask5,
-            dNBR=values5,
-            kf_factor=values5,
-        )
-        check_dict(output, expected)
+    def test_invalid(_, flow):
+        with pytest.raises(TypeError) as error:
+            s17.M1.variables(5, flow, flow, flow, flow)
+        assert_contains(error, "segments")
+
+    def test(_, segments, flow, slopes, mask):
+        output = s17.M1.variables(segments, mask, slopes, flow, flow)
+        T = [3 / 5, 0, 0, 1, 1 / 2, 7 / 11]
+        F = [23 / 5000, 7 / 1000, 3 / 1000, 5 / 1000, 25 / 4000, 62 / 11000]
+        S = [23 / 5, 7, 3, 5, 25 / 4, 62 / 11]
+        assert np.array_equal(output[0], T)
+        assert np.array_equal(output[1], F)
+        assert np.array_equal(output[2], S)
 
 
 class TestM2:
-    def test(_, segments5, npixels, flow5, values5, mask5):
-        T = np.array([2.5, 6.5, 8]).reshape(-1)
-        F = np.array([6, 22, 17]).reshape(-1) / 1000
-        S = np.array([6, 22, 17]).reshape(-1)
-        expected = {"T": T, "F": F, "S": S}
-        output = s17.M2.variables(
-            segments5,
-            npixels,
-            flow5,
-            gradient=values5,
-            high_moderate=mask5,
-            dNBR=values5,
-            kf_factor=values5,
-        )
-        check_dict(output, expected)
+    def test_invalid(_, flow):
+        with pytest.raises(TypeError) as error:
+            s17.M2.variables(5, flow, flow, flow, flow)
+        assert_contains(error, "segments")
+
+    def test(_, segments, flow, slopes, mask):
+        output = s17.M2.variables(segments, mask, slopes, flow, flow)
+        T = [0.36914289, 0.25783416, 0.25783416, 0.42261826, 0.34022621, 0.38240609]
+        F = [23 / 5000, 7 / 1000, 3 / 1000, 5 / 1000, 25 / 4000, 62 / 11000]
+        S = [23 / 5, 7, 3, 5, 25 / 4, 62 / 11]
+        assert np.allclose(output[0], T)
+        assert np.array_equal(output[1], F)
+        assert np.array_equal(output[2], S)
 
 
 class TestM3:
-    def test(_, segments5, npixels, areas, flow5, values5, mask5):
-        T = np.array([3, 3.5, 3]).reshape(-1)
-        F = np.array([2, 2, 1]).reshape(-1)
-        S = np.array([6, 22, 17]).reshape(-1) / 100
-        expected = {"T": T, "F": F, "S": S}
-        output = s17.M3.variables(
-            segments5,
-            npixels,
-            flow5,
-            relief=values5,
-            areas=areas,
-            high_moderate=mask5,
-            soil_thickness=values5,
-        )
-        check_dict(output, expected)
+    def test_invalid(_, flow):
+        with pytest.raises(TypeError) as error:
+            s17.M3.variables(5, flow, flow, flow)
+        assert_contains(error, "segments")
+
+    def test(_, segments, mask2, flow):
+        output = s17.M3.variables(segments, mask2, flow, flow)
+        T = np.array([1, 7, 3, 5, 6, 7]) / np.sqrt(segments.area())
+        F = [0, 1, 1, 1, 1, 4 / 11]
+        S = [23 / 500, 7 / 100, 3 / 100, 5 / 100, 25 / 400, 62 / 1100]
+        assert np.array_equal(output[0], T)
+        assert np.array_equal(output[1], F)
+        assert np.array_equal(output[2], S)
 
 
 class TestM4:
-    def test(_, segments5, npixels, flow5, values5, mask5):
-        T = np.array([2, 2, 1]).reshape(-1)
-        F = np.array([6, 22, 17]).reshape(-1) / 1000
-        S = np.array([6, 22, 17]).reshape(-1) / 100
-        expected = {"T": T, "F": F, "S": S}
-        output = s17.M4.variables(
-            segments5,
-            npixels,
-            flow5,
-            burned_30=mask5,
-            dNBR=values5,
-            soil_thickness=values5,
-        )
-        check_dict(output, expected)
+    def test_invalid(_, flow):
+        with pytest.raises(TypeError) as error:
+            s17.M4.variables(5, flow, flow, flow, flow)
+        assert_contains(error, "segments")
 
-
-#####
-# Logistic model solver
-#####
-
-
-class TestSolve:
-    def test(_):
-        """Tests the rainfall logistic solver with some realistic values.
-        Note that the expected values were calculated by solving the equation manually
-        """
-
-        p = [0.5, 0.75]  # 2 probabilities
-        B, Ct, Cf, Cs = s17.M1.parameters().values()  # 3 thresholds
-        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
-        F = [0.3, 0.4, 0.5, 0.6, 0.7]
-        S = [0.4, 0.5, 0.9, 0.2, 0.3]
-
-        expected1 = np.array(
-            [
-                [6.44760213, 9.78319783, 17.63736264],
-                [5.12567071, 7.79360967, 14.11609499],
-                [3.40046838, 5.08450704, 9.42731278],
-                [4.85943775, 7.78017241, 12.89156627],
-                [3.33333333, 5.28550512, 8.53723404],
-            ]
-        )
-        expected2 = np.array(
-            [
-                [8.39895611, 12.76046691, 23.67369389],
-                [6.67694477, 10.16539786, 18.94728359],
-                [4.42961339, 6.63184829, 12.65378058],
-                [6.33013693, 10.14787131, 17.30366381],
-                [4.34216004, 6.89401506, 11.45907524],
-            ]
-        )
-        expected = np.stack((expected1, expected2), axis=2)
-        output = s17.solve(p, B, Ct, T, Cf, F, Cs, S)
-        assert np.allclose(output, expected, atol=1e-8)
-
-    def test_singletons(_):
-        "Test removing and retaining trailing singleton dimensions"
-
-        p = 0.5  # 1 p-value
-        B, Ct, Cf, Cs = s17.M1.parameters(15).values()  # 1 parameter run (15-minute)
-        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
-        F = [0.3, 0.4, 0.5, 0.6, 0.7]
-        S = [0.4, 0.5, 0.9, 0.2, 0.3]
-
-        expected = np.array(
-            [6.44760213, 5.12567071, 3.40046838, 4.85943775, 3.33333333]
-        ).reshape(-1)
-
-        # Remove singletons
-        output = s17.solve(p, B, Ct, T, Cf, F, Cs, S)
-        assert np.allclose(output, expected, atol=1e-8)
-        assert output.ndim == 1
-
-        # Keep singletons
-        output = s17.solve(p, B, Ct, T, Cf, F, Cs, S, always_3d=True)
-        expected = expected.reshape(-1, 1, 1)
-        assert np.allclose(output, expected, atol=1e-8)
-        assert output.ndim == 3
-
-    def test_different_nruns(_):
-        p = 0.5  # 1 p-value
-        B, Ct, Cf, Cs = s17.M1.parameters(15).values()  # 1 parameter run (15-minute)
-        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
-        F = [0.3, 0.4, 0.5, 0.6, 0.7]
-        S = [0.4, 0.5, 0.9, 0.2, 0.3]
-
-        Cf = np.append(Cf, 0.2)
-
-        with pytest.raises(ValueError) as error:
-            s17.solve(p, B, Ct, T, Cf, F, Cs, S)
-        assert_contains(error, "Cf has 2")
-
-    def test_different_nsegments(_):
-        p = 0.5  # 1 p-value
-        B, Ct, Cf, Cs = s17.M1.parameters(15).values()  # 1 parameter run (15-minute)
-        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
-        F = [0.3, 0.4, 0.5, 0.6, 0.7]
-        S = [0.4, 0.5, 0.9, 0.2, 0.3]
-
-        F += [1]
-
-        with pytest.raises(ValueError) as error:
-            s17.solve(p, B, Ct, T, Cf, F, Cs, S)
-        assert_contains(error, "F has 6")
-
-    def test_invalid_ncols(_):
-        p = 0.5  # 1 p-value
-        B, Ct, Cf, Cs = s17.M1.parameters().values()  # 3 parameter runs
-        T = [0.2, 0.22, 0.25, 0.5, 1]  # 5 stream segments
-        F = [0.3, 0.4, 0.5, 0.6, 0.7]
-        S = [0.4, 0.5, 0.9, 0.2, 0.3]
-
-        F = np.array(F).reshape(-1, 1)
-        S = np.array(S).reshape(-1, 1)
-
-        F = np.hstack((F, F, F))
-        S = np.hstack((S, S))
-
-        with pytest.raises(ValueError) as error:
-            s17.solve(p, B, Ct, T, Cf, F, Cs, S)
-        assert_contains(error, "S has 2 column(s)")
+    def test(_, segments, mask, flow, slopes):
+        slopes[3:, :] = 31
+        output = s17.M4.variables(segments, mask, slopes, flow, flow)
+        T = [3 / 5, 0, 0, 1, 1 / 2, 7 / 11]
+        F = [23 / 5000, 7 / 1000, 3 / 1000, 5 / 1000, 25 / 4000, 62 / 11000]
+        S = [23 / 500, 7 / 100, 3 / 100, 5 / 100, 25 / 400, 62 / 1100]
+        assert np.array_equal(output[0], T)
+        assert np.array_equal(output[1], F)
+        assert np.array_equal(output[2], S)

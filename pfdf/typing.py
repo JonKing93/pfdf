@@ -82,6 +82,15 @@ DataMask = BooleanArray | None
 # Segments
 SegmentsShape = Shape["Segments"]
 SegmentValues = NDArray[SegmentsShape, Floating]
+PixelIndices = NDArray[Shape["Pixels"], Integer]
+PixelIndices = tuple[PixelIndices, PixelIndices]
+SegmentIndices = NDArray[SegmentsShape, Bool]
+SegmentIDs = list[int] | NDArray[VectorShape, Integer]
+PropertyDict = dict[str, SegmentValues]
+
+# Confinement Angles
+FlowNumber = Literal[1, 2, 3, 4, 5, 6, 7, 8]
+slopes = NDArray[Shape["1 pixel, 2 rotations"], Floating]
 
 # Burn severities
 ThresholdSequence = Sequence[scalar]
@@ -96,7 +105,13 @@ Parameters = NDArray[Shape["Runs"], Floating]
 Durations = NDArray[Shape["Durations"], Floating]
 DurationValues = Durations  # same shape, but different name for clarity
 Pvalues = NDArray[Shape["Pvalues"], Floating]
-Accumulations = NDArray[Shape["Segments, Runs, Pvalues"], Floating]
+SegmentPvalues = NDArray[Shape["Segments, Runs, Accumulations"], Floating]
+Accumulations = NDArray[Shape["Accumulations"], Floating]
+SegmentAccumulations = NDArray[Shape["Segments, Runs, Pvalues"], Floating]
+S17ModelVariables = tuple[SegmentValues, SegmentValues, SegmentValues]
+S17ModelParameters = tuple[
+    DurationValues, DurationValues, DurationValues, DurationValues
+]
 
 # Gartner 2014
 Volumes = NDArray[Shape["Segments, Runs"], Floating]

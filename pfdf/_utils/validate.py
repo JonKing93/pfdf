@@ -385,7 +385,7 @@ def defined(array: RealArray, name: str) -> None:
         name: A name for the array for use in error messages
 
     Raises:
-        ValueError: If the array contains NaN elements
+        ValueError: If the array's data elements contains NaN values
     """
 
     nans = np.isnan(array)
@@ -408,7 +408,7 @@ def boolean(
     ----------
     boolean(array, name)
     Checks that the elements of the input numpy array are all 0s and 1s. Raises
-    a Value error if not. Note that this function *IS NOT* check the dtype of the
+    a ValueError if not. Note that this function *IS NOT* check the dtype of the
     input array. Rather, it checks that each element is 0 or 1. Thus, array of
     floating points 0s and 1s (1.0, 0.0) will pass the test. If the array is valid,
     returns the array as a boolean dtype.
@@ -430,7 +430,10 @@ def boolean(
         nodata: A NoData value for the array.
 
     Outputs:
-        boolean numpy array: The array with a boolean dtype.
+        boolean numpy array: The mask array with a boolean dtype.
+
+    Raises:
+        ValueError: If the array's data elements have values that are neither 0 nor 1
     """
 
     # Boolean dtype is always valid. Otherwise, test the valid data elements.
@@ -478,7 +481,7 @@ def integers(
         NoData: A NoData value for the array
 
     Raises:
-        ValueError: If the array contains non-integer elements
+        ValueError: If the array's data elements contain non-integer values
     """
 
     # Integer and boolean dtype always pass. If not one of these, test the data elements
@@ -524,7 +527,7 @@ def positive(
         nodata: A NoData value for the array
 
     Raises:
-        ValueError: If the array contains negative elements
+        ValueError: If the array's data elements contain non-positive values
     """
 
     # If allowing zero, then unsigned integers and booleans are all valid.
@@ -578,7 +581,7 @@ def inrange(
         nodata: A NoData value for the array.
 
     Raises:
-        ValueError: If any element is not within the bounds
+        ValueError: If the array's data elements contain values not within the bounds
     """
 
     isdata = _isdata(array, isdata, nodata)
@@ -635,6 +638,10 @@ def flow(
         name: A name for the array for use in error messages
         isdata: A valid data mask for the array
         nodata: A NoData value for the array
+
+    Raises:
+        ValueError: If the array's data elements contain values that are not
+            integer from 1 to 8
     """
 
     isdata = _isdata(array, isdata, nodata)
@@ -663,18 +670,26 @@ def nodata(nodata, dtype) -> scalar:
 
     Outputs:
         numpy scalar: The NoData value casted to the appropriate dtype
+
+    Raises:
+        TypeError: If the NoData dtype cannot safely cast to the raster dtype
     """
 
     # Require scalar, real-valued element
     nodata = scalar(nodata, "nodata", dtype=real)
     nodata = nodata[0]
 
-    # Require safe casting to the raster dtype
-    if not np.can_cast(nodata, dtype):
+    # Allow 1 and 0 to pass for booleans
+    if dtype == bool and (nodata == 1 or nodata == 0):
+        return nodata.astype(bool)
+
+    # Otherwise, require safe casting to the raster dtype
+    elif not np.can_cast(nodata, dtype):
         raise TypeError(
             f"Cannot safely cast the NoData value ({nodata}) to the raster dtype ({dtype})."
         )
-    return nodata.astype(dtype)
+    else:
+        return nodata.astype(dtype)
 
 
 def crs(crs: Any) -> CRS:
@@ -690,13 +705,18 @@ def crs(crs: Any) -> CRS:
 
     Outputs:
         rasterio.crs.CRS: The validated CRS
+
+    Raises:
+        CrsError: If the CRS is not convertible to a rasterio CRS object
     """
 
     try:
         return CRS.from_user_input(crs)
     except RasterioCrsError:
         raise CrsError(
-            "Unsupported CRS. A valid CRS must be be convertible to a rasterio.crs.CRS object. "
+            "Unsupported CRS. A valid CRS must be be convertible to a rasterio.crs.CRS "
+            "object via the rasterio API. See the rasterio documentation for examples "
+            "of supported CRS inputs: https://rasterio.readthedocs.io/en/stable/index.html"
         )
 
 
@@ -705,25 +725,56 @@ def transform(transform: Any) -> Affine:
     transform  Checks that an input is convertible to an affine.Affine object
     ----------
     transform(transform)
-    Checsk that the input affine transformation is convertible to an affine.Affine
-    object via the rasterio API. If valid, returns the affine.Affine object. Otherwise,
-    raises a TypeError.
+    Checks that the input affine transformation is convertible to an affine.Affine
+    object via the rasterio API. If so, checks that the affine matrix's b and d
+    coefficients are 0. If valid, returns the affine.Affine object. Otherwise,
+    raises a TransformError.
     ----------
     Inputs:
         transform: A user provided affine transformation
 
     Outputs:
         affine.Affine: The affine transformation
+
+    Raises:
+        TransformError: If the input is not convertible to an Affine object, or
+            if the affine matrix has non-zero b and d coefficients
     """
 
+    # Convert to Affine object
     try:
-        return rasterio.transform.guard_transform(transform)
+        affine = rasterio.transform.guard_transform(transform)
     except Exception:
         raise TransformError(
             "Unsupported transform. A valid transformation must be convertible to "
             "an affine.Affine object via the rasterio API. If problems persist, "
             "consider using an affine.Affine object directly as the transform."
         )
+
+    # Check if the matrix has an allowed form
+    if affine[1] != 0:
+        isbad = True
+        bad = "b"
+        value = affine[1]
+    elif affine[3] != 0:
+        isbad = True
+        bad = "d"
+        value = affine[3]
+    else:
+        isbad = False
+
+    # Only allow scaling / translational matrix
+    if isbad:
+        raise TransformError(
+            "The raster transform must only support scaling and translation. "
+            "Equivalently, the affine transformation matrix must have form:\n"
+            "    |a b c|     |a 0 c|\n"
+            "    |d e f|  =  |0 e f|\n"
+            "    |0 0 1|     |0 0 0|\n"
+            "such that coefficients b and d are 0. "
+            f"However, coefficient {bad} ({value}) is not 0."
+        )
+    return affine
 
 
 #####
@@ -777,6 +828,10 @@ def option(input: Any, name: str, allowed: Sequence[str]) -> str:
 
     Outputs:
         lowercased string: The lowercased version of the input
+
+    Raises:
+        TypeError: If the input is not a string
+        ValueError: If the the lowercased string is not in the list of recognized options
     """
 
     # Require a string
@@ -808,6 +863,9 @@ def output_path(path: Any, overwrite: bool) -> Path:
 
     Outputs:
         pathlib.Path: The resolved path to the output file
+
+    Raises:
+        FileExistsError: If the path exists and overwrite=False
     """
 
     path = Path(path).resolve()

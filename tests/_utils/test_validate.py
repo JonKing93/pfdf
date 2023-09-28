@@ -664,6 +664,12 @@ class TestNoData:
         nodata = validate.nodata(nodata, "float64")
         assert nodata.dtype == "float64"
 
+    @pytest.mark.parametrize("input, expected", ((0.0, False), (1.0, True)))
+    def test_bool_casting(_, input, expected):
+        nodata = validate.nodata(input, bool)
+        assert nodata.dtype == bool
+        assert nodata == expected
+
     def test_not_scalar(_):
         nodata = [1, 2]
         with pytest.raises(DimensionError) as error:
@@ -685,7 +691,7 @@ class TestNoData:
 
 class TestTransform:
     def test_valid(_):
-        a = Affine(1, 2, 3, 4, 5, 6)
+        a = Affine(10, 0, 3, 0, 10, 6)
         output = validate.transform(a)
         assert isinstance(output, Affine)
         assert output == a
@@ -694,6 +700,14 @@ class TestTransform:
         with pytest.raises(TransformError) as error:
             validate.transform("invalid")
         assert_contains(error, "transform")
+
+    @pytest.mark.parametrize(
+        "affine", (Affine(1, 1, 1, 0, 0, 0), Affine(0, 0, 0, 1, 1, 1))
+    )
+    def test_bad_matrix(_, affine):
+        with pytest.raises(TransformError) as error:
+            validate.transform(affine)
+        assert_contains(error, "scaling and translation")
 
 
 class TestCrs:

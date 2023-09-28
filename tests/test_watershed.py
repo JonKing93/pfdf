@@ -10,7 +10,7 @@ from rasterio.crs import CRS
 from shapely import LineString
 
 from pfdf import watershed
-from pfdf.raster import Raster, pysheds_raster
+from pfdf.raster import PyshedsRaster, Raster
 
 #####
 # Testing fixtures
@@ -96,7 +96,7 @@ def test_to_pysheds():
     raster = Raster.from_array(a, nodata=-999, crs=crs, transform=transform)
     raster, metadata = watershed._to_pysheds(raster)
 
-    assert isinstance(raster, pysheds_raster)
+    assert isinstance(raster, PyshedsRaster)
     assert raster.affine == transform
     assert raster.crs == crs
     assert raster.nodata == -999
@@ -114,7 +114,7 @@ def test_fix_nodata():
     a = a.as_pysheds()
     a = watershed._fix_nodata(a)
     expected = np.array([[nan, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-    assert isinstance(a, pysheds_raster)
+    assert isinstance(a, PyshedsRaster)
     assert np.array_equal(a, expected, equal_nan=True)
     assert isnan(a.nodata)
 

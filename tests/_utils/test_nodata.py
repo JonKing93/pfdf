@@ -1,3 +1,5 @@
+from math import nan
+
 import numpy as np
 import pytest
 
@@ -26,6 +28,21 @@ class TestDefault:
     def test_bool(_):
         output = nodata_.default(bool)
         assert output == False
+
+
+class TestEqual:
+    @pytest.mark.parametrize("value", (-999, None, nan))
+    def test_equal(_, value):
+        assert nodata_.equal(value, value)
+
+    def test_mixed_none(_):
+        assert not nodata_.equal(-999, None)
+
+    def test_mixed_nan(_):
+        assert not nodata_.equal(-999, nan)
+
+    def test_nan_none(_):
+        assert not nodata_.equal(nan, None)
 
 
 class TestIsIn:
