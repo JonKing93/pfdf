@@ -291,10 +291,11 @@ def accumulation(
     accumulation(flow, weights, mask)
     Computes a masked accumulation. In this syntax, only the True elements of
     the mask are included in accumulations. All False elements are given a weight
-    of 0. The accumulation for each pixel is thus the sum over all upslope pixels
-    included in the mask. If weights are not specified, then all included pixels
-    are given a weight of 1. Note that the mask raster must have the same shape,
-    transform, and crs as the flow raster.
+    of 0. NoData pixels are interpreted as False elements. The accumulation for
+    each pixel is thus the sum over all catchment pixels included in the mask.
+    If weights are not specified, then all included pixels are given a weight of
+    1. Note that the mask raster must have the same shape, transform, and crs as
+    the flow raster.
     ----------
     Inputs:
         flow: A D8 flow direction raster in the TauDEM style
@@ -313,18 +314,16 @@ def accumulation(
     if mask is not None:
         mask = flow._validate(mask, "mask")
 
-    # Initialize NoData masks for optional rasters
-    weights_nodata = None
-    mask_nodata = None
-
-    # Locate NoDatas and validate array elements
+    # Locate NoDatas and validate array elements. Mask NoDatas are set to False,
+    # but otherwise ignored
     flow_nodata = nodata_.mask(flow.values, flow.nodata)
     validate.flow(flow.values, flow.name, nodata=flow.nodata)
-    if mask is not None:
-        mask_nodata = nodata_.mask(mask.values, mask.nodata)
-        mask = validate.boolean(mask.values, mask.name, isdata=mask.nodata)
     if weights is not None:
         weights_nodata = nodata_.mask(weights.values, weights.nodata)
+    else:
+        weights_nodata = None
+    if mask is not None:
+        mask = validate.boolean(mask.values, mask.name, nodata=mask.nodata)
 
     # Create default weights or mask as needed
     if weights is None and mask is None:
@@ -340,7 +339,7 @@ def accumulation(
     # This is to prevent numeric NoData values from propagating through the
     # pysheds accumulation algorithm.
     weights = weights.astype(float)
-    masks = (flow_nodata, weights_nodata, mask_nodata)
+    masks = (flow_nodata, weights_nodata)
     weights = nodata_.fill(weights, masks, nan)
 
     # Get metadata and convert to pysheds
