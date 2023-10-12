@@ -43,10 +43,11 @@ from pfdf.typing import Thresholds, strs
 
 # The classification scheme used in the module
 _classification = {
-    1: "unburned",
-    2: "low",
-    3: "moderate",
-    4: "high",
+    "unburned": 1,
+    "low": 2,
+    "moderate": 3,
+    "high": 4,
+    "burned": [2, 3, 4],
 }
 
 
@@ -55,18 +56,19 @@ _classification = {
 #####
 
 
-def classification() -> dict[int, str]:
+def classification() -> dict[str, int | list[int]]:
     """
     classification  Returns the BARC4 burn severity classification scheme
     ----------
     classification()
     Returns a dict reporting the BARC4 burn severity classification scheme used
-    by the module. Keys are the integers in the classification scheme. Each value
-    is a string describing the burn severity associated with the class.
+    by the module. Keys are the strings "unburned", "low", "moderate", "high", and
+    "burned". Values are the integers associated with each burn severity level in
+    the classification scheme.
     ----------
     Outputs:
-        Dict[int, str]: Maps the burn severity classification integers to their
-            descriptions.
+        dict[str, int | list[int]]: Maps burn severity levels to their integers
+            in the classification scheme
     """
     return _classification
 
@@ -82,8 +84,8 @@ def mask(severity: RasterInput, descriptions: strs) -> Raster:
     value of 1. All other pixels will be 0.
 
     Note that the burn severity descriptions are strings describing the appropriate
-    burn severity levels. The supported strings are: "unburned", "low", "moderate",
-    and "high".
+    burn severity levels. The supported strings are: "unburned", "burned", "low",
+    "moderate", and "high".
     ----------
     Inputs:
         severity: A BARC4-like burn severity raster.
@@ -98,14 +100,17 @@ def mask(severity: RasterInput, descriptions: strs) -> Raster:
     descriptions = _validate_descriptions(descriptions)
     severity = Raster(severity, "burn severity raster")
 
-    # Get the queried classes and return the severity mask
+    # Get the integers of the queried severity levels
     classes = [
-        number
-        for number, description in _classification.items()
+        aslist(classes)
+        for description, classes in _classification.items()
         if description in descriptions
     ]
+    classes = sum(classes, [])  # Concatenates lists, is not summing integers
+
+    # Return the severity mask
     mask = np.isin(severity.values, classes)
-    return Raster.from_array(mask, transform=severity.transform, crs=severity.crs)
+    return Raster.from_array(mask, spatial=severity)
 
 
 def estimate(raster: RasterInput, thresholds: Thresholds = [125, 250, 500]) -> Raster:
@@ -156,9 +161,7 @@ def estimate(raster: RasterInput, thresholds: Thresholds = [125, 250, 500]) -> R
 
     # Get the burn severity classes and return as raster
     severity = classify(raster.values, thresholds, nodata=raster.nodata, nodata_to=0)
-    return Raster.from_array(
-        severity, nodata=0, transform=raster.transform, crs=raster.crs
-    )
+    return Raster.from_array(severity, nodata=0, spatial=raster)
 
 
 #####
@@ -168,7 +171,7 @@ def _validate_descriptions(descriptions: Any) -> set[str]:
     "Checks that burn severity descriptions are recognized"
 
     descriptions = aslist(descriptions)
-    allowed = tuple(_classification.values())
+    allowed = tuple(_classification.keys())
     for d, description in enumerate(descriptions):
         name = f"descriptions[{d}] ({description})"
         descriptions[d] = validate.option(description, name, allowed)
