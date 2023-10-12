@@ -77,6 +77,7 @@ from pfdf.errors import (
 )
 from pfdf.typing import (
     BooleanArray,
+    Casting,
     MatrixArray,
     RealArray,
     ScalarArray,
@@ -214,7 +215,7 @@ def array(input: Any, name: str, dtype=None) -> RealArray:
     """
 
     # Convert to array with minimum of 1D
-    input = np.array(input)
+    input = np.array(input, copy=False)
     input = np.atleast_1d(input)
 
     # Can't be empty. Optionally check dtype
@@ -655,18 +656,21 @@ def flow(
 #####
 
 
-def nodata(nodata, dtype) -> scalar:
+def nodata(nodata: Any, dtype: type, casting: Casting) -> scalar:
     """
     nodata  Checks a NoData value is valid and castable to the raster dtype
     ----------
-    nodata(nodata, dtype)
+    nodata(nodata, dtype, casting)
     Checks that a user provided NoData value is a scalar, real-valued element
-    that can be safely casted to the raster dtype. If so, returns the casted
-    NoData value. Raises a TypeError if casting is not safe.
+    that can be appropriately casted to the raster dtype. If so, returns the casted
+    NoData value. Raises a TypeError if the NoData value cannot be cast in the
+    specified manner.
     ----------
     Inputs:
         nodata: A user provided NoData value
         dtype: The dtype of the raster associated with the NoData value
+        casting: The type of casting allowed. Options are "no", "equiv", "safe",
+            "same_kind", and "unsafe"
 
     Outputs:
         numpy scalar: The NoData value casted to the appropriate dtype
@@ -684,12 +688,13 @@ def nodata(nodata, dtype) -> scalar:
         return nodata.astype(bool)
 
     # Otherwise, require safe casting to the raster dtype
-    elif not np.can_cast(nodata, dtype):
+    elif not np.can_cast(nodata, dtype, casting):
         raise TypeError(
-            f"Cannot safely cast the NoData value ({nodata}) to the raster dtype ({dtype})."
+            f"Cannot cast the NoData value ({nodata}) to the raster dtype ({dtype}) "
+            f"using '{casting}' casting."
         )
     else:
-        return nodata.astype(dtype)
+        return nodata.astype(dtype, casting=casting)
 
 
 def crs(crs: Any) -> CRS:
