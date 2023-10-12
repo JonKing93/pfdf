@@ -651,42 +651,47 @@ class TestFlow:
 class TestNoData:
     @pytest.mark.parametrize("value, dtype", ((-999, int), (-999, float), (2.2, float)))
     def test_numeric(_, value, dtype):
-        nodata = validate.nodata(value, dtype=dtype)
+        nodata = validate.nodata(value, dtype=dtype, casting="safe")
         assert nodata == value
         assert nodata.dtype == dtype
 
     def test_nan(_):
-        nodata = validate.nodata(np.nan, float)
+        nodata = validate.nodata(np.nan, float, casting="safe")
         assert np.isnan(nodata)
 
-    def test_casting(_):
+    def test_safe_casting(_):
         nodata = np.array(-999).astype("float32")
-        nodata = validate.nodata(nodata, "float64")
+        nodata = validate.nodata(nodata, "float64", casting="safe")
         assert nodata.dtype == "float64"
+
+    def test_unsafe_casting(_):
+        nodata = 1.2
+        nodata = validate.nodata(nodata, int, casting="unsafe")
+        assert nodata.dtype == int
 
     @pytest.mark.parametrize("input, expected", ((0.0, False), (1.0, True)))
     def test_bool_casting(_, input, expected):
-        nodata = validate.nodata(input, bool)
+        nodata = validate.nodata(input, bool, casting="safe")
         assert nodata.dtype == bool
         assert nodata == expected
 
     def test_not_scalar(_):
         nodata = [1, 2]
         with pytest.raises(DimensionError) as error:
-            validate.nodata(nodata, dtype=int)
+            validate.nodata(nodata, dtype=int, casting="safe")
         assert_contains(error, "nodata")
 
     def test_invalid_type(_):
         nodata = "invalid"
         with pytest.raises(TypeError) as error:
-            validate.nodata(nodata, int)
+            validate.nodata(nodata, int, casting="safe")
         assert_contains(error, "nodata")
 
     def test_invalid_casting(_):
         nodata = -1.2
         with pytest.raises(TypeError) as error:
-            validate.nodata(nodata, int)
-        assert_contains(error, "Cannot safely cast the NoData value")
+            validate.nodata(nodata, int, casting="safe")
+        assert_contains(error, "Cannot cast the NoData value")
 
 
 class TestTransform:

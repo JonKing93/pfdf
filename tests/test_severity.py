@@ -114,7 +114,13 @@ class TestValidateDescriptions:
 class TestClassification:
     def test(_):
         output = severity.classification()
-        assert output == {1: "unburned", 2: "low", 3: "moderate", 4: "high"}
+        assert output == {
+            "unburned": 1,
+            "low": 2,
+            "moderate": 3,
+            "high": 4,
+            "burned": [2, 3, 4],
+        }
 
 
 class TestMask:
