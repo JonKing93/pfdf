@@ -78,14 +78,19 @@ BooleanArray = NDArray[Any, Bool]
 # NoData values
 nodata = ScalarArray | None
 DataMask = BooleanArray | None
+Casting = Literal["no", "equiv", "safe", "same_kind", "unsafe"]
 
-# Segments
+# Segment summaries
 SegmentsShape = Shape["Segments"]
 SegmentValues = NDArray[SegmentsShape, Floating]
+TerminalValues = NDArray[Shape["Outlets"], Floating]
+BasinValues = SegmentValues | TerminalValues
+
+# Misc segments
+SegmentIndices = NDArray[SegmentsShape, Bool]
+SegmentParents = NDArray[Shape["Segments, Parents"], Integer]
 PixelIndices = NDArray[Shape["Pixels"], Integer]
 PixelIndices = tuple[PixelIndices, PixelIndices]
-SegmentIndices = NDArray[SegmentsShape, Bool]
-SegmentIDs = list[int] | NDArray[VectorShape, Integer]
 PropertyDict = dict[str, SegmentValues]
 
 # Confinement Angles
