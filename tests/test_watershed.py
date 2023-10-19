@@ -355,6 +355,27 @@ class TestSlopes:
         assert flow.crs is None
         assert flow.transform is None
 
+    def test_no_check(_):
+        dem = np.array(
+            [
+                [1, 1, 1, 1, 1],
+                [1, 4, 3, 2, 1],
+                [1, 6, 20, 100, 1],
+                [1, 8, 50, 10, 1],
+                [1, 1, 1, 1, 1],
+            ]
+        )
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        watershed.slopes(dem, flow, check_flow=False)
+
 
 class TestRelief:
     def test(_):
@@ -393,6 +414,27 @@ class TestRelief:
         assert isnan(relief.nodata)
         assert relief.crs is None
         assert relief.transform is None
+
+    def test_no_check(_):
+        dem = np.array(
+            [
+                [1, 1, 1, 1, 1],
+                [1, 4, 3, 2, 1],
+                [1, 6, 20, 100, 1],
+                [1, 8, 50, 10, 1],
+                [1, 1, 1, 1, 1],
+            ]
+        )
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        watershed.relief(dem, flow, check_flow=False)
 
 
 class TestAccumulation:
@@ -532,6 +574,18 @@ class TestAccumulation:
         )
         self.check(acc, expected)
 
+    def test_no_check(_):
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        watershed.accumulation(flow, check_flow=False)
+
 
 class TestCatchment:
     flow = np.array(
@@ -591,6 +645,18 @@ class TestCatchment:
         assert output.crs is None
         assert output.transform is None
 
+    def test_no_check(_):
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        watershed.catchment(flow, 0, 0, check_flow=False)
+
 
 class TestNetwork:
     def test_all(_, network_flow, segments):
@@ -624,3 +690,16 @@ class TestNetwork:
             LineString([[5, 2], [6, 2], [7, 2]]),
         ]
         assert output == expected
+
+    def test_no_check(_):
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        mask = flow.astype(bool)
+        watershed.network(flow, mask, check_flow=False)

@@ -854,7 +854,9 @@ class Segments:
             return self._basin_npixels(terminal).copy()
 
         # Otherwise, compute the accumulation at each outlet
-        accumulation = watershed.accumulation(self.flow, weights, mask, omitnan=omitnan)
+        accumulation = watershed.accumulation(
+            self.flow, weights, mask, omitnan=omitnan, check_flow=False
+        )
         return self._values_at_outlets(accumulation, terminal=terminal)
 
     #####
@@ -1092,7 +1094,7 @@ class Segments:
         """
 
         row, column = self.outlet(id, terminal)
-        return watershed.catchment(self.flow, row, column)
+        return watershed.catchment(self.flow, row, column, check_flow=False)
 
     def raster(self, basins=False, nested=False) -> Raster:
         """
@@ -1566,7 +1568,8 @@ class Segments:
 
         # Iterate through catchment basins and compute summaries
         for k, outlet in enumerate(outlets):
-            catchment = watershed.catchment(self.flow, *outlet).values
+            catchment = watershed.catchment(self.flow, *outlet, check_flow=False)
+            catchment = catchment.values
             if mask is not None:
                 catchment = catchment & mask
             summary[k] = self._summarize(statistic, values, catchment)

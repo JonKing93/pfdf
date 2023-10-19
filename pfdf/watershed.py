@@ -87,7 +87,7 @@ def condition(
     *,
     fill_pits: bool = True,
     fill_depressions: bool = False,
-    resolve_flats: bool = True
+    resolve_flats: bool = True,
 ) -> Raster:
     """
     condition  Conditions a DEM to resolve pits, depressions, and/or flats
@@ -185,7 +185,7 @@ def flow(dem: RasterInput) -> Raster:
     return Raster.from_array(flow, nodata=0, **metadata)
 
 
-def slopes(dem: RasterInput, flow: RasterInput) -> Raster:
+def slopes(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Raster:
     """
     slopes  Computes D8 flow slopes for a watershed
     ----------
@@ -193,10 +193,19 @@ def slopes(dem: RasterInput, flow: RasterInput) -> Raster:
     Returns D8 flow slopes for a watershed. Computes these slopes using a DEM
     raster, and TauDEM-style D8 flow directions. Note that the DEM should be a
     raw DEM - it does not need to resolve pits and flats.
+
+    slopes(dem, flow, check_flow=False)
+    Disables validation checking of the flow directions raster. Validation is not
+    necessary for flow directions directly output by the "watershed.flow" function,
+    and disabling the validation can improve runtimes for large rasters. However,
+    be warned that this option may produce unexpected results if the flow directions
+    raster contains invalid values.
     ----------
     Inputs:
         dem: A digital elevation model raster
         flow: A raster with TauDEM-style D8 flow directions
+        check_flow: True (default) to validate the flow directions raster.
+            False to disable validation checks.
 
     Outputs:
         slopes: The computed D8 flow slopes for the watershed
@@ -205,7 +214,8 @@ def slopes(dem: RasterInput, flow: RasterInput) -> Raster:
     # Validate
     dem = Raster(dem, "dem")
     flow = dem._validate(flow, "flow directions")
-    validate.flow(flow.values, flow.name, ignore=flow.nodata)
+    if check_flow:
+        validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
     # Get metadata and convert to pysheds
     dem, metadata = _to_pysheds(dem)
@@ -217,7 +227,7 @@ def slopes(dem: RasterInput, flow: RasterInput) -> Raster:
     return Raster.from_array(slopes, nodata=nan, **metadata)
 
 
-def relief(dem: RasterInput, flow: RasterInput) -> Raster:
+def relief(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Raster:
     """
     relief  Computes vertical relief to the highest ridge cell
     ----------
@@ -228,10 +238,19 @@ def relief(dem: RasterInput, flow: RasterInput) -> Raster:
     other pixels). Computes these slopes using a DEM raster, and TauDEM-style D8
     flow directions. Note that the DEM should be a raw DEM - it does not need to
     resolve pits and flats.
+
+    relief(dem, flow, check_flow=False)
+    Disables validation checking of the flow directions raster. Validation is not
+    necessary for flow directions directly output by the "watershed.flow" function,
+    and disabling the validation can improve runtimes for large rasters. However,
+    be warned that this option may produce unexpected results if the flow directions
+    raster contains invalid values.
     ----------
     Inputs:
         dem: A digital elevation model raster
         flow: A TauDEM-style D8 flow direction raster
+        check_flow: True (default) to validate the flow directions raster.
+            False to disable validation checks.
 
     Outputs:
         Raster: The vertical relief of the nearest ridge cell.
@@ -240,7 +259,8 @@ def relief(dem: RasterInput, flow: RasterInput) -> Raster:
     # Validate
     dem = Raster(dem, "dem")
     flow = dem._validate(flow, "flow directions")
-    validate.flow(flow.values, flow.name, ignore=flow.nodata)
+    if check_flow:
+        validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
     # Get metadata and convert to pysheds
     dem, metadata = _to_pysheds(dem)
@@ -259,7 +279,9 @@ def accumulation(
     flow: RasterInput,
     weights: Optional[RasterInput] = None,
     mask: Optional[RasterInput] = None,
+    *,
     omitnan: bool = False,
+    check_flow: bool = True,
 ) -> Raster:
     """
     accumulation  Computes basic, weighted, or masked flow accumulation
@@ -293,6 +315,13 @@ def accumulation(
     If weights are not specified, then all included pixels are given a weight of
     1. Note that the mask raster must have the same shape, transform, and crs as
     the flow raster.
+
+    accumulation(..., *, check_flow=False)
+    Disables validation checking of the flow directions raster. Validation is not
+    necessary for flow directions directly output by the "watershed.flow" function,
+    and disabling the validation can improve runtimes for large rasters. However,
+    be warned that this option may produce unexpected results if the flow directions
+    raster contains invalid values.
     ----------
     Inputs:
         flow: A D8 flow direction raster in the TauDEM style
@@ -301,6 +330,8 @@ def accumulation(
             False (default) propagates these values as NaN to all downstream pixels.
         mask: A raster whose True elements indicate pixels that should be included
             in the accumulation.
+        check_flow: True (default) to validate the flow directions raster.
+            False to disable validation checks.
 
     Outputs:
         Raster: The computed flow accumulation
@@ -313,7 +344,8 @@ def accumulation(
     if mask is not None:
         mask = flow._validate(mask, "mask")
         mask = validate.boolean(mask.values, mask.name, ignore=mask.nodata)
-    validate.flow(flow.values, flow.name, ignore=flow.nodata)
+    if check_flow:
+        validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
     # Locate weights NoDatas and optionally NaNs
     nodatas = NodataMask(flow.values, None)
@@ -357,7 +389,9 @@ def accumulation(
     return Raster.from_array(accumulation, nodata=nan, **metadata)
 
 
-def catchment(flow: RasterInput, row: scalar, column: scalar) -> Raster:
+def catchment(
+    flow: RasterInput, row: scalar, column: scalar, check_flow: bool = True
+) -> Raster:
     """
     catchment  Returns the catchment mask for a DEM pixel
     ----------
@@ -368,11 +402,20 @@ def catchment(flow: RasterInput, row: scalar, column: scalar) -> Raster:
     indicated pixels that are in the upstream catchment extent, False values are
     outside of the catchment. Any NoData values in the flow directions will become
     False values in the catchment mask.
+
+    catchment(..., check_flow=False)
+    Disables validation checking of the flow directions raster. Validation is not
+    necessary for flow directions directly output by the "watershed.flow" function,
+    and disabling the validation can improve runtimes for large rasters. However,
+    be warned that this option may produce unexpected results if the flow directions
+    raster contains invalid values.
     ----------
     Inputs:
         flow: D8 flow directions for the DEM (in the TauDEM style)
         row: The row index of the queried pixel in the DEM
         column: The column index of the queried pixel in the DEM
+        check_flow: True (default) to validate the flow directions raster.
+            False to disable validation checks.
 
     Outputs:
         Raster: The upstream catchment mask for the queried pixel
@@ -386,7 +429,8 @@ def catchment(flow: RasterInput, row: scalar, column: scalar) -> Raster:
     validate.integers(column, "column")
     validate.inrange(column, "column", min=0, max=flow.shape[1] - 1)
     flow = Raster(flow, "flow directions")
-    validate.flow(flow.values, flow.name, ignore=flow.nodata)
+    if check_flow:
+        validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
     # Get metadata and convert to pysheds
     flow, metadata = _to_pysheds(flow)
@@ -402,7 +446,10 @@ def catchment(flow: RasterInput, row: scalar, column: scalar) -> Raster:
 
 
 def network(
-    flow: RasterInput, mask: RasterInput, max_length: Optional[scalar] = None
+    flow: RasterInput,
+    mask: RasterInput,
+    max_length: Optional[scalar] = None,
+    check_flow: bool = True,
 ) -> list[LineString]:
     """
     network  Returns a list of stream segment LineStrings
@@ -426,6 +473,13 @@ def network(
     will all have the same length, which will be <= max_length. The units of
     max_length should be the base units of the coordinate reference system associated
     with the flow raster. In practice, this is almost always units of meters.
+
+    network(..., check_flow=False)
+    Disables validation checking of the flow directions raster. Validation is not
+    necessary for flow directions directly output by the "watershed.flow" function,
+    and disabling the validation can improve runtimes for large rasters. However,
+    be warned that this option may produce unexpected results if the flow directions
+    raster contains invalid values.
     ----------
     Inputs:
         flow: A TauDEM-style D8 flow direction raster
@@ -433,6 +487,8 @@ def network(
             belong to a stream segment.
         max_length: A maximum allowed length for segments in the network. Units
             should be the same as the base units of the flow raster CRS (usually meters)
+        check_flow: True (default) to validate the flow directions raster.
+            False to disable validation checks.
 
     Outputs:
         list[shapely.LineString]: The stream segments in the network, represented
@@ -447,8 +503,9 @@ def network(
         validate.positive(max_length, "max_length")
     flow = Raster(flow, "flow directions")
     mask = flow._validate(mask, "mask")
-    validate.flow(flow.values, flow.name, ignore=flow.nodata)
     validate.boolean(mask.values, mask.name, ignore=mask.nodata)
+    if check_flow:
+        validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
     # Convert to pysheds
     flow = flow.as_pysheds()
