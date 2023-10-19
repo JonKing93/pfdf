@@ -62,7 +62,7 @@ class TestValidateParameters:
 class TestValidateVariables:
     def test_valid(_):
         a = np.arange(0, 10).reshape(2, 5)
-        variables = {"a": a, "b": a + 1, "c": a + 2}
+        variables = {"a": (a, True), "b": (a + 1, False), "c": (a + 2, False)}
         output = g14._validate_variables(variables)
         assert isinstance(output, tuple)
         assert len(output) == 3
@@ -71,7 +71,7 @@ class TestValidateVariables:
         assert np.array_equal(output[2], a + 2)
 
     def test_invalid(_):
-        variables = {"aname": "invalid"}
+        variables = {"aname": ("invalid", True)}
         with pytest.raises(TypeError) as error:
             g14._validate_variables(variables)
         assert_contains(error, "aname")
@@ -79,7 +79,7 @@ class TestValidateVariables:
     def test_different_shapes(_):
         a = np.arange(0, 10).reshape(2, 5)
         b = a.reshape(5, 2)
-        variables = {"aname": a, "bname": b}
+        variables = {"aname": (a, True), "bname": (b, True)}
         with pytest.raises(ShapeError) as error:
             g14._validate_variables(variables)
         assert_contains(error, "bname")

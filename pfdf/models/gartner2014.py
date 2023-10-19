@@ -35,7 +35,8 @@ Internal:
 
 from typing import Any, Dict, Tuple
 
-from numpy import atleast_1d, exp, log, sqrt, squeeze
+import numpy as np
+from numpy import atleast_1d, exp, log, sqrt, squeeze, nan
 
 from pfdf._utils import real, validate
 from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volumes
@@ -119,15 +120,16 @@ def emergency(
             sediment volumes in m^3
     """
 
-    # Validate
-    variables = {"i15": i15, "Bmh": Bmh, "R": R}
+    # Validate. Note that the bool for each variable is whether to allow zero values
+    variables = {"i15": (i15, True), "Bmh": (Bmh, True), "R": (R, False)}
     parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Cr": Cr}
     i15, Bmh, R = _validate_variables(variables)
     B, Ci, Cb, Cr = _validate_parameters(parameters, ncols=i15.shape[1])
 
-    # Solve the model
-    lnV = B + Ci * sqrt(i15) + Cb * log(Bmh) + Cr * sqrt(R)
-    V = exp(lnV)
+    # Solve the model. Suppress divide-by-zero warnings for log(0)
+    with np.errstate(divide='ignore'):
+        lnV = B + Ci * sqrt(i15) + Cb * log(Bmh) + Cr * sqrt(R)
+        V = exp(lnV)
 
     # Optionally remove trailing singletons
     if not keepdims:
@@ -219,15 +221,16 @@ def longterm(
             sediment volumes in m^3
     """
 
-    # Validate
-    variables = {"i60": i60, "Bt": Bt, "T": T, "A": A, "R": R}
+    # Validate. Note that the bool for each variable is whether to allow zero values
+    variables = {"i60": (i60, True), "Bt": (Bt, True), "T": (T, True), "A": (A, False), "R": (R, False)}
     parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Ct": Ct, "Ca": Ca, "Cr": Cr}
     i60, Bt, T, A, R = _validate_variables(variables)
     B, Ci, Cb, Ct, Ca, Cr = _validate_parameters(parameters, ncols=i60.shape[1])
 
-    # Solve the model
-    lnV = B + Ci * log(i60) + Cb * log(Bt) + Ct * log(T) + Ca * log(A) + Cr * sqrt(R)
-    V = exp(lnV)
+    # Solve the model. Suppress divide-by-zero warning for log(0)
+    with np.errstate(divide='ignore'):
+        lnV = B + Ci * log(i60) + Cb * log(Bt) + Ct * log(T) + Ca * log(A) + Cr * sqrt(R)
+        V = exp(lnV)
 
     # Optionally remove trailing singletons
     if not keepdims:
@@ -262,11 +265,12 @@ def _validate_parameters(
 
 
 def _validate_variables(variables: Dict[str, Any]) -> Tuple[MatrixArray, ...]:
-    """Checks that variables are real-valued matrices with the same shape"""
+    """Checks that variables are positive, real-valued matrices with the same shape"""
 
     shape = None
-    for k, (name, variable) in enumerate(variables.items()):
+    for k, (name, (variable, allow_zero)) in enumerate(variables.items()):
         variable = validate.matrix(variable, name, dtype=real, shape=shape)
+        validate.positive(variable, name, allow_zero=allow_zero, ignore=nan)
         if k == 0:
             shape = variable.shape
         variables[name] = variable
