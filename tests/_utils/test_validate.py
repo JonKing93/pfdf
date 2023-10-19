@@ -1,3 +1,4 @@
+from math import nan
 from pathlib import Path
 
 import numpy as np
@@ -6,6 +7,7 @@ from affine import Affine
 from rasterio.crs import CRS
 
 from pfdf._utils import validate
+from pfdf._utils.nodata import NodataMask
 from pfdf.errors import (
     CrsError,
     DimensionError,
@@ -336,94 +338,107 @@ class TestMatrix:
 #####
 
 
-class TestCheckBound:
+class TestGetData:
+    def test_none(_, array):
+        output, mask = validate._get_data(array, None)
+        assert np.array_equal(output, array)
+        assert isinstance(mask, NodataMask)
+        assert mask.mask is None
+        assert mask.size == array.size
+
+    def test_nodata(_, array):
+        output, mask = validate._get_data(array, 10)
+        expected_mask = array != 10
+        expected = array[expected_mask]
+        assert np.array_equal(output, expected)
+        assert isinstance(mask, NodataMask)
+        assert np.array_equal(mask.mask, expected_mask)
+        assert mask.size == array.size
+
+    def test_multiple_nodata(_, array):
+        output, mask = validate._get_data(array, [None, 10, 11, nan])
+        expected_mask = ~np.isin(array, [10, 11])
+        expected = array[expected_mask]
+        assert np.array_equal(output, expected)
+        assert isinstance(mask, NodataMask)
+        assert np.array_equal(mask.mask, expected_mask)
+        assert mask.size == array.size
+
+
+class TestCheckIntegers:
     def test_pass(_, array):
-        min = np.amin(array)
-        max = np.amax(array)
-        validate._check_bound(array, "", None, "<", max + 1)
-        validate._check_bound(array, "", None, "<=", max)
-        validate._check_bound(array, "", None, ">=", min)
-        validate._check_bound(array, "", None, ">", min - 1)
+        array = array.astype(float)
+        data, mask = validate._get_data(array, 10)
+        validate._check_integers(data, "", array, mask)
 
     def test_fail(_, array):
+        array = array.astype(float)
+        array[0, 1] = 5.5
+        data, mask = validate._get_data(array, 1)
+        print(data)
+        with pytest.raises(ValueError) as error:
+            validate._check_integers(data, "test name", array, mask)
+        assert_contains(error, "test name", "element [0, 1] (value=5.5)")
+
+
+class TestCheckBound:
+    def test_pass(_, array):
+        data, mask = validate._get_data(array, 10)
+        min = np.amin(array)
+        max = np.amax(array)
+        validate._check_bound(data, "", "<", max + 1, array, mask)
+        validate._check_bound(data, "", "<=", max, array, mask)
+        validate._check_bound(data, "", ">=", min, array, mask)
+        validate._check_bound(data, "", ">", min - 1, array, mask)
+
+    def test_fail(_, array):
+        data, mask = validate._get_data(array, 10)
         min = np.amin(array)
         max = np.amax(array)
         name = "test name"
 
         with pytest.raises(ValueError) as error:
-            validate._check_bound(array, name, None, "<", max)
-        assert_contains(error, name, "less than")
+            validate._check_bound(data, name, "<", max, array, mask)
+        assert_contains(error, name, "less than", f"value={max}")
 
         with pytest.raises(ValueError) as error:
-            validate._check_bound(array, name, None, "<=", max - 1)
-        assert_contains(error, name, "less than or equal to")
+            validate._check_bound(data, name, "<=", max - 1, array, mask)
+        assert_contains(error, name, "less than or equal to", f"value={max}")
 
         with pytest.raises(ValueError) as error:
-            validate._check_bound(array, name, None, ">=", min + 1)
-        assert_contains(error, name, "greater than or equal to")
+            validate._check_bound(data, name, ">=", min + 1, array, mask)
+        assert_contains(error, name, "greater than or equal to", f"value={min}")
 
         with pytest.raises(ValueError) as error:
-            validate._check_bound(array, name, None, ">", min)
-        assert_contains(error, name, "greater than")
-
-
-class TestIsData:
-    def test_neither(_, band1):
-        assert validate._isdata(band1, None, None) is None
-
-    def test_both(_, band1):
-        isdata = band1 > 6
-        output = validate._isdata(band1, isdata, 4)
-        np.array_equal(output, isdata)
-
-    def test_isdata(_, band1):
-        isdata = band1 > 6
-        output = validate._isdata(band1, isdata, None)
-        np.array_equal(output, isdata)
-
-    def test_nodata(_, band1):
-        expected = band1 != 4
-        output = validate._isdata(band1, None, nodata=4)
-        np.array_equal(output, expected)
-
-
-class TestDataElements:
-    def test(_, band1):
-        isdata = band1 > 6
-        output = validate._data_elements(band1, isdata)
-        np.array_equal(output, band1[isdata])
-
-    def test_none(_, band1):
-        output = validate._data_elements(band1, None)
-        np.array_equal(output, band1)
+            validate._check_bound(data, name, ">", min, array, mask)
+        assert_contains(error, name, "greater than", f"value={min}")
 
 
 class TestCheck:
     def test_passed(_, band1):
-        isdata = band1 > 6
-        data = band1[isdata]
+        data, mask = validate._get_data(band1, 4)
         passed = np.full(data.shape, True)
-        validate._check(passed, "test description", band1, "test name", isdata)
+        validate._check(passed, "", band1, "", mask)
 
     def test_failed(_, band1):
-        isdata = band1 <= 6
-        data = band1[isdata]
+        data, mask = validate._get_data(band1, 4)
         passed = np.full(data.shape, True)
         passed[-1] = False
         with pytest.raises(ValueError) as error:
-            validate._check(passed, "test description", band1, "test name", isdata)
-        assert_contains(error, "test description", "test name", "6", "1, 1")
+            validate._check(passed, "test description", band1, "test name", mask)
+        assert_contains(
+            error, "test description", "test name", "element [1, 3] (value=8)"
+        )
 
 
 class TestFirstFailure:
     def test(_, band1):
-        isdata = band1 <= 6
-        data = band1[isdata]
+        data, mask = validate._get_data(band1, 4)
         passed = np.full(data.shape, True)
         passed[-1] = False
-        index, value = validate._first_failure(band1, isdata, passed)
-        assert np.array_equal(index, [1, 1])
-        assert value == 6
+        index, value = validate._first_failure(passed, band1, mask)
+        assert np.array_equal(index, [1, 3])
+        assert value == 8
 
 
 #####
@@ -466,17 +481,16 @@ class TestBoolean:
         assert_contains(error, "test name")
 
     @pytest.mark.parametrize("nodata", (-999, np.nan))
-    def test_nodata(_, nodata):
+    def test_ignore(_, nodata):
         a = np.array([nodata, nodata, 1, 1, 0])
-        output = validate.boolean(a, "", nodata=nodata)
+        output = validate.boolean(a, "", ignore=nodata)
         expected = np.array([False, False, True, True, False])
         np.array_equal(output, expected)
 
-    def test_isdata(_):
-        a = np.array([-3, -2, -1, 0, 1, 1, 0, 0])
-        isdata = np.array([False] * 4 + [True] * 4)
-        output = validate.boolean(a, "", isdata=isdata)
-        expected = np.array([False] * 4 + [True, True, False, False])
+    def test_ignore_multiple(_):
+        a = np.array([-999, nan, 1, 1, 0])
+        output = validate.boolean(a, "", ignore=[-999, nan])
+        expected = np.array([False, False, True, True, False])
         np.array_equal(output, expected)
 
 
@@ -501,14 +515,13 @@ class TestIntegers:
         assert_contains(error, self.name)
 
     @pytest.mark.parametrize("nodata", (3.3, np.nan))
-    def test_nodata(_, nodata):
+    def test_ignore(_, nodata):
         a = np.array([nodata, nodata, 1, 2, 3])
-        validate.integers(a, "", nodata=nodata)
+        validate.integers(a, "", ignore=nodata)
 
-    def test_isdata(_):
-        a = np.array([-3.2, -2.4, -1.9, 0, 1, 2, 3, 4])
-        isdata = np.array([False] * 4 + [True] * 4)
-        validate.positive(a, "", isdata=isdata)
+    def test_ignore_multiple(_):
+        a = np.array([3.3, nan, 1, 2, 3])
+        validate.integers(a, "", ignore=[3.3, nan])
 
 
 class TestPositive:
@@ -541,14 +554,13 @@ class TestPositive:
         assert_contains(error, self.name)
 
     @pytest.mark.parametrize("nodata", (-999, np.nan))
-    def test_nodata(_, nodata):
+    def test_ignore(_, nodata):
         a = np.array([nodata, nodata, 1, 2, 3])
-        validate.positive(a, "", nodata=nodata)
+        validate.positive(a, "", ignore=nodata)
 
-    def test_isdata(_):
-        a = np.array([-3, -2, -1, 0, 1, 2, 3, 4])
-        isdata = np.array([False] * 4 + [True] * 4)
-        validate.positive(a, "", isdata=isdata)
+    def test_ignore_multiple(_):
+        a = np.array([-999, nan, 1, 2, 3])
+        validate.positive(a, "", ignore=[-999, nan])
 
 
 class TestInRange:
@@ -593,14 +605,13 @@ class TestInRange:
         assert_contains(error, self.name)
 
     @pytest.mark.parametrize("nodata", (-999, np.nan))
-    def test_nodata(_, nodata):
+    def test_ignore(_, nodata):
         a = np.array([nodata, nodata, 1, 2, 3])
-        validate.inrange(a, "", min=1, max=4, nodata=nodata)
+        validate.inrange(a, "", min=1, max=4, ignore=nodata)
 
-    def test_isdata(_):
-        a = np.array([-3, -2, -1, 0, 1, 2, 3, 4])
-        isdata = np.array([False] * 4 + [True] * 4)
-        validate.inrange(a, "", min=1, max=4, isdata=isdata)
+    def test_ignore_multiple(_):
+        a = np.array([-999, nan, 1, 2, 3])
+        validate.inrange(a, "", min=1, max=4, ignore=[-999, nan])
 
 
 class TestSorted:
@@ -633,14 +644,13 @@ class TestFlow:
         assert_contains(error, "test name")
 
     @pytest.mark.parametrize("nodata", (-999, np.nan))
-    def test_nodata(_, nodata):
+    def test_ignore(_, nodata):
         a = np.array([nodata, nodata, 1, 2, 3])
-        validate.flow(a, "", nodata=nodata)
+        validate.flow(a, "", ignore=nodata)
 
-    def test_isdata(_):
-        a = np.array([-3, -2, -1, 0, 1, 2, 3, 4])
-        isdata = np.array([False] * 4 + [True] * 4)
-        validate.flow(a, "", isdata=isdata)
+    def test_ignore_multiple(_):
+        a = np.array([-999, nan, 1, 2, 3])
+        validate.flow(a, "", ignore=[-999, nan])
 
 
 #####

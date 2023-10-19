@@ -13,9 +13,9 @@ from math import nan
 
 import numpy as np
 
-from pfdf._utils import nodata_
+from pfdf._utils import nodata
 from pfdf.raster import Raster
-from pfdf.typing import FlowNumber, MatrixArray, ScalarArray, nodata, scalar, slopes
+from pfdf.typing import FlowNumber, ScalarArray, scalar, slopes
 
 # Type aliases
 KernelIndices = tuple[list[int], list[int]]
@@ -206,15 +206,15 @@ class Kernel:
             return indices[0:N]
 
     # Confinement angle slopes
-    def max_height(self, flow: int, dem: MatrixArray, nodata: nodata) -> ScalarArray:
+    def max_height(self, flow: int, dem: Raster) -> ScalarArray:
         """Returns the maximum height in a particular direction or NaN if there
         are NoData values.
         flow: Flow direction *index* (flow number - 1)
-        dem: DEM raster
-        nodata: NoData value for the DEM"""
+        dem: DEM raster"""
+
         direction = self.directions[flow]
-        heights = dem[direction(self)]
-        if nodata_.isin(heights, nodata):
+        heights = dem.values[direction(self)]
+        if nodata.isin(heights, dem.nodata):
             return nan
         else:
             return np.amax(heights)
@@ -227,18 +227,14 @@ class Kernel:
         length: The lateral or diagonal flow length across 1 pixel
         dem: The DEM Raster"""
 
-        # Get raster values
-        nodata = dem.nodata
-        dem = dem.values
-
         # Return NaN if the centering pixel is NoData
-        center = dem[self.row, self.col]
-        if nodata_.isin(center, nodata):
+        center = dem.values[self.row, self.col]
+        if nodata.isin(center, dem.nodata):
             return np.array([nan, nan]).reshape(1, 2)
 
         # Get maximum heights in orthogonal directions
-        clockwise = self.max_height(flow - 3, dem, nodata)
-        counterclock = self.max_height(flow - 7, dem, nodata)
+        clockwise = self.max_height(flow - 3, dem)
+        counterclock = self.max_height(flow - 7, dem)
         heights = np.array([clockwise, counterclock]).reshape(1, 2)
 
         # Compute slopes

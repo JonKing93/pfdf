@@ -68,7 +68,8 @@ from pysheds.sview import Raster as pysheds_raster
 from shapely import LineString
 from shapely.ops import substring
 
-from pfdf._utils import nodata_, real, validate
+from pfdf._utils import real, validate
+from pfdf._utils.nodata import NodataMask
 from pfdf.raster import Raster, RasterInput
 from pfdf.typing import scalar
 
@@ -204,7 +205,7 @@ def slopes(dem: RasterInput, flow: RasterInput) -> Raster:
     # Validate
     dem = Raster(dem, "dem")
     flow = dem._validate(flow, "flow directions")
-    validate.flow(flow.values, flow.name, nodata=flow.nodata)
+    validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
     # Get metadata and convert to pysheds
     dem, metadata = _to_pysheds(dem)
@@ -239,29 +240,18 @@ def relief(dem: RasterInput, flow: RasterInput) -> Raster:
     # Validate
     dem = Raster(dem, "dem")
     flow = dem._validate(flow, "flow directions")
-    validate.flow(flow.values, flow.name, nodata=flow.nodata)
+    validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
     # Get metadata and convert to pysheds
     dem, metadata = _to_pysheds(dem)
     flow = flow.as_pysheds()
 
-    # Locate ridge cells. Fix any NoData elements treated as ridges
+    # Compute vertical drops. Relief is the vertical distance to the ridge cells
     grid = Grid.from_raster(flow, nodata=nan)
-    ridge_distance = grid.distance_to_ridge(flow, nodata_out=nan, **_FLOW_OPTIONS)
-    nodatas = nodata_.mask(flow, flow.nodata)
-    ridge_distance[nodatas] = nan
-    isridge = ridge_distance == 0
-
-    # Get the height of the ridge cell associated with each pixel
-    ridge_height = dem.copy()
-    ridge_height[~isridge] = 0
-    ridge_height = grid.accumulation(
-        flow, ridge_height, nodata_out=nan, **_FLOW_OPTIONS
+    drops = grid.cell_dh(dem, flow, nodata_out=nan, **_FLOW_OPTIONS)
+    relief = grid.distance_to_ridge(
+        flow, weights=drops, nodata_out=nan, **_FLOW_OPTIONS
     )
-    ridge_height[nodatas] = nan
-
-    # Compute vertical relief
-    relief = ridge_height - dem
     return Raster.from_array(relief, nodata=nan, **metadata)
 
 
@@ -269,6 +259,7 @@ def accumulation(
     flow: RasterInput,
     weights: Optional[RasterInput] = None,
     mask: Optional[RasterInput] = None,
+    omitnan: bool = False,
 ) -> Raster:
     """
     accumulation  Computes basic, weighted, or masked flow accumulation
@@ -282,17 +273,23 @@ def accumulation(
     documentation of watershed.flow for details).
 
     accumulation(flow, weights)
+    accumulation(flow, weights, *, omitnan=True)
     Computes weighted accumulations. Here, the value of each pixel is set by the
     input "weights" raster, so the accumulation for each pixel is a sum over
     itself and all upslope pixels. The weights raster must have the same shape,
     transform, and crs as the flow raster.
 
-    accumulation(flow, mask)
-    accumulation(flow, weights, mask)
+    In the default case, NaN and NoData values in the weights raster are set to
+    propagate through the accumulation. So any pixel that is downstream of a NaN
+    or a NoData weight will have its accumulation set to NaN. Setting omitnan=True
+    will change this behavior to instead ignore NaN and NoData values. Effectively,
+    NaN and NoData pixels will be given weights of 0.
+
+    accumulation(..., mask)
     Computes a masked accumulation. In this syntax, only the True elements of
     the mask are included in accumulations. All False elements are given a weight
-    of 0. NoData pixels are interpreted as False elements. The accumulation for
-    each pixel is thus the sum over all catchment pixels included in the mask.
+    of 0. NoData elements in the mask are interpreted as False. The accumulation
+    for each pixel is thus the sum over all catchment pixels included in the mask.
     If weights are not specified, then all included pixels are given a weight of
     1. Note that the mask raster must have the same shape, transform, and crs as
     the flow raster.
@@ -300,6 +297,8 @@ def accumulation(
     Inputs:
         flow: A D8 flow direction raster in the TauDEM style
         weights: A raster indicating the value of each pixel
+        omitnan: True to ignore NaN and NoData values in the weights raster.
+            False (default) propagates these values as NaN to all downstream pixels.
         mask: A raster whose True elements indicate pixels that should be included
             in the accumulation.
 
@@ -307,25 +306,24 @@ def accumulation(
         Raster: The computed flow accumulation
     """
 
-    # Initial validation
+    # Validate
     flow = Raster(flow, "flow directions")
     if weights is not None:
         weights = flow._validate(weights, "weights")
     if mask is not None:
         mask = flow._validate(mask, "mask")
+        mask = validate.boolean(mask.values, mask.name, ignore=mask.nodata)
+    validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
-    # Locate NoDatas and validate array elements. Mask NoDatas are set to False,
-    # but otherwise ignored
-    flow_nodata = nodata_.mask(flow.values, flow.nodata)
-    validate.flow(flow.values, flow.name, nodata=flow.nodata)
+    # Locate weights NoDatas and optionally NaNs
+    nodatas = NodataMask(flow.values, None)
     if weights is not None:
-        weights_nodata = nodata_.mask(weights.values, weights.nodata)
-    else:
-        weights_nodata = None
-    if mask is not None:
-        mask = validate.boolean(mask.values, mask.name, nodata=mask.nodata)
+        if not nodatas.isnan(weights.nodata):
+            nodatas = nodatas | NodataMask(weights.values, weights.nodata)
+        if omitnan:
+            nodatas = nodatas | np.isnan(weights.values)
 
-    # Create default weights or mask as needed
+    # Create default weights, or mask weights as needed
     if weights is None and mask is None:
         weights = np.ones(flow.shape, dtype=float)
     elif mask is None:
@@ -335,14 +333,21 @@ def accumulation(
     else:
         weights = mask * weights.values
 
-    # Get the weights as a float array, and then set NoData elements to NaN.
-    # This is to prevent numeric NoData values from propagating through the
-    # pysheds accumulation algorithm.
+    # Ensure weights have floating dtype. Then adjust NoData and NaN values to
+    # prevent propagation through the pysheds accumulation algorithm
     weights = weights.astype(float)
-    masks = (flow_nodata, weights_nodata)
-    weights = nodata_.fill(weights, masks, nan)
+    if omitnan:
+        fill = 0
+    else:
+        fill = nan
+    nodatas.fill(weights, fill)
 
-    # Get metadata and convert to pysheds
+    # Always set flow Nodata elements to NaN
+    nodatas = NodataMask(flow.values, flow.nodata)
+    nodatas.fill(weights, nan)
+
+    # Get metadata and convert to pysheds. Note that weights.nodata should be NaN
+    # to prevent the algorithm from stopping at 0s when ignoring NaNs
     flow, metadata = _to_pysheds(flow)
     weights = Raster.from_array(weights, nodata=nan, **metadata).as_pysheds()
 
@@ -381,7 +386,7 @@ def catchment(flow: RasterInput, row: scalar, column: scalar) -> Raster:
     validate.integers(column, "column")
     validate.inrange(column, "column", min=0, max=flow.shape[1] - 1)
     flow = Raster(flow, "flow directions")
-    validate.flow(flow.values, flow.name, nodata=flow.nodata)
+    validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
     # Get metadata and convert to pysheds
     flow, metadata = _to_pysheds(flow)
@@ -410,7 +415,7 @@ def network(
     The stream segment network is determined using a (TauDEM-style) D8 flow direction
     raster and a raster mask. The mask is used to indicate the pixels under
     consideration as stream segments. True pixels may possibly be assigned to a
-    stream segment, False pixels will never be assiged to a stream segment. The
+    stream segment, False pixels will never be assigned to a stream segment. The
     mask typically screens out pixels with low flow accumulations, and may include
     other screenings - for example, to remove pixels in large bodies of water, or
     pixels below developed areas.
@@ -442,8 +447,8 @@ def network(
         validate.positive(max_length, "max_length")
     flow = Raster(flow, "flow directions")
     mask = flow._validate(mask, "mask")
-    validate.flow(flow.values, flow.name, nodata=flow.nodata)
-    validate.boolean(mask.values, mask.name, nodata=mask.nodata)
+    validate.flow(flow.values, flow.name, ignore=flow.nodata)
+    validate.boolean(mask.values, mask.name, ignore=mask.nodata)
 
     # Convert to pysheds
     flow = flow.as_pysheds()
@@ -475,9 +480,8 @@ def _to_pysheds(raster: Raster) -> tuple[pysheds_raster, dict[str, Any]]:
 def _fix_nodata(raster: pysheds_raster) -> pysheds_raster:
     "Sets numeric NoData values to NaN in a pysheds Raster"
     if not isnan(raster.nodata):
-        raster = raster.astype(float)
-        nodata = nodata_.mask(raster, raster.nodata)
-        raster[nodata] = nan
+        nodatas = NodataMask(raster, raster.nodata)
+        raster = nodatas.fill(raster, nan)
         raster.nodata = nan
     return raster
 

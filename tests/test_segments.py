@@ -613,6 +613,18 @@ class TestAccumulation:
         expected = np.array([6, 62])
         assert np.array_equal(output, expected)
 
+    def test_includenan(_, segments, flow):
+        flow._nodata = 7
+        output = segments._accumulation(weights=flow)
+        expected = np.array([nan, nan, 6, 5, nan, nan])
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_omitnan(_, segments, flow):
+        flow._nodata = 7
+        output = segments._accumulation(weights=flow, omitnan=True)
+        expected = np.array([2, 0, 6, 5, 11, 13])
+        assert np.array_equal(output, expected, equal_nan=True)
+
 
 #####
 # Validation
@@ -1328,6 +1340,22 @@ class TestAccumulationSummary:
         expected = np.array([nan, 14, nan, 5, 25, 25])
         assert np.array_equal(output, expected, equal_nan=True)
 
+    def test_nansum(_, segments, flow):
+        flow._nodata = 7
+        output = segments._accumulation_summary(
+            "nansum", flow, mask=None, terminal=False
+        )
+        expected = np.array([2, nan, 6, 5, 11, 13])
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_nanmean(_, segments, flow):
+        flow._nodata = 7
+        output = segments._accumulation_summary(
+            "nanmean", flow, mask=None, terminal=False
+        )
+        expected = np.array([1, nan, 3, 5, 5.5, 13 / 4])
+        assert np.array_equal(output, expected, equal_nan=True)
+
     def test_terminal(_, segments, values):
         output = segments._accumulation_summary("sum", values, mask=None, terminal=True)
         expected = [nan, 62]
@@ -1387,13 +1415,13 @@ class TestBasinSummary:
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_catchment(_, segments, values):
-        output = segments.basin_summary("nansum", values)
-        expected = np.array([23, 14, nan, 5, 25, 62])
+        output = segments.basin_summary("max", values)
+        expected = np.array([7, 7, nan, 5, 7, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_terminal_catchment(_, segments, values):
-        output = segments.basin_summary("nansum", values, terminal=True)
-        expected = np.array([nan, 62])
+        output = segments.basin_summary("max", values, terminal=True)
+        expected = np.array([nan, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_masked_catchment(_, segments, values, mask2):
@@ -1481,6 +1509,14 @@ class TestKfFactor:
         expected = sums / npixels[[2, 5]]
         assert np.array_equal(output, expected, equal_nan=True)
 
+    def test_omitnan(_, segments, flow):
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = segments.kf_factor(flow, omitnan=True)
+        expected = np.array([1, nan, 3, 5, 5.5, 13 / 4])
+        assert np.array_equal(output, expected, equal_nan=True)
+
     def test_negative(_, segments, values):
         values = values.values.copy()
         values[0, 0] = -1
@@ -1509,6 +1545,12 @@ class TestScaledDnbr:
         expected = sums / npixels[[2, 5]] / 1000
         assert np.array_equal(output, expected, equal_nan=True)
 
+    def test_omitnan(_, segments, flow):
+        flow._nodata = 7
+        output = segments.scaled_dnbr(flow, omitnan=True)
+        expected = np.array([1, nan, 3, 5, 5.5, 13 / 4]) / 1000
+        assert np.array_equal(output, expected, equal_nan=True)
+
 
 class TestScaledThickness:
     def test_basic(_, segments, values, npixels):
@@ -1522,6 +1564,14 @@ class TestScaledThickness:
         sums = np.array([nan, 14, nan, 5, 25, 25])
         npixels = np.array([nan, 2, nan, 1, 4, 4])
         expected = sums / npixels / 100
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_omitnan(_, segments, flow):
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = segments.scaled_thickness(flow, omitnan=True)
+        expected = np.array([1, nan, 3, 5, 5.5, 13 / 4]) / 100
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_terminal(_, segments, values, npixels):
@@ -1554,6 +1604,14 @@ class TestSineTheta:
         expected = sums / npixels / 10
         assert np.array_equal(output, expected, equal_nan=True)
 
+    def test_omitnan(_, segments, flow):
+        values = flow.values.copy()
+        values = values / 10
+        flow = Raster.from_array(values, nodata=0.7)
+        output = segments.sine_theta(flow, omitnan=True)
+        expected = np.array([1, nan, 3, 5, 5.5, 13 / 4]) / 10
+        assert np.array_equal(output, expected, equal_nan=True)
+
     def test_terminal(_, segments, values, npixels):
         values._values = values.values / 10
         output = segments.sine_theta(values, terminal=True)
@@ -1571,6 +1629,12 @@ class TestSlope:
     def test(_, segments, values):
         output = segments.slope(values)
         expected = np.array([23 / 5, 7, nan, 5, 6, 7])
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_omitnan(_, segments, flow):
+        flow._nodata = 7
+        output = segments.slope(flow, omitnan=True)
+        expected = np.array([1, nan, 3, 5, 6, nan])
         assert np.array_equal(output, expected, equal_nan=True)
 
 

@@ -2,8 +2,6 @@
 test_severity  Unit tests for the severity module
 """
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 

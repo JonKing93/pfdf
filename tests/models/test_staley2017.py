@@ -1,3 +1,5 @@
+from math import nan
+
 import numpy as np
 import pytest
 from affine import Affine
@@ -579,6 +581,34 @@ class TestModelValidate:
         assert raster2 == expected2
 
 
+class TestValidateOmitnan:
+    def test_bool(_):
+        output = s17.Model._validate_omitnan(True, rasters=["a", "b", "c"])
+        assert output == {"a": True, "b": True, "c": True}
+
+    def test_dict(_):
+        input = {"a": True, "b": False}
+        output = s17.Model._validate_omitnan(input, rasters=["a", "b", "c"])
+        assert output == {"a": True, "b": False, "c": False}
+
+    def test_other(_):
+        with pytest.raises(TypeError) as error:
+            s17.Model._validate_omitnan("invalid", rasters=["a"])
+        assert_contains(error, "omitnan must either be a boolean or a dict")
+
+    def test_extra_key(_):
+        input = {"a": True, "b": False}
+        with pytest.raises(ValueError) as error:
+            s17.Model._validate_omitnan(input, rasters=["a"])
+        assert_contains(error, "unrecognized key")
+
+    def test_invalid_value(_):
+        input = {"a": "invalid"}
+        with pytest.raises(TypeError) as error:
+            s17.Model._validate_omitnan(input, rasters=["a"])
+        assert_contains(error, "omitnan['a'] is not a bool.")
+
+
 class TestTerrainMask:
     def test_not_boolean(_, mask2, slopes):
         mask = mask2.astype(int)
@@ -644,6 +674,30 @@ class TestM1:
         assert np.array_equal(output[1], F)
         assert np.array_equal(output[2], S)
 
+    def test_omitnan(_, segments, flow, slopes, mask):
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M1.variables(segments, mask, slopes, flow, flow, omitnan=True)
+        T = [3 / 5, 0, 0, 1, 1 / 2, 7 / 11]
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        S = [1, nan, 3, 5, 5.5, 13 / 4]
+        assert np.array_equal(output[0], T)
+        assert np.array_equal(output[1], F, equal_nan=True)
+        assert np.array_equal(output[2], S, equal_nan=True)
+
+    def test_mixed_nan(_, segments, flow, slopes, mask):
+        values = flow.values.copy().astype(float)
+        values[values == 0] = nan
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M1.variables(segments, mask, slopes, flow, flow, omitnan=True)
+        T = [3 / 5, 0, 0, 1, 1 / 2, 7 / 11]
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        S = [1, nan, 3, 5, 5.5, 13 / 4]
+        assert np.array_equal(output[0], T)
+        assert np.array_equal(output[1], F, equal_nan=True)
+        assert np.array_equal(output[2], S, equal_nan=True)
+
 
 class TestM2:
     def test_invalid(_, flow):
@@ -659,6 +713,40 @@ class TestM2:
         assert np.allclose(output[0], T)
         assert np.array_equal(output[1], F)
         assert np.array_equal(output[2], S)
+
+    def test_omitnan(_, segments, flow, slopes, mask):
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+
+        nodatas = values == 7
+        slopes[nodatas] = nan
+        slopes = Raster.from_array(slopes, nodata=nan)
+
+        output = s17.M2.variables(segments, mask, slopes, flow, flow, omitnan=True)
+        T = [0.45371394, nan, 0.25783416, 0.42261826, 0.42261826, 0.4381661]
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        S = [1, nan, 3, 5, 5.5, 13 / 4]
+        assert np.allclose(output[0], T, equal_nan=True)
+        assert np.array_equal(output[1], F, equal_nan=True)
+        assert np.array_equal(output[2], S, equal_nan=True)
+
+    def test_mixed_nan(_, segments, flow, slopes, mask):
+        values = flow.values.copy().astype(float)
+        values[values == 0] = nan
+        flow = Raster.from_array(values, nodata=7)
+
+        nodatas = values == 7
+        slopes[nodatas] = nan
+        slopes = Raster.from_array(slopes, nodata=nan)
+
+        output = s17.M2.variables(segments, mask, slopes, flow, flow, omitnan=True)
+        T = [0.45371394, nan, 0.25783416, 0.42261826, 0.42261826, 0.4381661]
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        S = [1, nan, 3, 5, 5.5, 13 / 4]
+        assert np.allclose(output[0], T, equal_nan=True)
+        assert np.array_equal(output[1], F, equal_nan=True)
+        assert np.array_equal(output[2], S, equal_nan=True)
 
 
 class TestM3:
@@ -676,6 +764,30 @@ class TestM3:
         assert np.array_equal(output[1], F)
         assert np.array_equal(output[2], S)
 
+    def test_omitnan(_, segments, mask2, flow):
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M3.variables(segments, mask2, flow, flow, omitnan=True)
+        T = np.array([1, nan, 3, 5, 6, nan]) / np.sqrt(segments.area())
+        F = [0, 1, 1, 1, 1, 4 / 11]
+        S = [0.01, nan, 0.03, 0.05, 0.055, 13 / 400]
+        assert np.array_equal(output[0], T, equal_nan=True)
+        assert np.array_equal(output[1], F)
+        assert np.array_equal(output[2], S, equal_nan=True)
+
+    def test_mixed_nan(_, segments, mask2, flow):
+        values = flow.values.copy().astype(float)
+        values[values == 0] = nan
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M3.variables(segments, mask2, flow, flow, omitnan=True)
+        T = np.array([1, nan, 3, 5, 6, nan]) / np.sqrt(segments.area())
+        F = [0, 1, 1, 1, 1, 4 / 11]
+        S = [0.01, nan, 0.03, 0.05, 0.055, 13 / 400]
+        assert np.array_equal(output[0], T, equal_nan=True)
+        assert np.array_equal(output[1], F)
+        assert np.array_equal(output[2], S, equal_nan=True)
+
 
 class TestM4:
     def test_invalid(_, flow):
@@ -692,3 +804,29 @@ class TestM4:
         assert np.array_equal(output[0], T)
         assert np.array_equal(output[1], F)
         assert np.array_equal(output[2], S)
+
+    def test_omitnan(_, segments, mask, flow, slopes):
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        slopes[3:, :] = 31
+        output = s17.M4.variables(segments, mask, slopes, flow, flow, omitnan=True)
+        T = [3 / 5, 0, 0, 1, 1 / 2, 7 / 11]
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        S = [0.01, nan, 0.03, 0.05, 0.055, 13 / 400]
+        assert np.array_equal(output[0], T)
+        assert np.array_equal(output[1], F, equal_nan=True)
+        assert np.array_equal(output[2], S, equal_nan=True)
+
+    def test_mixed_nan(_, segments, mask, flow, slopes):
+        values = flow.values.copy().astype(float)
+        values[values == 0] = nan
+        flow = Raster.from_array(values, nodata=7)
+        slopes[3:, :] = 31
+        output = s17.M4.variables(segments, mask, slopes, flow, flow, omitnan=True)
+        T = [3 / 5, 0, 0, 1, 1 / 2, 7 / 11]
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        S = [0.01, nan, 0.03, 0.05, 0.055, 13 / 400]
+        assert np.array_equal(output[0], T)
+        assert np.array_equal(output[1], F, equal_nan=True)
+        assert np.array_equal(output[2], S, equal_nan=True)

@@ -32,13 +32,14 @@ from rasterio.crs import CRS
 from rasterio.transform import rowcol
 
 from pfdf import watershed
-from pfdf._utils import nodata_, real, validate
+from pfdf._utils import nodata, real, validate
 from pfdf._utils.kernel import Kernel
+from pfdf._utils.nodata import NodataMask
 from pfdf.errors import RasterTransformError
 from pfdf.raster import Raster, RasterInput
 from pfdf.typing import (
     BasinValues,
-    BooleanMask,
+    BooleanMatrix,
     FlowNumber,
     MatrixArray,
     Pathlike,
@@ -365,11 +366,12 @@ class Segments:
     allow you to compute these statistics while ignoring NaN and NoData values.
     You can print info about supported statistics (or return the info as a dict)
     using the "statistics" method. When computing catchment basin statistics, we
-    recommend using the "outlet", "sum", or "mean" statistics whenever possible.
-    The remaining statistics require a less efficient algorithm, and so often take
-    a long time to compute. Alternatively, the number of terminal outlet basins is
-    often much smaller than the total number of catchment basins. As such, it can
-    be much faster to only compute summaries for the terminal outlet basins.
+    recommend using the "outlet", "sum", "mean", "nansum", or "nanmean" statistics
+    whenever possible. The remaining statistics require a less efficient algorithm,
+    and so often take a long time to compute. Alternatively, the number of terminal
+    outlet basins is often much smaller than the total number of catchment basins.
+    As such, it can be much faster to only compute summaries for the terminal outlet
+    basins.
 
     NETWORK FILTERING:
     If is often desirable to limit a stream segment network to some subset of its
@@ -550,7 +552,7 @@ class Segments:
         _summarize              - Computes a summary statistic
         _values_at_outlets      - Returns the data values at the outlet pixels
         _accumulation_summary   - Computes basin summaries using flow accumulation
-        _catchment_summary      - Computes basin summaries by iterating over catchment basins
+        _catchment_summary      - Computes summaries by iterating over basin catchments
 
     Removal:
         _removable              - Locates requested segments on the edges of their local flow networks
@@ -843,6 +845,7 @@ class Segments:
         weights: Optional[RasterInput] = None,
         mask: Optional[RasterInput] = None,
         terminal: bool = False,
+        omitnan: bool = False,
     ) -> BasinValues:
         "Computes flow accumulation values"
 
@@ -851,7 +854,7 @@ class Segments:
             return self._basin_npixels(terminal).copy()
 
         # Otherwise, compute the accumulation at each outlet
-        accumulation = watershed.accumulation(self.flow, weights, mask)
+        accumulation = watershed.accumulation(self.flow, weights, mask, omitnan=omitnan)
         return self._values_at_outlets(accumulation, terminal=terminal)
 
     #####
@@ -1289,7 +1292,7 @@ class Segments:
 
         # Get the flow directions. If any are NoData, set confinement to NaN
         flows = self.flow.values[pixels]
-        if nodata_.isin(flows, self.flow.nodata):
+        if nodata.isin(flows, self.flow.nodata):
             return nan
 
         # Group indices by pixel. Preallocate slopes
@@ -1367,7 +1370,7 @@ class Segments:
 
     @staticmethod
     def _summarize(
-        statistic: StatFunction, raster: Raster, indices: PixelIndices | BooleanMask
+        statistic: StatFunction, raster: Raster, indices: PixelIndices | BooleanMatrix
     ) -> ScalarArray:
         """Compute a summary statistic over indicated pixels. Converts NoData elements
         to NaN. Returns NaN if no data elements are selected or all elements are NaN"""
@@ -1377,9 +1380,8 @@ class Segments:
         values = np.atleast_1d(values)
 
         # Set NoData values to NaN
-        if raster.nodata is not None:
-            nodatas = nodata_.mask(values, raster.nodata)
-            values[nodatas] = nan
+        nodatas = NodataMask(values, raster.nodata)
+        values = nodatas.fill(values, nan)
 
         # Return NaN if there's no data, or if everything is already NaN.
         # Otherwise, compute the statistic
@@ -1457,12 +1459,12 @@ class Segments:
         a basin's summary value will still be NaN if every pixel in the basin
         basin is NaN.
 
-        When possible, we recommend only using the "outlet", "mean", and "sum"
-        statistics when computing summaries for every catchment basin. The remaining
-        statistic require a less efficient algorithm, and so are much slower to
-        compute. Alternatively, see below for an option to ony compute statistics
-        for terminal outlet basins - this is typically a faster operation, and
-        more suitable for other statistics.
+        When possible, we recommend only using the "outlet", "mean", "sum", "nanmean",
+        and "nansum" statistics when computing summaries for every catchment basin.
+        The remaining statistic require a less efficient algorithm, and so are much
+        slower to compute. Alternatively, see below for an option to ony compute
+        statistics for terminal outlet basins - this is typically a faster operation,
+        and more suitable for other statistics.
 
         self.basin_summary(statistic, values, mask)
         Computes masked statistics over the catchment basins. True elements in the
@@ -1478,7 +1480,7 @@ class Segments:
         terminal outlet basins is often much smaller than the total number of
         segments. As such, this option presents a faster alternative and is
         particularly suitable when computing statistics other than "outlet",
-        "mean", or "sum".
+        "mean", "sum", "nanmean", or "nansum".
         ----------
         Inputs:
             statistic: A string naming the requested statistic. See Segments.statistics()
@@ -1498,32 +1500,52 @@ class Segments:
         values = self._validate(values, "values raster")
         if mask is not None:
             mask = self._validate(mask, "mask")
-            mask = validate.boolean(mask.values, mask.name, nodata=mask.nodata)
+            mask = validate.boolean(mask.values, mask.name, ignore=mask.nodata)
 
         # Outlet values
         if statistic == "outlet":
             return self._values_at_outlets(values, terminal)
 
         # Sum or mean are derived from accumulation
-        elif statistic in ["sum", "mean"]:
+        elif statistic in ["sum", "mean", "nansum", "nanmean"]:
             return self._accumulation_summary(statistic, values, mask, terminal)
 
-        # Anything else needs to iterate through catchment basins
+        # Anything else needs to iterate through basin catchments
         else:
             return self._catchment_summary(statistic, values, mask, terminal)
 
     def _accumulation_summary(
-        self, statistic: Statistic, values: Raster, mask: Raster | None, terminal: bool
+        self,
+        statistic: Literal["sum", "mean", "nansum", "nanmean"],
+        values: Raster,
+        mask: BooleanMatrix | None,
+        terminal: bool,
     ) -> BasinValues:
         "Uses flow accumulation to compute basin summaries"
 
+        # Note whether the summary should omit NaN and NoData values
+        if "nan" not in statistic:
+            omitnan = False
+        else:
+            omitnan = True
+
+            # A mask is required to omit NaNs. Initialize if not provided.
+            if mask is None:
+                mask = np.ones(values.shape, dtype=bool)
+
+            # Update the mask to ignore pixels that are NoData or NaN
+            nodatas = NodataMask(values.values, values.nodata)
+            if not nodatas.isnan(values.nodata):
+                nodatas = nodatas | np.isnan(values.values)
+            nodatas.fill(mask, False)
+
         # Compute sums and pixels counts. If there are no pixels, the statistic is NaN
-        sums = self._accumulation(values, mask=mask, terminal=terminal)
+        sums = self._accumulation(values, mask=mask, terminal=terminal, omitnan=omitnan)
         npixels = self._accumulation(mask=mask, terminal=terminal)
         sums[npixels == 0] = nan
 
         # Return the sum or mean, as appropriate
-        if statistic == "sum":
+        if "sum" in statistic:
             return sums
         else:
             return sums / npixels
@@ -1535,7 +1557,7 @@ class Segments:
         mask: Raster | None,
         terminal: bool,
     ) -> BasinValues:
-        "Iterates through catchment basins to compute basin summaries"
+        "Iterates through basin catchments to compute summaries"
 
         # Get statistic, preallocate, and locate catchment outlets
         statistic = _STATS[statistic][0]
@@ -1567,7 +1589,7 @@ class Segments:
         self.area(mask)
         Computes masked areas for the basins. True elements in the mask indicate
         pixels that should be included in the calculation of areas. False pixels
-        are ignored and given an area of 0.
+        are ignored and given an area of 0. Nodata elements are interpreted as False.
 
         self.area(..., *, terminal=True)
         Only returns values for the terminal outlet basins.
@@ -1665,7 +1687,9 @@ class Segments:
         self,
         kf_factor: RasterInput,
         mask: Optional[RasterInput] = None,
+        *,
         terminal: bool = False,
+        omitnan: bool = False,
     ) -> BasinValues:
         """
         kf_factor  Computes mean soil KF-factor for basins
@@ -1673,12 +1697,19 @@ class Segments:
         self.kf_factor(kf_factor)
         Computes the mean catchment KF-factor for each stream segment in the
         network. Note that the KF-Factor raster must have all positive values.
+        If a catchment basin contains NaN or NoData values, then its mean KF-Factor
+        is set to NaN.
 
         self.kf_factor(kf_factor, mask)
         Also specifies a data mask for the watershed. True elements of the mask
         are used to compute mean KF-Factors. False elements are ignored. If a
-        catchment only contains False elements, then its mean Kf-factor is set
+        basin only contains False elements, then its mean Kf-factor is set
         to NaN.
+
+        self.kf_factor(..., *, omitnan=True)
+        Ignores NaN and NoData values when computing mean KF-factors. If a basin
+        only contains NaN and/or NoData values, then its mean KF-factor will still
+        be NaN.
 
         self.kf_factor(..., *, terminal=True)
         Only computes values for the terminal outlet basins.
@@ -1688,21 +1719,39 @@ class Segments:
                 elements.
             mask: A raster mask whose True elements indicate the pixels that should
                 be used to compute mean KF-factors
+            omitnan: True to ignore NaN and NoData values. If False (default),
+                any basin with (unmasked) NaN or NoData values will have its mean
+                Kf-factor set to NaN.
             terminal: True to only compute values for terminal outlet basins.
                 False (default) to compute values for all catchment basins.
 
         Outputs:
             numpy 1D array: The mean catchment KF-Factor for each basin
         """
+
+        # Validate
         kf_factor = self._validate(kf_factor, "kf_factor")
-        validate.positive(kf_factor.values, "kf_factor", nodata=kf_factor.nodata)
-        return self.basin_summary("mean", kf_factor, mask, terminal)
+        validate.positive(kf_factor.values, "kf_factor", ignore=[kf_factor.nodata, nan])
+
+        # Summarize
+        if omitnan:
+            method = "nanmean"
+        else:
+            method = "mean"
+        return self.basin_summary(
+            method,
+            kf_factor,
+            mask,
+            terminal,
+        )
 
     def scaled_dnbr(
         self,
         dnbr: RasterInput,
         mask: Optional[RasterInput] = None,
+        *,
         terminal: bool = False,
+        omitnan: bool = False,
     ) -> BasinValues:
         """
         scaled_dnbr  Computes mean catchment dNBR / 1000 for basins
@@ -1711,7 +1760,8 @@ class Segments:
         Computes mean catchment dNBR for each stream segment in the network.
         These mean dNBR values are then divided by 1000 to place dNBR values
         roughly on the interval from 0 to 1. Returns the scaled dNBR values as a
-        numpy 1D array.
+        numpy 1D array. If a basin contains NaN or NoData values, then its dNBR
+        value is set to NaN.
 
         self.scaled_dnbr(dnbr, mask)
         Also specifies a data mask for the watershed. True elements of the mask
@@ -1719,26 +1769,41 @@ class Segments:
         catchment only contains False elements, then its scaled dNBR value is set
         to NaN.
 
-        self.scaled_dnbr(..., terminal=True)
+        self.scaled_dnbr(..., *, omitnan=True)
+        Ignores NaN and NoData values when computing scaled dNBR values. However,
+        if a basin only contains these values, then its scaled dNBR value will
+        still be NaN.
+
+        self.scaled_dnbr(..., *, terminal=True)
         Only computes values for the terminal outlet basins.
         ----------
         Inputs:
             dnbr: A dNBR raster for the watershed
             mask: A raster mask whose True elements indicate the pixels that should
                 be used to compute scaled dNBR
+            omitnan: True to ignore NaN and NoData values. If False (default),
+                any basin with (unmasked) NaN or NoData values will have its value
+                set to NaN.
             terminal: True to only compute values for terminal outlet basins.
                 False (default) to compute values for all catchment basins.
 
         Outputs:
             numpy 1D array: The mean catchment dNBR/1000 for the basins
         """
-        dnbr = self.basin_summary("mean", dnbr, mask, terminal)
+
+        if omitnan:
+            method = "nanmean"
+        else:
+            method = "mean"
+        dnbr = self.basin_summary(method, dnbr, mask, terminal)
         return dnbr / 1000
 
     def scaled_thickness(
         self,
         soil_thickness: RasterInput,
         mask: Optional[RasterInput] = None,
+        *,
+        omitnan: bool = False,
         terminal: bool = False,
     ) -> BasinValues:
         """
@@ -1757,7 +1822,12 @@ class Segments:
         a catchment only contains False elements, then its scaled soil thickness
         is set to NaN.
 
-        self.scaled_thickness(..., terminal=True)
+        self.scaled_thickness(..., *, omitnan=True)
+        Ignores NaN and NoData values when computing scaled soil thickness values.
+        However, if a basin only contains NaN and NoData, then its scaled soil
+        thickness will still be NaN.
+
+        self.scaled_thickness(..., *, terminal=True)
         Only computes values for the terminal outlet basins.
         ----------
         Inputs:
@@ -1765,23 +1835,36 @@ class Segments:
                 Cannot contain negative values.
             mask: A raster mask whose True elements indicate the pixels that should
                 be used to compute scaled soil thicknesses
+            omitnan: True to ignore NaN and NoData values. If False (default),
+                any basin with (unmasked) NaN or NoData values will have its value
+                set to NaN.
             terminal: True to only compute values for terminal outlet basins.
                 False (default) to compute values for all catchment basins.
 
         Outputs:
             numpy 1D array: The mean catchment soil thickness / 100 for each basin
         """
+
+        # Validate
         soil_thickness = self._validate(soil_thickness, "soil_thickness")
         validate.positive(
-            soil_thickness.values, "soil_thickness", nodata=soil_thickness.nodata
+            soil_thickness.values, "soil_thickness", ignore=[soil_thickness.nodata, nan]
         )
-        soil_thickness = self.basin_summary("mean", soil_thickness, mask, terminal)
+
+        # Summarize
+        if omitnan:
+            method = "nanmean"
+        else:
+            method = "mean"
+        soil_thickness = self.basin_summary(method, soil_thickness, mask, terminal)
         return soil_thickness / 100
 
     def sine_theta(
         self,
         sine_thetas,
         mask: Optional[RasterInput] = None,
+        *,
+        omitnan: bool = False,
         terminal: bool = False,
     ) -> BasinValues:
         """
@@ -1801,6 +1884,11 @@ class Segments:
         If a catchment only contains False elements, then its sin(theta) value
         is set to NaN.
 
+        self.sine_theta(..., *, omitnan=True)
+        Ignores NaN and NoData values when computing mean sine theta values.
+        However, if a basin only contains NaN and NoData, then its sine theta
+        value will still be NaN.
+
         self.sine_theta(..., terminal=True)
         Only computes values for the terminal outlet basins.
         ----------
@@ -1808,6 +1896,9 @@ class Segments:
             sine_thetas: A raster of sin(theta) values for the watershed
             mask: A raster mask whose True elements indicate the pixels that should
                 be used to compute sin(theta) values
+            omitnan: True to ignore NaN and NoData values. If False (default),
+                any basin with (unmasked) NaN or NoData values will have its value
+                set to NaN.
             terminal: True to only compute values for terminal outlet basins.
                 False (default) to compute values for all catchment basins.
 
@@ -1815,23 +1906,36 @@ class Segments:
             numpy 1D array: The mean sin(theta) value for each basin
         """
 
+        # Validate
         sine_thetas = self._validate(sine_thetas, "sine_thetas")
         validate.inrange(
             sine_thetas.values,
             sine_thetas.name,
             min=0,
             max=1,
-            nodata=sine_thetas.nodata,
+            ignore=[sine_thetas.nodata, nan],
         )
-        return self.basin_summary("mean", sine_thetas, mask, terminal)
 
-    def slope(self, slopes: RasterInput) -> SegmentValues:
+        # Summarize
+        if omitnan:
+            method = "nanmean"
+        else:
+            method = "mean"
+        return self.basin_summary(method, sine_thetas, mask, terminal)
+
+    def slope(self, slopes: RasterInput, omitnan: bool = False) -> SegmentValues:
         """
-        slope  Returns the mean slope (rise/run) for basins
+        slope  Returns the mean slope (rise/run) for each segment
         ----------
         self.slope(slopes)
         Given a raster of slopes (rise/run), returns the mean slope for each
-        segment as a numpy 1D array.
+        segment as a numpy 1D array. If a stream segment's pixels contain NaN or
+        NoData values, then the slope for the segment is set to NaN.
+
+        self.slope(slopes, omitnan=True)
+        Ignores NaN and NoData values when computing mean slope. However, if a
+        segment only contains NaN and NoData values, then its value will still
+        be NaN.
         ----------
         Inputs:
             slopes: A slope (rise/run) raster for the watershed
@@ -1839,7 +1943,11 @@ class Segments:
         Outputs:
             numpy 1D array: The mean slope for each stream segment.
         """
-        return self.summary("mean", slopes)
+        if omitnan:
+            method = "nanmean"
+        else:
+            method = "mean"
+        return self.summary(method, slopes)
 
     def relief(self, relief: RasterInput) -> SegmentValues:
         """
@@ -1887,7 +1995,7 @@ class Segments:
         Given a raster mask, computes the proportion of True pixels in the
         catchment basin for each stream segment. Returns the ratios as a numpy 1D
         array with one element per stream segment. Ratios will be on the interval
-        from 0 to 1.
+        from 0 to 1. Note that NoData pixels in the mask are interpreted as False.
 
         self.upslope_ratio(mask, terminal=True)
         Only computes values for the terminal outlet basins.

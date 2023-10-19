@@ -37,7 +37,8 @@ from typing import Any
 
 import numpy as np
 
-from pfdf._utils import aslist, classify, real, validate
+from pfdf._utils import aslist, real, validate
+from pfdf._utils.classify import classify
 from pfdf.raster import Raster, RasterInput
 from pfdf.typing import Thresholds, strs
 

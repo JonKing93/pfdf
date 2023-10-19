@@ -66,19 +66,11 @@ scalar = int | float | ScalarArray
 vector = ints | floats | VectorArray
 matrix = ints | floats | MatrixArray
 
-# Generic Masks
-Mask = (  # This is for user-provided masks
-    NDArray[MatrixShape, Integer]
-    | NDArray[MatrixShape, Floating]
-    | NDArray[MatrixShape, Bool]
-)
-BooleanMask = NDArray[MatrixShape, Bool]  # This is a validated mask for internal use
-BooleanArray = NDArray[Any, Bool]
-
-# NoData values
-nodata = ScalarArray | None
-DataMask = BooleanArray | None
+# NoDatas and masks
+ignore = None | scalar | Sequence[scalar]
 Casting = Literal["no", "equiv", "safe", "same_kind", "unsafe"]
+BooleanArray = NDArray[Any, Bool]
+BooleanMatrix = NDArray[MatrixShape, Bool]
 
 # Segment summaries
 SegmentsShape = Shape["Segments"]

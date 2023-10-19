@@ -31,9 +31,9 @@ from pysheds.sview import ViewFinder
 from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 
-from pfdf._utils import nodata_, real, validate
+from pfdf._utils import nodata, real, validate
 from pfdf.errors import RasterCrsError, RasterShapeError, RasterTransformError
-from pfdf.typing import Casting, MatrixArray, Pathlike, scalar, shape2d
+from pfdf.typing import Casting, MatrixArray, Pathlike, ScalarArray, scalar, shape2d
 
 
 class Raster:
@@ -286,9 +286,9 @@ class Raster:
         # Initialize attributes
         self._name: str = None
         self._values: MatrixArray = None
-        self._nodata: scalar = None
-        self._crs: CRS = None
-        self._transform: Affine = None
+        self._nodata: Optional[ScalarArray] = None
+        self._crs: Optional[CRS] = None
+        self._transform: Optional[Affine] = None
 
         # Set name
         if name is None:
@@ -511,7 +511,7 @@ class Raster:
 
         if (
             isinstance(other, Raster)
-            and nodata_.equal(self.nodata, other.nodata)
+            and nodata.equal(self.nodata, other.nodata)
             and self.transform == other.transform
             and self.crs == other.crs
             and np.array_equal(self.values, other.values, equal_nan=True)
