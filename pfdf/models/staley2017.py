@@ -107,7 +107,6 @@ Model Classes:
 
 Internal:
     _validate           - Validates parameters/variables and reshapes for broadcasting
-    _clean_dimensions   - Optionally removes trailing singleton dimensions
 """
 
 from abc import ABC, abstractmethod
@@ -116,7 +115,7 @@ from typing import Any
 
 import numpy as np
 
-from pfdf._utils import real, validate
+from pfdf._utils import clean_dims, real, validate
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import DurationsError, ShapeError
 from pfdf.raster import Raster, RasterInput
@@ -154,7 +153,7 @@ def accumulation(
     Cs: Parameters,
     S: Variables,
     *,
-    always_3d: bool = False,
+    keepdims: bool = False,
 ) -> SegmentAccumulations:
     """
     accumulation  Computes rainfall accumulations needed for specified debris-flow probability levels
@@ -211,7 +210,7 @@ def accumulation(
     case could be testing the model using different datasets to derive one or
     more variables.
 
-    accumulation(..., *, always_3d = True)
+    accumulation(..., *, keepdims = True)
     Always returns the output as a 3D numpy array, regardless of the number
     of p-values and parameter runs.
     ----------
@@ -224,7 +223,7 @@ def accumulation(
         F: The wildfire severity variable
         Cs: The coefficients for the surface properties variable
         S: The surface properties variable
-        always_3d: True to always return a 3D numpy array. If false (default),
+        keepdims: True to always return a 3D numpy array. If false (default),
             returns a 2D array when there is 1 p-value, and a 1D array if there
             is 1 p-value and 1 parameter run.
 
@@ -237,14 +236,11 @@ def accumulation(
     p, B, Ct, Cf, Cs, T, F, S = _validate(p, "p", B, Ct, Cf, Cs, T, F, S)
     validate.inrange(p, "p", min=0, max=1, ignore=np.nan)
 
-    # Solve the model
+    # Solve the model. Optionally remove trailing singleton dimensions
     numerator = np.log(p / (1 - p)) - B
     denominator = Ct * T + Cf * F + Cs * S
     accumulation = numerator / denominator
-
-    # Optionally remove trailing singletons
-    accumulation = _clean_dimensions(accumulation, always_3d)
-    return accumulation
+    return clean_dims(accumulation, keepdims)
 
 
 def probability(
@@ -257,7 +253,7 @@ def probability(
     Cs: Parameters,
     S: Variables,
     *,
-    always_3d: bool = False,
+    keepdims: bool = False,
 ) -> SegmentPvalues:
     """
     probability  Computes debris-flow probability for the specified rainfall durations
@@ -287,12 +283,12 @@ def probability(
     for a particular rainfall duration. Another use case for multiple runs
     is for Monte Carlo validation of one or more model parameters.
 
-    The p-values - p - are the probabilities for which the model should be solved.
-    For example, p=0.5 solves for the rainfall intensities that cause a 50%
-    likelihood of a debris-flow. p should be a 1D array listing all the
-    probabilities that should be solved for.
+    The R values are the rainfall accumulations for which the model should be solved.
+    For example, R = 6 solves for debris-flow probability when rainfall accumulation
+    is 6 mm/duration. R should be a 1D array listing all the accumulations that should
+    be solved for.
 
-    This function solves the rainfall accumulations for all stream segments,
+    This function solves the debris-flow probabilities for all stream segments,
     parameter runs, and rainfall accumulations provided. Note that rainfall
     accumulations should be relative to the rainfall durations associated with
     each set of parameters. For example, if using parameters for 15-minute and
@@ -315,9 +311,9 @@ def probability(
     case could be testing the model using different datasets to derive one or
     more variables.
 
-    accumulation(..., *, always_3d = True)
+    accumulation(..., *, keepdims = True)
     Always returns the output as a 3D numpy array, regardless of the number
-    of p-values and parameter runs.
+    of R values and parameter runs.
     ----------
     Inputs:
         R: The rainfall accumulations for which to solve the model
@@ -328,7 +324,7 @@ def probability(
         F: The wildfire severity variable
         Cs: The coefficients for the surface properties variable
         S: The surface properties variable
-        always_3d: True to always return a 3D numpy array. If false (default),
+        keepdims: True to always return a 3D numpy array. If False (default),
             returns a 2D array when there is 1 p-value, and a 1D array if there
             is 1 p-value and 1 parameter run.
 
@@ -341,13 +337,10 @@ def probability(
     R, B, Ct, Cf, Cs, T, F, S = _validate(R, "R", B, Ct, Cf, Cs, T, F, S)
     validate.positive(R, "R", allow_zero=True, ignore=np.nan)
 
-    # Solve the model
+    # Solve the model. Optionally remove trailing singletons
     eX = np.exp(B + Ct * T * R + Cf * F * R + Cs * S * R)
     probability = eX / (1 + eX)
-
-    # Optionally remove trailing singletons
-    probability = _clean_dimensions(probability, always_3d)
-    return probability
+    return clean_dims(probability, keepdims)
 
 
 def _validate(PR, PRname, B, Ct, Cf, Cs, T, F, S):
@@ -405,14 +398,6 @@ def _validate(PR, PRname, B, Ct, Cf, Cs, T, F, S):
     PR, B, Ct, Cf, Cs = vectors.values()
     T, F, S = variables.values()
     return PR, B, Ct, Cf, Cs, T, F, S
-
-
-def _clean_dimensions(output, always_3d):
-    "Optionally removes trailing singleton dimensions"
-
-    if not always_3d:
-        output = np.atleast_1d(np.squeeze(output))
-    return output
 
 
 #####

@@ -20,10 +20,12 @@ Modules:
 
 from typing import Any
 
-from numpy import bool_, floating, integer
+import numpy as np
+
+from pfdf.typing import RealArray
 
 # Combination numpy dtype for real-valued data
-real = [integer, floating, bool_]
+real = [np.integer, np.floating, np.bool_]
 
 
 def aslist(input: Any) -> list:
@@ -56,3 +58,10 @@ def astuple(input: Any) -> tuple:
     elif not isinstance(input, tuple):
         input = (input,)
     return input
+
+
+def clean_dims(X: RealArray, keepdims: bool) -> RealArray:
+    "Optionally removes trailing singleton dimensions"
+    if not keepdims:
+        X = np.atleast_1d(np.squeeze(X))
+    return X

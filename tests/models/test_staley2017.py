@@ -84,20 +84,6 @@ def slopes():
 #####
 
 
-class TestCleanDimensions:
-    def test_clean(_):
-        a = np.ones((4, 4, 1))
-        output = s17._clean_dimensions(a, always_3d=False)
-        assert output.shape == (4, 4)
-        assert np.array_equal(output, np.ones((4, 4)))
-
-    def test_3d(_):
-        a = np.ones((4, 4, 1))
-        output = s17._clean_dimensions(a, always_3d=True)
-        assert output.shape == (4, 4, 1)
-        assert np.array_equal(a, output)
-
-
 class TestValidate:
     def test_valid_1_varcol(_):
         PR = np.ones(4)
@@ -322,7 +308,7 @@ class TestAccumulation:
                 [3.33333333, 5.28550512, 8.53723404],
             ]
         ).reshape(5, 3, 1)
-        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S, always_3d=True)
+        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S, keepdims=True)
         assert output.shape == expected.shape
         assert np.allclose(output, expected)
 
@@ -342,7 +328,7 @@ class TestAccumulation:
                 [3.33333333, 5.28550512, 8.53723404],
             ]
         ).reshape(5, 3)
-        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S, always_3d=False)
+        output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S, keepdims=False)
         assert output.shape == expected.shape
         assert np.allclose(output, expected)
 
@@ -451,7 +437,7 @@ class TestProbability:
             ]
         ).reshape(5, 3, 1)
 
-        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S, always_3d=True)
+        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S, keepdims=True)
         assert output.shape == expected.shape
         assert np.allclose(output, expected)
 
@@ -472,7 +458,7 @@ class TestProbability:
             ]
         ).reshape(5, 3)
 
-        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S, always_3d=False)
+        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S, keepdims=False)
         assert output.shape == expected.shape
         assert np.allclose(output, expected)
 

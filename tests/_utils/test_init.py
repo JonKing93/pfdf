@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from pfdf._utils import aslist, astuple, real
+from pfdf._utils import aslist, astuple, clean_dims, real
 
 #####
 # Misc
@@ -38,3 +38,17 @@ def test_aslist(input, expected):
 )
 def test_astuple(input, expected):
     assert astuple(input) == expected
+
+
+class TestCleanDims:
+    def test_clean(_):
+        a = np.ones((4, 4, 1))
+        output = clean_dims(a, keepdims=False)
+        assert output.shape == (4, 4)
+        assert np.array_equal(output, np.ones((4, 4)))
+
+    def test_no_clean(_):
+        a = np.ones((4, 4, 1))
+        output = clean_dims(a, keepdims=True)
+        assert output.shape == (4, 4, 1)
+        assert np.array_equal(a, output)
