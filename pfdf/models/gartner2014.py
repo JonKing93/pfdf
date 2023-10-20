@@ -36,7 +36,7 @@ Internal:
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from numpy import atleast_1d, exp, log, sqrt, squeeze, nan
+from numpy import atleast_1d, exp, log, nan, sqrt, squeeze
 
 from pfdf._utils import real, validate
 from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volumes
@@ -105,7 +105,7 @@ def emergency(
     Always returns output as a 2D array, regardless of the number of parameter runs.
     ----------
     Inputs:
-        i15: Peak 15-minute rainfall intensities in mm/hour
+        i15: Peak 15-minute rainfall intensities in mm/hour.
         Bmh: Catchment area burned at moderate or high intensity in km^2
         R: Watershed relief in meters
         B: The model intercept
@@ -127,7 +127,7 @@ def emergency(
     B, Ci, Cb, Cr = _validate_parameters(parameters, ncols=i15.shape[1])
 
     # Solve the model. Suppress divide-by-zero warnings for log(0)
-    with np.errstate(divide='ignore'):
+    with np.errstate(divide="ignore"):
         lnV = B + Ci * sqrt(i15) + Cb * log(Bmh) + Cr * sqrt(R)
         V = exp(lnV)
 
@@ -222,14 +222,22 @@ def longterm(
     """
 
     # Validate. Note that the bool for each variable is whether to allow zero values
-    variables = {"i60": (i60, True), "Bt": (Bt, True), "T": (T, True), "A": (A, False), "R": (R, False)}
+    variables = {
+        "i60": (i60, True),
+        "Bt": (Bt, True),
+        "T": (T, True),
+        "A": (A, False),
+        "R": (R, False),
+    }
     parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Ct": Ct, "Ca": Ca, "Cr": Cr}
     i60, Bt, T, A, R = _validate_variables(variables)
     B, Ci, Cb, Ct, Ca, Cr = _validate_parameters(parameters, ncols=i60.shape[1])
 
     # Solve the model. Suppress divide-by-zero warning for log(0)
-    with np.errstate(divide='ignore'):
-        lnV = B + Ci * log(i60) + Cb * log(Bt) + Ct * log(T) + Ca * log(A) + Cr * sqrt(R)
+    with np.errstate(divide="ignore"):
+        lnV = (
+            B + Ci * log(i60) + Cb * log(Bt) + Ct * log(T) + Ca * log(A) + Cr * sqrt(R)
+        )
         V = exp(lnV)
 
     # Optionally remove trailing singletons

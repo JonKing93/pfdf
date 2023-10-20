@@ -84,6 +84,21 @@ class TestValidateVariables:
             g14._validate_variables(variables)
         assert_contains(error, "bname")
 
+    def test_valid_zero(_):
+        a = np.arange(10).reshape(2, 5)
+        variables = {"a": (a, True)}
+        (output,) = g14._validate_variables(variables)
+        assert np.array_equal(output, a)
+
+    @pytest.mark.parametrize("bad", (0, -2.2))
+    def test_not_positive(_, bad):
+        a = np.arange(0, 10).reshape(2, 5) + 1
+        a[0, 0] = bad
+        variables = {"aname": (a, False)}
+        with pytest.raises(ValueError) as error:
+            g14._validate_variables(variables)
+        assert_contains(error, "aname")
+
 
 #####
 # User function tests
