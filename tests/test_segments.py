@@ -2294,6 +2294,8 @@ class TestCopy:
         assert copy._ids is not segments._ids
         assert copy._indices == segments._indices
         assert copy._indices is not segments._indices
+        assert np.array_equal(copy._npixels, segments._npixels)
+        assert copy._npixels is not segments._npixels
         assert np.array_equal(copy._child, segments._child)
         assert copy._child is not segments._child
         assert np.array_equal(copy._parents, segments._parents)
@@ -2306,6 +2308,7 @@ class TestCopy:
         assert copy._segments is not None
         assert copy._ids is not None
         assert copy._indices is not None
+        assert copy._npixels is not None
         assert copy._child is not None
         assert copy._parents is not None
         assert copy._basins is not None

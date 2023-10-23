@@ -2251,6 +2251,7 @@ class Segments:
         copy._segments = self._segments.copy()
         copy._ids = self._ids.copy()
         copy._indices = self._indices.copy()
+        copy._npixels = self._npixels.copy()
         copy._child = self._child.copy()
         copy._parents = self._parents.copy()
         copy._basins = None
@@ -2581,10 +2582,14 @@ class Segments:
                 fields. Each value should be a numpy 1D array with one element per
                 segment. Each array should have an integer, floating-point, or
                 boolean dtype.
-            basins: Set to True to export drainage basin polygons. If False (default),
-                exports stream segment LineString features.
-            nested: Set to True to export nested drainage basins. If False (default),
-                exports outlet basins. Ignored if basins = False.
+            type: Indicates the type of vector feature to export. Options are
+                'segments' (default), 'basins', and 'outlets'
+            type: A string indicating the type of feature to export. Options are
+                'segments', 'outlets', and 'basins'.
+            terminal: Customizes the export of outlet Points and basin Polygons.
+                If True (default), exports the terminal outlet points or terminal
+                outlet basins. If False, exports all outlet points or the nested
+                drainage basins. Ignored if type='segments'.
             overwrite: True to allow replacement of existing files. False (default)
                 to prevent overwriting.
             driver: The name of the file-format driver to use when writing the
