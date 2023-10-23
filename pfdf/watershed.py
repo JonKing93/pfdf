@@ -262,16 +262,22 @@ def relief(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
     if check_flow:
         validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
+    # Mark Nodatas in the DEM or flow directions as NaN.
+    nodatas = NodataMask(dem.values, dem.nodata)
+    nodatas = nodatas | NodataMask(flow.values, flow.nodata)
+
     # Get metadata and convert to pysheds
     dem, metadata = _to_pysheds(dem)
     flow = flow.as_pysheds()
 
     # Compute vertical drops. Relief is the vertical distance to the ridge cells
+    # Preserve NoData pixels (sometimes distance_to_ridge neglects them)
     grid = Grid.from_raster(flow, nodata=nan)
     drops = grid.cell_dh(dem, flow, nodata_out=nan, **_FLOW_OPTIONS)
     relief = grid.distance_to_ridge(
         flow, weights=drops, nodata_out=nan, **_FLOW_OPTIONS
     )
+    nodatas.fill(relief, nan)
     return Raster.from_array(relief, nodata=nan, **metadata)
 
 
