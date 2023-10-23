@@ -64,7 +64,7 @@ class TestValidateParameters:
 class TestValidateVariables:
     def test_valid(_):
         a = np.arange(0, 10).reshape(2, 5)
-        variables = {"a": (a, True), "b": (a + 1, False), "c": (a + 2, False)}
+        variables = {"a": a, "b": a + 1, "c": a + 2}
         output = g14._validate_variables(variables, nruns=5)
         assert isinstance(output, tuple)
         assert len(output) == 3
@@ -74,7 +74,7 @@ class TestValidateVariables:
 
     def test_mixed_ncols(_):
         a = np.arange(0, 10).reshape(2, 5)
-        variables = {"a": ([1, 2], True), "b": (a + 1, False), "c": (a + 2, False)}
+        variables = {"a": [1, 2], "b": a + 1, "c": a + 2}
         output = g14._validate_variables(variables, nruns=5)
         assert isinstance(output, tuple)
         assert len(output) == 3
@@ -83,7 +83,7 @@ class TestValidateVariables:
         assert np.array_equal(output[2], a + 2)
 
     def test_mixed_nrows(_):
-        variables = {"a": (5, True), "b": ([1, 2, 3, 4], True)}
+        variables = {"a": 5, "b": [1, 2, 3, 4]}
         output = g14._validate_variables(variables, nruns=1)
         assert isinstance(output, tuple)
         assert len(output) == 2
@@ -93,35 +93,34 @@ class TestValidateVariables:
 
     def test_invalid_ncols_N(_):
         a = np.arange(0, 10).reshape(2, 5)
-        variables = {"aname": (a, True)}
+        variables = {"aname": a}
         with pytest.raises(ShapeError) as error:
             g14._validate_variables(variables, nruns=4)
         assert_contains(error, "must have either 1 or 4 columns", "aname has 5")
 
     def test_invalid_ncols_1(_):
         a = np.arange(0, 10).reshape(2, 5)
-        variables = {"aname": (a, True)}
+        variables = {"aname": a}
         with pytest.raises(ShapeError) as error:
             g14._validate_variables(variables, nruns=1)
         assert_contains(error, "must have 1 column", "aname has 5")
 
     def test_invalid_nrows(_):
-        variables = {"aname": ([1, 2, 3], True), "bname": ([1, 2, 3, 4], True)}
+        variables = {"aname": [1, 2, 3], "bname": [1, 2, 3, 4]}
         with pytest.raises(ShapeError) as error:
             g14._validate_variables(variables, nruns=1)
         assert_contains(error, "aname has 3 rows, whereas bname has 4")
 
     def test_valid_zero(_):
         a = np.arange(10).reshape(2, 5)
-        variables = {"a": (a, True)}
+        variables = {"a": a}
         (output,) = g14._validate_variables(variables, nruns=5)
         assert np.array_equal(output, a)
 
-    @pytest.mark.parametrize("bad", (0, -2.2))
-    def test_not_positive(_, bad):
+    def test_not_positive(_):
         a = np.arange(0, 10).reshape(2, 5) + 1
-        a[0, 0] = bad
-        variables = {"aname": (a, False)}
+        a[0, 0] = -2.2
+        variables = {"aname": a}
         with pytest.raises(ValueError) as error:
             g14._validate_variables(variables, nruns=5)
         assert_contains(error, "aname")

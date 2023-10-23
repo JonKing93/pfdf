@@ -36,7 +36,7 @@ Internal:
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from numpy import atleast_1d, exp, log, nan, sqrt, squeeze
+from numpy import exp, log, nan, sqrt
 
 from pfdf._utils import clean_dims, real, validate
 from pfdf.errors import ShapeError
@@ -129,9 +129,9 @@ def emergency(
             sediment volumes in m^3
     """
 
-    # Validate. Note that the bool for each variable is whether to allow zero values
+    # Validate
     parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Cr": Cr}
-    variables = {"i15": (i15, True), "Bmh": (Bmh, True), "R": (R, False)}
+    variables = {"i15": i15, "Bmh": Bmh, "R": R}
     (B, Ci, Cb, Cr), nruns = _validate_parameters(parameters)
     i15, Bmh, R = _validate_variables(variables, nruns)
 
@@ -233,15 +233,9 @@ def longterm(
             sediment volumes in m^3
     """
 
-    # Validate. Note that the bool for each variable is whether to allow zero values
+    # Validate
     parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Ct": Ct, "Ca": Ca, "Cr": Cr}
-    variables = {
-        "i60": (i60, True),
-        "Bt": (Bt, True),
-        "T": (T, True),
-        "A": (A, False),
-        "R": (R, False),
-    }
+    variables = {"i60": i60, "Bt": Bt, "T": T, "A": A, "R": R}
     (B, Ci, Cb, Ct, Ca, Cr), nruns = _validate_parameters(parameters)
     i60, Bt, T, A, R = _validate_variables(variables, nruns)
 
@@ -290,7 +284,7 @@ def _validate_variables(
 
     # Check each variable is a real-valued matrix
     nsegments = 1
-    for name, (variable, allow_zero) in variables.items():
+    for name, variable in variables.items():
         variable = validate.matrix(variable, name, dtype=real)
         nrows, ncols = variable.shape
 
@@ -317,7 +311,7 @@ def _validate_variables(
                     f"However, {set_segments} has {nsegments} rows, whereas {name} has {nrows}."
                 )
 
-        # Elements must be positive, optionally allowing zeros
-        validate.positive(variable, name, allow_zero=allow_zero, ignore=nan)
+        # Elements must be positive
+        validate.positive(variable, name, allow_zero=True, ignore=nan)
         variables[name] = variable
     return tuple(variables.values())
