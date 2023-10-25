@@ -11,7 +11,7 @@ that is, they do not require the installation of external libraries.
 
 When a driver is not provided, pfdf will attempt to determine the appropriate
 file format using the file extension. See the "extensions" command for a summary
-of the drivers inferred by various extensions. Alternatively, use the "from_path"
+of the drivers inferred from various extensions. Alternatively, use the "from_path"
 or "from_extension" command to return a summary of the driver inferred from a specific
 file path or extension.
 ----------
@@ -21,9 +21,9 @@ Summaries:
     info            - Returns a summary of the queried driver
 
 File Extensions:
-    extensions      - Returns a pandas data frame with the drivers inferred by various extensions
-    from_path       - Summarize the driver inferred by a specified file path
-    from_extension  - Summarize the driver inferred by an input file extension
+    extensions      - Returns a pandas data frame with the drivers inferred from various extensions
+    from_path       - Summarize the driver inferred from a specified file path
+    from_extension  - Summarize the driver inferred from an input file extension
 
 Internal:
     _table          - Formats a pandas data frame with summary information
@@ -181,11 +181,11 @@ def _table(drivers: Drivers) -> DataFrame:
 
 def extensions(type: FileType) -> DataFrame:
     """
-    extensions  Summarizes the drivers inferred by recognized file extensions
+    extensions  Summarizes the drivers inferred from recognized file extensions
     ----------
     extensions(type='vector')
     extensions(type='raster')
-    Returns a pandas DataFrame summarizing the drivers inferred by various file
+    Returns a pandas DataFrame summarizing the drivers inferred from various file
     extensions for the indicated type of file. These summaries indicate the drivers
     that are inferred when a driver is not provided as input to a file saving command.
     Each summary consists of a file extension, driver, and description of the driver.
@@ -194,10 +194,10 @@ def extensions(type: FileType) -> DataFrame:
         type: The type of file. Either 'vector' or 'raster'
 
     Outputs:
-        pandas.DataFrame: A summary of the drivers inferred by various file
+        pandas.DataFrame: A summary of the drivers inferred from various file
             extensions. Columns are as follows:
             index (str): A file extension
-            Driver (str): The driver inferred by the file extension
+            Driver (str): The driver inferred from the file extension
             Description (str): A description of the driver
     """
 
@@ -224,10 +224,10 @@ def extensions(type: FileType) -> DataFrame:
 
 def from_path(path: Pathlike, type: Optional[FileType] = None) -> DataFrame | None:
     """
-    from_path  Returns information about the driver inferred by a given file path
+    from_path  Returns information about the driver inferred from a given file path
     ----------
     from_path(path)
-    Returns a pandas.DataFrame summarizing the driver inferred by the input file
+    Returns a pandas.DataFrame summarizing the driver inferred from the input file
     path. Returns None if the file path has an unrecognized extension. Attempts
     to determine whether the file path is intended for a raster file or vector
     feature file. Raises a ValueError if the path ends in a ".xml", as this
@@ -260,10 +260,10 @@ def from_path(path: Pathlike, type: Optional[FileType] = None) -> DataFrame | No
 
 def from_extension(ext: str, type: Optional[FileType] = None) -> DataFrame:
     """
-    from_extension  Returns information about the driver inferred by a given file extension
+    from_extension  Returns information about the driver inferred from a given file extension
     ----------
     from_extension(ext)
-    Returns a pandas.DataFrame summarizing the driver inferred by the input file
+    Returns a pandas.DataFrame summarizing the driver inferred from the input file
     extension. Returns None if the extension is unrecognized. Adds a "." to the
     input extension if the extension does not begin with one. Attempts to determine
     whether the extension is intended for a raster file or vector feature file.

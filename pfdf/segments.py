@@ -201,7 +201,7 @@ class Segments:
 
     BUILDING A NETWORK:
     You can build an initial stream segment network by initializing a Segments
-    object. There are two essential input for this procedure: (1) A D8 flow
+    object. There are two essential inputs for this procedure: (1) A D8 flow
     direction raster (see the pfdf.watershed module to produce this), and
     (2) a raster mask indicating watershed pixels that may potentially be stream
     segments. Note that the flow direction raster must have (affine) transform
@@ -213,6 +213,8 @@ class Segments:
     The mask might also remove certain areas from the hazard modeling process.
     For example, a mask might screen out pixels in large bodies of water, or
     below human development in order to prevent hazard modeling in these areas.
+    See also the docstring of the __init__ method for more details on the design
+    of the mask.
 
     When building a stream segment network, you may also provide an optional
     maxmimum length. In this case, any stream segments exceeding the indicated
@@ -1463,8 +1465,8 @@ class Segments:
 
         When possible, we recommend only using the "outlet", "mean", "sum", "nanmean",
         and "nansum" statistics when computing summaries for every catchment basin.
-        The remaining statistic require a less efficient algorithm, and so are much
-        slower to compute. Alternatively, see below for an option to ony compute
+        The remaining statistics require a less efficient algorithm, and so are much
+        slower to compute. Alternatively, see below for an option to only compute
         statistics for terminal outlet basins - this is typically a faster operation,
         and more suitable for other statistics.
 
@@ -2098,7 +2100,7 @@ class Segments:
         often useful for filtering values computed for the original network.
 
         self.remove(*, ..., continuous=False)
-        Removes all indicates segments, regardless of the continuity of the
+        Removes all indicated segments, regardless of the continuity of the
         stream network.
 
         self.remove(*, continuous=True, upstream=False)
