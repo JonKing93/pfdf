@@ -67,6 +67,8 @@ def check(output, name, araster, transform, crs):
     assert isinstance(output, Raster)
     assert output.name == name
     assert np.array_equal(output.values, araster)
+    assert output.values is not output._values
+    assert output._values is not araster
     assert output.dtype == araster.dtype
     assert output.nodata == -999
 
@@ -104,7 +106,7 @@ def test_raster_input():
     )
 
 
-class TestRasterInit:
+class TestInit:
     #####
     # Valid inputs
     #####
@@ -130,6 +132,7 @@ class TestRasterInit:
         output = Raster(araster, "test")
         assert isinstance(output, Raster)
         assert np.array_equal(output.values, araster)
+        assert output._values is not araster
         assert output.name == "test"
         assert output.nodata is None
         assert output.transform is None
@@ -145,6 +148,7 @@ class TestRasterInit:
         input = pysheds_raster(araster, view)
         output = Raster(input, "test")
         check(output, "test", araster, transform, crs)
+        assert output._values is not input
 
     #####
     # Invalid inputs
@@ -240,13 +244,42 @@ class TestFromArray:
         )
         check(output, "test", araster, transform, crs)
 
-    def test_nodata_casting(_, araster):
+    def test_safe_nodata_casting(_, araster):
         araster = araster.astype("float64")
         nodata = np.array(-999).astype("float32")
         output = Raster.from_array(araster, nodata=nodata)
         assert output.dtype == "float64"
         assert output.nodata == -999
         assert output.nodata.dtype == "float64"
+
+    def test_unsafe_nodata_casting(_, araster):
+        araster = araster.astype(int)
+        nodata = 1.2
+        output = Raster.from_array(araster, nodata=nodata, casting="unsafe")
+        assert output.dtype == int
+        assert output.nodata == 1
+        assert output.nodata.dtype == int
+
+    def test_spatial(_, araster, fraster, crs, transform):
+        template = Raster(fraster)
+        output = Raster.from_array(araster, spatial=template)
+        assert isinstance(output, Raster)
+        assert np.array_equal(output.values, araster)
+        assert output.name == "raster"
+        assert output.nodata is None
+        assert output.transform == transform
+        assert output.crs == crs
+
+    def test_spatial_override(_, araster, fraster, transform):
+        template = Raster(fraster)
+        crs = CRS.from_epsg(4000)
+        output = Raster.from_array(araster, spatial=template, crs=crs)
+        assert isinstance(output, Raster)
+        assert np.array_equal(output.values, araster)
+        assert output.name == "raster"
+        assert output.nodata is None
+        assert output.transform == transform
+        assert output.crs == crs
 
     def test_nodata_not_scalar(_, araster):
         nodata = [1, 2]
@@ -264,7 +297,7 @@ class TestFromArray:
         araster = araster.astype(int)
         with pytest.raises(TypeError) as error:
             Raster.from_array(araster, nodata=nodata)
-        assert_contains(error, "Cannot safely cast the NoData value")
+        assert_contains(error, "Cannot cast the NoData value")
 
     def test_invalid_transform(_, araster):
         with pytest.raises(TransformError) as error:
@@ -275,6 +308,31 @@ class TestFromArray:
         with pytest.raises(CrsError) as error:
             Raster.from_array(araster, crs="invalid")
         assert_contains(error, "crs", "rasterio.crs.CRS")
+
+    def test_invalid_spatial(_, araster):
+        with pytest.raises(TypeError) as error:
+            Raster.from_array(araster, spatial=5)
+        assert_contains(error, "spatial template must be a pfdf.raster.Raster object")
+
+
+class TestCopy:
+    def test(_, fraster):
+        raster = Raster(fraster)
+        copy = raster.copy()
+        assert copy._name is raster._name
+        copy.name = "different"
+        assert copy.name != raster.name
+        assert copy._values is raster._values
+        assert copy._nodata is raster._nodata
+        assert copy._crs is raster._crs
+        assert copy._transform is raster._transform
+
+        del raster
+        assert copy._name is not None
+        assert copy._values is not None
+        assert copy._nodata is not None
+        assert copy._crs is not None
+        assert copy._transform is not None
 
 
 #####
@@ -405,6 +463,63 @@ class TestEq:
 
 
 #####
+# Validation
+#####
+
+
+class TestValidate:
+    def test_valid_raster(_, fraster, araster, transform, crs):
+        raster = Raster(fraster, "a different name")
+        output = raster._validate(fraster, "test")
+        check(output, "test", araster, transform, crs)
+
+    def test_default_spatial(_, fraster, araster):
+        raster = Raster(fraster)
+        output = raster._validate(araster, "test")
+        assert output.crs == raster.crs
+        assert output.transform == raster.transform
+
+    def test_bad_shape(_, fraster, transform, crs):
+        raster = Raster(fraster, "self name")
+        height = raster.shape[0] + 1
+        width = raster.shape[1] + 1
+        araster = np.ones((height, width))
+        input = Raster.from_array(araster, transform=transform, crs=crs)
+        with pytest.raises(RasterShapeError) as error:
+            raster._validate(input, "test name")
+        assert_contains(error, "test name", "self name")
+
+    def test_bad_transform(_, fraster, araster, crs):
+        transform = Affine(9, 0, 0, 0, 9, 0)
+        raster = Raster(fraster, "self name")
+        input = Raster.from_array(araster, crs=crs, transform=transform)
+        with pytest.raises(RasterTransformError) as error:
+            raster._validate(input, "test name")
+        assert_contains(error, "test name", "self name")
+
+    def test_bad_crs(_, fraster, araster, transform):
+        crs = CRS.from_epsg(4000)
+        raster = Raster(fraster, "self name")
+        input = Raster.from_array(araster, crs=crs, transform=transform)
+        with pytest.raises(RasterCrsError) as error:
+            raster._validate(input, "test name")
+        assert_contains(error, "test name", "self name")
+
+    @pytest.mark.parametrize(
+        "input, error, message",
+        (
+            (5, TypeError, "test name"),
+            (np.ones((3, 3, 3)), DimensionError, "test name"),
+        ),
+    )
+    def test_invalid_raster(_, input, error, message, fraster):
+        raster = Raster(fraster, "self name")
+        with pytest.raises(error) as e:
+            raster._validate(input, "test name")
+        assert_contains(e, message)
+
+
+#####
 # IO
 #####
 
@@ -515,55 +630,3 @@ class TestAsPysheds:
         assert output.nodata == 0
         assert output.affine == transform
         assert output.crs == crs
-
-
-class TestValidate:
-    def test_valid_raster(_, fraster, araster, transform, crs):
-        raster = Raster(fraster, "a different name")
-        output = raster._validate(fraster, "test")
-        check(output, "test", araster, transform, crs)
-
-    def test_default_spatial(_, fraster, araster):
-        raster = Raster(fraster)
-        output = raster._validate(araster, "test")
-        assert output.crs == raster.crs
-        assert output.transform == raster.transform
-
-    def test_bad_shape(_, fraster, transform, crs):
-        raster = Raster(fraster, "self name")
-        height = raster.shape[0] + 1
-        width = raster.shape[1] + 1
-        araster = np.ones((height, width))
-        input = Raster.from_array(araster, transform=transform, crs=crs)
-        with pytest.raises(RasterShapeError) as error:
-            raster._validate(input, "test name")
-        assert_contains(error, "test name", "self name")
-
-    def test_bad_transform(_, fraster, araster, crs):
-        transform = Affine(9, 0, 0, 0, 9, 0)
-        raster = Raster(fraster, "self name")
-        input = Raster.from_array(araster, crs=crs, transform=transform)
-        with pytest.raises(RasterTransformError) as error:
-            raster._validate(input, "test name")
-        assert_contains(error, "test name", "self name")
-
-    def test_bad_crs(_, fraster, araster, transform):
-        crs = CRS.from_epsg(4000)
-        raster = Raster(fraster, "self name")
-        input = Raster.from_array(araster, crs=crs, transform=transform)
-        with pytest.raises(RasterCrsError) as error:
-            raster._validate(input, "test name")
-        assert_contains(error, "test name", "self name")
-
-    @pytest.mark.parametrize(
-        "input, error, message",
-        (
-            (5, TypeError, "test name"),
-            (np.ones((3, 3, 3)), DimensionError, "test name"),
-        ),
-    )
-    def test_invalid_raster(_, input, error, message, fraster):
-        raster = Raster(fraster, "self name")
-        with pytest.raises(error) as e:
-            raster._validate(input, "test name")
-        assert_contains(e, message)

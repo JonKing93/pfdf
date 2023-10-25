@@ -10,7 +10,7 @@ type hint, which denotes all types that pfdf accepts as representing a raster.
 Users may be particularly interested in the "Raster.from_array" and "Raster.save"
 methods. Raster.from_array allows users to add raster metadata (NoData value, 
 affine transform, and CRS) to numpy arrays. Raster.save allows a user to save
-an output raster to a GeoTIFF file format.
+a raster dataset to file.
 ----------
 Class:
     Raster      - Class that manages raster datasets and metadata
@@ -31,9 +31,9 @@ from pysheds.sview import ViewFinder
 from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 
-from pfdf._utils import nodata_, real, validate
+from pfdf._utils import nodata, real, validate
 from pfdf.errors import RasterCrsError, RasterShapeError, RasterTransformError
-from pfdf.typing import MatrixArray, Pathlike, scalar, shape2d
+from pfdf.typing import Casting, MatrixArray, Pathlike, ScalarArray, scalar, shape2d
 
 
 class Raster:
@@ -89,12 +89,19 @@ class Raster:
     OUTPUT RASTERS:
     All rasters computed by pfdf are returned as Raster objects. Users can return
     the computed values using the aforementioned ".values" property. See also
-    the "save" method to save an output raster to a GeoTIFF file format.
+    the "save" method to save an output raster to various file formats.
+
+    Note that the ".values" method returns a read-only view of the raster's
+    data values. If you need to edit the values, you should first make an editable
+    copy. Raster values are numpy arrays, so you can make a copy using their ".copy"
+    method. For example:
+        >>> editable_values = my_raster.values.copy()
     ----------
     FOR USERS:
     Object Creation:
         __init__        - Returns a raster object for a supported raster input
         from_array      - Creates a Raster object from a raw numpy array with optional metadata
+        copy            - Returns a copy of the current Raster object
 
     Data Properties:
         name            - An optional name to identify the raster
@@ -119,7 +126,7 @@ class Raster:
         pixel_diagonal  - The length of the diagonal of a raster pixel in the units of the transform
 
     IO:
-        save            - Saves a raster as a GeoTIFF
+        save            - Saves a raster dataset to file
         as_pysheds      - Returns a Raster as a pysheds.sview.Raster object
 
     Dunders:
@@ -140,6 +147,7 @@ class Raster:
 
     Validation:
         _validate           - Validates an input raster against the current Raster
+        _validate_metadata  - Validates crs, transform, and NoData values
     """
 
     #####
@@ -160,11 +168,11 @@ class Raster:
 
     @property
     def values(self) -> np.ndarray:
-        return self._values
+        return self._values.view()
 
     @property
     def dtype(self) -> np.dtype:
-        return self.values.dtype
+        return self._values.dtype
 
     @property
     def nodata(self) -> scalar:
@@ -174,19 +182,19 @@ class Raster:
 
     @property
     def shape(self) -> shape2d:
-        return self.values.shape
+        return self._values.shape
 
     @property
     def size(self) -> int:
-        return self.values.size
+        return self._values.size
 
     @property
     def height(self) -> int:
-        return self.values.shape[0]
+        return self._values.shape[0]
 
     @property
     def width(self) -> int:
-        return self.values.shape[1]
+        return self._values.shape[1]
 
     ##### Spatial
 
@@ -214,7 +222,7 @@ class Raster:
         if self.transform is None:
             return (nan, nan)
         else:
-            dx = abs(self.transform[0])
+            dx = abs(self._transform[0])
             dy = abs(self.transform[4])
             return (dx, dy)
 
@@ -278,9 +286,9 @@ class Raster:
         # Initialize attributes
         self._name: str = None
         self._values: MatrixArray = None
-        self._nodata: scalar = None
-        self._crs: CRS = None
-        self._transform: Affine = None
+        self._nodata: Optional[ScalarArray] = None
+        self._crs: Optional[CRS] = None
+        self._transform: Optional[Affine] = None
 
         # Set name
         if name is None:
@@ -322,12 +330,17 @@ class Raster:
         elif isinstance(raster, Raster):
             self._from_raster(raster)
         elif isinstance(raster, np.ndarray):
-            self._values = raster
+            self._values = raster.copy()
 
-        # Validate array and affine transformation matrix
+        # Validate array values and metadata
         self._values = validate.matrix(self._values, name, dtype=real)
-        if self.transform is not None:
-            validate.transform(self.transform)
+        self._validate_metadata(
+            self._crs, self._transform, self._nodata, casting="unsafe"
+        )
+
+        # Lock the array values. This allows us to return views of the data values
+        # (instead of copies) while preventing users from altering the base array
+        self._values.setflags(write=False)
 
     def _from_file(self, path: Path) -> None:
         "Initializes object from band 1 of a file-based raster"
@@ -347,7 +360,7 @@ class Raster:
 
     def _from_pysheds(self, raster: PyshedsRaster) -> None:
         "Initialize object from pysheds.sview.Raster"
-        self._values = np.array(raster, copy=False)
+        self._values = np.array(raster, copy=True)
         self._nodata = raster.nodata
         self._transform = raster.affine
         self._crs = CRS.from_wkt(raster.crs.to_wkt())
@@ -360,18 +373,20 @@ class Raster:
         nodata: Optional[scalar] = None,
         transform: Optional[Affine] = None,
         crs: Optional[CRS] = None,
+        spatial: Optional[Self] = None,
+        casting: Casting = "safe",
     ) -> Self:
         """
         from_array  Add raster metadata to a raw numpy array
         ----------
-        from_array(array)
+        Raster.from_array(array)
         Initializes a Raster object from a raw numpy array. The NoData value,
         transform, and crs for the returned object will all be None.
 
-        from_array(..., *, name)
-        from_array(..., *, nodata)
-        from_array(..., *, transform)
-        from_array(..., *, crs)
+        Raster.from_array(..., *, name)
+        Raster.from_array(..., *, nodata)
+        Raster.from_array(..., *, transform)
+        Raster.from_array(..., *, crs)
         Specify a name, NoData value, transform, and/or coordinate reference
         system (crs) that should be associated with the numpy array dataset. The
         output Raster object will include any specified metadata.
@@ -380,7 +395,8 @@ class Raster:
         to identify the raster in error messages. Defaults to 'raster' if unset.
 
         The NoData value will be set to the same dtype as the array. Raises a
-        TypeError if the NoData value cannot be safely casted to this dtype.
+        TypeError if the NoData value cannot be safely casted to this dtype. See
+        below for an option to change the casting requirements for NoData values.
 
         The transform specifies the affine transformation used to map pixel indices
         to spatial points, and should be an affine.Affine object. Common ways
@@ -392,30 +408,84 @@ class Raster:
         object. CRS objects can be obtained using the ".crs" property from rasterio
         or Raster objects, and see also the rasterio documentation for building
         these objects from formats such as well-known text (WKT) and PROJ4 strings.
+
+        Raster.from_array(..., *, spatial)
+        Specifies a Raster object to use as a default spatial metadata template.
+        By default, transform and crs properties from the template will be copied
+        to the new raster. However, these default values can still be overridden
+        by providing the transform, and/or crs inputs as usual. In this case, any
+        metadata provided by a keyword option will be prioritized over the template
+        metadata.
+
+        Raster.from_array(..., *, casting)
+        Specifies the type of data casting that may occur when converting a NoData
+        value to the dtype of the Raster. Options are as follows:
+            'no': The data type should not be cast at all
+            'equiv': Only byte-order changes are allowed
+            'safe': Only casts which can preserve values are allowed
+            'same_kind': Only safe casts or casts within a kind (like float64 to float32)
+            'unsafe': Any data conversions may be done
+        The default behavior is to require safe casting.
         ----------
         Inputs:
-            array       - A 2D numpy array whose data values represent a raster
-            name        - A name for the raster. Defaults to 'raster'
-            nodata      - A NoData value for the raster
-            transform   - An affine transformation for the raster (affine.Affine)
-            crs         - A coordinate reference system for the raster (rasterio.crs.CRS)
+            array: A 2D numpy array whose data values represent a raster
+            name: A name for the raster. Defaults to 'raster'
+            nodata: A NoData value for the raster
+            transform: An affine transformation for the raster (affine.Affine)
+            crs: A coordinate reference system for the raster (rasterio.crs.CRS)
+            spatial: A Raster object to use as a default spatial metadata template
+                for the new Raster.
+            casting: The type of data casting allowed to occur when converting a
+                NoData value to the dtype of the Raster. Options are "no", "equiv",
+                "safe" (default), "same_kind", and "unsafe".
 
         Outputs:
             Raster: A raster object for the array-based raster dataset
         """
 
+        # Validate options
+        if spatial is not None and not isinstance(spatial, Raster):
+            raise TypeError("spatial template must be a pfdf.raster.Raster object")
+        casting = validate.option(
+            casting, "casting", allowed=["no", "equiv", "safe", "same_kind", "unsafe"]
+        )
+
         # Build the initial object
-        array = np.array(array)
+        array = np.array(array, copy=False)
         raster = Raster(array, name)
 
-        # Check metadata values (if provided)
-        if nodata is not None:
-            raster._nodata = validate.nodata(nodata, raster.dtype)
-        if transform is not None:
-            raster._transform = validate.transform(transform)
-        if crs is not None:
-            raster._crs = validate.crs(crs)
+        # Parse spatial metadata from template and keyword options
+        if spatial is not None:
+            if transform is None:
+                transform = spatial.transform
+            if crs is None:
+                crs = spatial.crs
+
+        # Check metadata values (if provided) and return Raster
+        raster._validate_metadata(crs, transform, nodata, casting)
         return raster
+
+    def copy(self) -> Self:
+        """
+        copy  Returns a copy of the current Raster
+        ----------
+        self.copy()
+        Returns a copy of the current Raster. Note that data values are not duplicated
+        in memory when copying a raster. Instead, both Rasters reference the same
+        underlying array.
+        ----------
+        Outputs:
+            Raster: A Raster with the same data values and metadata as the
+                current Raster
+        """
+
+        copy = super().__new__(Raster)
+        copy._name = self._name
+        copy._values = self._values
+        copy._nodata = self._nodata
+        copy._crs = self._crs
+        copy._transform = self._transform
+        return copy
 
     #####
     # Dunders
@@ -441,7 +511,7 @@ class Raster:
 
         if (
             isinstance(other, Raster)
-            and nodata_.equal(self.nodata, other.nodata)
+            and nodata.equal(self.nodata, other.nodata)
             and self.transform == other.transform
             and self.crs == other.crs
             and np.array_equal(self.values, other.values, equal_nan=True)
@@ -451,25 +521,115 @@ class Raster:
             return False
 
     #####
+    # Validation
+    #####
+
+    def _validate_metadata(
+        self, crs: Any, transform: Any, nodata: Any, casting: Casting
+    ) -> None:
+        "Checks that metadata values are valid. If so, sets attributes"
+
+        if crs is not None:
+            self._crs = validate.crs(crs)
+        if transform is not None:
+            self._transform = validate.transform(transform)
+        if nodata is not None:
+            self._nodata = validate.nodata(nodata, self.dtype, casting)
+
+    def _validate(self, raster: _RasterInput, name: str) -> Self:
+        """
+        _validate  Validates a second raster and its metadata against the current raster
+        ----------
+        self._validate(raster, name)
+        Validates an input raster against the current Raster object. Checks that
+        the second raster's metadata matches the shape, affine transform, and
+        crs of the current object. If the second raster does not have a affine
+        transform or CRS, sets these values to match the current raster. Raises
+        various RasterErrors if the metadata criteria are not met. Otherwise, returns
+        the validated raster dataset as a Raster object.
+        ----------
+        Inputs:
+            raster: The input raster being checked
+            name: A name for the raster for use in error messages
+
+        Outputs:
+            Raster: The validated Raster dataset
+
+        Raises:
+            RasterShapeError: If the raster does not have the required shape
+            TransformError: If the raster has a different transform
+            CrsError: If the raster has a different crs
+        """
+
+        # Build raster, check shape
+        raster = Raster(raster, name)
+        if raster.shape != self.shape:
+            raise RasterShapeError(
+                f"The shape of the {raster.name} {raster.shape}, does not "
+                f"match the shape of the {self.name} {self.shape}."
+            )
+
+        # Transform
+        if raster.transform is None:
+            raster._transform = self.transform
+        elif raster.transform != self.transform:
+            raise RasterTransformError(
+                f"The affine transformation of the {raster.name}:\n{raster.transform}\n"
+                f"does not match the transform of the {self.name}:\n{self.transform}"
+            )
+
+        # CRS
+        if raster.crs is None:
+            raster._crs = self.crs
+        elif raster.crs != self.crs:
+            raise RasterCrsError(
+                f"The CRS of the {raster.name} ({raster.crs}) does not "
+                f"match the CRS of the {self.name} ({self.crs})."
+            )
+        return raster
+
+    #####
     # IO
     #####
 
-    def save(self, path: Pathlike, overwrite: bool = False) -> None:
+    def save(
+        self, path: Pathlike, *, driver: Optional[str] = None, overwrite: bool = False
+    ) -> None:
         """
-        save  Save a raster dataset to a GeoTIFF file
+        save  Save a raster dataset to file
         ----------
         self.save(path)
-        Saves the current Raster to the indicated path as a GeoTIFF. Raises a
-        FileExistsError if the file already exists. Note that boolean rasters
-        will be saved as an "int8" dtype to accomodate the GeoTIFF format.
+        self.save(path, * overwrite=True)
+        Saves the Raster to the indicated path. Boolean rasters will be saved as
+        "int8" to accommodate common file format requirements. In the default state,
+        the method will raise a FileExistsError if the file already exists. Set
+        overwrite=True to enable the replacement of existing files.
 
-        self.save(path, overwrite=True)
-        Allows the saved file to replace an existing file.
+        This syntax will attempt to guess the intended file format based on the
+        path extension, and raises an Exception if the file format cannot be
+        determined. You can use:
+            >>> pfdf.utils.driver.extensions('raster')
+        to return a summary of the file formats inferred by various extensions.
+        We note that pfdf is tested using the "GeoTIFF" file format driver
+        (.tif extension), and so saving to this format is likely the most robust.
+
+        self.save(..., *, driver)
+        Also specifies the file format driver to use to write the raster file.
+        Uses this format regardless of the file extension. You can use:
+            >>> pfdf.utils.driver.rasters()
+        to return a summary of file-format drivers that are expected to always work.
+
+        More generally, the pfdf package relies on rasterio (which in turn uses
+        GDAL) to write raster files, and so additional drivers may work if their
+        associated build requirements are satistfied. You can find a complete
+        overview of GDAL raster drivers and their requirements here:
+        https://gdal.org/drivers/raster/index.html
         ----------
         Inputs:
             path: The path to the saved output file
             overwrite: False (default) to prevent the output from replacing
                 existing file. True to allow replacement.
+            driver: The name of the file format driver to use to write the file
         """
 
         # Validate and resolve path
@@ -485,7 +645,7 @@ class Raster:
         with rasterio.open(
             path,
             "w",
-            driver="GTiff",
+            driver=driver,
             height=self.shape[0],
             width=self.shape[1],
             count=1,
@@ -547,58 +707,6 @@ class Raster:
         # Restore signed integer nodata values
         if np.issubdtype(self.dtype, np.signedinteger):
             raster.nodata = nodata
-        return raster
-
-    def _validate(self, raster: _RasterInput, name: str) -> Self:
-        """
-        _validate  Validates a second raster and its metadata against the current raster
-        ----------
-        self._validate(raster, name)
-        Validates an input raster against the current Raster object. Checks that
-        the second raster's metadata matches the shape, affine transform, and
-        crs of the current object. If the second raster does not have a affine
-        transform or CRS, sets these values to match the current raster. Raises
-        various RasterErrors if the metadata criteria are not met. Otherwise, returns
-        the validated raster dataset as a Raster object.
-        ----------
-        Inputs:
-            raster: The input raster being checked
-            name: A name for the raster for use in error messages
-
-        Outputs:
-            Raster: The validated Raster dataset
-
-        Raises:
-            RasterShapeError: If the raster does not have the required shape
-            TransformError: If the raster has a different transform
-            CrsError: If the raster has a different crs
-        """
-
-        # Build raster, check shape
-        raster = Raster(raster, name)
-        if raster.shape != self.shape:
-            raise RasterShapeError(
-                f"The shape of the {raster.name} {raster.shape}, does not "
-                f"match the shape of the {self.name} {self.shape}."
-            )
-
-        # Transform
-        if raster.transform is None:
-            raster._transform = self.transform
-        elif raster.transform != self.transform:
-            raise RasterTransformError(
-                f"The affine transformation of the {raster.name}:\n{raster.transform}\n"
-                f"does not match the transform of the {self.name}:\n{self.transform}"
-            )
-
-        # CRS
-        if raster.crs is None:
-            raster._crs = self.crs
-        elif raster.crs != self.crs:
-            raise RasterCrsError(
-                f"The CRS of the {raster.name} ({raster.crs}) does not "
-                f"match the CRS of the {self.name} ({self.crs})."
-            )
         return raster
 
 

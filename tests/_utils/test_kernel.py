@@ -203,13 +203,16 @@ class TestMaxHeight:
         ),
     )
     def test_basic(_, kernel2, dem, flow, height):
-        output = kernel2.max_height(flow, dem, nodata=None)
+        output = kernel2.max_height(flow, Raster(dem))
         assert output == height
 
     def test_nodata(_, kernel2, dem):
-        output = kernel2.max_height(flow=0, dem=dem, nodata=10)
+        adem = Raster.from_array(dem, nodata=10)
+        output = kernel2.max_height(flow=0, dem=adem)
         assert np.isnan(output)
-        output = kernel2.max_height(flow=1, dem=dem, nodata=25)
+
+        adem = Raster.from_array(dem, nodata=25)
+        output = kernel2.max_height(flow=1, dem=adem)
         assert np.isnan(output)
 
 

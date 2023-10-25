@@ -66,26 +66,23 @@ scalar = int | float | ScalarArray
 vector = ints | floats | VectorArray
 matrix = ints | floats | MatrixArray
 
-# Generic Masks
-Mask = (  # This is for user-provided masks
-    NDArray[MatrixShape, Integer]
-    | NDArray[MatrixShape, Floating]
-    | NDArray[MatrixShape, Bool]
-)
-BooleanMask = NDArray[MatrixShape, Bool]  # This is a validated mask for internal use
+# NoDatas and masks
+ignore = None | scalar | Sequence[scalar]
+Casting = Literal["no", "equiv", "safe", "same_kind", "unsafe"]
 BooleanArray = NDArray[Any, Bool]
+BooleanMatrix = NDArray[MatrixShape, Bool]
 
-# NoData values
-nodata = ScalarArray | None
-DataMask = BooleanArray | None
-
-# Segments
+# Segment summaries
 SegmentsShape = Shape["Segments"]
 SegmentValues = NDArray[SegmentsShape, Floating]
+TerminalValues = NDArray[Shape["Outlets"], Floating]
+BasinValues = SegmentValues | TerminalValues
+
+# Misc segments
+SegmentIndices = NDArray[SegmentsShape, Bool]
+SegmentParents = NDArray[Shape["Segments, Parents"], Integer]
 PixelIndices = NDArray[Shape["Pixels"], Integer]
 PixelIndices = tuple[PixelIndices, PixelIndices]
-SegmentIndices = NDArray[SegmentsShape, Bool]
-SegmentIDs = list[int] | NDArray[VectorShape, Integer]
 PropertyDict = dict[str, SegmentValues]
 
 # Confinement Angles

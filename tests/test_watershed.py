@@ -355,6 +355,27 @@ class TestSlopes:
         assert flow.crs is None
         assert flow.transform is None
 
+    def test_no_check(_):
+        dem = np.array(
+            [
+                [1, 1, 1, 1, 1],
+                [1, 4, 3, 2, 1],
+                [1, 6, 20, 100, 1],
+                [1, 8, 50, 10, 1],
+                [1, 1, 1, 1, 1],
+            ]
+        )
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        watershed.slopes(dem, flow, check_flow=False)
+
 
 class TestRelief:
     def test(_):
@@ -375,16 +396,16 @@ class TestRelief:
         expected = np.array(
             [
                 [nan, nan, nan, nan, nan, nan, nan, nan, nan],
-                [nan, 0.0, 518.0, 450.0, 499.0, 450.0, 518.0, 0.0, nan],
-                [nan, 0.0, 398.0, 290.0, 299.0, 290.0, 398.0, 0.0, nan],
-                [nan, 0.0, 98.0, 0.0, 49.0, 0.0, 98.0, 0.0, nan],
-                [nan, 190.0, 0.0, 0.0, 0.0, 0.0, 0.0, 190.0, nan],
-                [nan, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, nan],
-                [nan, 0.0, 301.0, 291.0, 251.0, 291.0, 301.0, 0.0, nan],
-                [nan, 0.0, 421.0, 451.0, 451.0, 451.0, 421.0, 0.0, nan],
+                [nan, 0, 900, 650, 950, 650, 900, 0, nan],
+                [nan, 0, 420, 160, 450, 160, 420, 0, nan],
+                [nan, 0, 300, 0, 250, 0, 300, 0, nan],
+                [nan, 800, 0, 0, 0, 0, 0, 800, nan],
+                [nan, 0, 0, 0, 0, 0, 0, 0, nan],
+                [nan, 0, 120, 160, 200, 160, 120, 0, nan],
+                [nan, 0, 600, 650, 700, 650, 600, 0, nan],
                 [nan, nan, nan, nan, nan, nan, nan, nan, nan],
             ]
-        )
+        ).astype(float)
         flow = watershed.flow(dem)
         relief = watershed.relief(dem, flow)
 
@@ -393,6 +414,27 @@ class TestRelief:
         assert isnan(relief.nodata)
         assert relief.crs is None
         assert relief.transform is None
+
+    def test_no_check(_):
+        dem = np.array(
+            [
+                [1, 1, 1, 1, 1],
+                [1, 4, 3, 2, 1],
+                [1, 6, 20, 100, 1],
+                [1, 8, 50, 10, 1],
+                [1, 1, 1, 1, 1],
+            ]
+        )
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        watershed.relief(dem, flow, check_flow=False)
 
 
 class TestAccumulation:
@@ -473,6 +515,77 @@ class TestAccumulation:
         )
         self.check(acc, expected)
 
+    def test_nan_propagation(self):
+        weights = self.weights.values.copy()
+        weights[2, 1] = -999
+        weights = Raster.from_array(weights, nodata=-999)
+        acc = watershed.accumulation(self.flow, weights)
+        expected = np.array(
+            [
+                [1, nan, nan, nan],
+                [3, nan, 8, nan],
+                [6, nan, 17, nan],
+            ]
+        )
+        self.check(acc, expected)
+
+    def test_basic_omitnan(self):
+        acc = watershed.accumulation(self.flow, omitnan=True)
+        expected = np.array(
+            [
+                [1, 3, 4, nan],
+                [2, 2, 1, 1],
+                [3, 1, 2, nan],
+            ]
+        )
+        print(acc.values)
+        self.check(acc, expected)
+
+    def test_weighted_omitnan(self):
+        acc = watershed.accumulation(self.flow, self.weights, omitnan=True)
+        expected = np.array(
+            [
+                [1, 15, 22, nan],
+                [3, 9, 8, 0],
+                [6, 4, 17, nan],
+            ]
+        )
+        self.check(acc, expected)
+
+    def test_masked_omitnan(self):
+        acc = watershed.accumulation(self.flow, mask=self.mask, omitnan=True)
+        expected = np.array(
+            [
+                [0, 1, 2, nan],
+                [1, 0, 1, 1],
+                [2, 0, 1, nan],
+            ]
+        )
+        self.check(acc, expected)
+
+    def test_weighted_mask_omitnan(self):
+        acc = watershed.accumulation(self.flow, self.weights, self.mask, omitnan=True)
+        expected = np.array(
+            [
+                [0, 6, 13, nan],
+                [2, 0, 8, 0],
+                [5, 0, 8, nan],
+            ]
+        )
+        self.check(acc, expected)
+
+    def test_no_check(_):
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        watershed.accumulation(flow, check_flow=False)
+
 
 class TestCatchment:
     flow = np.array(
@@ -532,6 +645,18 @@ class TestCatchment:
         assert output.crs is None
         assert output.transform is None
 
+    def test_no_check(_):
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        watershed.catchment(flow, 0, 0, check_flow=False)
+
 
 class TestNetwork:
     def test_all(_, network_flow, segments):
@@ -565,3 +690,16 @@ class TestNetwork:
             LineString([[5, 2], [6, 2], [7, 2]]),
         ]
         assert output == expected
+
+    def test_no_check(_):
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 9, 10, 11, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        mask = flow.astype(bool)
+        watershed.network(flow, mask, check_flow=False)

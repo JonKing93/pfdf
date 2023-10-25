@@ -107,21 +107,22 @@ Model Classes:
 
 Internal:
     _validate           - Validates parameters/variables and reshapes for broadcasting
-    _clean_dimensions   - Optionally removes trailing singleton dimensions
 """
 
 from abc import ABC, abstractmethod
+from math import nan
 from typing import Any
 
 import numpy as np
 
-from pfdf._utils import nodata_, real, validate
+from pfdf._utils import clean_dims, real, validate
+from pfdf._utils.nodata import NodataMask
 from pfdf.errors import DurationsError, ShapeError
 from pfdf.raster import Raster, RasterInput
 from pfdf.segments import Segments
 from pfdf.typing import (
     Accumulations,
-    BooleanMask,
+    BooleanMatrix,
     Durations,
     Parameters,
     Pvalues,
@@ -132,6 +133,10 @@ from pfdf.typing import (
     Variables,
 )
 from pfdf.utils import slope
+
+# Type hint
+OmitnanDict = dict[str, bool]
+omitnan = bool | OmitnanDict
 
 #####
 # Generic solvers
@@ -148,7 +153,7 @@ def accumulation(
     Cs: Parameters,
     S: Variables,
     *,
-    always_3d: bool = False,
+    keepdims: bool = False,
 ) -> SegmentAccumulations:
     """
     accumulation  Computes rainfall accumulations needed for specified debris-flow probability levels
@@ -205,7 +210,7 @@ def accumulation(
     case could be testing the model using different datasets to derive one or
     more variables.
 
-    accumulation(..., *, always_3d = True)
+    accumulation(..., *, keepdims = True)
     Always returns the output as a 3D numpy array, regardless of the number
     of p-values and parameter runs.
     ----------
@@ -218,7 +223,7 @@ def accumulation(
         F: The wildfire severity variable
         Cs: The coefficients for the surface properties variable
         S: The surface properties variable
-        always_3d: True to always return a 3D numpy array. If false (default),
+        keepdims: True to always return a 3D numpy array. If false (default),
             returns a 2D array when there is 1 p-value, and a 1D array if there
             is 1 p-value and 1 parameter run.
 
@@ -229,16 +234,13 @@ def accumulation(
 
     # Validate and reshape for broadcasting.
     p, B, Ct, Cf, Cs, T, F, S = _validate(p, "p", B, Ct, Cf, Cs, T, F, S)
-    validate.inrange(p, "p", min=0, max=1, nodata=np.nan)
+    validate.inrange(p, "p", min=0, max=1, ignore=np.nan)
 
-    # Solve the model
+    # Solve the model. Optionally remove trailing singleton dimensions
     numerator = np.log(p / (1 - p)) - B
     denominator = Ct * T + Cf * F + Cs * S
     accumulation = numerator / denominator
-
-    # Optionally remove trailing singletons
-    accumulation = _clean_dimensions(accumulation, always_3d)
-    return accumulation
+    return clean_dims(accumulation, keepdims)
 
 
 def probability(
@@ -251,7 +253,7 @@ def probability(
     Cs: Parameters,
     S: Variables,
     *,
-    always_3d: bool = False,
+    keepdims: bool = False,
 ) -> SegmentPvalues:
     """
     probability  Computes debris-flow probability for the specified rainfall durations
@@ -281,12 +283,12 @@ def probability(
     for a particular rainfall duration. Another use case for multiple runs
     is for Monte Carlo validation of one or more model parameters.
 
-    The p-values - p - are the probabilities for which the model should be solved.
-    For example, p=0.5 solves for the rainfall intensities that cause a 50%
-    likelihood of a debris-flow. p should be a 1D array listing all the
-    probabilities that should be solved for.
+    The R values are the rainfall accumulations for which the model should be solved.
+    For example, R = 6 solves for debris-flow probability when rainfall accumulation
+    is 6 mm/duration. R should be a 1D array listing all the accumulations that should
+    be solved for.
 
-    This function solves the rainfall accumulations for all stream segments,
+    This function solves the debris-flow probabilities for all stream segments,
     parameter runs, and rainfall accumulations provided. Note that rainfall
     accumulations should be relative to the rainfall durations associated with
     each set of parameters. For example, if using parameters for 15-minute and
@@ -309,9 +311,9 @@ def probability(
     case could be testing the model using different datasets to derive one or
     more variables.
 
-    accumulation(..., *, always_3d = True)
+    accumulation(..., *, keepdims = True)
     Always returns the output as a 3D numpy array, regardless of the number
-    of p-values and parameter runs.
+    of R values and parameter runs.
     ----------
     Inputs:
         R: The rainfall accumulations for which to solve the model
@@ -322,7 +324,7 @@ def probability(
         F: The wildfire severity variable
         Cs: The coefficients for the surface properties variable
         S: The surface properties variable
-        always_3d: True to always return a 3D numpy array. If false (default),
+        keepdims: True to always return a 3D numpy array. If False (default),
             returns a 2D array when there is 1 p-value, and a 1D array if there
             is 1 p-value and 1 parameter run.
 
@@ -333,15 +335,12 @@ def probability(
 
     # Validate and reshape for broadcasting.
     R, B, Ct, Cf, Cs, T, F, S = _validate(R, "R", B, Ct, Cf, Cs, T, F, S)
-    validate.positive(R, "R", allow_zero=True, nodata=np.nan)
+    validate.positive(R, "R", allow_zero=True, ignore=np.nan)
 
-    # Solve the model
+    # Solve the model. Optionally remove trailing singletons
     eX = np.exp(B + Ct * T * R + Cf * F * R + Cs * S * R)
     probability = eX / (1 + eX)
-
-    # Optionally remove trailing singletons
-    probability = _clean_dimensions(probability, always_3d)
-    return probability
+    return clean_dims(probability, keepdims)
 
 
 def _validate(PR, PRname, B, Ct, Cf, Cs, T, F, S):
@@ -401,14 +400,6 @@ def _validate(PR, PRname, B, Ct, Cf, Cs, T, F, S):
     return PR, B, Ct, Cf, Cs, T, F, S
 
 
-def _clean_dimensions(output, always_3d):
-    "Optionally removes trailing singleton dimensions"
-
-    if not always_3d:
-        output = np.atleast_1d(np.squeeze(output))
-    return output
-
-
 #####
 # Model classes
 #####
@@ -426,23 +417,24 @@ class Model(ABC):
     variables required to run the model.
     ----------
     Properties:
-        durations       - Rainfall durations used to calibrate model parameters
+        durations           - Rainfall durations used to calibrate model parameters
 
     Abstract Properties:
-        B               - Logistic Model intercepts
-        Ct              - Coefficients for the (t)errain variable
-        Cf              - Coefficients for the (f)ire variable
-        Cs              - Coefficients for the (s)oil variable
+        B                   - Logistic Model intercepts
+        Ct                  - Coefficients for the (t)errain variable
+        Cf                  - Coefficients for the (f)ire variable
+        Cs                  - Coefficients for the (s)oil variable
 
     Class Methods:
-        parameters      - Returns the model parameters for a queried set of durations
+        parameters          - Returns the model parameters for a queried set of durations
 
     Abstract Methods:
-        variables       - Returns the terrain, fire, and soil variables for a set of stream segments
+        variables           - Returns the terrain, fire, and soil variables for a set of stream segments
 
     Static Methods:
-        _validate       - Validates a Segments object and input raster for calculating variables
-        _terrain_mask   - Locates pixels that are sufficiently burned and steep
+        _validate           - Validates a Segments object and input rasters for calculating variables
+        _validate_omitnan   - Validates omitnan options for input rasters
+        _terrain_mask       - Locates pixels that are sufficiently burned and steep
     """
 
     # The rainfall durations used to calibrate model parameters
@@ -537,22 +529,53 @@ class Model(ABC):
         return rasters
 
     @staticmethod
+    def _validate_omitnan(omitnan: Any, rasters: list[str]) -> OmitnanDict:
+        "Validates omitnan options for input rasters"
+
+        # If a boolean, use the same value for each raster
+        if isinstance(omitnan, bool):
+            return {raster: omitnan for raster in rasters}
+
+        # If a dict, check the keys and values
+        elif isinstance(omitnan, dict):
+            for key, value in omitnan.items():
+                if key not in rasters:
+                    allowed = ", ".join(rasters)
+                    raise ValueError(
+                        f"The omitnan dict contains an unrecognized key ({key=}). "
+                        f"Allowed keys are: {allowed}"
+                    )
+                elif not isinstance(value, bool):
+                    raise TypeError(f"The value for omitnan['{key}'] is not a bool.")
+
+            # Build the final dict. Unspecified keys are set to omitnan=False
+            final = {}
+            for raster in rasters:
+                if raster in omitnan.keys():
+                    final[raster] = omitnan[raster]
+                else:
+                    final[raster] = False
+            return final
+
+        # Anything else if not allowed
+        else:
+            raise TypeError("omitnan must either be a boolean or a dict.")
+
+    @staticmethod
     def _terrain_mask(
         burned: Raster, slopes: Raster, threshold_degrees: float
-    ) -> BooleanMask:
+    ) -> BooleanMatrix:
         "Returns a mask of pixels that are sufficiently burned, and that have"
         "slopes steeper than a threshold"
 
         # Validate burn mask and convert threshold from degrees to gradient
-        burned = validate.boolean(burned.values, burned.name, nodata=burned.nodata)
+        burned = validate.boolean(burned.values, burned.name, ignore=burned.nodata)
         threshold = slope.from_degrees(threshold_degrees)
 
         # Build the mask. Preserve NoData
         mask = burned & (slopes.values >= threshold)
-        if slopes.nodata is not None:
-            nodatas = nodata_.mask(slopes.values, slopes.nodata)
-            mask[nodatas] = False
-        return mask
+        nodatas = NodataMask(slopes.values, slopes.nodata)
+        return nodatas.fill(mask, False)
 
 
 class M1(Model):
@@ -594,6 +617,7 @@ class M1(Model):
         slopes: RasterInput,
         dnbr: RasterInput,
         kf_factor: RasterInput,
+        omitnan: omitnan = False,
     ) -> S17ModelVariables:
         """
         variables  Computes the T, F, and S variables for the M1 model
@@ -606,6 +630,23 @@ class M1(Model):
         mean catchment KF-factor. Returns these outputs as numpy 1D arrays with
         one element per stream segment. Note that input slopes should be slope
         gradients, and not slope angles.
+
+        M1.variables(..., omitnan)
+        Specifies how to treat NaN and NoData values in the dnbr and kf_factor
+        rasters. The omitnan option may either be a boolean or a dict. In the
+        default setting (omitnan=False), when a raster contains a NaN or Nodata
+        value in a catchment basin, then the associated variable for the basin
+        will be NaN. For example, if the dnbr raster contains NaN in a segment's
+        catchment, then the F variable will be NaN for that segment. If omitnan=True,
+        NaN and NoData values are ignored. Note that if a raster only contains
+        NaN and NoData values in a catchment, then the variable will still be NaN
+        for the catchment.
+
+        If omitnan is a dict, then it may have the keys "dnbr", and/or "kf_factor".
+        The value of each key should be a boolean indicating whether to omit NaN
+        and NoData values for that raster. If a key is not included, then the
+        omitnan setting for the raster is set to False. Raises a ValueError
+        if the dict includes other keys.
         ----------
         Inputs:
             segments: A Segments object defining a stream segment network
@@ -617,6 +658,8 @@ class M1(Model):
                 angles less than 23 degrees.
             dnbr: A dNBR raster for the watershed
             kf_factor: A KF-factor raster for the watershed
+            omitnan: A boolean or dict indicating whether to ignore NaN and NoData
+                values in the dnbr and kf_factor rasters
 
         Outputs:
             numpy 1D array: The terrain variable (T) for each stream segment
@@ -624,18 +667,19 @@ class M1(Model):
             numpy 1D array: The soil variable (S) for each stream segment
         """
 
-        # Validate segments and rasters
+        # Validate
         moderate_high, slopes, dnbr, kf_factor = cls._validate(
             segments,
             [moderate_high, slopes, dnbr, kf_factor],
             ["moderate_high", "slopes", "dnbr", "kf_factor"],
         )
+        omitnan = cls._validate_omitnan(omitnan, rasters=["dnbr", "kf_factor"])
 
         # Get variables
         mask = cls._terrain_mask(moderate_high, slopes, threshold_degrees=23)
         T = segments.upslope_ratio(mask)
-        F = segments.scaled_dnbr(dnbr)
-        S = segments.kf_factor(kf_factor)
+        F = segments.scaled_dnbr(dnbr, omitnan=omitnan["dnbr"])
+        S = segments.kf_factor(kf_factor, omitnan=omitnan["kf_factor"])
         return T, F, S
 
 
@@ -678,6 +722,7 @@ class M2(Model):
         slopes: RasterInput,
         dnbr: RasterInput,
         kf_factor: RasterInput,
+        omitnan: omitnan = False,
     ) -> S17ModelVariables:
         """
         variables  Computes the T, F, and S variables for the M2 model
@@ -689,6 +734,23 @@ class M2(Model):
         F is mean catchment dNBR divided by 1000, and S is mean catchment KF-factor.
         Returns these outputs as numpy 1D arrays with one element per stream segment.
         Note that input slopes should be slopes gradients, and not angles.
+
+        M2.variables(..., omitnan)
+        Specifies how to treat NaN and NoData values in the slopes, dnbr and kf_factor
+        rasters. The omitnan option may either be a boolean or a dict. In the
+        default setting (omitnan=False), when a raster contains a NaN or Nodata
+        value in a catchment basin, then the associated variable for the basin
+        will be NaN. For example, if the dnbr raster contains NaN in a segment's
+        catchment, then the F variable will be NaN for that segment. If omitnan=True,
+        NaN and NoData values are ignored. Note that if a raster only contains
+        NaN and NoData values in a catchment, then the variable will still be NaN
+        for the catchment.
+
+        If omitnan is a dict, then it may have the keys "slopes", "dnbr", and/or
+        "kf_factor". The value of each key should be a boolean indicating whether
+        to omit NaN and NoData values for that raster. If a key is not included,
+        then the omitnan setting for the raster is set to False. Raises a ValueError
+        if the dict includes other keys.
         ----------
         Inputs:
             segments: A Segments object defining a stream segment network
@@ -698,6 +760,8 @@ class M2(Model):
             slopes: A raster with the slope gradients (not angles) for the watershed
             dnbr: A dNBR raster for the watershed
             kf_factor: A KF-factor raster for the watershed
+            omitnan: A boolean or dict indicating whether to ignore NaN and NoData
+                values in the slopes, dnbr, and kf_factor rasters
 
         Outputs:
             numpy 1D array: The terrain variable (T) for each stream segment
@@ -705,18 +769,29 @@ class M2(Model):
             numpy 1D array: The soil variable (S) for each stream segment
         """
 
-        # Validate segments and rasters
+        # Validate
         moderate_high, slopes, dnbr, kf_factor = cls._validate(
             segments,
             [moderate_high, slopes, dnbr, kf_factor],
             ["moderate_high", "slopes", "dnbr", "kf_factor"],
         )
+        omitnan = cls._validate_omitnan(
+            omitnan, rasters=["slopes", "dnbr", "kf_factor"]
+        )
+
+        # Convert slopes to sine theta values, but preserve NoData values
+        sine_thetas = slope.to_sine(slopes.values)
+        sine_thetas = sine_thetas.astype(float, copy=False)
+        nodatas = NodataMask(slopes.values, slopes.nodata)
+        nodatas.fill(sine_thetas, nan)
+        sine_thetas = Raster.from_array(sine_thetas)
 
         # Get variables
-        slopes = slope.to_sine(slopes.values)
-        T = segments.sine_theta(slopes, mask=moderate_high)
-        F = segments.scaled_dnbr(dnbr)
-        S = segments.kf_factor(kf_factor)
+        T = segments.sine_theta(
+            sine_thetas, mask=moderate_high, omitnan=omitnan["slopes"]
+        )
+        F = segments.scaled_dnbr(dnbr, omitnan=omitnan["dnbr"])
+        S = segments.kf_factor(kf_factor, omitnan=omitnan["kf_factor"])
         return T, F, S
 
 
@@ -758,6 +833,7 @@ class M3(Model):
         moderate_high: RasterInput,
         relief: RasterInput,
         soil_thickness: RasterInput,
+        omitnan: omitnan = False,
     ) -> S17ModelVariables:
         """
         variables  Computes the T, F, and S variables for the M3 model
@@ -770,6 +846,20 @@ class M3(Model):
         area burned at moderate or high severity. S is mean catchment soil thickness
         divided by 100. Returns these outputs as numpy 1D arrays with one element
         per stream segment.
+
+        M3.variables(..., omitnan)
+        Specifies how to treat NaN and NoData values in the soil_thickness
+        raster. The omitnan option may either be a boolean or a dict. In the
+        default setting (omitnan=False), when the soil_thickness raster contains
+        a NaN or Nodata value in a catchment basin, then the S variable for the
+        basin will be NaN. If omitnan=True, NaN and NoData values are ignored.
+        Note that if the soil_thickness raster only contains NaN and NoData values
+        in a catchment, then S will still be NaN for that catchment.
+
+        Alternatively, omitnan may be a dict with the single key "soil_thickness".
+        The value of the key should be a boolean indicating whether to omit NaN
+        and NoData values for the soil_thickness raster. Raises a ValueError if
+        the dict includes other keys.
         ----------
         Inputs:
             segments: A Segments object defining a stream segment network
@@ -778,6 +868,8 @@ class M3(Model):
                 high severity. False pixels are not burned at these levels.
             relief: A vertical relief raster for the watershed
             soil_thickness: A soil thickness raster for the watershed
+            omitnan: A boolean or dict indicating whether to ignore NaN and NoData
+                values in the soil_thickness raster
 
         Outputs:
             numpy 1D array: The terrain variable (T) for each stream segment
@@ -785,17 +877,20 @@ class M3(Model):
             numpy 1D array: The soil variable (S) for each stream segment
         """
 
-        # Validate segments and rasters
+        # Validate
         moderate_high, relief, soil_thickness = cls._validate(
             segments,
             [moderate_high, relief, soil_thickness],
             ["moderate_high", "relief", "soil_thickness"],
         )
+        omitnan = cls._validate_omitnan(omitnan, rasters=["soil_thickness"])
 
         # Get variables
-        T = segments.ruggedness(relief)
+        T = segments.ruggedness(
+            relief,
+        )
         F = segments.upslope_ratio(moderate_high)
-        S = segments.scaled_thickness(soil_thickness)
+        S = segments.scaled_thickness(soil_thickness, omitnan=omitnan["soil_thickness"])
         return T, F, S
 
 
@@ -838,6 +933,7 @@ class M4(Model):
         slopes: RasterInput,
         dnbr: RasterInput,
         soil_thickness: RasterInput,
+        omitnan: omitnan = False,
     ) -> S17ModelVariables:
         """
         variables  Computes the T, F, and S variables for the M4 model
@@ -850,6 +946,23 @@ class M4(Model):
         divided by 100. Returns these outputs as numpy 1D arrays with one element
         per stream segment. Note that input slopes should be slope gradients, and
         not angles.
+
+        M4.variables(..., omitnan)
+        Specifies how to treat NaN and NoData values in the dnbr and soil_thickness
+        rasters. The omitnan option may either be a boolean or a dict. In the
+        default setting (omitnan=False), when a raster contains a NaN or Nodata
+        value in a catchment basin, then the associated variable for the basin
+        will be NaN. For example, if the dnbr raster contains NaN in a segment's
+        catchment, then the F variable will be NaN for that segment. If omitnan=True,
+        NaN and NoData values are ignored. Note that if a raster only contains
+        NaN and NoData values in a catchment, then the variable will still be NaN
+        for the catchment.
+
+        If omitnan is a dict, then it may have the keys "dnbr" and/or "soil_thickness".
+        The value of each key should be a boolean indicating whether to omit NaN
+        and NoData values for that raster. If a key is not included, then the
+        omitnan setting for the raster is set to False. Raises a ValueError
+        if the dict includes other keys.
         ----------
         Inputs:
             segments: A Segments object defining a stream segment network
@@ -859,6 +972,8 @@ class M4(Model):
             slopes: A raster of slope gradients (not angles) for the watershed
             dnbr: A dNBR raster for the watershed
             soil_thickness: A soil thickness raster for the watershed
+            omitnan: A boolean or dict indicating whether to ignore NaN and NoData
+                values in the dnbr and soil_thickness rasters
 
         Outputs:
             numpy 1D array: The terrain variable (T) for each stream segment
@@ -872,10 +987,11 @@ class M4(Model):
             [isburned, slopes, dnbr, soil_thickness],
             ["isburned", "slopes", "dnbr", "soil_thickness"],
         )
+        omitnan = cls._validate_omitnan(omitnan, rasters=["dnbr", "soil_thickness"])
 
         # Get variables
         mask = cls._terrain_mask(isburned, slopes, threshold_degrees=30)
         T = segments.upslope_ratio(mask)
-        F = segments.scaled_dnbr(dnbr)
-        S = segments.scaled_thickness(soil_thickness)
+        F = segments.scaled_dnbr(dnbr, omitnan=omitnan["dnbr"])
+        S = segments.scaled_thickness(soil_thickness, omitnan=omitnan["soil_thickness"])
         return T, F, S

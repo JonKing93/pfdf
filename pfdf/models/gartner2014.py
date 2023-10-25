@@ -35,9 +35,11 @@ Internal:
 
 from typing import Any, Dict, Tuple
 
-from numpy import atleast_1d, exp, log, sqrt, squeeze
+import numpy as np
+from numpy import exp, log, nan, sqrt
 
-from pfdf._utils import real, validate
+from pfdf._utils import clean_dims, real, validate
+from pfdf.errors import ShapeError
 from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volumes
 
 #####
@@ -45,6 +47,7 @@ from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volumes
 #####
 
 
+@np.errstate(divide="ignore")  # Suppress divide-by-zero warning for log(0)
 def emergency(
     i15: Variables,
     Bmh: Variables,
@@ -54,7 +57,7 @@ def emergency(
     Ci: Parameters = 0.39,
     Cb: Parameters = 0.36,
     Cr: Parameters = 0.13,
-    keepdims: bool = False
+    keepdims: bool = False,
 ) -> Volumes:
     """
     emergency  Solves the emergency assessment model (Equation 3 from Gartner et al., 2014)
@@ -62,20 +65,22 @@ def emergency(
     emergency(i15, Bmh, R)
     Solves the emergency assessment model given peak 15-minute rainfall intensity
     in mm/h (i15), the catchment area burned at moderate-or-high intensity
-    in km^2 (Bmh), and the watershed relief in m (R). Returns the predicted volume
-    of debris-flow sediment in m^3 (V).
+    in km^2 (Bmh), and the watershed relief in meter (R). Returns the potential
+    volume of debris-flow sediment in m^3 (V).
 
     The model solves the equation:
         V = exp[ 4.22 +  0.39 * sqrt(i15)  +  0.36 * ln(Bmh)  +  0.13 * sqrt(R) ]
 
-    The three input variables should be 1D real-valued numpy arrays, with one
-    element per stream segment being assessed. (although see below for a syntax
-    that permits a less common 2D case). The returned volumes will likewise be
-    a 1D numpy array of the same length.
+    Each of the three input variables may either be a scalar or a vector of data
+    values (although see below for a syntax that permits a less common 2D case).
+    If a variable is a vector, then it should have one element per stream segment
+    being assessed. If a scalar, then the same value will be used to assess potential
+    sediment volume for each segment in the network. The output volumes will be
+    a 1D numpy array with one element per segment.
 
     emergency(..., *, B, Ci, Cb, Cr)
     Also specifies the parameters to use in the model. These are the intercept (B),
-    rainfall intensitiy coefficient (Ci), burned area coefficient (Cb), and relief
+    rainfall intensity coefficient (Ci), burned area coefficient (Cb), and relief
     coefficient (Cr). By default, each coefficient is set to the value presented
     in Gartner et al., 2014. This syntax allows you to run the model using different
     parameter values - for example, for an updated model calibration.
@@ -84,16 +89,21 @@ def emergency(
         V = exp[ B +  Ci * sqrt(i15)  +  Cb * ln(Bmh)  +  Cr * sqrt(R) ]
 
     In most cases, input parameters will consist of a single value. However, this
-    syntax also allows parameters to have multiple values. In this case, all 4
-    parameters must have the same number of values, and each set of values is used
-    for an independent run of the model. This can be useful for comparing model
-    results run with different parameters - for example, for Monte Carlo validation
-    of updated parameters. We refer to each set of parameters as a "run".
+    syntax also allows parameters to have multiple values. We refer to each value
+    of a parameter as a "run". All parameters with more than one value must have the
+    same number of runs. Each set of parameters is then used for an independent
+    run of the model. (Note that parameters with a single value will use the same
+    value for each run). This setup can be useful for comparing model results run
+    with different parameters - for example, using a Monte Carlo process to calibrate
+    model parameters.
 
     When implementing multiple parameter runs, you may optionally also provide
-    specific i15, Bmh, and R values for each run. In this case, the 3 variables
-    should be 2D matrices with one row per stream segment, and one column per
-    parameter run.
+    different i15, Bmh, and R values for each run. To provide values for individual
+    runs, a variable should be a matrix with one column per parameter run. The
+    number of rows should either be 1 or the number of segments. If a variable has
+    a single row, then the same value is used for each stream segment in a given
+    run. However, note that 1D variables are always interpreted as representing
+    one value per stream segment, and never as one value per run.
 
     For multiple parameter runs, the returned volumes V will be a 2D numpy array
     with 1 row per stream segment, and 1 column per parameter run. If there is a
@@ -104,7 +114,7 @@ def emergency(
     Always returns output as a 2D array, regardless of the number of parameter runs.
     ----------
     Inputs:
-        i15: Peak 15-minute rainfall intensities in mm/hour
+        i15: Peak 15-minute rainfall intensities in mm/hour.
         Bmh: Catchment area burned at moderate or high intensity in km^2
         R: Watershed relief in meters
         B: The model intercept
@@ -120,21 +130,18 @@ def emergency(
     """
 
     # Validate
-    variables = {"i15": i15, "Bmh": Bmh, "R": R}
     parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Cr": Cr}
-    i15, Bmh, R = _validate_variables(variables)
-    B, Ci, Cb, Cr = _validate_parameters(parameters, ncols=i15.shape[1])
+    variables = {"i15": i15, "Bmh": Bmh, "R": R}
+    (B, Ci, Cb, Cr), nruns = _validate_parameters(parameters)
+    i15, Bmh, R = _validate_variables(variables, nruns)
 
-    # Solve the model
+    # Solve the model. Optionally remove trailing singletons
     lnV = B + Ci * sqrt(i15) + Cb * log(Bmh) + Cr * sqrt(R)
     V = exp(lnV)
-
-    # Optionally remove trailing singletons
-    if not keepdims:
-        V = atleast_1d(squeeze(V))
-    return V
+    return clean_dims(V, keepdims)
 
 
+@np.errstate(divide="ignore")  # Suppress divide-by-zero warning for log(0)
 def longterm(
     i60: Variables,
     Bt: Variables,
@@ -148,7 +155,7 @@ def longterm(
     Ct: Parameters = -0.24,
     Ca: Parameters = 0.49,
     Cr: Parameters = 0.03,
-    keepdims=False
+    keepdims=False,
 ) -> Volumes:
     """
     longterm  Solves the long-term model (Equation 2)
@@ -163,10 +170,12 @@ def longterm(
     The model solves the equation:
         V = exp[ 6.07 + 0.71*ln(i60) + 0.22*ln(Bt) - 0.24*ln(T) + 0.49*ln(A) + 0.03*sqrt(R) ]
 
-    The input variables should be 1D real-valued numpy arrays, with one
-    element per stream segment being assessed. (although see below for a syntax
-    that permits a less common 2D case). The returned volumes will likewise be
-    a 1D numpy array of the same length.
+    Each of the input variables may either be a scalar or a vector of data values
+    (although see below for a syntax that permits a less common 2D case). If a
+    variable is a vecotr, then it should have one element per stream segment being
+    assessed. If a scalar, then the same value will be used to assess potential
+    sediment volume for each segment in the network. The output volumes will be
+    a 1D numpy array with one element per segment.
 
     longterm(..., *, B, Ci, Cb, Ct, Ca, Cr)
     Also specifies the parameters to use in the model. These are the intercept (B),
@@ -180,16 +189,21 @@ def longterm(
         V = exp[ B + Ci*ln(i60) + Cb*ln(Bt) + Ct*ln(T) + Ca*ln(A) + Cr*sqrt(R) ]
 
     In most cases, input parameters will consist of a single value. However, this
-    syntax also allows parameters to have multiple values. In this case, all
-    parameters must have the same number of values, and each set of values is used
-    for an independent run of the model. This can be useful for comparing model
-    results run with different parameters - for example, for Monte Carlo validation
-    of updated parameters. We refer to each set of parameters as a "run".
+    syntax also allows parameters to have multiple values. We refer to each value
+    of a parameter as a "run". All parameters with more than one value must have the
+    same number of runs. Each set of parameters is then used for an independent
+    run of the model. (Note that parameters with a single value will use the same
+    value for each run). This setup can be useful for comparing model results run
+    with different parameters - for example, using a Monte Carlo process to calibrate
+    model parameters.
 
     When implementing multiple parameter runs, you may optionally also provide
-    independent i60, Bt, T, A, and R values for each run. In this case, the variables
-    should be 2D matrices with one row per stream segment, and one column per
-    parameter run.
+    different i60, Bt, T, A, and R values for each run. To provide values for individual
+    runs, a variable should be a matrix with one column per parameter run. The
+    number of rows should either be 1 or the number of segments. If a variable has
+    a single row, then the same value is used for each stream segment in a given
+    run. However, note that 1D variables are always interpreted as representing
+    one value per stream segment, and never as one value per run.
 
     For multiple parameter runs, the returned volumes V will be a 2D numpy array
     with 1 row per stream segment, and 1 column per parameter run. If there is a
@@ -220,19 +234,15 @@ def longterm(
     """
 
     # Validate
-    variables = {"i60": i60, "Bt": Bt, "T": T, "A": A, "R": R}
     parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Ct": Ct, "Ca": Ca, "Cr": Cr}
-    i60, Bt, T, A, R = _validate_variables(variables)
-    B, Ci, Cb, Ct, Ca, Cr = _validate_parameters(parameters, ncols=i60.shape[1])
+    variables = {"i60": i60, "Bt": Bt, "T": T, "A": A, "R": R}
+    (B, Ci, Cb, Ct, Ca, Cr), nruns = _validate_parameters(parameters)
+    i60, Bt, T, A, R = _validate_variables(variables, nruns)
 
-    # Solve the model
+    # Solve the model. Optionally remove trailing singletons
     lnV = B + Ci * log(i60) + Cb * log(Bt) + Ct * log(T) + Ca * log(A) + Cr * sqrt(R)
     V = exp(lnV)
-
-    # Optionally remove trailing singletons
-    if not keepdims:
-        V = atleast_1d(squeeze(V))
-    return V
+    return clean_dims(V, keepdims)
 
 
 #####
@@ -241,33 +251,67 @@ def longterm(
 
 
 def _validate_parameters(
-    parameters: Dict[str, Any], ncols: int
-) -> Tuple[VectorArray, ...]:
-    """Checks that parameters are real-valued vectors with the same length. Length
-    must match the number of variable columns if ncols != 1"""
+    parameters: Dict[str, Any]
+) -> tuple[tuple[VectorArray, ...], int]:
+    """Checks that parameters are real-valued vectors with broadcastable shapes.
+    Returns the number of runs and a tuple of validated arrays"""
 
-    # Initialize nRuns
-    if ncols != 1:
-        nruns = ncols
-    else:
-        nruns = None
-
-    # Validate
-    for k, (name, parameter) in enumerate(parameters.items()):
-        parameter = validate.vector(parameter, name, dtype=real, length=nruns)
-        if k == 0:
-            nruns = len(parameter)
+    # Check each parameter is a real-valued vector
+    nruns = 1
+    for name, parameter in parameters.items():
+        parameter = validate.vector(parameter, name, dtype=real)
         parameters[name] = parameter
-    return tuple(parameters.values())
+
+        # Record the length and name of the first parameter with multiple runs
+        if parameter.size > 1:
+            if nruns == 1:
+                nruns = parameter.size
+                set_nruns = name
+
+            # Require parameters with multiple runs to have the same shape
+            elif parameter.size != nruns:
+                raise ShapeError(
+                    "All parameters with multiple values must have the same number of runs. "
+                    f"However {set_nruns} has {nruns} values, whereas {name} has {parameter.size}."
+                )
+    return tuple(parameters.values()), nruns
 
 
-def _validate_variables(variables: Dict[str, Any]) -> Tuple[MatrixArray, ...]:
-    """Checks that variables are real-valued matrices with the same shape"""
+def _validate_variables(
+    variables: Dict[str, Any], nruns: int
+) -> Tuple[MatrixArray, ...]:
+    "Checks that variables are positive, real-valued matrices with allowed shapes"
 
-    shape = None
-    for k, (name, variable) in enumerate(variables.items()):
-        variable = validate.matrix(variable, name, dtype=real, shape=shape)
-        if k == 0:
-            shape = variable.shape
+    # Check each variable is a real-valued matrix
+    nsegments = 1
+    for name, variable in variables.items():
+        variable = validate.matrix(variable, name, dtype=real)
+        nrows, ncols = variable.shape
+
+        # Must either have 1 or nruns columns
+        if ncols != 1 and ncols != nruns:
+            if nruns == 1:
+                description = "1 column"
+            else:
+                description = f"either 1 or {nruns} columns"
+            raise ShapeError(
+                f"Each variable must have {description}. However, {name} has {ncols} columns."
+            )
+
+        # Record the shape and name of the first variable with multiple rows
+        if nrows > 1:
+            if nsegments == 1:
+                nsegments = nrows
+                set_segments = name
+
+            # Require variables with multiple rows to have the same shape
+            elif nrows != nsegments:
+                raise ShapeError(
+                    "All variables with multiple rows must have the same number of rows. "
+                    f"However, {set_segments} has {nsegments} rows, whereas {name} has {nrows}."
+                )
+
+        # Elements must be positive
+        validate.positive(variable, name, allow_zero=True, ignore=nan)
         variables[name] = variable
     return tuple(variables.values())

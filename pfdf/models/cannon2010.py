@@ -79,7 +79,8 @@ from typing import Any, Tuple
 
 import numpy as np
 
-from pfdf._utils import classify, real, validate
+from pfdf._utils import real, validate
+from pfdf._utils.classify import classify
 from pfdf.typing import RealArray, VectorArray, scalar, vector
 
 #####
@@ -308,8 +309,8 @@ def hscore(combined: RealArray, thresholds: vector = [3, 6]):
 
     T = _validate_thresholds(thresholds, "thresholds", integers=True)
     combined = validate.array(combined, "combined", dtype=real)
-    validate.integers(combined, "combined", nodata=np.nan)
-    validate.positive(combined, "combined", nodata=np.nan)
+    validate.integers(combined, "combined", ignore=np.nan)
+    validate.positive(combined, "combined", ignore=np.nan)
     return classify(combined, T)
 
 
@@ -322,7 +323,7 @@ def _validate_probabilities(p: Any) -> RealArray:
     "Checks that input debris flow probabilities are valid"
     name = "probabilities"
     p = validate.array(p, name, dtype=real)
-    validate.inrange(p, name, min=0, max=1, nodata=np.nan)
+    validate.inrange(p, name, min=0, max=1, ignore=np.nan)
     return p
 
 
@@ -330,7 +331,7 @@ def _validate_volumes(v: Any) -> RealArray:
     "Checks that input sediment volumes are valid"
     name = "volumes"
     v = validate.array(v, name, dtype=real)
-    validate.positive(v, name, allow_zero=True, nodata=np.nan)
+    validate.positive(v, name, allow_zero=True, ignore=np.nan)
     return v
 
 
