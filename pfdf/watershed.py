@@ -182,7 +182,7 @@ def flow(dem: RasterInput) -> Raster:
     # Compute flow directions
     grid = Grid.from_raster(dem, nodata=nan)
     flow = grid.flowdir(dem, flats=0, pits=0, nodata_out=0, **_FLOW_OPTIONS)
-    flow = flow.astype('int8')
+    flow = flow.astype("int8")
     return Raster.from_array(flow, nodata=0, **metadata)
 
 
