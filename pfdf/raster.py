@@ -222,19 +222,19 @@ class Raster:
         if self.transform is None:
             return (nan, nan)
         else:
-            dx = abs(self._transform[0])
-            dy = abs(self.transform[4])
-            return (dx, dy)
+            width = abs(self._transform[0])
+            height = abs(self.transform[4])
+            return (width, height)
 
     @property
     def pixel_area(self) -> float:
-        dx, dy = self.resolution
-        return dx * dy
+        width, height = self.resolution
+        return width * height
 
     @property
     def pixel_diagonal(self) -> float:
-        dx, dy = self.resolution
-        return sqrt(dx**2 + dy**2)
+        width, height = self.resolution
+        return sqrt(width**2 + height**2)
 
     # Type hint equivalent to RasterInput, but using "Self" instead of "Raster"
     _RasterInput = (
