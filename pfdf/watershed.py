@@ -58,13 +58,13 @@ Internal:
     _split_segments     - Splits stream network segments longer than a specified length
     _split              - Splits a stream segment into pieces shorter than a specified length
 """
-from math import ceil, isnan, nan
+from math import ceil, nan, inf
 from typing import Any, Optional
 
 import numpy as np
 from geojson.feature import FeatureCollection
 from pysheds.grid import Grid
-from pysheds.sview import Raster as pysheds_raster
+from pysheds.sview import Raster as PyshedsRaster
 from shapely import LineString
 from shapely.ops import substring
 
@@ -86,43 +86,36 @@ def condition(
     dem: RasterInput,
     *,
     fill_pits: bool = True,
-    fill_depressions: bool = False,
+    fill_depressions: bool = True,
     resolve_flats: bool = True,
 ) -> Raster:
     """
     condition  Conditions a DEM to resolve pits, depressions, and/or flats
     ----------
     condition(dem)
-    Conditions a DEM to fill pits and resolve flats. A pit is defined as a single
-    cell lower than all its surrounding neighbors. When a pit is filled, its
-    elevation is raised to match that of its lowest neighbor. Flats are sets of
-    adjacent cells with the same elevation, such that there are multiple possible
-    flow directions. When a flat is resolved, the elevations of the associated
-    cells are minutely adjusted so that their elevations no longer match.
+    Conditions a DEM by filling pits, filling depressions, and then resolving
+    flats. A pit is defined as a single cell lower than all its surrounding neighbors. 
+    When a pit is filled, its elevation is raised to match that of its lowest 
+    neighbor. A depression consists of multiple cells surrounded by higher terrain.
+    When a depression is filled, the elevations of all depressed cells are raised
+    to match the elevation of the lowest pixel on the border of the depression.
+    Flats are sets of adjacent cells with the same elevation, and often result from
+    filling pits and depressions (although they may also occur naturally). When
+    a flat is resolved the elevations of the associated cells are minutely adjusted
+    so that their elevations no longer match.
 
     condition(dem, *, fill_pits=False)
-    condition(dem, *, fill_depressions=True)
+    condition(dem, *, fill_depressions=False)
     condition(dem, *, resolve_flats=False)
-    Allows you to specify which steps should be implemented to condition the DEM.
-    By default, fills pits and resolves flats. Set these options to False to disable
-    these steps. If all options are enabled, fills pits first, then fills depressions,
-    then resolves flats. Note that at least one of these options must be set to
-    True, raises a ValueError if not.
-
-    A depression is a set of multiple adjacent cells that are all lower than their
-    surrounding neighbors. When a depression is filled, the elevations of all the
-    low cells are set to match the elevation of the lowest cell surrounding the
-    depression. Note that filling depressions can result in unrealistically large
-    flat areas that adversely affect the calculation of flow directions (even after
-    resolving flats). As such, depression filling is disabled by default.
+    Allows you to skip specific steps of the conditioning algorithm. Setting an
+    option to False will disable the associated conditioning step. Raises a ValueError
+    if you attempt to skip all three steps.
     ----------
     Inputs:
         dem: A digital elevation model raster
-        fill_pits: Set to True (default) to fill pits. Set to False to disable this step
-        fill_depressions: Set to True to fill depressions. Set to False (default)
-            to disable this step
-        resolve_flats: Set to True (default) to resolve flats. Set to False to
-            disable this step.
+        fill_pits: True (default) to fill pits. False to disable this step
+        fill_depressions: True (default) to fill depressions. False to disable this step
+        resolve_flats: True (default) to resolve flats. False to disable this step
 
     Outputs:
         Raster: A conditioned DEM raster
@@ -131,26 +124,30 @@ def condition(
     # Must use at least one conditioning algorithm
     if not fill_pits and not fill_depressions and not resolve_flats:
         raise ValueError(
-            "At least one of the fill_pits, fill_depressions, and resolve_flats "
-            "options must be set to True."
+            "You cannot skip all three steps of the conditioning algorithm. "
+            "At least one step must be implemented."
         )
-
-    # Validate. Get metadata and convert to pysheds
+    
+    # Validate raster. Set all NoData values to -inf (other values can cause
+    # edge case issues - NaNs and numeric values can be interpreted as high terrain
+    # when filling pits/depressions, and numeric values are neglected for flats)
     dem = Raster(dem, "dem")
+    nodatas = NodataMask(dem.values, dem.nodata)
     dem, metadata = _to_pysheds(dem)
+    dem = dem.astype(float)
+    nodatas.fill(dem, -inf)
 
-    # Condition DEM. Note that the fill_depressions and resolve_flats algorithms
-    # neglect numeric NoData values, so correct for this as necessary
-    grid = Grid.from_raster(dem, nodata=nan)
+    # Condition DEM
+    grid = Grid.from_raster(dem, nodata=-inf)
     if fill_pits:
-        dem = grid.fill_pits(dem, nodata_out=nan)
+        dem = grid.fill_pits(dem, nodata_out=-inf)
     if fill_depressions:
-        dem = _fix_nodata(dem)
-        dem = grid.fill_depressions(dem, nodata_out=nan)
+        dem = grid.fill_depressions(dem, nodata_out=-inf)
     if resolve_flats:
-        dem = _fix_nodata(dem)
-        dem = grid.resolve_flats(dem, nodata_out=nan)
-    return Raster.from_array(dem, nodata=nan, **metadata)
+        dem = grid.resolve_flats(dem, nodata_out=-inf)
+    return Raster.from_array(dem, nodata=-inf, **metadata)
+
+
 
 
 def flow(dem: RasterInput) -> Raster:
@@ -182,7 +179,7 @@ def flow(dem: RasterInput) -> Raster:
     # Compute flow directions
     grid = Grid.from_raster(dem, nodata=nan)
     flow = grid.flowdir(dem, flats=0, pits=0, nodata_out=0, **_FLOW_OPTIONS)
-    flow = flow.astype("int8")
+    flow = flow.astype('int8')
     return Raster.from_array(flow, nodata=0, **metadata)
 
 
@@ -449,7 +446,7 @@ def catchment(
     catchment = grid.catchment(
         fdir=flow, x=column, y=row, xytype="index", **_FLOW_OPTIONS
     )
-    return Raster.from_array(catchment, **metadata)
+    return Raster.from_array(catchment, nodata=False, **metadata)
 
 
 def network(
@@ -518,10 +515,11 @@ def network(
     flow = flow.as_pysheds()
     mask = mask.as_pysheds()
 
-    # Get the geojson river network, convert to shapely linestrings
+    # Get the geojson river network. Shift coordinates to pixel centers and
+    # convert to shapely linestrings
     grid = Grid.from_raster(flow)
     segments = grid.extract_river_network(flow, mask, **_FLOW_OPTIONS)
-    segments = _geojson_to_shapely(segments)
+    segments = _geojson_to_shapely(flow, segments)
 
     # Optionally enforce a max length
     if max_length is not None:
@@ -534,27 +532,28 @@ def network(
 #####
 
 
-def _to_pysheds(raster: Raster) -> tuple[pysheds_raster, dict[str, Any]]:
+def _to_pysheds(raster: Raster) -> tuple[PyshedsRaster, dict[str, Any]]:
     "Converts a raster to pysheds and returns a dict of transform and crs metadata"
     metadata = {"transform": raster.transform, "crs": raster.crs}
     raster = raster.as_pysheds()
     return raster, metadata
 
 
-def _fix_nodata(raster: pysheds_raster) -> pysheds_raster:
-    "Sets numeric NoData values to NaN in a pysheds Raster"
-    if not isnan(raster.nodata):
-        nodatas = NodataMask(raster, raster.nodata)
-        raster = nodatas.fill(raster, nan)
-        raster.nodata = nan
-    return raster
+def _geojson_to_shapely(flow: PyshedsRaster, segments: FeatureCollection) -> list[LineString]:
+    """Converts a stream network GeoJSON to a list of shapely Linestrings.
+    Also shifts linestring coordinates from the top-left corner to pixel centers"""
 
+    # Get the step size for the center shift
+    dx = flow.affine[0] / 2
+    dy = flow.affine[4] / 2
 
-def _geojson_to_shapely(segments: FeatureCollection) -> list[LineString]:
-    "Converts a stream network GeoJSON to a list of shapely Linestrings"
+    # Get the initial coordinates for each segment
     segments = segments["features"]
     for s, segment in enumerate(segments):
         coords = segment["geometry"]["coordinates"]
+
+        # Shift coordinates to pixel centers and save as LineStrings
+        coords = [(x+dx, y+dy) for x,y in coords]
         segments[s] = LineString(coords)
     return segments
 
