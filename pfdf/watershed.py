@@ -48,12 +48,11 @@ Functions:
     slopes          - Computes D8 flow slopes
     relief          - Computes vertical relief to the nearest ridge cell
     accumulation    - Computes basic, weighted, or masked flow accumulation
-    catchment       - Returns the catchment mask for a DEM pixel
-    network         - Builds a stream segment raster
+    catchment       - Returns the catchment mask for a watershed pixel
+    network         - Returns the stream segments as a list of shapely.LineString objects
 
 Internal:
     _to_pysheds         - Converts a raster to pysheds and returns metadata
-    _fix_nodata         - Sets numeric NoData values to NaN in a pysheds raster
     _geojson_to_shapely - Converts a stream network GeoJSON to a list of shapely LineStrings
     _split_segments     - Splits stream network segments longer than a specified length
     _split              - Splits a stream segment into pieces shorter than a specified length
