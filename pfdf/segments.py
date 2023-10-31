@@ -2430,20 +2430,33 @@ class Segments:
         else:
             geometries = self._basin_polygons(terminal)
 
-        # Build each feature and group into a FeatureCollection. Start by getting
-        # the properties for each feature
-        features = []
-        for g, geometry in enumerate(geometries):
-            data = {field: vector[g] for field, vector in properties.items()}
+            # Get IDs for basin data properties (geometries are not in the same
+            # order as the segment IDs, so need to track which property is which)
+            ids = self._ids
+            if terminal:
+                ids = ids[self.isterminus]
 
-            # Get the geometry
+        # Build each feature and group into a FeatureCollection. Start by getting
+        # the geometry for each feature
+        features = []
+        for (
+            g,
+            geometry,
+        ) in enumerate(geometries):
             if type == "segments":
                 geometry = geojson.LineString(geometry.coords)
             elif type == "outlets":
                 outlet = geometry.coords[-1]
                 geometry = geojson.Point(outlet)
+
+            # For basins, get the property index in addition to the geometry
             else:
+                id = geometry[1]
                 geometry = geometry[0]
+                g = int(np.argwhere(id == ids))
+
+            # Get the data properties for each feature
+            data = {field: vector[g] for field, vector in properties.items()}
 
             # Build feature and add to collection
             feature = Feature(geometry=geometry, properties=data)
