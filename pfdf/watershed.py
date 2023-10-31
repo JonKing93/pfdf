@@ -58,7 +58,7 @@ Internal:
     _split_segments     - Splits stream network segments longer than a specified length
     _split              - Splits a stream segment into pieces shorter than a specified length
 """
-from math import ceil, nan, inf
+from math import ceil, inf, nan
 from typing import Any, Optional
 
 import numpy as np
@@ -94,8 +94,8 @@ def condition(
     ----------
     condition(dem)
     Conditions a DEM by filling pits, filling depressions, and then resolving
-    flats. A pit is defined as a single cell lower than all its surrounding neighbors. 
-    When a pit is filled, its elevation is raised to match that of its lowest 
+    flats. A pit is defined as a single cell lower than all its surrounding neighbors.
+    When a pit is filled, its elevation is raised to match that of its lowest
     neighbor. A depression consists of multiple cells surrounded by higher terrain.
     When a depression is filled, the elevations of all depressed cells are raised
     to match the elevation of the lowest pixel on the border of the depression.
@@ -127,7 +127,7 @@ def condition(
             "You cannot skip all three steps of the conditioning algorithm. "
             "At least one step must be implemented."
         )
-    
+
     # Validate raster. Set all NoData values to -inf (other values can cause
     # edge case issues - NaNs and numeric values can be interpreted as high terrain
     # when filling pits/depressions, and numeric values are neglected for flats)
@@ -146,8 +146,6 @@ def condition(
     if resolve_flats:
         dem = grid.resolve_flats(dem, nodata_out=-inf)
     return Raster.from_array(dem, nodata=-inf, **metadata)
-
-
 
 
 def flow(dem: RasterInput) -> Raster:
@@ -179,7 +177,7 @@ def flow(dem: RasterInput) -> Raster:
     # Compute flow directions
     grid = Grid.from_raster(dem, nodata=nan)
     flow = grid.flowdir(dem, flats=0, pits=0, nodata_out=0, **_FLOW_OPTIONS)
-    flow = flow.astype('int8')
+    flow = flow.astype("int8")
     return Raster.from_array(flow, nodata=0, **metadata)
 
 
@@ -539,7 +537,9 @@ def _to_pysheds(raster: Raster) -> tuple[PyshedsRaster, dict[str, Any]]:
     return raster, metadata
 
 
-def _geojson_to_shapely(flow: PyshedsRaster, segments: FeatureCollection) -> list[LineString]:
+def _geojson_to_shapely(
+    flow: PyshedsRaster, segments: FeatureCollection
+) -> list[LineString]:
     """Converts a stream network GeoJSON to a list of shapely Linestrings.
     Also shifts linestring coordinates from the top-left corner to pixel centers"""
 
@@ -553,7 +553,7 @@ def _geojson_to_shapely(flow: PyshedsRaster, segments: FeatureCollection) -> lis
         coords = segment["geometry"]["coordinates"]
 
         # Shift coordinates to pixel centers and save as LineStrings
-        coords = [(x+dx, y+dy) for x,y in coords]
+        coords = [(x + dx, y + dy) for x, y in coords]
         segments[s] = LineString(coords)
     return segments
 
