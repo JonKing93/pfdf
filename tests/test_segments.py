@@ -141,12 +141,12 @@ def outlet_raster():
 @pytest.fixture
 def linestrings():
     segments = [
-        [[1, 1], [1, 2], [1, 3], [2, 3], [2, 4], [3, 4]],
-        [[4, 1], [4, 2], [4, 3]],
-        [[5, 2], [5, 1], [5, 0]],
-        [[5, 3], [4, 3]],
-        [[4, 3], [3, 4]],
-        [[3, 4], [3, 5], [3, 6]],
+        [[1.5, 1.5], [1.5, 2.5], [1.5, 3.5], [2.5, 3.5], [2.5, 4.5], [3.5, 4.5]],
+        [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
+        [[5.5, 2.5], [5.5, 1.5], [5.5, 0.5]],
+        [[5.5, 3.5], [4.5, 3.5]],
+        [[4.5, 3.5], [3.5, 4.5]],
+        [[3.5, 4.5], [3.5, 5.5], [3.5, 6.5]],
     ]
     return [LineString(coords) for coords in segments]
 
@@ -193,13 +193,13 @@ def parents():
 @pytest.fixture
 def linestrings_split():
     segments = [
-        [[1, 1], [1, 2], [1, 3], [1.5, 3]],
-        [[1.5, 3], [2, 3], [2, 4], [3, 4]],
-        [[4, 1], [4, 2], [4, 3]],
-        [[5, 2], [5, 1], [5, 0]],
-        [[5, 3], [4, 3]],
-        [[4, 3], [3, 4]],
-        [[3, 4], [3, 5], [3, 6]],
+        [[1.5, 1.5], [1.5, 2.5], [1.5, 3.5], [2, 3.5]],
+        [[2, 3.5], [2.5, 3.5], [2.5, 4.5], [3.5, 4.5]],
+        [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
+        [[5.5, 2.5], [5.5, 1.5], [5.5, 0.5]],
+        [[5.5, 3.5], [4.5, 3.5]],
+        [[4.5, 3.5], [3.5, 4.5]],
+        [[3.5, 4.5], [3.5, 5.5], [3.5, 6.5]],
     ]
     return [LineString(coords) for coords in segments]
 
@@ -357,6 +357,10 @@ class TestInit:
         )
         segments = Segments(flow, mask, 2.5)
         assert segments._flow == flow
+
+        print(segments._segments)
+        print(linestrings_split)
+
         assert segments._segments == linestrings_split
         assert np.array_equal(segments._ids, np.arange(7) + 1)
         assert segments._indices == indices_split
@@ -386,8 +390,8 @@ class TestInit:
         segments = Segments(flow, mask, max_length=2.5)
 
         linestrings = [
-            LineString([[5, 1], [4, 1], [3, 1], [2.5, 1]]),
-            LineString([[2.5, 1], [2, 1], [1, 1], [0, 1]]),
+            LineString([[5.5, 1.5], [4.5, 1.5], [3.5, 1.5], [3, 1.5]]),
+            LineString([[3, 1.5], [2.5, 1.5], [1.5, 1.5], [0.5, 1.5]]),
         ]
         indices = [
             ([1, 1, 1], [5, 4, 3]),
@@ -960,7 +964,7 @@ class TestBasinMask:
             ]
         )
         assert isinstance(output, Raster)
-        assert output.nodata is None
+        assert output.nodata == False
         assert output.crs == segments.crs
         assert output.transform == segments.transform
         assert np.array_equal(output.values, expected)
@@ -979,7 +983,7 @@ class TestBasinMask:
             ]
         )
         assert isinstance(output, Raster)
-        assert output.nodata is None
+        assert output.nodata == False
         assert output.crs == segments.crs
         assert output.transform == segments.transform
         assert np.array_equal(output.values, expected)
@@ -2357,7 +2361,7 @@ class Test_Geojson:
             "features": [
                 {
                     "geometry": {
-                        "coordinates": [[4.0, 1.0], [4.0, 2.0], [4.0, 3.0]],
+                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2365,7 +2369,7 @@ class Test_Geojson:
                 },
                 {
                     "geometry": {
-                        "coordinates": [[5.0, 3.0], [4.0, 3.0]],
+                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2373,7 +2377,7 @@ class Test_Geojson:
                 },
                 {
                     "geometry": {
-                        "coordinates": [[4.0, 3.0], [3.0, 4.0]],
+                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2391,12 +2395,12 @@ class Test_Geojson:
         expected = {
             "features": [
                 {
-                    "geometry": {"coordinates": [5.0, 0.0], "type": "Point"},
+                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [3.0, 6.0], "type": "Point"},
+                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
@@ -2411,32 +2415,32 @@ class Test_Geojson:
         expected = {
             "features": [
                 {
-                    "geometry": {"coordinates": [3.0, 4.0], "type": "Point"},
+                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [4.0, 3.0], "type": "Point"},
+                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [5.0, 0.0], "type": "Point"},
+                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [4.0, 3.0], "type": "Point"},
+                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [3.0, 4.0], "type": "Point"},
+                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [3.0, 6.0], "type": "Point"},
+                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
@@ -2586,7 +2590,7 @@ class Test_Geojson:
             "features": [
                 {
                     "geometry": {
-                        "coordinates": [[4.0, 1.0], [4.0, 2.0], [4.0, 3.0]],
+                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
                     "properties": {"length": 1.1, "slope": 1},
@@ -2594,7 +2598,7 @@ class Test_Geojson:
                 },
                 {
                     "geometry": {
-                        "coordinates": [[5.0, 3.0], [4.0, 3.0]],
+                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
                     "properties": {"length": 2.2, "slope": 2},
@@ -2602,7 +2606,7 @@ class Test_Geojson:
                 },
                 {
                     "geometry": {
-                        "coordinates": [[4.0, 3.0], [3.0, 4.0]],
+                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
                         "type": "LineString",
                     },
                     "properties": {"length": 3.3, "slope": 3},
@@ -2623,7 +2627,7 @@ class TestGeojson:
             "features": [
                 {
                     "geometry": {
-                        "coordinates": [[4.0, 1.0], [4.0, 2.0], [4.0, 3.0]],
+                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2631,7 +2635,7 @@ class TestGeojson:
                 },
                 {
                     "geometry": {
-                        "coordinates": [[5.0, 3.0], [4.0, 3.0]],
+                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2639,7 +2643,7 @@ class TestGeojson:
                 },
                 {
                     "geometry": {
-                        "coordinates": [[4.0, 3.0], [3.0, 4.0]],
+                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2655,12 +2659,12 @@ class TestGeojson:
         expected = {
             "features": [
                 {
-                    "geometry": {"coordinates": [5.0, 0.0], "type": "Point"},
+                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [3.0, 6.0], "type": "Point"},
+                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
@@ -2675,32 +2679,32 @@ class TestGeojson:
         expected = {
             "features": [
                 {
-                    "geometry": {"coordinates": [3.0, 4.0], "type": "Point"},
+                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [4.0, 3.0], "type": "Point"},
+                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [5.0, 0.0], "type": "Point"},
+                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [4.0, 3.0], "type": "Point"},
+                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [3.0, 4.0], "type": "Point"},
+                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": [3.0, 6.0], "type": "Point"},
+                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
@@ -2849,7 +2853,7 @@ class TestGeojson:
             "features": [
                 {
                     "geometry": {
-                        "coordinates": [[4.0, 1.0], [4.0, 2.0], [4.0, 3.0]],
+                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
                     "properties": {"length": 1.1, "slope": 1},
@@ -2857,7 +2861,7 @@ class TestGeojson:
                 },
                 {
                     "geometry": {
-                        "coordinates": [[5.0, 3.0], [4.0, 3.0]],
+                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
                     "properties": {"length": 2.2, "slope": 2},
@@ -2865,7 +2869,7 @@ class TestGeojson:
                 },
                 {
                     "geometry": {
-                        "coordinates": [[4.0, 3.0], [3.0, 4.0]],
+                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
                         "type": "LineString",
                     },
                     "properties": {"length": 3.3, "slope": 3},
@@ -2907,7 +2911,7 @@ class TestSave:
             "features": [
                 {
                     "geometry": {
-                        "coordinates": [(4.0, 1.0), (4.0, 2.0), (4.0, 3.0)],
+                        "coordinates": [(4.5, 1.5), (4.5, 2.5), (4.5, 3.5)],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2915,7 +2919,7 @@ class TestSave:
                 },
                 {
                     "geometry": {
-                        "coordinates": [(5.0, 3.0), (4.0, 3.0)],
+                        "coordinates": [(5.5, 3.5), (4.5, 3.5)],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2923,7 +2927,7 @@ class TestSave:
                 },
                 {
                     "geometry": {
-                        "coordinates": [(4.0, 3.0), (3.0, 4.0)],
+                        "coordinates": [(4.5, 3.5), (3.5, 4.5)],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -2945,12 +2949,12 @@ class TestSave:
         expected = {
             "features": [
                 {
-                    "geometry": {"coordinates": (5.0, 0.0), "type": "Point"},
+                    "geometry": {"coordinates": (5.5, 0.5), "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": (3.0, 6.0), "type": "Point"},
+                    "geometry": {"coordinates": (3.5, 6.5), "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
@@ -2971,32 +2975,32 @@ class TestSave:
         expected = {
             "features": [
                 {
-                    "geometry": {"coordinates": (3.0, 4.0), "type": "Point"},
+                    "geometry": {"coordinates": (3.5, 4.5), "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": (4.0, 3.0), "type": "Point"},
+                    "geometry": {"coordinates": (4.5, 3.5), "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": (5.0, 0.0), "type": "Point"},
+                    "geometry": {"coordinates": (5.5, 0.5), "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": (4.0, 3.0), "type": "Point"},
+                    "geometry": {"coordinates": (4.5, 3.5), "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": (3.0, 4.0), "type": "Point"},
+                    "geometry": {"coordinates": (3.5, 4.5), "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
                 {
-                    "geometry": {"coordinates": (3.0, 6.0), "type": "Point"},
+                    "geometry": {"coordinates": (3.5, 6.5), "type": "Point"},
                     "properties": {},
                     "type": "Feature",
                 },
@@ -3169,7 +3173,7 @@ class TestSave:
             "features": [
                 {
                     "geometry": {
-                        "coordinates": [(4.0, 1.0), (4.0, 2.0), (4.0, 3.0)],
+                        "coordinates": [(4.5, 1.5), (4.5, 2.5), (4.5, 3.5)],
                         "type": "LineString",
                     },
                     "properties": {"length": 1.1, "slope": 1},
@@ -3177,7 +3181,7 @@ class TestSave:
                 },
                 {
                     "geometry": {
-                        "coordinates": [(5.0, 3.0), (4.0, 3.0)],
+                        "coordinates": [(5.5, 3.5), (4.5, 3.5)],
                         "type": "LineString",
                     },
                     "properties": {"length": 2.2, "slope": 2},
@@ -3185,7 +3189,7 @@ class TestSave:
                 },
                 {
                     "geometry": {
-                        "coordinates": [(4.0, 3.0), (3.0, 4.0)],
+                        "coordinates": [(4.5, 3.5), (3.5, 4.5)],
                         "type": "LineString",
                     },
                     "properties": {"length": 3.3, "slope": 3},
@@ -3223,7 +3227,7 @@ class TestSave:
             "features": [
                 {
                     "geometry": {
-                        "coordinates": [(4.0, 1.0), (4.0, 2.0), (4.0, 3.0)],
+                        "coordinates": [(4.5, 1.5), (4.5, 2.5), (4.5, 3.5)],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -3231,7 +3235,7 @@ class TestSave:
                 },
                 {
                     "geometry": {
-                        "coordinates": [(5.0, 3.0), (4.0, 3.0)],
+                        "coordinates": [(5.5, 3.5), (4.5, 3.5)],
                         "type": "LineString",
                     },
                     "properties": {},
@@ -3239,7 +3243,7 @@ class TestSave:
                 },
                 {
                     "geometry": {
-                        "coordinates": [(4.0, 3.0), (3.0, 4.0)],
+                        "coordinates": [(4.5, 3.5), (3.5, 4.5)],
                         "type": "LineString",
                     },
                     "properties": {},

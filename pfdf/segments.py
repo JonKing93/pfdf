@@ -8,7 +8,7 @@ include:
     * Building a stream segment network
     * Filtering the network to a set of model-worthy segments
     * Calculating values for each segment in the network, and
-    * Exporting the network (and associated data value) to GeoJSON
+    * Exporting the network (and associated data value) to file or GeoJSON
 
 Please see the documentation of the Segments class for details on implementing 
 these procedures.
@@ -151,6 +151,22 @@ class Segments:
     the two networks do not connect, the networks are considered distinct,
     even if one network eventually flows into the other.
 
+    *Upstream Parents*
+    A segment's upstream parents are the segments that flow immediately into the
+    segment. A segment may have no parents (if it is at the top of its local drainage
+    network), or multiple parents (if the segment begins at a confluence point).
+    The key characteristic of a parent is immediate upstream connectivity. A upstream
+    segment that flows into the current segment via intermediate segments is not
+    a parent of the current segment.
+
+    *Downstream Child*
+    A segment's downstream child is the segment that it flows immediately into.
+    A segment may have at most one child. A terminal segment (a segment at
+    the bottom of a local drainage network) will not have a child. The key
+    characteristic of a child is immediate downstream connectivity. If the current
+    segment flows into a downstream segment via intermediate segments, then the
+    downstream segment is not a child of the current segment.
+
     *Outlets*
     An outlet is the final, most downstream point in a stream segment. All points
     that eventually flow into the stream segment will eventually flow through the
@@ -181,23 +197,8 @@ class Segments:
     associated with the same terminal outlet basin. As such, the terminal outlet
     basins are a subset of the complete set of segment catchment basins. Note
     that a given segment's catchment basin will be a subset of the points in its
-    terminal outlet basin. Terminal outlet basins are well-represented as Polygon feautres.
-
-    *Upstream Parents*
-    A segment's upstream parents are the segments that flow immediately into the
-    segment. A segment may have no parents (if it is at the top of its local drainage
-    network), or multiple parents (if the segment begins at a confluence point).
-    The key characteristic of a parent is immediate upstream connectivity. A upstream
-    segment that flows into the current segment via intermediate segments is not
-    a parent of the current segment.
-
-    *Downstream Child*
-    A segment's downstream child is the segment that it flows immediately into.
-    A segment may have at most one child. A terminal segment (a segment at
-    the bottom of a local drainage network) will not have a child. The key
-    characteristic of a child is immediate downstream connectivity. If the current
-    segment flows into a downstream segment via intermediate segments, then the
-    downstream segment is not a child of the current segment.
+    terminal outlet basin. Terminal outlet basins are well-represented as Polygon
+    features.
 
     BUILDING A NETWORK:
     You can build an initial stream segment network by initializing a Segments
@@ -291,10 +292,10 @@ class Segments:
     0 background, with terminal outlet basins indicated by non-zero pixels. The
     value of each pixel is the ID of the terminal segment associated with the
     outlet basin. If a pixel belongs to multiple terminal outlet basins, then its
-    value will match the ID of the terminal segment that is farthest upstream.
+    value will match the ID of the terminal segment that is farthest downstream.
     You can return this raster by calling the "raster" method with basins=True.
 
-    Sometimes it can be useful to return the basin mask for a specific segment.
+    Sometimes it can be useful to return the "basin mask" for a specific segment.
     For example, to locate the pixels used to compute a statistical summary over
     a segment's catchment basin. Here, a basin mask is a boolean raster. True
     elements indicate pixels that belong to the segment's basin. You can return
@@ -307,7 +308,7 @@ class Segments:
     A final (and uncommon) raster representation is the "nested drainage basin
     raster". This raster consists of a 0 background, with nested drainage basins
     indicated by non-zero pixels. The value of each non-zero pixel will match the
-    ID of the *most upstream segment* that contains the pixel in its catchment basin.
+    ID of the most *upstream* segment that contains the pixel in its catchment basin.
     Building this raster requires a slow algorithm and takes a long time to compute.
     As such, we recommend using one of the other raster representations whenever
     possible. You can return a nested drainage basin raster by calling the "raster"
@@ -1112,7 +1113,7 @@ class Segments:
         a 0 background. Non-zero pixels indicate terminal outlet basin pixels. The
         value of each pixel is the ID of the terminal segment associated with the
         basin. If a pixel is in multiple basins, then its value to assigned to
-        the ID of the terminal segment that is farthest upstream.
+        the ID of the terminal segment that is farthest downstream.
 
         self.raster(basins=True, nested=True)
         Returns the nested drainage basin raster for the network. The raster has
@@ -1159,10 +1160,12 @@ class Segments:
         flow = self._flow.as_pysheds()
         grid = Grid.from_raster(flow)
 
-        # Get segment outlets sorted from downstream to upstream
+        # Sort the outlets from upstream to down. Reverse the order if building
+        # nested basins.
         outlets = self.outlets()
         indices = np.argsort(self._npixels)
-        indices = np.flip(indices)
+        if nested:
+            indices = np.flip(indices)
 
         # Iterate through outlets in sorted order. Either use all outlets
         # (for nested basins), or terminal outlets (for terminal basins)
@@ -2430,20 +2433,33 @@ class Segments:
         else:
             geometries = self._basin_polygons(terminal)
 
-        # Build each feature and group into a FeatureCollection. Start by getting
-        # the properties for each feature
-        features = []
-        for g, geometry in enumerate(geometries):
-            data = {field: vector[g] for field, vector in properties.items()}
+            # Get IDs for basin data properties (geometries are not in the same
+            # order as the segment IDs, so need to track which property is which)
+            ids = self._ids
+            if terminal:
+                ids = ids[self.isterminus]
 
-            # Get the geometry
+        # Build each feature and group into a FeatureCollection. Start by getting
+        # the geometry for each feature
+        features = []
+        for (
+            g,
+            geometry,
+        ) in enumerate(geometries):
             if type == "segments":
                 geometry = geojson.LineString(geometry.coords)
             elif type == "outlets":
                 outlet = geometry.coords[-1]
                 geometry = geojson.Point(outlet)
+
+            # For basins, get the property index in addition to the geometry
             else:
+                id = geometry[1]
                 geometry = geometry[0]
+                g = int(np.argwhere(id == ids))
+
+            # Get the data properties for each feature
+            data = {field: vector[g] for field, vector in properties.items()}
 
             # Build feature and add to collection
             feature = Feature(geometry=geometry, properties=data)
@@ -2461,41 +2477,50 @@ class Segments:
         geosjon  Exports the network to a geojson.FeatureCollection object
         ----------
         self.geojson()
-        self.geojson(type='segments')
+        self.geojson(..., *, type='segments')
         Exports the network to a geojson.FeatureCollection object. The individual
         Features have LineString geometries whose coordinates proceed from upstream
         to downstream. Will have one feature per stream segment.
 
-        self.geojson(properties)
-        Specifies properties for the GeoJSON Features. The "properties" input should
-        be a dict. Each key should be the (string) name of the associated property
-        field. Each value should be a numpy 1D array with one element per exported
-        feature. The arrays must have an integer, floating-point, or boolean dtype.
-        All properties in the output GeoJSON Features will have a floating-point type.
+        self.geojson(..., *, type='basins')
+        self.geojson(..., *, type='basins', terminal=False)
+        Exports catchment basins as a collection of Polygon features. By default,
+        exports the terminal outlet basins. In this case, the number of features
+        in the output geojson will be <= the number of local drainage networks.
+        (The number of features will be < the number of local networks if a local
+        network flows into another local network). Set terminal=False to instead
+        export the nested drainage basins. In this case, the output geojson will
+        have one feature per segment in the network. We recommend avoiding the
+        nested drainage basins, as these features are slow to generate.
 
         self.geojson(..., *, type='outlets')
-        self.geojson(..., *, type='basins')
-        If type='outlets', exports the terminal outlet points as a collection of Point
-        features. If type='basins', exports the terminal outlet basins as a collection
-        of Polygon features. The output geojson will have one feature per local
-        drainage network.
-
         self.geojson(..., *, type='outlets', terminal=False)
-        self.geojson(..., *, type='basins', terminal=False)
-        Exports an outlet or basin for every segment in the network, rather than
-        just the terminal segments. If type='outlets', exports the outlet point
-        for each segment in the network. If type='basins', exports the nested
-        drainage basins as Polygon features. We recommend avoiding the nested
-        drainage basins when possible, as these features are slow to generate.
-        Note that the "terminal" option is ignored when exporting segments.
+        Exports outlet points as a collection of Point features. By default, exports
+        the terminal output points. In this case, the output geojson will have
+        one feature per local drainage network. Set terminal=False to instead export
+        all outlet points. In this case, the output will have one feature per
+        segment in the network.
+
+        self.geojson(properties, ...)
+        Specifies data properties for the GeoJSON features. The "properties" input
+        should be a dict. Each key should be a string and will be interpreted as
+        the name of the associated property field. Each value should be a numpy
+        1D array with an integer, floating, or boolean dtype. All properties in
+        the output GeoJSON features will have a floating dtype, regardless of the
+        input type.
+
+        If exporting segments, or basins/outlets with terminal=False, then each
+        array should have one element per segment in the network. If exporting
+        basins/outlets with terminal=True (the default), then each array should
+        have one element per local drainage network.
         ----------
         Inputs:
             properties: A dict whose keys are the (string) names of the property
                 fields. Each value should be a numpy 1D array with an integer,
                 floating-point, or boolean dtype. Each array should have one
-                element per segment, unless exporting terminal outlet basins.
-                In this case, each array should have one element per terminal
-                segment.
+                element per segment, unless exporting terminal outlets or terminal
+                outlet basins. In these cases, each array should have one element
+                per local drainage network.
             type: A string indicating the type of feature to export. Options are
                 'segments', 'outlets', and 'basins'.
             terminal: Customizes the export of outlet Points and basin Polygons.
@@ -2525,6 +2550,7 @@ class Segments:
         ----------
         save(path)
         save(path, *, overwrite=True)
+        save(path, *, type='segments')
         Saves the network to the indicated path. Each segment is saved as a vector
         feature with a LineString geometry whose coordinates proceed from upstream
         to downstream. The vector features will not have any data properties. In
@@ -2541,28 +2567,37 @@ class Segments:
         extensions. We note that pfdf is tested using the "GeoJSON" driver (.geojson
         extension), and so this format is likely the most robust.
 
-        save(path, properties)
-        Specifies data properties for the saved features. The "properties" input should
-        be a dict. Each key should be the (string) name of the associated property
-        field. Each value should be a numpy 1D array with one element per segment
-        in the network. The arrays must have an integer, floating-point, or
-        boolean dtype. Note that all properties will be converted to a floating-point
-        type in the saved file.
+        self.save(..., *, type='basins')
+        self.save(..., *, type='basins', terminal=False)
+        Saves catchment basins as a collection of Polygon features. By default,
+        saves the terminal outlet basins. In this case, the number of features
+        in the saved file will be <= the number of local drainage networks.
+        (The number of features will be < the number of local networks if a local
+        network flows into another local network). Set terminal=False to instead
+        save the nested drainage basins. In this case, the saved file will have
+        one feature per segment in the network. We recommend avoiding the nested
+        drainage basins, as these features are slow to generate.
 
         self.save(..., *, type='outlets')
-        self.save(..., *, type='basins')
-        If type='outlets', saves the terminal outlet points as a collection of Point
-        features. If type='basins', saves the terminal outlet basins as a collection
-        of Polygon features.
-
         self.save(..., *, type='outlets', terminal=False)
-        self.save(..., *, type='basins', terminal=False)
-        Saves an outlet or basin for every segment in the network, rather than
-        just the terminal segments. If type='outlets', saves the outlet point
-        for each segment in the network. If type='basins', saves the nested
-        drainage basins as Polygon features. We recommend avoiding the nested
-        drainage basins when possible, as these features are slow to generate.
-        Note that the "terminal" option is ignored when exporting segments.
+        Saves outlet points as a collection of Point features. By default, saves
+        the terminal output points. In this case, the saved file will have one
+        feature per local drainage network. Set terminal=False to instead save
+        all outlet points. In this case, the saved file will have one feature per
+        segment in the network.
+
+        self.save(path, properties, ...)
+        Specifies data properties for the saved features. The "properties" input
+        should be a dict. Each key should be a string and will be interpreted as
+        the name of the associated property field. Each value should be a numpy
+        1D array with an integer, floating, or boolean dtype. All properties in
+        the output GeoJSON features will have a floating dtype, regardless of the
+        input type.
+
+        If saving segments, or basins/outlets with terminal=False, then each
+        array should have one element per segment in the network. If exporting
+        basins/outlets with terminal=True (the default), then each array should
+        have one element per local drainage network.
 
         save(..., *, driver)
         Specifies the file format driver to used to write the vector feature file.

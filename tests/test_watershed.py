@@ -1,4 +1,4 @@
-from math import sqrt
+from math import inf, sqrt
 
 import numpy as np
 import pytest
@@ -51,21 +51,21 @@ def network_mask():
 @pytest.fixture
 def segments():
     segments = [
-        [[1, 1], [1, 2], [2, 3], [2, 4], [3, 4]],
-        [[4, 1], [4, 2]],
-        [[5, 1], [5, 0]],
-        [[2, 2], [2, 1], [2, 0]],
-        [[5, 2], [4, 2]],
-        [[4, 2], [4, 3]],
-        [[1, 3], [0, 3]],
-        [[3, 3], [3, 2], [3, 1], [3, 0]],
-        [[5, 3], [4, 3]],
-        [[4, 3], [3, 4]],
-        [[3, 4], [3, 5], [3, 6]],
-        [[1, 4], [0, 4]],
-        [[4, 4], [5, 4], [6, 4]],
-        [[2, 5], [1, 5], [0, 5]],
-        [[4, 5], [5, 5], [6, 5]],
+        [[1.5, 1.5], [1.5, 2.5], [2.5, 3.5], [2.5, 4.5], [3.5, 4.5]],
+        [[4.5, 1.5], [4.5, 2.5]],
+        [[5.5, 1.5], [5.5, 0.5]],
+        [[2.5, 2.5], [2.5, 1.5], [2.5, 0.5]],
+        [[5.5, 2.5], [4.5, 2.5]],
+        [[4.5, 2.5], [4.5, 3.5]],
+        [[1.5, 3.5], [0.5, 3.5]],
+        [[3.5, 3.5], [3.5, 2.5], [3.5, 1.5], [3.5, 0.5]],
+        [[5.5, 3.5], [4.5, 3.5]],
+        [[4.5, 3.5], [3.5, 4.5]],
+        [[3.5, 4.5], [3.5, 5.5], [3.5, 6.5]],
+        [[1.5, 4.5], [0.5, 4.5]],
+        [[4.5, 4.5], [5.5, 4.5], [6.5, 4.5]],
+        [[2.5, 5.5], [1.5, 5.5], [0.5, 5.5]],
+        [[4.5, 5.5], [5.5, 5.5], [6.5, 5.5]],
     ]
     return [LineString(coords) for coords in segments]
 
@@ -108,17 +108,6 @@ def test_to_pysheds():
     assert metadata["crs"] == crs
 
 
-def test_fix_nodata():
-    a = np.arange(10).reshape(2, 5)
-    a = Raster.from_array(a, nodata=0)
-    a = a.as_pysheds()
-    a = watershed._fix_nodata(a)
-    expected = np.array([[nan, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-    assert isinstance(a, PyshedsRaster)
-    assert np.array_equal(a, expected, equal_nan=True)
-    assert isnan(a.nodata)
-
-
 def test_geojson_to_shapely(network_flow, segments):
     flow = network_flow.as_pysheds()
     mask = np.ones(flow.shape, dtype=bool)
@@ -126,7 +115,8 @@ def test_geojson_to_shapely(network_flow, segments):
     grid = Grid.from_raster(flow)
     network = grid.extract_river_network(flow, mask, **watershed._FLOW_OPTIONS)
     assert isinstance(network, FeatureCollection)
-    output = watershed._geojson_to_shapely(network)
+
+    output = watershed._geojson_to_shapely(flow, network)
     print(output)
     print(segments)
     assert output == segments
@@ -189,7 +179,7 @@ class TestCondition:
             watershed.condition(
                 dem, fill_pits=False, fill_depressions=False, resolve_flats=False
             )
-        assert_contains(error, "fill_pits", "fill_depressions", "resolve_flats")
+        assert_contains(error, "cannot skip all three steps")
 
     def test_pits(_):
         dem = np.array(
@@ -203,17 +193,17 @@ class TestCondition:
         )
         expected = np.array(
             [
-                [nan, nan, nan, nan, nan],
-                [nan, 2, 2, 4, nan],
-                [nan, 5, 2, 5, nan],
-                [nan, 6, 9, 6, nan],
-                [nan, nan, nan, nan, nan],
+                [-inf, -inf, -inf, -inf, -inf],
+                [-inf, 2, 2, 4, -inf],
+                [-inf, 5, 2, 5, -inf],
+                [-inf, 6, 9, 6, -inf],
+                [-inf, -inf, -inf, -inf, -inf],
             ]
         )
         output = watershed.condition(
             dem, fill_pits=True, fill_depressions=False, resolve_flats=False
         ).values
-        assert np.array_equal(output, expected, equal_nan=True)
+        assert np.array_equal(output, expected)
 
     def test_depressions(_):
         dem = np.array(
@@ -226,22 +216,21 @@ class TestCondition:
                 [0, 0, 0, 0, 0, 0],
             ]
         )
+        dem = Raster.from_array(dem, nodata=0)
         expected = np.array(
             [
-                [nan, nan, nan, nan, nan, nan],
-                [nan, 3, 3, 3, 3, nan],
-                [nan, 3, 3, 3, 3, nan],
-                [nan, 3, 3, 3, 3, nan],
-                [nan, 3, 3, 3, 3, nan],
-                [nan, nan, nan, nan, nan, nan],
+                [-inf, -inf, -inf, -inf, -inf, -inf],
+                [-inf, 3, 3, 3, 3, -inf],
+                [-inf, 3, 3, 3, 3, -inf],
+                [-inf, 3, 3, 3, 3, -inf],
+                [-inf, 3, 3, 3, 3, -inf],
+                [-inf, -inf, -inf, -inf, -inf, -inf],
             ]
         )
         output = watershed.condition(
             dem, fill_pits=False, fill_depressions=True, resolve_flats=False
         ).values
-        print(output)
-        print(expected)
-        assert np.array_equal(output, expected, equal_nan=True)
+        assert np.array_equal(output, expected)
 
     def test_flats(_):
         dem = np.array(
@@ -254,20 +243,21 @@ class TestCondition:
                 [0, 0, 0, 0, 0, 0],
             ]
         )
+        dem = Raster.from_array(dem, nodata=0)
         expected = np.array(
             [
-                [nan, nan, nan, nan, nan, nan],
-                [nan, 3.00002, 5.0, 6.0, 8.0, nan],
-                [nan, 3.00002, 3.00002, 3.00002, 9.0, nan],
-                [nan, 3.00001, 3.00001, 3.00002, 9.0, nan],
-                [nan, 3.00000, 3.00001, 3.00002, 8.0, nan],
-                [nan, nan, nan, nan, nan, nan],
+                [-inf, -inf, -inf, -inf, -inf, -inf],
+                [-inf, 3.00002, 5.0, 6.0, 8.0, -inf],
+                [-inf, 3.00002, 3.00005, 3.00007, 9.0, -inf],
+                [-inf, 3.00002, 3.00004, 3.00005, 9.0, -inf],
+                [-inf, 3.00002, 3.00002, 3.00002, 8.0, -inf],
+                [-inf, -inf, -inf, -inf, -inf, -inf],
             ]
         )
         output = watershed.condition(
             dem, fill_pits=False, fill_depressions=False, resolve_flats=True
         ).values
-        assert np.array_equal(output, expected, equal_nan=True)
+        assert np.array_equal(output, expected)
 
     def test_default(_):
         dem = np.array(
@@ -282,10 +272,10 @@ class TestCondition:
         )
         dem = Raster.from_array(dem, nodata=-999)
         expected = watershed.condition(
-            dem, fill_pits=True, fill_depressions=False, resolve_flats=True
+            dem, fill_pits=True, fill_depressions=True, resolve_flats=True
         ).values
         output = watershed.condition(dem).values
-        assert np.array_equal(output, expected, equal_nan=True)
+        assert np.array_equal(output, expected)
 
 
 class TestFlow:
@@ -641,7 +631,7 @@ class TestCatchment:
         assert isinstance(output, Raster)
         assert np.array_equal(output.values, expected)
         assert output.dtype == bool
-        assert output.nodata is None
+        assert output.nodata == False
         assert output.crs is None
         assert output.transform is None
 
@@ -682,13 +672,15 @@ class TestNetwork:
 
         output = watershed.network(flow, mask, max_length=2)
         expected = [
-            LineString([[1, 1], [2, 1], [3, 1]]),
-            LineString([[3, 1], [4, 1], [5, 1]]),
-            LineString([[5, 1], [6, 1], [7, 1]]),
-            LineString([[1, 2], [2, 2], [3, 2]]),
-            LineString([[3, 2], [4, 2], [5, 2]]),
-            LineString([[5, 2], [6, 2], [7, 2]]),
+            LineString([[1.5, 1.5], [2.5, 1.5], [3.5, 1.5]]),
+            LineString([[3.5, 1.5], [4.5, 1.5], [5.5, 1.5]]),
+            LineString([[5.5, 1.5], [6.5, 1.5], [7.5, 1.5]]),
+            LineString([[1.5, 2.5], [2.5, 2.5], [3.5, 2.5]]),
+            LineString([[3.5, 2.5], [4.5, 2.5], [5.5, 2.5]]),
+            LineString([[5.5, 2.5], [6.5, 2.5], [7.5, 2.5]]),
         ]
+        print(output)
+        print(expected)
         assert output == expected
 
     def test_no_check(_):
