@@ -1,6 +1,6 @@
-# post-wildfire-debris-flow-hazard-assessment
+# pfdf
 
-A Python library to implement post-wildfire debris-flow hazard assessments.
+A Python library to facilitate post-wildfire debris-flow hazard assessments.
 
 ## Installation
 
@@ -18,9 +18,9 @@ from the command line.
 
 
 ### Clone
-First, you should clone this repository to your local machine. You can do this via the [the pfdf Gitlab page](https://code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment), or via the command line if your credentials are set up:
+First, you should clone this repository to your local machine. You can do this via the [the pfdf Gitlab page](https://code.usgs.gov/ghsc/lhp/pfdf), or via the command line if your credentials are set up:
 ```
-git clone https://code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment
+git clone https://code.usgs.gov/ghsc/lhp/pfdf
 ```
 
 ### Poetry Install
