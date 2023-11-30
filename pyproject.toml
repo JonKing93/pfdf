@@ -4,19 +4,19 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pfdf"
-version = "0.0.1"
-description = "A package to implement post-wildfire debris-flow hazard assessments"
+version = "1.0.0"
+description = "A package to facilitate post-wildfire debris-flow hazard assessments and research"
 authors = [
     "Jonathan King <jking@usgs.gov>",
     "Dennis Staley <dstaley@usgs.gov>"
 ]
 readme = "README.md"
-license = "CC0-1.0"
-repository = "https://code.usgs.gov/ghsc/lhp/post-wildfire-debris-flow-hazard-assessment"
+license = "GPL-3.0-only"
+repository = "https://code.usgs.gov/ghsc/lhp/pfdf"
 keywords = ["wildfire", "debris flow", "hazard", "usgs"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
-    "Operating System :: Microsoft :: Windows",
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering"
 ]
