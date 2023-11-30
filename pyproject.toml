@@ -16,7 +16,7 @@ repository = "https://code.usgs.gov/ghsc/lhp/pfdf"
 keywords = ["wildfire", "debris flow", "hazard", "usgs"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "Operating System :: Microsoft :: Windows",
+    "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering"
 ]
