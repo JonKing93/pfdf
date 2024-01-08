@@ -11,6 +11,7 @@ from rasterio.crs import CRS
 from shapely import LineString
 
 from pfdf._utils.kernel import Kernel
+from pfdf._utils.transform import Transform
 from pfdf.errors import (
     DimensionError,
     RasterCrsError,
@@ -454,6 +455,42 @@ def test_str(segments):
     assert str(segments) == "A network of 6 stream segments."
 
 
+def test_geo_interface(segments):
+    segments.keep(ids=[2, 4, 5])
+    output = segments.__geo_interface__
+    assert isinstance(output, geojson.FeatureCollection)
+    expected = {
+        "features": [
+            {
+                "geometry": {
+                    "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
+                    "type": "LineString",
+                },
+                "properties": {},
+                "type": "Feature",
+            },
+            {
+                "geometry": {
+                    "coordinates": [[5.5, 3.5], [4.5, 3.5]],
+                    "type": "LineString",
+                },
+                "properties": {},
+                "type": "Feature",
+            },
+            {
+                "geometry": {
+                    "coordinates": [[4.5, 3.5], [3.5, 4.5]],
+                    "type": "LineString",
+                },
+                "properties": {},
+                "type": "Feature",
+            },
+        ],
+        "type": "FeatureCollection",
+    }
+    assert output == expected
+
+
 #####
 # Properties
 #####
@@ -653,7 +690,7 @@ class TestValidate:
         assert_contains(error, "test name")
 
     def test_bad_transform(_, segments, flow):
-        flow._transform = Affine(9, 0, 0, 0, 9, 0)
+        flow._transform = Transform(Affine(9, 0, 0, 0, 9, 0))
         with pytest.raises(RasterTransformError) as error:
             segments._validate(flow, "test name")
         assert_contains(error, "test name")
@@ -806,9 +843,9 @@ class TestValidateProperties:
 
     def test_bad_keys(_, segments):
         props = {1: np.ones(6)}
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(TypeError) as error:
             segments._validate_properties(props, terminal=False)
-        assert_contains(error, "keys")
+        assert_contains(error, "key 0")
 
     def test_not_numeric(_, segments):
         props = {"values": ["a", "b", "c", "d", "e", "f"]}
@@ -1792,78 +1829,6 @@ class TestUpdateBasins:
             ]
         )
         assert np.array_equal(output, expected)
-
-
-class TestUpdateAttributes:
-    def test_success(_, segments):
-        atts = {
-            "segments": 1,
-            "ids": 7,
-            "indices": 2,
-            "npixels": 3,
-            "child": 4,
-            "parents": 5,
-            "basins": 6,
-        }
-        segments._update_attributes(atts)
-
-        assert segments._segments == 1
-        assert segments._ids == 7
-        assert segments._indices == 2
-        assert segments._npixels == 3
-        assert segments._child == 4
-        assert segments._parents == 5
-        assert segments._basins == 6
-
-    def test_failed(_, segments):
-        # Record initial state
-        linestrings = segments._segments
-        indices = segments._indices
-        npixels = segments._npixels
-        child = segments._child
-        parents = segments._parents
-        basins = segments._basins
-
-        # (missing a key for the basins attribute)
-        atts = {
-            "segments": 1,
-            "indices": 2,
-            "npixels": 3,
-            "child": 4,
-            "parents": 5,
-        }
-        with pytest.raises(Exception):
-            segments._update_attributes(atts)
-
-        # Check that the initial state was restored
-        assert segments._segments is linestrings
-        assert segments._indices is indices
-        assert segments._npixels is npixels
-        assert segments._child is child
-        assert segments._parents is parents
-        assert segments._basins is basins
-
-
-class TestSetAttributes:
-    def test(_, segments):
-        atts = {
-            "segments": 1,
-            "indices": 2,
-            "npixels": 3,
-            "child": 4,
-            "parents": 5,
-            "basins": 6,
-            "ids": 7,
-        }
-        segments._set_attributes(atts)
-
-        assert segments._segments == 1
-        assert segments._indices == 2
-        assert segments._npixels == 3
-        assert segments._child == 4
-        assert segments._parents == 5
-        assert segments._basins == 6
-        assert segments._ids == 7
 
 
 #####

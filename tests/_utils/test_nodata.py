@@ -1,3 +1,4 @@
+import operator
 from math import nan
 
 import numpy as np
@@ -60,7 +61,7 @@ class TestIsIn:
 
 
 #####
-# NodataMask
+# NodataMask Init
 #####
 
 
@@ -106,6 +107,54 @@ class TestInit:
         assert output.size == araster.size
 
 
+#####
+# Logical operators
+#####
+
+
+class TestLogical:
+    def test_object(_, araster):
+        mask = NodataMask(araster, 8)
+        other = NodataMask(araster, 7)
+        expected = (araster == 8) | (araster == 7)
+        output = mask._logical(operator.or_, other)
+        assert isinstance(output, NodataMask)
+        assert np.array_equal(output.mask, expected)
+        assert output.size == mask.size
+
+    def test_both_none(_, araster):
+        mask = NodataMask(araster, None)
+        output = mask._logical(operator.or_, None)
+        assert isinstance(output, NodataMask)
+        assert output.mask is None
+        assert output.size == mask.size
+
+    def test_self_none(_, araster):
+        mask = NodataMask(araster, None)
+        other = araster == 8
+        output = mask._logical(operator.or_, other)
+        assert isinstance(output, NodataMask)
+        assert np.array_equal(output.mask, other)
+        assert output.size == mask.size
+
+    def test_other_none(_, araster):
+        mask = NodataMask(araster, 8)
+        other = None
+        output = mask._logical(operator.or_, other)
+        assert isinstance(output, NodataMask)
+        assert np.array_equal(output.mask, araster == 8)
+        assert output.size == mask.size
+
+    def test_neither_none(_, araster):
+        mask = NodataMask(araster, 8)
+        other = araster == 7
+        expected = (araster == 8) | (araster == 7)
+        output = mask._logical(operator.or_, other)
+        assert isinstance(output, NodataMask)
+        assert np.array_equal(output.mask, expected)
+        assert output.size == mask.size
+
+
 class TestOr:
     def test_object(_, araster):
         mask = NodataMask(araster, 8)
@@ -147,6 +196,58 @@ class TestOr:
         assert isinstance(output, NodataMask)
         assert np.array_equal(output.mask, expected)
         assert output.size == mask.size
+
+
+class TestAnd:
+    def test_object(_):
+        araster = np.array([1, 2, 3, 4, 7, 7, 7, 7])
+        braster = np.array([1, 2, 3, 4, 7, 8, 8, 8])
+        mask = NodataMask(araster, 7)
+        other = NodataMask(braster, 8)
+        expected = (araster == 7) & (braster == 8)
+        output = mask & other
+        assert isinstance(output, NodataMask)
+        assert np.array_equal(output.mask, expected)
+        assert output.size == mask.size
+
+    def test_both_none(_, araster):
+        mask = NodataMask(araster, None)
+        output = mask & None
+        assert isinstance(output, NodataMask)
+        assert output.mask is None
+        assert output.size == mask.size
+
+    def test_self_none(_, araster):
+        mask = NodataMask(araster, None)
+        other = araster == 8
+        output = mask & other
+        assert isinstance(output, NodataMask)
+        assert np.array_equal(output.mask, other)
+        assert output.size == mask.size
+
+    def test_other_none(_, araster):
+        mask = NodataMask(araster, 8)
+        other = None
+        output = mask & other
+        assert isinstance(output, NodataMask)
+        assert np.array_equal(output.mask, araster == 8)
+        assert output.size == mask.size
+
+    def test_neither_none(_):
+        araster = np.array([1, 2, 3, 4, 7, 7, 7, 7])
+        braster = np.array([1, 2, 3, 4, 7, 8, 8, 8])
+        mask = NodataMask(araster, 7)
+        other = braster == 8
+        expected = (araster == 7) & (braster == 8)
+        output = mask & other
+        assert isinstance(output, NodataMask)
+        assert np.array_equal(output.mask, expected)
+        assert output.size == mask.size
+
+
+#####
+# Workflow methods
+#####
 
 
 class TestFill:

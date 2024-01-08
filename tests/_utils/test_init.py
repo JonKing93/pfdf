@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from pfdf._utils import aslist, astuple, clean_dims, real
+from pfdf._utils import all_nones, aslist, astuple, clean_dims, no_nones, real
 
 #####
 # Misc
@@ -52,3 +52,25 @@ class TestCleanDims:
         output = clean_dims(a, keepdims=True)
         assert output.shape == (4, 4, 1)
         assert np.array_equal(a, output)
+
+
+class TestAllNones:
+    def test_all_nones(_):
+        assert all_nones(None, None, None, None) == True
+
+    def test_no_nones(_):
+        assert all_nones(1, 2, 3, 4, 5, 6, 7) == False
+
+    def test_mixed(_):
+        assert all_nones(None, 2, None, 4) == False
+
+
+class TestNoNones:
+    def test_all_nones(_):
+        assert no_nones(None, None, None, None) == False
+
+    def test_no_nones(_):
+        assert no_nones(1, 2, 3, 4, 5, 6, 7) == True
+
+    def test_mixed(_):
+        assert no_nones(1, None, 2, None) == False

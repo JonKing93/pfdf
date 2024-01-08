@@ -38,14 +38,20 @@ Array elements:
     flow            - Checks that an array consists of TauDEM-style D8 flow directions
 
 Raster metadata:
-    nodata          - Checks that a NoData value is valid and castable to the raster dtype
-    transform       - Checks that a raster affine transform is valid
+    casting         - Checks that a NoData valid is castable to the raster dtype
     crs             - Checks that a coordinate reference system is valid
+    resolution      - Checks that raster resolution is valid
+    transform       - Checks that a raster affine transform is valid
+    _check_affine   - Checks that a transform coefficient is a valid float
+    _check_shear    - Checks that a transform shear coefficient is 0
+
+File paths:
+    input_path      - Checks an input is a resolvable path
+    output_path     - Checks that a path is suitable for an output file
 
 Misc:
     broadcastable   - Checks that array shapes can be broadcasted
     option          - Checks that a string is a recognized option
-    output_path     - Checks that a path is suitable for an output file
 
 Elements utilities:
     _get_data       - Returns the data values and valid data mask for an array
@@ -55,6 +61,7 @@ Elements utilities:
     _first_failure  - Returns the index and value of the first element to fail a validation test
 """
 
+from math import isinf, isnan
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
@@ -78,7 +85,6 @@ from pfdf.errors import (
 )
 from pfdf.typing import (
     BooleanArray,
-    Casting,
     MatrixArray,
     RealArray,
     ScalarArray,
@@ -609,45 +615,37 @@ def flow(array: RealArray, name: str, ignore: Optional[ignore] = None) -> None:
 #####
 
 
-def nodata(nodata: Any, dtype: type, casting: Casting) -> ScalarArray:
+def casting(value: ScalarArray, name: str, dtype: type, casting: str) -> ScalarArray:
     """
-    nodata  Checks a NoData value is valid and castable to the raster dtype
+    casting  Checks that a NoData value can be casted to a raster dtype
     ----------
-    nodata(nodata, dtype, casting)
-    Checks that a user provided NoData value is a scalar, real-valued element
-    that can be appropriately casted to the raster dtype. If so, returns the casted
-    NoData value. Raises a TypeError if the NoData value cannot be cast in the
-    specified manner.
+    casting(nodata, dtype, casting)
+    Checks that the NoData value can be casted to the indicated type via the
+    specified casting rule. If so, returns the casted value. Otherwise, raises
+    a TypeError. Note that the NoData value should already be validated as a
+    scalar array before using this function.
     ----------
     Inputs:
-        nodata: A user provided NoData value
-        dtype: The dtype of the raster associated with the NoData value
-        casting: The type of casting allowed. Options are "no", "equiv", "safe",
-            "same_kind", and "unsafe"
+        nodata: The NoData value being checked
+        dtype: The dtype that the NoData value should be casted to
+        casting: The casting rule to use
 
     Outputs:
-        numpy scalar: The NoData value casted to the appropriate dtype
-
-    Raises:
-        TypeError: If the NoData dtype cannot safely cast to the raster dtype
+        numpy 1D array: The casted NoData value
     """
 
-    # Require scalar, real-valued element
-    nodata = scalar(nodata, "nodata", dtype=real)
-    nodata = nodata[0]
-
     # Allow 1 and 0 to pass for booleans
-    if dtype == bool and (nodata == 1 or nodata == 0):
-        return nodata.astype(bool)
+    if dtype == bool and (value == 1 or value == 0):
+        return value.astype(bool)
 
-    # Otherwise, require safe casting to the raster dtype
-    elif not np.can_cast(nodata, dtype, casting):
+    # Otherwise, check the casting
+    elif not np.can_cast(value, dtype, casting):
         raise TypeError(
-            f"Cannot cast the NoData value ({nodata}) to the raster dtype ({dtype}) "
+            f"Cannot cast {name} ({value}) to the raster dtype ({dtype}) "
             f"using '{casting}' casting."
         )
     else:
-        return nodata.astype(dtype, casting=casting)
+        return value.astype(dtype, casting=casting)
 
 
 def crs(crs: Any) -> CRS:
@@ -668,6 +666,11 @@ def crs(crs: Any) -> CRS:
         CrsError: If the CRS is not convertible to a rasterio CRS object
     """
 
+    # Exit immediately if already a CRS
+    if isinstance(crs, CRS):
+        return crs
+
+    # Otherwise, attempt to convert to CRS. Informative error if failed
     try:
         return CRS.from_user_input(crs)
     except RasterioCrsError:
@@ -676,6 +679,30 @@ def crs(crs: Any) -> CRS:
             "object via the rasterio API. See the rasterio documentation for examples "
             "of supported CRS inputs: https://rasterio.readthedocs.io/en/stable/index.html"
         )
+
+
+def resolution(resolution: Any) -> VectorArray:
+    """
+    resolution  Checks that a raster resolution is valid
+    ----------
+    resolution(resolution)
+    Checks that the input is either a scalar positive number, or a vector of 2
+    positive numbers. If valid, returns the resolution as a vector of 2 numbers.
+    ----------
+    Inputs:
+        resolution: The resolution being checked
+
+    Outputs:
+        numpy 1D array: Resolution as a 2 element vector
+    """
+
+    resolution = vector(resolution, "resolution", dtype=real)
+    if resolution.size > 2:
+        raise ShapeError("resolution may have either 1 or 2 elements")
+    positive(resolution, "resolution")
+    if resolution.size == 1:
+        resolution = np.full((2,), resolution)
+    return resolution
 
 
 def transform(transform: Any) -> Affine:
@@ -709,20 +736,33 @@ def transform(transform: Any) -> Affine:
             "consider using an affine.Affine object directly as the transform."
         )
 
-    # Check if the matrix has an allowed form
-    if affine[1] != 0:
-        isbad = True
-        bad = "b"
-        value = affine[1]
-    elif affine[3] != 0:
-        isbad = True
-        bad = "d"
-        value = affine[3]
-    else:
-        isbad = False
+    # Check the coefficients are valid
+    for coeff in ["a", "b", "c", "d", "e", "f"]:
+        _check_affine(affine, coeff)
+    _check_shear(affine, "b")
+    _check_shear(affine, "d")
+    return affine
 
-    # Only allow scaling / translational matrix
-    if isbad:
+
+def _check_affine(affine: Affine, coeff: str) -> None:
+    value = getattr(affine, coeff)
+    if not isinstance(value, float):
+        raise TransformError(
+            f"Transform coefficients must be floats, but coefficient '{coeff}' is not."
+        )
+    elif isnan(value):
+        raise TransformError(
+            f"Transform coefficients cannot be NaN, but coefficient '{coeff}' is NaN."
+        )
+    elif isinf(value):
+        raise TransformError(
+            f"Transform coefficients cannot be Inf, but coefficient '{coeff}' is Inf"
+        )
+
+
+def _check_shear(affine: Affine, coeff: str) -> None:
+    value = getattr(affine, coeff)
+    if value != 0:
         raise TransformError(
             "The raster transform must only support scaling and translation. "
             "Equivalently, the affine transformation matrix must have form:\n"
@@ -730,14 +770,91 @@ def transform(transform: Any) -> Affine:
             "    |d e f|  =  |0 e f|\n"
             "    |0 0 1|     |0 0 0|\n"
             "such that coefficients b and d are 0. "
-            f"However, coefficient {bad} ({value}) is not 0."
+            f"However, coefficient '{coeff}' is not 0 (value = {value})."
         )
-    return affine
+
+
+#####
+# Paths
+#####
+
+
+def input_path(path: Any, name: str) -> Path:
+    """
+    input_path  Checks that an input path exists
+    ----------
+    input_path(path, name)
+    Checks that an input path is a resolvable Path. Returns the resolved pathlib.Path.
+    Raises a TypeError if not a Path, and a FileNotFoundError if not resolvable.
+    ----------
+    Inputs:
+        path: A user provided path to an input file
+        name: A name for the input path for use in error messages.
+
+    Outputs:
+        pathlib.Path: The resolved path to the file
+
+    Raises:
+        TypeError: If the input is not a string or Path
+        FileNotFoundError: If the file does not exist.
+    """
+
+    if isinstance(path, str):
+        path = Path(path)
+    type(path, name, Path, "file path")
+    return path.resolve(strict=True)
+
+
+def output_path(path: Any, overwrite: bool) -> Path:
+    """
+    output_path  Checks that a path is suitable for an output file
+    ----------
+    output_path(path, overwrite)
+    Checks that an input path is resolvable. Raises a FileExistsError if overwrite=False
+    and the file already exists. Otherwise, returns the resolved pathlib.Path to the file.
+    ----------
+    Inputs:
+        path: A user provided path for an output file
+        overwrite: True if the file can already exist. False to raise an error
+            for exists (i.e. prevent overwriting)
+
+    Outputs:
+        pathlib.Path: The resolved path to the output file
+
+    Raises:
+        FileExistsError: If the path exists and overwrite=False
+    """
+
+    path = Path(path).resolve()
+    if (not overwrite) and path.exists():
+        raise FileExistsError(
+            f"Output file already exists:\n\t{path}\n"
+            'If you want to replace existing files, set "overwrite=True"'
+        )
+    return path
 
 
 #####
 # Misc
 #####
+
+
+def type(input: Any, name: str, type: type, type_name: str) -> None:
+    """
+    type  Checks that the input is the indicated type
+    ----------
+    type(input, types)
+    Checks that the input is the indicated type. Raises a TypeError if not.
+    ----------
+    Inputs:
+        input: The input being checked
+        name: A name for the input for use in error messages
+        type: The required type for the input
+        type_name: A name for the type for use in error messages
+    """
+
+    if not isinstance(input, type):
+        raise TypeError(f"{name} must be a {type_name}")
 
 
 def broadcastable(shape1: shape, name1: str, shape2: shape, name2: str) -> shape:
@@ -792,11 +909,7 @@ def option(input: Any, name: str, allowed: Sequence[str]) -> str:
         ValueError: If the the lowercased string is not in the list of recognized options
     """
 
-    # Require a string
-    if not isinstance(input, str):
-        raise TypeError(f"{name} must be a string.")
-
-    # Require member of allowed list
+    type(input, name, str, "string")
     input_lowered = input.lower()
     if input_lowered not in allowed:
         allowed = ", ".join(allowed)
@@ -804,35 +917,6 @@ def option(input: Any, name: str, allowed: Sequence[str]) -> str:
             f"{name} ({input}) is not a recognized option. Supported options are: {allowed}"
         )
     return input_lowered
-
-
-def output_path(path: Any, overwrite: bool) -> Path:
-    """
-    output_path  Checks that a path is suitable for an output file
-    ----------
-    output_path(path, overwrite)
-    Checks that an input path is resolvable. Raises a FileExistsError if overwrite=False
-    and the file already exists. Otherwise, returns the resolved pathlib.Path to the file.
-    ----------
-    Inputs:
-        path: A user provided path for an output file
-        overwrite: True if the file can already exist. False to raise an error
-            for exists (i.e. prevent overwriting)
-
-    Outputs:
-        pathlib.Path: The resolved path to the output file
-
-    Raises:
-        FileExistsError: If the path exists and overwrite=False
-    """
-
-    path = Path(path).resolve()
-    if (not overwrite) and path.exists():
-        raise FileExistsError(
-            f"Output file already exists:\n\t{path}\n"
-            'If you want to replace existing files, set "overwrite=True"'
-        )
-    return path
 
 
 #####
