@@ -2549,6 +2549,15 @@ class TestClipIndices:
         assert sout == slice(0, 10)
         assert cout == slice(5, 15)
 
+    def test_empty(_):
+        current = np.arange(1000, 1020)
+        clipped = np.arange(0, 20)
+        length = 20
+        sout, cout = Raster._clip_indices(current, clipped, length)
+
+        assert sout == slice(0, 0)
+        assert cout == slice(0, 0)
+
 
 class TestClipExterior:
     def test_keyword_nodata(_):

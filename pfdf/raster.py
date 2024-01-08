@@ -2150,9 +2150,13 @@ class Raster:
         current = current[keep]
         clipped = clipped[keep]
 
-        # Convert to slices
-        current = slice(current[0], current[-1] + 1)
-        clipped = slice(clipped[0], clipped[-1] + 1)
+        # Convert to slices. Use empty slice if there is no overlap
+        if current.size == 0:
+            current = slice(0, 0)
+            clipped = current
+        else:
+            current = slice(current[0], current[-1] + 1)
+            clipped = slice(clipped[0], clipped[-1] + 1)
         return current, clipped
 
 
