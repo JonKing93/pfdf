@@ -67,7 +67,7 @@ from pysheds.sview import Raster as PyshedsRaster
 from shapely import LineString
 from shapely.ops import substring
 
-from pfdf._utils import real, validate
+from pfdf._utils import all_nones, real, validate
 from pfdf._utils.nodata import NodataMask
 from pfdf.raster import Raster, RasterInput
 from pfdf.typing import scalar
@@ -144,7 +144,7 @@ def condition(
         dem = grid.fill_depressions(dem, nodata_out=-inf)
     if resolve_flats:
         dem = grid.resolve_flats(dem, nodata_out=-inf)
-    return Raster.from_array(dem, nodata=-inf, **metadata)
+    return Raster._from_array(dem, nodata=-inf, **metadata)
 
 
 def flow(dem: RasterInput) -> Raster:
@@ -177,7 +177,7 @@ def flow(dem: RasterInput) -> Raster:
     grid = Grid.from_raster(dem, nodata=nan)
     flow = grid.flowdir(dem, flats=0, pits=0, nodata_out=0, **_FLOW_OPTIONS)
     flow = flow.astype("int8")
-    return Raster.from_array(flow, nodata=0, **metadata)
+    return Raster._from_array(flow, nodata=0, **metadata)
 
 
 def slopes(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Raster:
@@ -208,7 +208,7 @@ def slopes(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
 
     # Validate
     dem = Raster(dem, "dem")
-    flow = dem._validate(flow, "flow directions")
+    flow = dem.validate(flow, "flow directions")
     if check_flow:
         validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
@@ -219,7 +219,7 @@ def slopes(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
     # Compute slopes
     grid = Grid.from_raster(flow, nodata=nan)
     slopes = grid.cell_slopes(dem, flow, nodata_out=nan, **_FLOW_OPTIONS)
-    return Raster.from_array(slopes, nodata=nan, **metadata)
+    return Raster._from_array(slopes, nodata=nan, **metadata)
 
 
 def relief(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Raster:
@@ -253,7 +253,7 @@ def relief(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
 
     # Validate
     dem = Raster(dem, "dem")
-    flow = dem._validate(flow, "flow directions")
+    flow = dem.validate(flow, "flow directions")
     if check_flow:
         validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
@@ -273,7 +273,7 @@ def relief(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
         flow, weights=drops, nodata_out=nan, **_FLOW_OPTIONS
     )
     nodatas.fill(relief, nan)
-    return Raster.from_array(relief, nodata=nan, **metadata)
+    return Raster._from_array(relief, nodata=nan, **metadata)
 
 
 def accumulation(
@@ -341,9 +341,9 @@ def accumulation(
     # Validate
     flow = Raster(flow, "flow directions")
     if weights is not None:
-        weights = flow._validate(weights, "weights")
+        weights = flow.validate(weights, "weights")
     if mask is not None:
-        mask = flow._validate(mask, "mask")
+        mask = flow.validate(mask, "mask")
         mask = validate.boolean(mask.values, mask.name, ignore=mask.nodata)
     if check_flow:
         validate.flow(flow.values, flow.name, ignore=flow.nodata)
@@ -357,7 +357,7 @@ def accumulation(
             nodatas = nodatas | np.isnan(weights.values)
 
     # Create default weights, or mask weights as needed
-    if weights is None and mask is None:
+    if all_nones(weights, mask):
         weights = np.ones(flow.shape, dtype=float)
     elif mask is None:
         weights = weights.values
@@ -382,12 +382,12 @@ def accumulation(
     # Get metadata and convert to pysheds. Note that weights.nodata should be NaN
     # to prevent the algorithm from stopping at 0s when ignoring NaNs
     flow, metadata = _to_pysheds(flow)
-    weights = Raster.from_array(weights, nodata=nan, **metadata).as_pysheds()
+    weights = Raster._from_array(weights, nodata=nan, **metadata).as_pysheds()
 
     # Compute accumulation
     grid = Grid.from_raster(flow)
     accumulation = grid.accumulation(flow, weights, nodata_out=nan, **_FLOW_OPTIONS)
-    return Raster.from_array(accumulation, nodata=nan, **metadata)
+    return Raster._from_array(accumulation, nodata=nan, **metadata)
 
 
 def catchment(
@@ -443,7 +443,7 @@ def catchment(
     catchment = grid.catchment(
         fdir=flow, x=column, y=row, xytype="index", **_FLOW_OPTIONS
     )
-    return Raster.from_array(catchment, nodata=False, **metadata)
+    return Raster._from_array(catchment, nodata=False, **metadata)
 
 
 def network(
@@ -503,7 +503,7 @@ def network(
         max_length = validate.scalar(max_length, "max_length", dtype=real)
         validate.positive(max_length, "max_length")
     flow = Raster(flow, "flow directions")
-    mask = flow._validate(mask, "mask")
+    mask = flow.validate(mask, "mask")
     validate.boolean(mask.values, mask.name, ignore=mask.nodata)
     if check_flow:
         validate.flow(flow.values, flow.name, ignore=flow.nodata)

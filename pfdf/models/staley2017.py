@@ -519,11 +519,7 @@ class Model(ABC):
     def _validate(segments: Any, rasters: list[Any], names: list[str]) -> list[Raster]:
         "Validates segments object and rasters for calculating variables"
 
-        # Require a Segments object
-        if not isinstance(segments, Segments):
-            raise TypeError("segments must be a pfdf.segments.Segments object")
-
-        # Rasters must be valid and match the stream segment metadata
+        validate.type(segments, "segments", Segments, "pfdf.segments.Segments object")
         for r, raster, name in zip(range(len(rasters)), rasters, names):
             rasters[r] = segments._validate(raster, name)
         return rasters
@@ -784,7 +780,9 @@ class M2(Model):
         sine_thetas = sine_thetas.astype(float, copy=False)
         nodatas = NodataMask(slopes.values, slopes.nodata)
         nodatas.fill(sine_thetas, nan)
-        sine_thetas = Raster.from_array(sine_thetas)
+        sine_thetas = Raster._from_array(
+            sine_thetas, crs=slopes.crs, transform=slopes.transform, nodata=nan
+        )
 
         # Get variables
         T = segments.sine_theta(

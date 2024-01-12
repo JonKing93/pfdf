@@ -32,7 +32,7 @@ from rasterio.crs import CRS
 from rasterio.transform import rowcol
 
 from pfdf import watershed
-from pfdf._utils import nodata, real, validate
+from pfdf._utils import all_nones, nodata, real, validate
 from pfdf._utils.kernel import Kernel
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import RasterTransformError
@@ -471,9 +471,10 @@ class Segments:
         resolution          - The resolution of the flow raster pixels
         pixel_area          - The area of a raster pixel
 
-    Python built-ins:
+    Dunders:
         __len__             - The number of segments in the network
         __str__             - A string representing the network
+        __geo_interface__   - A geojson-like dict of the network
 
     Rasters:
         raster              - Returns a raster representation of the stream segment network
@@ -567,8 +568,6 @@ class Segments:
         _update_indices         - Updates connectivity indices in-place after removing segments
         _update_connectivity    - Computes updated _child and _parents after segments are removed
         _update_basins          - Computes updated _basins after removing segments
-        _update_attributes      - Updates attributes affected by filtering
-        _set_attributes         - Sets the values of attributes affected by filtering
 
     Export:
         _outlet_segments        - Returns a list of LineString geometries for catchment or terminal outlets
@@ -722,6 +721,11 @@ class Segments:
         "String representation of the object"
         return f"A network of {self.length} stream segments."
 
+    @property
+    def __geo_interface__(self) -> FeatureCollection:
+        "A geojson dict-like representation of the object"
+        return self.geojson(type="segments", properties=None)
+
     #####
     # Properties
     #####
@@ -853,7 +857,7 @@ class Segments:
         "Computes flow accumulation values"
 
         # Default case is just npixels
-        if (weights is None) and (mask is None) and (self._npixels is not None):
+        if all_nones(weights, mask) and (self._npixels is not None):
             return self._basin_npixels(terminal).copy()
 
         # Otherwise, compute the accumulation at each outlet
@@ -868,7 +872,7 @@ class Segments:
 
     def _validate(self, raster: Any, name: str) -> Raster:
         "Checks that an input raster has metadata matching the flow raster"
-        return self.flow._validate(raster, name)
+        return self.flow.validate(raster, name)
 
     def _check_ids(self, ids: VectorArray, name: str) -> None:
         "Checks that segment IDs are in the network"
@@ -927,13 +931,9 @@ class Segments:
         length = self._nbasins(terminal)
 
         # Require a dict with string keys
-        if not isinstance(properties, dict):
-            raise TypeError("properties must be a dict")
+        validate.type(properties, "properties", dict, "dict")
         for k, key in enumerate(properties.keys()):
-            if not isinstance(key, str):
-                raise ValueError(
-                    f'The keys of "properties" must all be strings, but key {k} is not.'
-                )
+            validate.type(key, f"properties key {k}", str, "string")
 
             # Values must be floating-point numpy 1D arrays with one element per segment
             name = f"properties['{key}']"
@@ -1139,7 +1139,9 @@ class Segments:
             raster = self._basins_raster(nested)
         else:
             raster = self._segments_raster()
-        return Raster.from_array(raster, nodata=0, spatial=self.flow)
+        return Raster._from_array(
+            raster, nodata=0, crs=self.crs, transform=self.transform
+        )
 
     def _segments_raster(self) -> MatrixArray:
         "Builds a stream segment raster array"
@@ -2144,14 +2146,21 @@ class Segments:
             remove = requested
         keep = ~remove
 
-        # Update attributes
-        new = {}
-        new["segments"], new["indices"] = self._update_segments(remove)
-        new["ids"] = self.ids[keep]
-        new["npixels"] = self.npixels[keep]
-        new["child"], new["parents"] = self._update_connectivity(remove)
-        new["basins"] = self._update_basins(remove)
-        self._update_attributes(new)
+        # Compute new attributes
+        segments, indices = self._update_segments(remove)
+        ids = self.ids[keep]
+        npixels = self.npixels[keep]
+        child, parents = self._update_connectivity(remove)
+        basins = self._update_basins(remove)
+
+        # Update object
+        self._segments = segments
+        self._ids = ids
+        self._indices = indices
+        self._npixels = npixels
+        self._child = child
+        self._parents = parents
+        self._basins = basins
 
         # Return the indices that were actually removed
         return remove
@@ -2357,41 +2366,6 @@ class Segments:
             outdated = outdated[unchanged]
         return basins
 
-    def _update_attributes(self, new: dict[str, Any]) -> None:
-        "Updates filtering attributes to new values"
-
-        # Collect the original attributes. (This way we can restore the object if
-        # an error occurs mid-update)
-        old = {
-            "segments": self._segments,
-            "ids": self._ids,
-            "indices": self._indices,
-            "npixels": self._npixels,
-            "child": self._child,
-            "parents": self._parents,
-            "basins": self._basins,
-        }
-
-        # Update the attributes, but restore the original state if anything fails
-        try:
-            incomplete = True
-            self._set_attributes(new)
-            incomplete = False
-        finally:
-            if incomplete:
-                self._set_attributes(old)
-
-    def _set_attributes(self, atts: dict[str, Any]) -> None:
-        "Sets the values of attributes affected by filtering"
-
-        self._segments = atts["segments"]
-        self._ids = atts["ids"]
-        self._indices = atts["indices"]
-        self._npixels = atts["npixels"]
-        self._child = atts["child"]
-        self._parents = atts["parents"]
-        self._basins = atts["basins"]
-
     #####
     # Export
     #####
@@ -2564,8 +2538,7 @@ class Segments:
         regardless of extension. You can use:
             >>> pfdf.utils.driver.extensions('vector')
         to return a summary of supported file format drivers, and their associated
-        extensions. We note that pfdf is tested using the "GeoJSON" driver (.geojson
-        extension), and so this format is likely the most robust.
+        extensions.
 
         self.save(..., *, type='basins')
         self.save(..., *, type='basins', terminal=False)

@@ -18,12 +18,13 @@ Internal:
     _mask       - Returns a boolean nodata mask for an array
 """
 
-from typing import Self
+import operator
+from typing import Callable, Self
 
 import numpy as np
 from numpy import isnan
 
-from pfdf._utils import aslist
+from pfdf._utils import aslist, no_nones
 from pfdf.typing import (
     BooleanArray,
     RealArray,
@@ -63,12 +64,7 @@ def equal(nodata1: nodata, nodata2: nodata) -> bool:
         bool: True if the two NoData values are equal. Otherwise False
     """
 
-    if (
-        nodata1 is not None
-        and nodata2 is not None
-        and isnan(nodata1)
-        and isnan(nodata2)
-    ):
+    if no_nones(nodata1, nodata2) and isnan(nodata1) and isnan(nodata2):
         return True
     else:
         return nodata1 == nodata2
@@ -179,8 +175,29 @@ class NodataMask:
         self.size: int = array.size
 
     #####
-    # NoData workflows
+    # Element-wise logical operators
     #####
+
+    def _logical(self, operator: Callable, other: mask | Self) -> Self:
+        "Implements an element-wise logical operator like 'and' or 'or'."
+
+        # Extract the mask array if the second object is also a NodataMask object
+        if isinstance(other, NodataMask):
+            other = other.mask
+
+        # Get the final mask
+        if other is None:
+            final = self.mask
+        elif self.mask is None:
+            final = other
+        else:
+            final = operator(self.mask, other)
+
+        # Return the new object
+        mask = super().__new__(NodataMask)
+        mask.mask = final
+        mask.size = self.size
+        return mask
 
     def __or__(self, other: mask | Self) -> Self:
         """
@@ -197,23 +214,28 @@ class NodataMask:
             NodataMask: A new mask tracking the True elements of the logical "or"
         """
 
-        # Extract the mask array if the second object is also a NodataMask object
-        if isinstance(other, NodataMask):
-            other = other.mask
+        return self._logical(operator.or_, other)
 
-        # Get the final mask
-        if other is None:
-            final = self.mask
-        elif self.mask is None:
-            final = other
-        else:
-            final = self.mask | other
+    def __and__(self, other: mask | Self) -> Self:
+        """
+        __and__  Element-wise logical "and" for nodata masks
+        ----------
+        self & mask
+        Computes an element-wise logical "and" over the elements of two masks.
+        Returns a new NodataMask representing the True elements of the logical "and".
+        ----------
+        Inputs:
+            other: Another representation of a mask
 
-        # Return the new object
-        mask = super().__new__(NodataMask)
-        mask.mask = final
-        mask.size = self.size
-        return mask
+        Outputs:
+            NodataMask: A new mask tracking the True elements of the logical "and"
+        """
+
+        return self._logical(operator.and_, other)
+
+    #####
+    # Workflow methods
+    #####
 
     def fill(self, array: RealArray, fill: nodata, invert: bool = False) -> RealArray:
         """
@@ -255,6 +277,24 @@ class NodataMask:
         array[mask] = fill
         return array
 
+    def indices(self) -> VectorArray:
+        """
+        indices  Returns the indices of the True elements of the mask
+        ----------
+        self.indices()
+        Returns the linear indices of the mask elements that are considered True.
+        ----------
+        Outputs:
+            1D integer numpy array: The linear indices of the mask elements that
+                are considered True
+        """
+
+        indices = np.arange(self.size)
+        if self.mask is not None:
+            mask = self.mask.reshape(-1)
+            indices = indices[mask]
+        return indices
+
     @staticmethod
     def isnan(nodata: nodata) -> bool:
         """
@@ -275,28 +315,6 @@ class NodataMask:
             return False
         else:
             return isnan(nodata)
-
-    #####
-    # Data mask workflows
-    #####
-
-    def indices(self) -> VectorArray:
-        """
-        indices  Returns the indices of the True elements of the mask
-        ----------
-        self.indices()
-        Returns the linear indices of the mask elements that are considered True.
-        ----------
-        Outputs:
-            1D integer numpy array: The linear indices of the mask elements that
-                are considered True
-        """
-
-        indices = np.arange(self.size)
-        if self.mask is not None:
-            mask = self.mask.reshape(-1)
-            indices = indices[mask]
-        return indices
 
     def values(self, array: RealArray) -> RealArray:
         """
