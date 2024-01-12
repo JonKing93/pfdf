@@ -1,5 +1,5 @@
 import os
-from math import ceil, floor, inf, isnan, nan, sqrt
+from math import inf, isnan, nan, sqrt
 from pathlib import Path
 
 import fiona
@@ -118,7 +118,11 @@ def polygon_coords():
 @pytest.fixture
 def polygons(polygon_coords, tmp_path, crs):
     file = Path(tmp_path) / "test.geojson"
-    polygons = [Feature(geometry=Polygon(coords)) for coords in polygon_coords]
+    values = range(len(polygon_coords))
+    polygons = [
+        Feature(geometry=Polygon(coords), properties={"test": value})
+        for coords, value in zip(polygon_coords, values)
+    ]
     save_features(file, polygons, crs)
     return file
 
@@ -135,14 +139,18 @@ def multipolygons(tmp_path, crs):
         ],
         [[[(5, 3), (5, 4), (6, 4), (6, 3), (5, 3)]]],  # Multipolygon B
     ]
-    multis = [Feature(geometry=MultiPolygon(coords)) for coords in coords]
+    values = range(len(coords))
+    multis = [
+        Feature(geometry=MultiPolygon(coords), properties={"test": value})
+        for coords, value in zip(coords, values)
+    ]
     file = Path(tmp_path) / "multitest.geojson"
     save_features(file, multis, crs)
     return file
 
 
 def save_features(path, features, crs):
-    schema = {"geometry": features[0].geometry.type, "properties": {}}
+    schema = {"geometry": features[0].geometry.type, "properties": {"test": "int"}}
     with fiona.open(
         path,
         "w",
@@ -575,6 +583,44 @@ class Test_FromArray:
 #####
 
 
+class TestValidateField:
+    schema = {"test": "int:2", "test2": "float:5.5", "bad": "str:47"}
+
+    def test_none(self):
+        Raster._validate_field(None, self.schema)
+
+    def test_not_str(self):
+        with pytest.raises(TypeError) as error:
+            Raster._validate_field(5, self.schema)
+        assert_contains(error, "field", "str")
+
+    def test_missing(self):
+        with pytest.raises(KeyError) as error:
+            Raster._validate_field("missing", self.schema)
+        assert_contains(
+            error,
+            "'missing' is not the name of a polygon data field",
+            "Allowed field names are: test, test2",
+        )
+
+    def test_invalid_type(self):
+        with pytest.raises(TypeError) as error:
+            Raster._validate_field("bad", self.schema)
+        assert_contains(
+            error,
+            "The 'bad' field is not an int or float. Instead, it has a 'str' type.",
+        )
+
+    def test_invalid_casting(self):
+        with pytest.raises(KeyError) as error:
+            Raster._validate_field("TeSt", self.schema)
+        assert_contains(error, "'TeSt' is not the name of a polygon data field")
+
+    @pytest.mark.parametrize("field", ("test", "test2"))
+    def test_valid(self, field):
+        Raster._validate_field(field, self.schema)
+
+
 class TestValidatePolygon:
     def test_not_list(_):
         with pytest.raises(ValueError) as error:
@@ -673,7 +719,7 @@ class TestValidateFeature:
     def test_no_geometry(_):
         feature = {"geometry": None}
         with pytest.raises(ValueError) as error:
-            Raster._validate_feature(5, feature, None)
+            Raster._validate_feature(5, feature, None, None)
         assert_contains(error, "Feature[5] does not have a geometry")
 
     def test_not_polygon(_):
@@ -684,7 +730,7 @@ class TestValidateFeature:
             }
         }
         with pytest.raises(ValueError) as error:
-            Raster._validate_feature(5, feature, None)
+            Raster._validate_feature(5, feature, None, None)
         assert_contains(
             error,
             "must have a Polygon or MultiPolygon geometry",
@@ -707,8 +753,8 @@ class TestValidateFeature:
             "top": 10,
         }
         initial_bounds = bounds.copy()
-        output = Raster._validate_feature(5, feature, bounds)
-        assert output == geometry
+        output = Raster._validate_feature(5, feature, bounds, None)
+        assert output == (geometry, True)
         assert bounds == initial_bounds
 
     def test_multipolygon(_):
@@ -730,8 +776,8 @@ class TestValidateFeature:
             "top": 10,
         }
         initial_bounds = bounds.copy()
-        output = Raster._validate_feature(5, feature, bounds)
-        assert output == geometry
+        output = Raster._validate_feature(5, feature, bounds, None)
+        assert output == (geometry, True)
         assert bounds == initial_bounds
 
     def test_invalid_polygon(_):
@@ -747,7 +793,7 @@ class TestValidateFeature:
             "top": 10,
         }
         with pytest.raises(ValueError) as error:
-            Raster._validate_feature(5, feature, bounds)
+            Raster._validate_feature(5, feature, bounds, None)
         assert_contains(error, "4 positions")
 
     def test_update_bounds(_):
@@ -768,9 +814,30 @@ class TestValidateFeature:
             "bottom": -10,
             "top": 10,
         }
-        output = Raster._validate_feature(5, feature, bounds)
-        assert output == geometry
+        output = Raster._validate_feature(5, feature, bounds, None)
+        assert output == (geometry, True)
         assert bounds == expected
+
+    def test_field(_):
+        geometry = {
+            "type": "Polygon",
+            "coordinates": [
+                [(1, 2), (3, 4), (5, 6), (7, 8), (1, 2)],
+                [(1, 2), (2, 2), (2, 1), (1, 2)],
+            ],
+        }
+        field = 17
+        feature = {"properties": {"test": field}, "id": 5, "geometry": geometry}
+        bounds = {
+            "left": -10,
+            "right": 10,
+            "bottom": -10,
+            "top": 10,
+        }
+        initial_bounds = bounds.copy()
+        output = Raster._validate_feature(5, feature, bounds, "test")
+        assert output == (geometry, field)
+        assert bounds == initial_bounds
 
 
 class TestFromPolygons:
@@ -798,61 +865,13 @@ class TestFromPolygons:
 
         expected = np.array(
             [
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ],
+                [0, 0, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1],
                 [1, 1, 1, 1, 1, 1, 1],
-                [
-                    1,
-                    1,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    1,
-                    1,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
+                [1, 1, 1, 1, 0, 0, 0],
+                [1, 1, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
             ],
         )
         assert np.array_equal(raster.values, expected)
@@ -866,61 +885,13 @@ class TestFromPolygons:
 
         expected = np.array(
             [
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ],
+                [0, 0, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1],
                 [1, 1, 1, 1, 1, 1, 1],
-                [
-                    1,
-                    1,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    1,
-                    1,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
+                [1, 1, 1, 1, 0, 0, 0],
+                [1, 1, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
             ],
         )
         assert np.array_equal(raster.values, expected)
@@ -987,64 +958,69 @@ class TestFromPolygons:
 
         expected = np.array(
             [
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ],
+                [0, 0, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1],
                 [1, 1, 1, 1, 1, 1, 1],
-                [
-                    1,
-                    1,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    1,
-                    1,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
-                [
-                    0,
-                    0,
-                    1,
-                    1,
-                    0,
-                    0,
-                    0,
-                ],
+                [1, 1, 1, 1, 0, 0, 0],
+                [1, 1, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
             ],
         )
         assert np.array_equal(raster.values, expected)
+
+    def test_field(_, polygons, crs):
+        raster = Raster.from_polygons(polygons, field="test")
+        assert raster.dtype == float
+        assert isnan(raster.nodata)
+        assert raster.crs == crs
+        assert raster.transform == Affine(1, 0, 2, 0, -1, 9)
+
+        expected = np.array(
+            [
+                [nan, nan, 1, 1, 1, 1, 1],
+                [nan, nan, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1],
+                [0, 0, 0, 0, nan, nan, nan],
+                [0, 0, 0, 0, nan, nan, nan],
+                [nan, nan, 0, 0, nan, nan, nan],
+                [nan, nan, 0, 0, nan, nan, nan],
+            ],
+        )
+
+        print(raster.values)
+        assert np.array_equal(raster.values, expected, equal_nan=True)
+
+    def test_invalid_field(_, polygons):
+        with pytest.raises(KeyError):
+            Raster.from_polygons(polygons, field="missing")
+
+    def test_fill(_, polygons, crs):
+        raster = Raster.from_polygons(polygons, field="test", fill=-9)
+        assert raster.dtype == float
+        assert isnan(raster.nodata)
+        assert raster.crs == crs
+        assert raster.transform == Affine(1, 0, 2, 0, -1, 9)
+
+        expected = np.array(
+            [
+                [-9, -9, 1, 1, 1, 1, 1],
+                [-9, -9, 1, 1, 1, 1, 1],
+                [0, 0, 1, 1, 1, 1, 1],
+                [0, 0, 0, 0, -9, -9, -9],
+                [0, 0, 0, 0, -9, -9, -9],
+                [-9, -9, 0, 0, -9, -9, -9],
+                [-9, -9, 0, 0, -9, -9, -9],
+            ],
+        )
+
+        print(raster.values)
+        assert np.array_equal(raster.values, expected)
+
+    def test_invalid_fill(_, polygons):
+        with pytest.raises(TypeError) as error:
+            Raster.from_polygons(polygons, field="test", fill="invalid")
+        assert_contains(error, "fill")
 
 
 #####

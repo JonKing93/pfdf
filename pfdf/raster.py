@@ -120,7 +120,7 @@ class Raster:
         from_file       - Creates a Raster from a file-based dataset
         from_rasterio   - Creates a Raster from a rasterio.DatasetReader object
         from_pysheds    - Creates a Raster from a pysheds.sview.Raster object
-        from_polygons   - Creates a boolean raster from polygon features
+        from_polygons   - Creates a raster from (multi)polygon features
 
     Data Properties:
         name            - An optional name to identify the raster
@@ -189,6 +189,7 @@ class Raster:
         _validate_polygon   - Validates a polygon coordinate array
         _update_bounds      - Updates bounds to contain a polygon
         _validate_feature   - Validates a polygon feature and extracts geometry
+        _validate_field     - Checks that a data field exists and has an int or float type
 
     Generic Metadata:
         _validate_shape     - Validates a raster shape
@@ -753,6 +754,32 @@ class Raster:
     _geometry = dict[str, Any]
 
     @staticmethod
+    def _validate_field(field: Any, schema: dict[str, str]) -> None:
+        "Checks that a data property field can be used to build a raster"
+
+        # Just exit if there isn't a field
+        if field is None:
+            return
+
+        # Must be one of the property keys
+        validate.type(field, "field", str, "str")
+        fields = schema.keys()
+        if field not in fields:
+            allowed = ", ".join(fields)
+            raise KeyError(
+                f"'{field}' is not the name of a polygon data field. "
+                f"Allowed field names are: {allowed}"
+            )
+
+        # Must be an int or float type
+        typestr = schema[field]
+        if not typestr.startswith(("int", "float")):
+            typestr = typestr.split(":")[0]
+            raise TypeError(
+                f"The '{field}' field is not an int or float. Instead, it has a '{typestr}' type."
+            )
+
+    @staticmethod
     def _validate_polygon(f: int, p: int, rings: Any) -> None:
         """Validates a polygon coordinate array
         f: Index of the feature, p: index of the polygon in the feature"""
@@ -809,8 +836,8 @@ class Raster:
 
     @staticmethod
     def _validate_feature(
-        f: int, feature: dict[str, Any], bounds: dict[str, float]
-    ) -> _geometry:
+        f: int, feature: dict[str, Any], bounds: dict[str, float], field: str | None
+    ) -> tuple[_geometry, int | float | bool]:
         "Validates a polygon feature, extracts geometry, and updates bounds"
 
         # Require a geometry
@@ -833,17 +860,27 @@ class Raster:
         if type == "Polygon":
             polygons = [polygons]
 
-        # Validate coordinates and update bounds. Return validated geometry
+        # Validate coordinates and update bounds
         for p, polygon in enumerate(polygons):
             Raster._validate_polygon(f, p, polygon)
             Raster._update_bounds(polygon, bounds)
-        return geometry
+
+        # Get the pixel values for the polygon
+        if field is None:
+            value = True
+        else:
+            value = feature["properties"][field]
+
+        # Return geometry and data field if relevant
+        return geometry, value
 
     @staticmethod
     def from_polygons(
         path: Pathlike,
-        resolution: Optional[scalar | tuple[scalar, scalar] | Self] = 1,
         *,
+        field: Optional[str] = None,
+        fill: Optional[scalar] = None,
+        resolution: Optional[scalar | tuple[scalar, scalar] | Self] = 1,
         layer: Optional[int | str] = None,
         driver: Optional[str] = None,
         encoding: Optional[str] = None,
@@ -873,7 +910,19 @@ class Raster:
         to return a summary of supported file format drivers, and their associated
         extensions.
 
-        Raster.from_polygons(path, resolution)
+        Raster.from_polygons(..., *, field)
+        Raster.from_polygons(..., *, field, fill)
+        Builds the raster using the indicated field of the polygon data properties.
+        The specified field must exist in the data properties, and must be an int
+        or float type. The output raster will have a float dtype, regardless of
+        the type of the data field, and the NoData value will be NaN. Pixels whose
+        centers are in a polygon are set to the value of the data field for that
+        polygon. If a pixel is in multiple  overlapping polygons, then the pixel's
+        value will match the data field of the final polygon in the set. By
+        default, all pixels not in a polygon are set as Nodata (NaN). Use the
+        "fill" option to specify a default data value for these pixels instead.
+
+        Raster.from_polygons(path, *, resolution)
         Specifies the resolution of the output raster. The resolution may be a
         scalar positive number, a 2-tuple of such numbers, or a pfdf.raster.Raster
         object. If a scalar, indicates the resolution of the output raster (in the
@@ -899,14 +948,19 @@ class Raster:
         ----------
         Inputs:
             path: The path to a Polygon or MultiPolygon feature file
+            field: The name of a data property field used to set pixel values.
+                The data field must have an int or float type.
+            fill: A default fill value for rasters built using a data field.
+                Ignored if field is None.
             resolution: The desired resolution of the output raster
             layer: The layer of the input file from which to load the polygon geometries
             driver: The file-format driver to use to read the polygon feature file
             encoding: The encoding of the polygon feature file
 
         Outputs:
-            Raster: A boolean raster. Pixels whose centers are in any of the polygons
-                are set to True. All other pixels are False.
+            Raster: The polygon-derived raster. Pixels whose centers are in a
+                polygon are set either to True, or to the value of a data field.
+                All other pixels are NoData (False or NaN, as appropriate).
         """
 
         # Validate path and resolution
@@ -921,8 +975,24 @@ class Raster:
         else:
             resolution = validate.resolution(resolution)
 
-        # Open file. Load features and extract CRS
+        # Settings for boolean rasters
+        if field is None:
+            dtype = "uint8"
+            nodata = False
+            fill = False
+
+        # Settings for data field rasters
+        else:
+            dtype = float
+            nodata = np.nan
+            if fill is None:
+                fill = nodata
+            else:
+                fill = float(validate.scalar(fill, "fill", dtype=real))
+
+        # Open file. Validate field. Load CRS and features
         with fiona.open(path, layer=layer, driver=driver, encoding=encoding) as file:
+            Raster._validate_field(field, file.schema["properties"])
             crs = file.crs
             features = list(file)
 
@@ -937,7 +1007,7 @@ class Raster:
         # Validate features and extract geometries. Also update spatial bounds
         # to contain all validated features
         for f, feature in enumerate(features):
-            features[f] = Raster._validate_feature(f, feature, bounds)
+            features[f] = Raster._validate_feature(f, feature, bounds, field)
 
         # Compute the shape and transform of the output raster
         dx, dy = resolution
@@ -952,11 +1022,14 @@ class Raster:
             features,
             out_shape=[nrows, ncols],
             transform=transform,
-            default_value=True,
-            fill=False,
-            dtype="uint8",
-        ).astype(bool)
-        return Raster._from_array(raster, crs=crs, transform=transform, nodata=False)
+            fill=fill,
+            dtype=dtype,
+        )
+
+        # Build final Raster object. Convert to boolean as appropriate
+        if field is None:
+            raster = raster.astype(bool)
+        return Raster._from_array(raster, crs=crs, transform=transform, nodata=nodata)
 
     #####
     # Generic Metadata Utilities

@@ -38,7 +38,7 @@ Array elements:
     flow            - Checks that an array consists of TauDEM-style D8 flow directions
 
 Raster metadata:
-    casting         - Checks that a NoData valid is castable to the raster dtype
+    casting         - Checks that a value is castable to the indicated dtype
     crs             - Checks that a coordinate reference system is valid
     resolution      - Checks that raster resolution is valid
     transform       - Checks that a raster affine transform is valid
