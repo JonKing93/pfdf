@@ -79,6 +79,8 @@ TerminalValues = NDArray[Shape["Outlets"], Floating]
 BasinValues = SegmentValues | TerminalValues
 
 # Misc segments
+OutletIndices = tuple[int, int]
+Outlets = list[OutletIndices]
 SegmentIndices = NDArray[SegmentsShape, Bool]
 SegmentParents = NDArray[Shape["Segments, Parents"], Integer]
 PixelIndices = NDArray[Shape["Pixels"], Integer]
