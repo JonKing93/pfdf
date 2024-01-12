@@ -1,4 +1,4 @@
-from math import nan
+from math import inf, nan
 from pathlib import Path
 
 import numpy as np
@@ -658,50 +658,63 @@ class TestFlow:
 #####
 
 
-class TestNoData:
-    @pytest.mark.parametrize("value, dtype", ((-999, int), (-999, float), (2.2, float)))
-    def test_numeric(_, value, dtype):
-        nodata = validate.nodata(value, dtype=dtype, casting="safe")
-        assert nodata == value
-        assert nodata.dtype == dtype
+class TestCasting:
+    def test_bool(_):
+        a = np.array(True).reshape(1)
+        assert validate.casting(a, "", bool, "safe") == True
+
+    def test_bool_as_number(_):
+        a = np.array(1.00).reshape(1)
+        assert validate.casting(a, "", bool, casting="safe") == True
+
+    def test_castable(_):
+        a = np.array(2.2).reshape(1)
+        assert validate.casting(a, "", int, casting="unsafe") == 2
+
+    def test_not_castable(_):
+        a = np.array(2.2).reshape(1)
+        with pytest.raises(TypeError) as error:
+            validate.casting(a, "test name", int, casting="safe")
+        assert_contains(error, "Cannot cast test name")
+
+
+class TestCheckShear:
+    def test_zero(_):
+        affine = Affine(0, 0, 0, 0, 0, 0)
+        validate._check_shear(affine, "b")
+
+    def test_not_zero(_):
+        affine = Affine(1, 1, 1, 1, 1, 1)
+        with pytest.raises(TransformError) as error:
+            validate._check_shear(affine, "b")
+        assert_contains(error, "coefficient 'b' is not 0 (value = 1")
+
+
+class TestCheckAffine:
+    def test_valid(_):
+        affine = Affine.identity()
+        validate._check_affine(affine, "a")
+
+    def test_not_float(_):
+        a = np.array(1).reshape(1)
+        affine = Affine(a, a, a, a, a, a)
+        with pytest.raises(TransformError) as error:
+            validate._check_affine(affine, "a")
+        assert_contains(
+            error, "coefficients must be floats, but coefficient 'a' is not"
+        )
 
     def test_nan(_):
-        nodata = validate.nodata(np.nan, float, casting="safe")
-        assert np.isnan(nodata)
+        affine = Affine(nan, 0, 0, 0, 0, 0)
+        with pytest.raises(TransformError) as error:
+            validate._check_affine(affine, "a")
+        assert_contains(error, "coefficients cannot be NaN, but coefficient 'a' is")
 
-    def test_safe_casting(_):
-        nodata = np.array(-999).astype("float32")
-        nodata = validate.nodata(nodata, "float64", casting="safe")
-        assert nodata.dtype == "float64"
-
-    def test_unsafe_casting(_):
-        nodata = 1.2
-        nodata = validate.nodata(nodata, int, casting="unsafe")
-        assert nodata.dtype == int
-
-    @pytest.mark.parametrize("input, expected", ((0.0, False), (1.0, True)))
-    def test_bool_casting(_, input, expected):
-        nodata = validate.nodata(input, bool, casting="safe")
-        assert nodata.dtype == bool
-        assert nodata == expected
-
-    def test_not_scalar(_):
-        nodata = [1, 2]
-        with pytest.raises(DimensionError) as error:
-            validate.nodata(nodata, dtype=int, casting="safe")
-        assert_contains(error, "nodata")
-
-    def test_invalid_type(_):
-        nodata = "invalid"
-        with pytest.raises(TypeError) as error:
-            validate.nodata(nodata, int, casting="safe")
-        assert_contains(error, "nodata")
-
-    def test_invalid_casting(_):
-        nodata = -1.2
-        with pytest.raises(TypeError) as error:
-            validate.nodata(nodata, int, casting="safe")
-        assert_contains(error, "Cannot cast the NoData value")
+    def test_inf(_):
+        affine = Affine(inf, 0, 0, 0, 0, 0)
+        with pytest.raises(TransformError) as error:
+            validate._check_affine(affine, "a")
+        assert_contains(error, "coefficients cannot be Inf, but coefficient 'a' is")
 
 
 class TestTransform:
@@ -719,10 +732,19 @@ class TestTransform:
     @pytest.mark.parametrize(
         "affine", (Affine(1, 1, 1, 0, 0, 0), Affine(0, 0, 0, 1, 1, 1))
     )
-    def test_bad_matrix(_, affine):
+    def test_bad_shear(_, affine):
         with pytest.raises(TransformError) as error:
             validate.transform(affine)
         assert_contains(error, "scaling and translation")
+
+    def test_bad_coeff(_):
+        a = np.array(1).reshape(1)
+        affine = Affine(a, a, a, a, a, a)
+        with pytest.raises(TransformError) as error:
+            validate.transform(affine)
+        assert_contains(
+            error, "coefficients must be floats, but coefficient 'a' is not"
+        )
 
 
 class TestCrs:
@@ -737,6 +759,65 @@ class TestCrs:
         with pytest.raises(CrsError) as error:
             validate.crs("invalid")
         assert_contains(error, "crs")
+
+
+class TestResolution:
+    def test_invalid_type(_):
+        with pytest.raises(TypeError) as error:
+            validate.resolution("invalid")
+        assert_contains(error, "resolution")
+
+    def test_not_vector(_):
+        with pytest.raises(DimensionError):
+            validate.resolution(np.array([[1, 2], [3, 4]]))
+
+    def test_too_long(_):
+        with pytest.raises(ShapeError):
+            validate.resolution([1, 2, 3])
+
+    @pytest.mark.parametrize("value", (0, -2))
+    def test_not_positive(_, value):
+        with pytest.raises(ValueError) as error:
+            validate.resolution(value)
+
+    def test_one_element(_):
+        output = validate.resolution(10)
+        assert np.array_equal(output, [10, 10])
+
+    def test_two_elements(_):
+        output = validate.resolution((5, 6))
+        assert np.array_equal(output, (5, 6))
+
+
+#####
+# Paths
+#####
+
+
+class TestInputPath:
+    def test_str(_, tmp_path):
+        file = Path(tmp_path) / "test.geojson"
+        with open(file, "w") as f:
+            f.write("test")
+        output = validate.input_path(str(file), "")
+        assert output == file
+
+    def test_path(_, tmp_path):
+        file = Path(tmp_path) / "test.geojson"
+        with open(file, "w") as f:
+            f.write("test")
+        output = validate.input_path(file, "")
+        assert output == file
+
+    def test_invalid(_):
+        with pytest.raises(TypeError) as error:
+            validate.input_path(5, "test file")
+        assert_contains(error, "test file")
+
+    def test_missing(_, tmp_path):
+        file = Path(tmp_path) / "test.geojson"
+        with pytest.raises(FileNotFoundError):
+            validate.input_path(file, "")
 
 
 #####

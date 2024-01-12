@@ -7,9 +7,9 @@ Type hint:
 Functions:
     aslist      - Returns an input as a list
     astuple     - Returns an input as a tuple
-
-Class:
-    NodataMask  - Objects for working with nodata/data masks
+    clean_dims  - Optionally removes trailing singleton dimensions from an array
+    all_nones   - True if every input is None
+    no_nones    - True if every input is not None
 
 Modules:
     nodata     - Utilities for working with NoData values
@@ -65,3 +65,20 @@ def clean_dims(X: RealArray, keepdims: bool) -> RealArray:
     if not keepdims:
         X = np.atleast_1d(np.squeeze(X))
     return X
+
+
+def all_nones(*args: Any) -> bool:
+    "True if every input is None. Otherwise False"
+    for arg in args:
+        if arg is not None:
+            return False
+    return True
+
+
+def no_nones(*args: Any) -> bool:
+    "True if none of the inputs are None. Otherwise False"
+
+    for arg in args:
+        if arg is None:
+            return False
+    return True
