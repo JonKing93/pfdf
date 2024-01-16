@@ -27,12 +27,13 @@ import rasterio.features
 import shapely
 from affine import Affine
 from geojson import Feature, FeatureCollection
-from pysheds.grid import Grid
 from rasterio.crs import CRS
 from rasterio.transform import rowcol
 
 from pfdf import watershed
-from pfdf._utils import all_nones, nodata, real, validate
+from pfdf._utils import all_nones
+from pfdf._utils import basins as _basins
+from pfdf._utils import nodata, real, validate
 from pfdf._utils.kernel import Kernel
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import RasterTransformError
@@ -42,6 +43,8 @@ from pfdf.typing import (
     BooleanMatrix,
     FlowNumber,
     MatrixArray,
+    OutletIndices,
+    Outlets,
     Pathlike,
     PixelIndices,
     PropertyDict,
@@ -77,8 +80,7 @@ Statistic = Literal[
     "nanvar",
 ]
 StatFunction = Callable[[np.ndarray], ScalarArray]
-OutletIndices = tuple[int, int]
-FeatureType = Literal["segments", "outlets", "basins"]
+FeatureType = Literal["segments", "segment outlets", "outlets", "basins"]
 
 # Supported statistics -- name: (function, description)
 _STATS = {
@@ -305,15 +307,6 @@ class Segments:
     also use the "npixels" property to return the number of pixels in the catchment
     basin of each segment.
 
-    A final (and uncommon) raster representation is the "nested drainage basin
-    raster". This raster consists of a 0 background, with nested drainage basins
-    indicated by non-zero pixels. The value of each non-zero pixel will match the
-    ID of the most *upstream* segment that contains the pixel in its catchment basin.
-    Building this raster requires a slow algorithm and takes a long time to compute.
-    As such, we recommend using one of the other raster representations whenever
-    possible. You can return a nested drainage basin raster by calling the "raster"
-    method with both basins=True and nested=True.
-
     WORKING WITH INPUT RASTERS:
     Many Segments methods compute a statistical summary over an input raster.
     There are four common cases for computing segment summaries: (1) Computing
@@ -428,12 +421,9 @@ class Segments:
     configured to export the stream segments as a set of LineString features.
     However, you can use the "type" option to change this behavior. Setting
     type="basins" will export the terminal outlet basins as a set of Polygon
-    features. Setting type="outlets" will export segment outlets as a set of
-    Point features. You can also set terminal=False to instead export the nested
-    drainage basins or the complete set of outlets, as appropriate. However, the
-    nested drainage basins take a long time to compute, and we recommend avoiding
-    this option whenever possible. (Also note that the "terminal" option is ignored
-    when exporting the stream segments as LineString features).
+    features. Setting type="outlets" will export terminal outlets as a set of
+    Point features. You can also set terminal=False to instead export the complete
+    set of outlets.
 
     Both methods allow an optional properties input, which can be used to tag
     the features with associated data values. The properties input should be a
@@ -477,6 +467,7 @@ class Segments:
         __geo_interface__   - A geojson-like dict of the network
 
     Rasters:
+        locate_basins       - Builds and saves the basin raster, optionally in parallel
         raster              - Returns a raster representation of the stream segment network
         basin_mask          - Returns the catchment or terminal outlet basin mask for the queried stream segment
 
@@ -528,16 +519,15 @@ class Segments:
 
     Utilities:
         _indices_to_ids         - Converts segment indices to (user-facing) IDs
+        _nbasins                - Returns the number of catchment or terminal outlet basins
+        _basin_npixels          - Returns npixels for catchment or terminal outlet basins
         _preallocate            - Initializes an array to hold summary values
         _accumulation           - Computes flow accumulation values
 
-    Validation:
+    Generic Validation:
         _validate               - Checks that an input raster has metadata matching the flow raster
         _check_ids              - Checks that IDs are in the network
         _validate_id            - Checks that a segment ID is valid
-        _validate_selection     - Validates indices/IDs used to select segments for filtering
-        _validate_properties    - Checks that a GeoJSON properties dict is valid
-        _validate_export        - Checks export properties and type
 
     Outlets:
         _terminus               - Returns the index of the queried segment's terminus
@@ -546,7 +536,6 @@ class Segments:
 
     Rasters:
         _segments_raster        - Builds a stream segment raster array
-        _basins_raster          - Builds a terminal outlet or nested drainage basin array
 
     Confinement Angles:
         _segment_confinement    - Computes the confinement angle for a stream segment
@@ -558,7 +547,8 @@ class Segments:
         _accumulation_summary   - Computes basin summaries using flow accumulation
         _catchment_summary      - Computes summaries by iterating over basin catchments
 
-    Removal:
+    Filtering:
+        _validate_selection     - Validates indices/IDs used to select segments for filtering
         _removable              - Locates requested segments on the edges of their local flow networks
         _continuous_removal     - Locates segments that can be removed without breaking flow continuity
 
@@ -567,12 +557,12 @@ class Segments:
         _update_family          - Updates child-parent arrays in-place after removing segments
         _update_indices         - Updates connectivity indices in-place after removing segments
         _update_connectivity    - Computes updated _child and _parents after segments are removed
-        _update_basins          - Computes updated _basins after removing segments
+        _update_basins          - Resets _basins if terminal basin outlets were removed
 
     Export:
-        _outlet_segments        - Returns a list of LineString geometries for catchment or terminal outlets
+        _validate_properties    - Checks that a GeoJSON properties dict is valid
+        _validate_export        - Checks export properties and type
         _basin_polygons         - Returns a generator of (Polygon, value) geometries
-        _geojson                - Creates a GeoJSON feature collection using validated properties
     """
 
     #####
@@ -632,7 +622,7 @@ class Segments:
         self._npixels: SegmentValues = None
         self._child: SegmentValues = None
         self._parents: SegmentParents = None
-        self._basins: Raster = None
+        self._basins: Optional[MatrixArray] = None
 
         # Validate and record flow raster
         flow = Raster(flow, "flow directions")
@@ -723,7 +713,7 @@ class Segments:
 
     @property
     def __geo_interface__(self) -> FeatureCollection:
-        "A geojson dict-like representation of the object"
+        "A geojson dict-like representation of the Segments object"
         return self.geojson(type="segments", properties=None)
 
     #####
@@ -867,7 +857,7 @@ class Segments:
         return self._values_at_outlets(accumulation, terminal=terminal)
 
     #####
-    # Validation
+    # Generic Validation
     #####
 
     def _validate(self, raster: Any, name: str) -> Raster:
@@ -892,66 +882,6 @@ class Segments:
         id = validate.scalar(id, "id", dtype=real)
         self._check_ids(id, "id")
         return int(np.argwhere(self._ids == id))
-
-    def _validate_selection(self, ids: Any, indices: Any) -> SegmentIndices:
-        "Validates IDs and/or logical indices and returns them as logical indices"
-
-        # Default or validate logical indices
-        if indices is None:
-            indices = np.zeros(self.length, bool)
-        else:
-            indices = validate.vector(
-                indices, "indices", dtype=real, length=self.length
-            )
-            indices = validate.boolean(indices, "indices")
-
-        # Default or validate IDs.
-        if ids is None:
-            ids = np.zeros(self.length, bool)
-        else:
-            ids = validate.vector(ids, "ids", dtype=real)
-            self._check_ids(ids, "ids")
-
-            # Convert IDs to logical indices. Return union of IDs and indices
-            ids = np.isin(self._ids, ids)
-        return ids | indices
-
-    def _validate_properties(
-        self,
-        properties: Any,
-        terminal: bool,
-    ) -> PropertyDict:
-        "Validates a GeoJSON property dict for export"
-
-        # Properties are optional, use an empty dict if None
-        if properties is None:
-            return {}
-
-        # Get the required vector length
-        length = self._nbasins(terminal)
-
-        # Require a dict with string keys
-        validate.type(properties, "properties", dict, "dict")
-        for k, key in enumerate(properties.keys()):
-            validate.type(key, f"properties key {k}", str, "string")
-
-            # Values must be floating-point numpy 1D arrays with one element per segment
-            name = f"properties['{key}']"
-            properties[key] = validate.vector(
-                properties[key], name, length=length, dtype=real
-            ).astype(float, copy=False)
-        return properties
-
-    def _validate_export(
-        self, properties: Any, type: Any, terminal: bool
-    ) -> tuple[PropertyDict, str, bool]:
-        "Validates export type and properties"
-
-        type = validate.option(type, "type", allowed=["segments", "outlets", "basins"])
-        if type == "segments":
-            terminal = False
-        properties = self._validate_properties(properties, terminal)
-        return properties, type, terminal
 
     #####
     # Outlets
@@ -1036,7 +966,7 @@ class Segments:
             segment = self._terminus(segment)
         return self._outlet(segment)
 
-    def outlets(self, terminal: bool = False) -> list[OutletIndices]:
+    def outlets(self, terminal: bool = False) -> Outlets:
         """
         outlets  Returns the row and column indices of all outlet or terminal outlet pixels
         ----------
@@ -1099,7 +1029,7 @@ class Segments:
         row, column = self.outlet(id, terminal)
         return watershed.catchment(self.flow, row, column, check_flow=False)
 
-    def raster(self, basins=False, nested=False) -> Raster:
+    def raster(self, basins=False) -> Raster:
         """
         raster  Return a raster representation of the stream network
         ----------
@@ -1115,75 +1045,79 @@ class Segments:
         basin. If a pixel is in multiple basins, then its value to assigned to
         the ID of the terminal segment that is farthest downstream.
 
-        self.raster(basins=True, nested=True)
-        Returns the nested drainage basin raster for the network. The raster has
-        a 0 background. Non-zero pixels indicated nested drainage basin pixels.
-        The value of each pixel is the ID of the most upstream segment containing
-        the pixel in its catchment basin. We recommend avoiding this raster when
-        possible, as it is slow to compute. Also note that the "nested" option
-        is ignored when basins=False.
+        Note that you can use Segments.locate_basins to pre-build the raster
+        before calling this command. If not pre-built, then this command will
+        generate the terminal basin raster sequentially, which may take a while.
+        Note that the "locate_basins" command includes options to parallelize
+        this process, which may improve runtime.
         ----------
         Inputs:
             basins: False (default) to return the stream segment raster. True to
-                return a terminal outlet or nested drainage basin raster.
-            nested: False (default) to return the terminal outlet basin raster.
-                True to return a nested drainage basin raster. Has no effect if
-                basins = False.
+                return a terminal basin raster
 
         Outputs:
-            Raster: A stream segment, terminal outlet basin, or nested drainage
-                basin raster.
+            Raster: A stream segment raster, or terminal outlet basin raster.
         """
 
         if basins:
-            raster = self._basins_raster(nested)
+            self.locate_basins()
+            raster = self._basins
         else:
             raster = self._segments_raster()
         return Raster._from_array(
             raster, nodata=0, crs=self.crs, transform=self.transform
         )
 
+    def locate_basins(
+        self, parallel: bool = False, nprocess: Optional[scalar] = None
+    ) -> None:
+        """
+        locate_basins  Builds and saves a terminal basin raster, optionally in parallel
+        ----------
+        self.locate_basins()
+        Builds the terminal basin raster and saves it internally. The saved
+        raster will be used to quickly implement other commands that require it.
+        (For example, Segments.raster, Segments.geojson, and Segments.save).
+        Note that the saved raster is deleted if any of the terminal outlets are
+        removed from the Segments object, so it is usually best to call this
+        command *after* filtering the network.
+
+        self.locate_basins(parallel=True)
+        self.locate_basins(parallel=True, nprocess)
+        Building a basin raster is computationally difficult and can take a while
+        to run. Setting parallel=True allows this process to run on multiple CPUs,
+        which can improve runtime. However, the use of this option imposes two
+        restrictions:
+
+        * You cannot use the "parallel" option from an interactive python session.
+          Instead, the pfdf code MUST be called from a script via the command line.
+          For example, something like:  $ python -m my_script
+        * The code in the script must be within a
+            if __name__ == "__main__":
+          block. Otherwise, the parallel processes will attempt to rerun the script,
+          resulting in an infinite loop of CPU process creation.
+
+        By default, setting parallel=True will create a number of parallel processes
+        equal to the number of CPUs - 1. Use the nprocess option to specify a
+        different number of parallel processes. Note that you can obtain the number
+        of available CPUs using os.cpu_count(). Also note that parallelization
+        options are ignored if only 1 CPU is available.
+        ----------
+        Inputs:
+            parallel: True to build the raster in parallel. False (default) to
+                build sequentially.
+            nprocess: The number of parallel processes. Must be a scalar, positive
+                integer. Default is the number of CPUs - 1.
+        """
+
+        if self._basins is None:
+            self._basins = _basins.build(self, parallel, nprocess)
+
     def _segments_raster(self) -> MatrixArray:
         "Builds a stream segment raster array"
         raster = np.zeros(self._flow.shape, dtype="int32")
         for id, (rows, cols) in zip(self._ids, self._indices):
             raster[rows, cols] = id
-        return raster
-
-    def _basins_raster(self, nested: bool) -> MatrixArray:
-        "Builds a terminal outlet or nested drainage basin raster array"
-
-        # If building nested basins, use saved values when possible
-        if nested and self._basins is not None:
-            return self._basins
-
-        # Initialize raster and prepare pysheds objects
-        raster = np.zeros(self._flow.shape, dtype="int32")
-        flow = self._flow.as_pysheds()
-        grid = Grid.from_raster(flow)
-
-        # Sort the outlets from upstream to down. Reverse the order if building
-        # nested basins.
-        outlets = self.outlets()
-        indices = np.argsort(self._npixels)
-        if nested:
-            indices = np.flip(indices)
-
-        # Iterate through outlets in sorted order. Either use all outlets
-        # (for nested basins), or terminal outlets (for terminal basins)
-        for k in indices:
-            if nested or self._child[k] == -1:
-                row, col = outlets[k]
-
-                # Get catchment mask and assign pixel values as the segment ID
-                catchment = grid.catchment(
-                    fdir=flow, x=col, y=row, xytype="index", **watershed._FLOW_OPTIONS
-                )
-                raster[catchment] = self._ids[k]
-
-        # Nested basins are slow, so save after building
-        if nested:
-            self._basins = raster
         return raster
 
     #####
@@ -2027,6 +1961,29 @@ class Segments:
     # Filtering
     #####
 
+    def _validate_selection(self, ids: Any, indices: Any) -> SegmentIndices:
+        "Validates IDs and/or logical indices and returns them as logical indices"
+
+        # Default or validate logical indices
+        if indices is None:
+            indices = np.zeros(self.length, bool)
+        else:
+            indices = validate.vector(
+                indices, "indices", dtype=real, length=self.length
+            )
+            indices = validate.boolean(indices, "indices")
+
+        # Default or validate IDs.
+        if ids is None:
+            ids = np.zeros(self.length, bool)
+        else:
+            ids = validate.vector(ids, "ids", dtype=real)
+            self._check_ids(ids, "ids")
+
+            # Convert IDs to logical indices. Return union of IDs and indices
+            ids = np.isin(self._ids, ids)
+        return ids | indices
+
     @staticmethod
     def _removable(
         requested: SegmentIndices,
@@ -2088,7 +2045,9 @@ class Segments:
         a segment that was not indicated as input. The algorithm then marches
         downstream, and again removes segments until it reaches a segment that was
         not indicated as input. As such, the total number of removed segments may
-        be less than the number of input segments.
+        be less than the number of input segments. Note that if you remove terminal
+        segments after calling the "locate_basins" command, the saved basin
+        raster may be deleted.
 
         If using "ids", the input should be a list or numpy 1D array whose elements
         are the IDs of the segments that may potentially be removed from the network.
@@ -2188,6 +2147,8 @@ class Segments:
         The algorithm then marches downstream, and again removes segments until
         reaching a segment that was indicated as input. As such, the total number
         of retained segments may be greater than the number of input segments.
+        Note that if you remove terminal segments after calling the "locate_basins"
+        command, the saved basin raster may be deleted.
 
         If using "ids", the input should be a list or numpy 1D array whose elements
         are the IDs of the segments to definitely retain in the network. If using
@@ -2253,8 +2214,8 @@ class Segments:
         self.copy()
         Returns a copy of the current Segments object. Stream segments can be
         removed from the new/old objects without affecting one another. Note that
-        the flow direction raster is not duplicated in memory. Instead, both
-        objects reference the same underlying raster.
+        the flow direction raster and saved basin rasters are not duplicated in
+        memory. Instead, both objects reference the same underlying array.
         ----------
         Outputs:
             Segments: A copy of the current Segments object.
@@ -2269,8 +2230,7 @@ class Segments:
         copy._child = self._child.copy()
         copy._parents = self._parents.copy()
         copy._basins = None
-        if self._basins is not None:
-            copy._basins = self._basins.copy()
+        copy._basins = self._basins
         return copy
 
     #####
@@ -2335,96 +2295,157 @@ class Segments:
         return child, parents
 
     def _update_basins(self, remove: SegmentIndices) -> MatrixArray | None:
-        "Computes an updated nested drainage basin raster after segments are removed"
+        "Resets basins if any terminal basin outlets were removed"
 
-        # If there aren't any basins, then leave them as None
+        # If there aren't any basins, just leave them as None
         if self._basins is None:
             return None
 
-        # Initialize basins. Track indices of segments being removed and updated
-        basins = self._basins.copy()
-        (removed,) = np.nonzero(remove)
-        outdated = removed.copy()
-
-        # Iterate through outdated (removed) segments until all are updated.
-        # Do a recursive downstream search for the new nested basin end
-        while outdated.size > 0:
-            update = [outdated[0]]
-            child = self._child[outdated[0]]
-            while child != -1 and child in removed:
-                update.append(child)
-                child = self._child[child]
-
-            # Get the final set up updated indices and IDs
-            update = np.array(update)
-            update_ids = self._indices_to_ids(update)
-
-            # Update the basin IDs. Mark that the segments have been updated
-            where = np.nonzero(np.isin(self._basins, update_ids))
-            basins[where] = self._indices_to_ids(child)
-            unchanged = ~np.isin(outdated, update)
-            outdated = outdated[unchanged]
-        return basins
+        # Get the ids of the removed segments. Reset if any of the removed IDs
+        # are in the raster. Otherwise, retain the old raster
+        ids = self.ids[remove]
+        if np.any(np.isin(ids, self._basins)):
+            return None
+        else:
+            return self._basins
 
     #####
     # Export
     #####
 
-    def _outlet_segments(self, terminal: bool) -> list[shapely.LineString]:
-        "Returns the shapely.linestring list for the requested outlets"
+    def _validate_properties(
+        self,
+        properties: Any,
+        terminal: bool,
+    ) -> PropertyDict:
+        "Validates a GeoJSON property dict for export"
 
-        if terminal:
-            return [
-                segment
-                for keep, segment in zip(self.isterminus, self._segments)
-                if keep
-            ]
-        else:
-            return self._segments
+        # Properties are optional, use an empty dict if None
+        if properties is None:
+            return {}
 
-    def _basin_polygons(self, terminal: bool):
+        # Get the number of features (the required length)
+        length = self._nbasins(terminal)
+
+        # Require a dict with string keys
+        validate.type(properties, "properties", dict, "dict")
+        for k, key in enumerate(properties.keys()):
+            validate.type(key, f"properties key {k}", str, "string")
+
+            # Values must be numpy 1D arrays with one element per feature
+            name = f"properties['{key}']"
+            properties[key] = validate.vector(
+                properties[key], name, length=length, dtype=real
+            ).astype(float, copy=False)
+        return properties
+
+    def _validate_export(
+        self, properties: Any, type: Any
+    ) -> tuple[PropertyDict, FeatureType]:
+        "Validates export type and properties"
+
+        type = validate.option(
+            type, "type", allowed=["segments", "segment outlets", "outlets", "basins"]
+        )
+        terminal = "segment" not in type
+        properties = self._validate_properties(properties, terminal)
+        return properties, type
+
+    def _basin_polygons(self):
         "Returns a generator of drainage basin (Polygon, ID value) tuples"
 
-        basins = self.raster(basins=True, nested=not terminal).values
+        self.locate_basins()
+        basins = self._basins
         mask = basins.astype(bool)
         return rasterio.features.shapes(
             basins, mask, connectivity=8, transform=self.transform
         )
 
-    def _geojson(
+    def geojson(
         self,
-        properties: PropertyDict,
-        type: FeatureType,
-        terminal: bool,
+        properties: Optional[PropertyDict] = None,
+        *,
+        type: FeatureType = "segments",
     ) -> FeatureCollection:
-        "Builds a geojson Feature collection using validated properties"
+        """
+        geosjon  Exports the network to a geojson.FeatureCollection object
+        ----------
+        self.geojson()
+        self.geojson(..., *, type='segments')
+        Exports the network to a geojson.FeatureCollection object. The individual
+        Features have LineString geometries whose coordinates proceed from upstream
+        to downstream. Will have one feature per stream segment.
 
-        # Get the appropriate geometry iterable
-        if type == "segments":
-            geometries = self._segments
+        self.geojson(..., *, type='basins')
+        Exports terminal outlet basins as a collection of Polygon features. The
+        number of features will be <= the number of local drainage networks.
+        (The number of features will be < the number of local networks if a local
+        network flows into another local network).
+
+        Note that you can use Segments.locate_basins to pre-locate the basins
+        before calling this command. If not pre-located, then this command will
+        locate the basins sequentially, which may take a while. Note that the
+        "locate_basins" command includes options to parallelize this process,
+        which may improve runtime.
+
+        self.geojson(..., *, type='outlets')
+        self.geojson(..., *, type='segment outlets')
+        Exports outlet points as a collection of Point features. If type="outlets",
+        exports the terminal outlet points, which will have one feature per local
+        drainage network. If type="segment outlets", exports the complete set of
+        outlet points, which will have one feature per segment in the network.
+
+        self.geojson(properties, ...)
+        Specifies data properties for the GeoJSON features. The "properties" input
+        should be a dict. Each key should be a string and will be interpreted as
+        the name of the associated property field. Each value should be a numpy
+        1D array with an integer, floating, or boolean dtype. All properties in
+        the output GeoJSON features will have a floating dtype, regardless of the
+        input type. If exporting segments or segment outlets, then each array
+        should have one element per segment in the network. If exporting basins or
+        outlets, then each array should have one element per local drainage network.
+        ----------
+        Inputs:
+            properties: A dict whose keys are the (string) names of the property
+                fields. Each value should be a numpy 1D array with an integer,
+                floating-point, or boolean dtype. Each array should have one element
+                per segment (for segments or segment outlets), or one element
+                per local drainage network (for outlets or basins).
+            type: A string indicating the type of feature to export. Options are
+                "segments", "basins", "outlets", or "segment outlets"
+
+        Outputs:
+            geojson.FeatureCollection: The collection of stream network features
+        """
+
+        # Validate
+        properties, type = self._validate_export(properties, type)
+
+        # Basins are derived from rasterio shapes. Also track basin IDs.
+        # (Basin geometries are unordered, so need to track which property is which)
+        if type == "basins":
+            geometries = self._basin_polygons()
+            ids = self._ids[self.isterminus]
+
+        # Everything else is derived from the shapely linestrings
         elif type == "outlets":
-            geometries = self._outlet_segments(terminal)
+            geometries = [
+                segment
+                for keep, segment in zip(self.isterminus, self._segments)
+                if keep
+            ]
         else:
-            geometries = self._basin_polygons(terminal)
+            geometries = self._segments
 
-            # Get IDs for basin data properties (geometries are not in the same
-            # order as the segment IDs, so need to track which property is which)
-            ids = self._ids
-            if terminal:
-                ids = ids[self.isterminus]
-
-        # Build each feature and group into a FeatureCollection. Start by getting
-        # the geometry for each feature
+        # Build each feature and group them into a FeatureCollection. Start by
+        # getting a geojson-like geometry for each feature
         features = []
-        for (
-            g,
-            geometry,
-        ) in enumerate(geometries):
-            if type == "segments":
-                geometry = geojson.LineString(geometry.coords)
-            elif type == "outlets":
+        for g, geometry in enumerate(geometries):
+            if "outlets" in type:
                 outlet = geometry.coords[-1]
                 geometry = geojson.Point(outlet)
+            elif type == "segments":
+                geometry = geojson.LineString(geometry.coords)
 
             # For basins, get the property index in addition to the geometry
             else:
@@ -2440,82 +2461,12 @@ class Segments:
             features.append(feature)
         return FeatureCollection(features)
 
-    def geojson(
-        self,
-        properties: Optional[PropertyDict] = None,
-        *,
-        type: FeatureType = "segments",
-        terminal: bool = True,
-    ) -> FeatureCollection:
-        """
-        geosjon  Exports the network to a geojson.FeatureCollection object
-        ----------
-        self.geojson()
-        self.geojson(..., *, type='segments')
-        Exports the network to a geojson.FeatureCollection object. The individual
-        Features have LineString geometries whose coordinates proceed from upstream
-        to downstream. Will have one feature per stream segment.
-
-        self.geojson(..., *, type='basins')
-        self.geojson(..., *, type='basins', terminal=False)
-        Exports catchment basins as a collection of Polygon features. By default,
-        exports the terminal outlet basins. In this case, the number of features
-        in the output geojson will be <= the number of local drainage networks.
-        (The number of features will be < the number of local networks if a local
-        network flows into another local network). Set terminal=False to instead
-        export the nested drainage basins. In this case, the output geojson will
-        have one feature per segment in the network. We recommend avoiding the
-        nested drainage basins, as these features are slow to generate.
-
-        self.geojson(..., *, type='outlets')
-        self.geojson(..., *, type='outlets', terminal=False)
-        Exports outlet points as a collection of Point features. By default, exports
-        the terminal output points. In this case, the output geojson will have
-        one feature per local drainage network. Set terminal=False to instead export
-        all outlet points. In this case, the output will have one feature per
-        segment in the network.
-
-        self.geojson(properties, ...)
-        Specifies data properties for the GeoJSON features. The "properties" input
-        should be a dict. Each key should be a string and will be interpreted as
-        the name of the associated property field. Each value should be a numpy
-        1D array with an integer, floating, or boolean dtype. All properties in
-        the output GeoJSON features will have a floating dtype, regardless of the
-        input type.
-
-        If exporting segments, or basins/outlets with terminal=False, then each
-        array should have one element per segment in the network. If exporting
-        basins/outlets with terminal=True (the default), then each array should
-        have one element per local drainage network.
-        ----------
-        Inputs:
-            properties: A dict whose keys are the (string) names of the property
-                fields. Each value should be a numpy 1D array with an integer,
-                floating-point, or boolean dtype. Each array should have one
-                element per segment, unless exporting terminal outlets or terminal
-                outlet basins. In these cases, each array should have one element
-                per local drainage network.
-            type: A string indicating the type of feature to export. Options are
-                'segments', 'outlets', and 'basins'.
-            terminal: Customizes the export of outlet Points and basin Polygons.
-                If True (default), exports the terminal outlet points or terminal
-                outlet basins. If False, exports all outlet points or the nested
-                drainage basins. Ignored if type='segments'.
-
-        Outputs:
-            geojson.FeatureCollection: The collection of stream network features
-        """
-
-        properties, type, terminal = self._validate_export(properties, type, terminal)
-        return self._geojson(properties, type, terminal)
-
     def save(
         self,
         path: Pathlike,
         properties: Optional[PropertyDict] = None,
         *,
         type: FeatureType = "segments",
-        terminal: bool = True,
         driver: Optional[str] = None,
         overwrite: bool = False,
     ) -> None:
@@ -2523,8 +2474,8 @@ class Segments:
         save  Saves the network to a vector feature file
         ----------
         save(path)
-        save(path, *, overwrite=True)
         save(path, *, type='segments')
+        save(..., overwrite=True)
         Saves the network to the indicated path. Each segment is saved as a vector
         feature with a LineString geometry whose coordinates proceed from upstream
         to downstream. The vector features will not have any data properties. In
@@ -2541,36 +2492,33 @@ class Segments:
         extensions.
 
         self.save(..., *, type='basins')
-        self.save(..., *, type='basins', terminal=False)
-        Saves catchment basins as a collection of Polygon features. By default,
-        saves the terminal outlet basins. In this case, the number of features
-        in the saved file will be <= the number of local drainage networks.
+        Saves the terminal outlet basins as a collection of Polygon features.
+        The number of features will be <= the number of local drainage networks.
         (The number of features will be < the number of local networks if a local
-        network flows into another local network). Set terminal=False to instead
-        save the nested drainage basins. In this case, the saved file will have
-        one feature per segment in the network. We recommend avoiding the nested
-        drainage basins, as these features are slow to generate.
+        network flows into another local network).
+
+        Note that you can use Segments.locate_basins to pre-locate the basins
+        before calling this command. If not pre-located, then this command will
+        locate the basins sequentially, which may take a while. Note that the
+        "locate_basins" command includes options to parallelize this process,
+        which may improve runtime.
 
         self.save(..., *, type='outlets')
-        self.save(..., *, type='outlets', terminal=False)
-        Saves outlet points as a collection of Point features. By default, saves
-        the terminal output points. In this case, the saved file will have one
-        feature per local drainage network. Set terminal=False to instead save
-        all outlet points. In this case, the saved file will have one feature per
-        segment in the network.
+        self.save(..., *, type='segment outlets')
+        Saves outlet points as a collection of Point features. If type="outlets",
+        saves the terminal outlet points, which will have one feature per local
+        drainage network. If type="segment outlets", saves the complete set of
+        outlet points, which will have one feature per segment in the network.
 
         self.save(path, properties, ...)
         Specifies data properties for the saved features. The "properties" input
         should be a dict. Each key should be a string and will be interpreted as
         the name of the associated property field. Each value should be a numpy
         1D array with an integer, floating, or boolean dtype. All properties in
-        the output GeoJSON features will have a floating dtype, regardless of the
-        input type.
-
-        If saving segments, or basins/outlets with terminal=False, then each
-        array should have one element per segment in the network. If exporting
-        basins/outlets with terminal=True (the default), then each array should
-        have one element per local drainage network.
+        the saved features will have a floating dtype, regardless of the input
+        type. If saving segments or segment outlets, then each array should have
+        one element per segment in the network. If saving basins or outlets,
+        then each array should have one element per local drainage network.
 
         save(..., *, driver)
         Specifies the file format driver to used to write the vector feature file.
@@ -2589,33 +2537,39 @@ class Segments:
         Inputs:
             path: The path to the output file
             properties: A dict whose keys are the (string) names of the property
-                fields. Each value should be a numpy 1D array with one element per
-                segment. Each array should have an integer, floating-point, or
-                boolean dtype.
-            type: Indicates the type of vector feature to export. Options are
-                'segments' (default), 'basins', and 'outlets'
+                fields. Each value should be a numpy 1D array with an integer,
+                floating-point, or boolean dtype. Each array should have one element
+                per segment (for segments or segment outlets), or one element
+                per local drainage network (for outlets or basins).
             type: A string indicating the type of feature to export. Options are
-                'segments', 'outlets', and 'basins'.
-            terminal: Customizes the export of outlet Points and basin Polygons.
-                If True (default), exports the terminal outlet points or terminal
-                outlet basins. If False, exports all outlet points or the nested
-                drainage basins. Ignored if type='segments'.
+                "segments", "basins", "outlets", or "segment outlets"
             overwrite: True to allow replacement of existing files. False (default)
                 to prevent overwriting.
             driver: The name of the file-format driver to use when writing the
                 vector feature file. Uses this driver regardless of file extension.
         """
 
-        # Validate and get the features as geojson
+        # Validate and get features as geojson
         validate.output_path(path, overwrite)
-        properties, type, terminal = self._validate_export(properties, type, terminal)
-        collection = self._geojson(properties, type, terminal)
+        collection = self.geojson(properties, type=type)
 
-        # Build the schema
-        geometries = {"segments": "LineString", "outlets": "Point", "basins": "Polygon"}
+        # Build the property schema
+        if len(collection["features"]) == 0:
+            properties = {}
+        else:
+            fields = collection["features"][0]["properties"].keys()
+            properties = {field: "float" for field in fields}
+
+        # Build the file schema
+        geometries = {
+            "segments": "LineString",
+            "basins": "Polygon",
+            "outlets": "Point",
+            "segment outlets": "Point",
+        }
         schema = {
             "geometry": geometries[type],
-            "properties": {key: "float" for key in properties.keys()},
+            "properties": properties,
         }
 
         # Write file

@@ -120,7 +120,7 @@ class Raster:
         from_file       - Creates a Raster from a file-based dataset
         from_rasterio   - Creates a Raster from a rasterio.DatasetReader object
         from_pysheds    - Creates a Raster from a pysheds.sview.Raster object
-        from_polygons   - Creates a raster from (multi)polygon features
+        from_polygons   - Creates a raster from polygon/multi-polygon features
 
     Data Properties:
         name            - An optional name to identify the raster

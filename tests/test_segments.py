@@ -247,21 +247,6 @@ def basins():
     return np.array(
         [
             [0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 1, 2, 2, 3, 0],
-            [0, 1, 1, 2, 2, 3, 0],
-            [0, 1, 1, 6, 5, 4, 0],
-            [0, 0, 1, 6, 6, 0, 0],
-            [0, 0, 0, 6, 6, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0],
-        ]
-    ).astype("int32")
-
-
-@pytest.fixture
-def outlet_basins():
-    return np.array(
-        [
-            [0, 0, 0, 0, 0, 0, 0],
             [0, 6, 6, 6, 6, 3, 0],
             [0, 6, 6, 6, 6, 3, 0],
             [0, 6, 6, 6, 6, 6, 0],
@@ -668,7 +653,7 @@ class TestAccumulation:
 
 
 #####
-# Validation
+# Generic Validation
 #####
 
 
@@ -746,171 +731,6 @@ class TestValidateId:
         with pytest.raises(ValueError) as error:
             segments._validate_id(9)
         assert_contains(error, "id (value=9)")
-
-
-class TestValidateSelection:
-    def test_valid_ids(_, segments):
-        ids = [2, 4, 5]
-        expected = np.array([0, 1, 0, 1, 1, 0], dtype=bool)
-        output = segments._validate_selection(ids, None)
-        assert np.array_equal(output, expected)
-
-    def test_valid_indices(_, segments):
-        indices = np.ones(6).astype(bool)
-        output = segments._validate_selection(None, indices)
-        assert np.array_equal(output, indices)
-
-    def test_both(_, segments):
-        ids = [2, 4, 5]
-        indices = np.zeros(6, bool)
-        indices[[0, 1]] = True
-        output = segments._validate_selection(ids, indices)
-        expected = np.array([1, 1, 0, 1, 1, 0], dtype=bool)
-        assert np.array_equal(output, expected)
-
-    def test_neither(_, segments):
-        output = segments._validate_selection(None, None)
-        expected = np.zeros(6, bool)
-        assert np.array_equal(output, expected)
-
-    def test_duplicate_ids(_, segments):
-        ids = [1, 1, 1, 1, 1]
-        output = segments._validate_selection(ids, None)
-        expected = np.zeros(6, bool)
-        expected[0] = 1
-        assert np.array_equal(output, expected)
-
-    def test_booleanish_indices(_, segments):
-        indices = np.ones(6, dtype=float)
-        output = segments._validate_selection(None, indices)
-        assert np.array_equal(output, indices.astype(bool))
-
-    def test_not_boolean_indices(_, segments):
-        indices = np.arange(6)
-        with pytest.raises(ValueError) as error:
-            segments._validate_selection(None, indices)
-        assert_contains(error, "indices", "0 or 1")
-
-    def test_indices_wrong_length(_, segments):
-        indices = np.ones(10)
-        with pytest.raises(ShapeError) as error:
-            segments._validate_selection(None, indices)
-        assert_contains(error, "indices", "6")
-
-    def test_invalid_ids(_, segments):
-        ids = [1, 2, 7]
-        with pytest.raises(ValueError) as error:
-            segments._validate_selection(ids, None)
-        assert_contains(error, "ids[2] (value=7)")
-
-
-class TestValidateProperties:
-    def test_valid(_, segments):
-        props = {"ones": np.ones(6), "twos": [2, 2, 2, 2, 2, 2]}
-        output = segments._validate_properties(props, terminal=False)
-        expected = {"ones": np.ones(6), "twos": np.full(6, 2)}
-        assert output.keys() == expected.keys()
-        for key in output.keys():
-            assert np.array_equal(output[key], expected[key])
-
-    def test_none(_, segments):
-        output = segments._validate_properties(None, terminal=False)
-        assert output == {}
-
-    def test_convert_to_float(_, segments):
-        props = {
-            "bool": np.ones(6, bool),
-            "int": np.ones(6, int),
-            "float": np.ones(6, float),
-        }
-        output = segments._validate_properties(props, terminal=False)
-        assert list(output.keys()) == list(props.keys())
-        for key in output.keys():
-            assert output[key].dtype == float
-
-    def test_terminal(_, segments):
-        props = {"ones": np.ones(2), "twos": [2, 2]}
-        output = segments._validate_properties(props, terminal=True)
-        expected = {"ones": np.ones(2), "twos": np.full(2, 2)}
-        assert output.keys() == expected.keys()
-        for key in output.keys():
-            assert np.array_equal(output[key], expected[key])
-
-    def test_not_dict(_, segments):
-        with pytest.raises(TypeError) as error:
-            segments._validate_properties("invalid", terminal=False)
-        assert_contains(error, "properties must be a dict")
-
-    def test_bad_keys(_, segments):
-        props = {1: np.ones(6)}
-        with pytest.raises(TypeError) as error:
-            segments._validate_properties(props, terminal=False)
-        assert_contains(error, "key 0")
-
-    def test_not_numeric(_, segments):
-        props = {"values": ["a", "b", "c", "d", "e", "f"]}
-        with pytest.raises(TypeError) as error:
-            segments._validate_properties(props, terminal=False)
-        assert_contains(error, "properties['values']")
-
-    def test_wrong_length(_, segments):
-        props = {"values": np.ones(7)}
-        with pytest.raises(ShapeError) as error:
-            segments._validate_properties(props, terminal=False)
-        assert_contains(error, "properties['values']")
-
-
-class TestValidateExport:
-    def test_valid_no_properties(_, segments):
-        output = segments._validate_export(None, "segments", False)
-        assert output[0] == {}
-        assert output[1] == "segments"
-        assert output[2] == False
-
-    def test_valid_all_props(_, segments):
-        props = {"slope": [1, 2, 3, 4, 5, 6]}
-        output = segments._validate_export(props, "outlets", False)
-        assert isinstance(output[0], dict)
-        assert list(output[0].keys()) == ["slope"]
-        assert np.array_equal(
-            output[0]["slope"], np.array([1, 2, 3, 4, 5, 6]).astype(float)
-        )
-        assert output[1] == "outlets"
-        assert output[2] == False
-
-    def test_valid_terminal_props(_, segments):
-        props = {"slope": [1, 2]}
-        output = segments._validate_export(props, "outlets", True)
-        assert isinstance(output[0], dict)
-        assert list(output[0].keys()) == ["slope"]
-        assert np.array_equal(output[0]["slope"], np.array([1, 2]).astype(float))
-        assert output[1] == "outlets"
-        assert output[2] == True
-
-    @pytest.mark.parametrize("type", ("segments", "outlets", "basins"))
-    @pytest.mark.parametrize("terminal", (True, False))
-    def test_valid_type(_, segments, type, terminal):
-        output = segments._validate_export(None, type, terminal)
-        assert output[0] == {}
-        assert output[1] == type
-        if type == "segments":
-            assert output[2] == False
-        else:
-            assert output[2] == terminal
-
-    def test_type_casing(_, segments):
-        output = segments._validate_export(None, "SeGmEnTs", False)
-        assert output[1] == "segments"
-
-    def test_invalid_type(_, segments):
-        with pytest.raises(ValueError) as error:
-            segments._validate_export(None, "invalid", True)
-        assert_contains(error, "type", "segments", "outlets", "basins")
-
-    def test_invalid_props(_, segments):
-        with pytest.raises(TypeError) as error:
-            segments._validate_export("invalid", "segments", False)
-        assert_contains(error, "properties must be a dict")
 
 
 #####
@@ -1042,21 +862,17 @@ class TestSegmentsRaster:
         assert np.array_equal(output, stream_raster)
 
 
-class TestBasinsRaster:
-    def test_outlets(_, segments, outlet_raster):
-        output = segments._basins_raster(nested=False)
-        assert np.array_equal(output, outlet_raster)
+class TestLocateRaster:
+    @pytest.mark.parametrize("parallel, nprocess", ((False, None), (True, 2)))
+    def test_sequential(_, segments, parallel, nprocess, outlet_raster):
+        assert segments._basins is None
+        segments.locate_basins(parallel, nprocess)
+        assert np.array_equal(segments._basins, outlet_raster)
 
-    def test_nested(_, bsegments, basins):
-        output = bsegments._basins_raster(nested=True)
-        assert np.array_equal(output, basins)
-        assert bsegments._basins is not None
-
-    def test_load_nested(_, bsegments, basins):
-        bsegments._basins_raster(nested=True)
-        assert bsegments._basins is not None
-        output = bsegments._basins_raster(nested=True)
-        assert np.array_equal(output, basins)
+    def test_invalid_nprocess(_, segments):
+        with pytest.raises(ValueError) as error:
+            segments.locate_basins(parallel=True, nprocess=2.2)
+        assert_contains(error, "nprocess", "integer")
 
 
 class TestRaster:
@@ -1068,21 +884,25 @@ class TestRaster:
         assert output.transform == segments.transform
         assert np.array_equal(output.values, stream_raster)
 
-    def test_outlets(_, segments, outlet_raster):
+    def test_basins_new(_, segments, outlet_raster):
+        assert segments._basins is None
         output = segments.raster(basins=True)
-        assert isinstance(output, Raster)
         assert output.nodata == 0
         assert output.crs == segments.crs
         assert output.transform == segments.transform
         assert np.array_equal(output.values, outlet_raster)
+        assert np.array_equal(output.values, segments._basins)
 
-    def test_nested(_, bsegments, basins):
-        output = bsegments.raster(basins=True, nested=True)
-        assert isinstance(output, Raster)
+    def test_basins_prebuilt(_, segments, outlet_raster):
+        segments.locate_basins()
+        original = segments._basins
+        assert isinstance(original, np.ndarray)
+        output = segments.raster(basins=True)
         assert output.nodata == 0
-        assert output.crs == bsegments.crs
-        assert output.transform == bsegments.transform
-        assert np.array_equal(output.values, basins)
+        assert output.crs == segments.crs
+        assert output.transform == segments.transform
+        assert np.array_equal(output.values, outlet_raster)
+        assert segments._basins is original
 
 
 #####
@@ -1772,68 +1592,90 @@ class TestUpdateConnectivity:
 
 
 class TestUpdateBasins:
-    def test_none(_, segments):
-        remove = np.array([0, 0, 0, 0, 0, 1], bool)
-        output = segments._update_basins(remove)
+    def test_none(_, bsegments):
+        assert bsegments._basins is None
+        remove = np.array([0, 0, 0, 0, 0, 0], bool)
+        output = bsegments._update_basins(remove)
         assert output is None
 
-    def test_downstream_edge(_, bsegments):
-        bsegments.raster(basins=True, nested=True)
-        remove = np.array([0, 0, 0, 0, 0, 1], bool)
-        output = bsegments._update_basins(remove)
-        expected = np.array(
-            [
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 1, 1, 2, 2, 3, 0],
-                [0, 1, 1, 2, 2, 3, 0],
-                [0, 1, 1, 0, 5, 4, 0],
-                [0, 0, 1, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-            ]
-        )
-        print(output)
-        print(expected)
-        assert np.array_equal(output, expected)
+    def test_unaltered(_, bsegments, basins):
+        bsegments.locate_basins()
+        original = bsegments._basins
+        assert np.array_equal(original, basins)
 
-    def test_upstream_edge(_, bsegments):
-        bsegments.raster(basins=True, nested=True)
-        remove = np.array([0, 1, 0, 0, 1, 0], bool)
+        remove = np.array([1, 1, 0, 0, 0, 0], bool)
         output = bsegments._update_basins(remove)
-        expected = np.array(
-            [
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 1, 1, 6, 6, 3, 0],
-                [0, 1, 1, 6, 6, 3, 0],
-                [0, 1, 1, 6, 6, 4, 0],
-                [0, 0, 1, 6, 6, 0, 0],
-                [0, 0, 0, 6, 6, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-            ]
-        )
-        assert np.array_equal(output, expected)
+        assert output is original
 
-    def test_confluence(_, bsegments):
-        bsegments.raster(basins=True, nested=True)
-        remove = np.array([1, 1, 0, 0, 1, 0], bool)
+    def test_reset(_, bsegments, basins):
+        bsegments.locate_basins()
+        original = bsegments._basins
+        assert np.array_equal(original, basins)
+
+        remove = np.array([0, 0, 1, 0, 0, 0], bool)
         output = bsegments._update_basins(remove)
-        expected = np.array(
-            [
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 6, 6, 6, 6, 3, 0],
-                [0, 6, 6, 6, 6, 3, 0],
-                [0, 6, 6, 6, 6, 4, 0],
-                [0, 0, 6, 6, 6, 0, 0],
-                [0, 0, 0, 6, 6, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-            ]
-        )
-        assert np.array_equal(output, expected)
+        assert output is None
 
 
 #####
 # Filtering
 #####
+
+
+class TestValidateSelection:
+    def test_valid_ids(_, segments):
+        ids = [2, 4, 5]
+        expected = np.array([0, 1, 0, 1, 1, 0], dtype=bool)
+        output = segments._validate_selection(ids, None)
+        assert np.array_equal(output, expected)
+
+    def test_valid_indices(_, segments):
+        indices = np.ones(6).astype(bool)
+        output = segments._validate_selection(None, indices)
+        assert np.array_equal(output, indices)
+
+    def test_both(_, segments):
+        ids = [2, 4, 5]
+        indices = np.zeros(6, bool)
+        indices[[0, 1]] = True
+        output = segments._validate_selection(ids, indices)
+        expected = np.array([1, 1, 0, 1, 1, 0], dtype=bool)
+        assert np.array_equal(output, expected)
+
+    def test_neither(_, segments):
+        output = segments._validate_selection(None, None)
+        expected = np.zeros(6, bool)
+        assert np.array_equal(output, expected)
+
+    def test_duplicate_ids(_, segments):
+        ids = [1, 1, 1, 1, 1]
+        output = segments._validate_selection(ids, None)
+        expected = np.zeros(6, bool)
+        expected[0] = 1
+        assert np.array_equal(output, expected)
+
+    def test_booleanish_indices(_, segments):
+        indices = np.ones(6, dtype=float)
+        output = segments._validate_selection(None, indices)
+        assert np.array_equal(output, indices.astype(bool))
+
+    def test_not_boolean_indices(_, segments):
+        indices = np.arange(6)
+        with pytest.raises(ValueError) as error:
+            segments._validate_selection(None, indices)
+        assert_contains(error, "indices", "0 or 1")
+
+    def test_indices_wrong_length(_, segments):
+        indices = np.ones(10)
+        with pytest.raises(ShapeError) as error:
+            segments._validate_selection(None, indices)
+        assert_contains(error, "indices", "6")
+
+    def test_invalid_ids(_, segments):
+        ids = [1, 2, 7]
+        with pytest.raises(ValueError) as error:
+            segments._validate_selection(ids, None)
+        assert_contains(error, "ids[2] (value=7)")
 
 
 class TestRemovable:
@@ -1960,7 +1802,7 @@ class TestRemove:
     def test_none(
         _, bsegments, bflow, linestrings, indices, bpixels, child, parents, basins
     ):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.remove()
         assert bsegments._flow == bflow
         assert bsegments._segments == linestrings
@@ -1982,9 +1824,8 @@ class TestRemove:
         bpixels245,
         child245,
         parents245,
-        basins245,
     ):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.remove(ids=[1, 3, 6], continuous=False)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
@@ -1992,7 +1833,7 @@ class TestRemove:
         assert np.array_equal(bsegments.npixels, bpixels245)
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
-        assert np.array_equal(bsegments._basins, basins245)
+        assert bsegments._basins is None
 
         expected = np.array([1, 0, 1, 0, 0, 1], bool)
         assert np.array_equal(output, expected)
@@ -2006,9 +1847,8 @@ class TestRemove:
         bpixels245,
         child245,
         parents245,
-        basins245,
     ):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         indices = np.array([1, 0, 1, 0, 0, 1], bool)
         output = bsegments.remove(indices=indices, continuous=False)
         assert bsegments.flow == bflow
@@ -2017,7 +1857,7 @@ class TestRemove:
         assert np.array_equal(bsegments.npixels, bpixels245)
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
-        assert np.array_equal(bsegments._basins, basins245)
+        assert bsegments._basins is None
 
         expected = np.array([1, 0, 1, 0, 0, 1], bool)
         assert np.array_equal(output, expected)
@@ -2031,11 +1871,10 @@ class TestRemove:
         bpixels245,
         child245,
         parents245,
-        basins245,
     ):
         indices = np.array([1, 0, 1, 0, 0, 0], bool)
         ids = [3, 6]
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.remove(ids=ids, indices=indices, continuous=False)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
@@ -2043,13 +1882,13 @@ class TestRemove:
         assert np.array_equal(bsegments.npixels, bpixels245)
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
-        assert np.array_equal(bsegments._basins, basins245)
+        assert bsegments._basins is None
 
         expected = np.array([1, 0, 1, 0, 0, 1], bool)
         assert np.array_equal(output, expected)
 
     def test_continuous_removal(_, bsegments, bflow, linestrings, indices, bpixels):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.remove(ids=[1, 2, 6], upstream=False)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings[1:5]
@@ -2068,25 +1907,13 @@ class TestRemove:
             ]
         )
         assert np.array_equal(bsegments.parents, parents)
-
-        basins = np.array(
-            [
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 2, 2, 3, 0],
-                [0, 0, 0, 2, 2, 3, 0],
-                [0, 0, 0, 0, 5, 4, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-            ]
-        )
-        assert np.array_equal(bsegments._basins, basins)
+        assert bsegments._basins is None
 
         expected = np.array([1, 0, 0, 0, 0, 1], bool)
         assert np.array_equal(output, expected)
 
     def test_all(_, bsegments, bflow):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.remove(ids=[1, 2, 3, 4, 5, 6])
         assert bsegments.flow == bflow
         assert bsegments.segments == []
@@ -2095,7 +1922,7 @@ class TestRemove:
         assert bsegments.child.size == 0
         assert bsegments.parents.size == 0
         basins = np.zeros(bflow.shape)
-        assert np.array_equal(bsegments._basins, basins)
+        assert bsegments._basins is None
 
         expected = np.ones(6, bool)
         assert np.array_equal(output, expected)
@@ -2105,7 +1932,7 @@ class TestKeep:
     def test_all(
         _, bsegments, bflow, linestrings, indices, bpixels, child, parents, basins
     ):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.keep(ids=[1, 2, 3, 4, 5, 6])
         assert bsegments._flow == bflow
         assert bsegments._segments == linestrings
@@ -2129,7 +1956,7 @@ class TestKeep:
         parents245,
         basins245,
     ):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.keep(ids=[2, 4, 5], continuous=False)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
@@ -2137,7 +1964,7 @@ class TestKeep:
         assert np.array_equal(bsegments.npixels, bpixels245)
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
-        assert np.array_equal(bsegments._basins, basins245)
+        assert bsegments._basins is None
 
         expected = np.array([0, 1, 0, 1, 1, 0], bool)
         assert np.array_equal(output, expected)
@@ -2153,7 +1980,7 @@ class TestKeep:
         parents245,
         basins245,
     ):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         indices = np.array([0, 1, 0, 1, 1, 0], bool)
         output = bsegments.keep(indices=indices, continuous=False)
         assert bsegments.flow == bflow
@@ -2162,7 +1989,7 @@ class TestKeep:
         assert np.array_equal(bsegments.npixels, bpixels245)
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
-        assert np.array_equal(bsegments._basins, basins245)
+        assert bsegments._basins is None
 
         expected = np.array([0, 1, 0, 1, 1, 0], bool)
         assert np.array_equal(output, expected)
@@ -2178,7 +2005,7 @@ class TestKeep:
         parents245,
         basins245,
     ):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         indices = np.array([0, 1, 0, 1, 0, 0], bool)
         ids = [4, 5]
         output = bsegments.keep(ids=ids, indices=indices, continuous=False)
@@ -2188,7 +2015,7 @@ class TestKeep:
         assert np.array_equal(bsegments.npixels, bpixels245)
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
-        assert np.array_equal(bsegments._basins, basins245)
+        assert bsegments._basins is None
 
         expected = np.array([0, 1, 0, 1, 1, 0], bool)
         assert np.array_equal(output, expected)
@@ -2196,7 +2023,7 @@ class TestKeep:
     def test_continuous_removal(
         _, bsegments, bflow, linestrings, indices, bpixels, child
     ):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.keep(ids=[3, 4, 5], upstream=False)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings[1:5]
@@ -2215,25 +2042,13 @@ class TestKeep:
             ]
         )
         assert np.array_equal(bsegments.parents, parents)
-
-        basins = np.array(
-            [
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 2, 2, 3, 0],
-                [0, 0, 0, 2, 2, 3, 0],
-                [0, 0, 0, 0, 5, 4, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-            ]
-        )
-        assert np.array_equal(bsegments._basins, basins)
+        assert bsegments._basins is None
 
         expected = np.array([0, 1, 1, 1, 1, 0], bool)
         assert np.array_equal(output, expected)
 
     def test_none(_, bsegments, bflow):
-        bsegments.raster(basins=True, nested=True)
+        bsegments.locate_basins()
         output = bsegments.keep()
         assert bsegments.flow == bflow
         assert bsegments.segments == []
@@ -2242,7 +2057,7 @@ class TestKeep:
         assert bsegments.child.size == 0
         assert bsegments.parents.size == 0
         basins = np.zeros(bflow.shape)
-        assert np.array_equal(bsegments._basins, basins)
+        assert bsegments._basins is None
 
         expected = np.zeros(6, bool)
         assert np.array_equal(output, expected)
@@ -2253,7 +2068,7 @@ class TestCopy:
         copy = segments.copy()
         assert copy._basins is None
 
-        segments.raster(basins=True, nested=True)
+        segments.locate_basins()
         copy = segments.copy()
         assert isinstance(copy, Segments)
         assert copy._flow is segments._flow
@@ -2270,7 +2085,7 @@ class TestCopy:
         assert np.array_equal(copy._parents, segments._parents)
         assert copy._parents is not segments._parents
         assert np.array_equal(copy._basins, segments._basins)
-        assert copy._basins is not segments._basins
+        assert copy._basins is segments._basins
 
         del segments
         assert copy._flow is not None
@@ -2288,299 +2103,120 @@ class TestCopy:
 #####
 
 
-class TestOutletSegments:
-    def test_all(_, segments, linestrings):
-        output = segments._outlet_segments(terminal=False)
-        assert output == linestrings
+class TestValidateProperties:
+    def test_valid(_, segments):
+        props = {"ones": np.ones(6), "twos": [2, 2, 2, 2, 2, 2]}
+        output = segments._validate_properties(props, terminal=False)
+        expected = {"ones": np.ones(6), "twos": np.full(6, 2)}
+        assert output.keys() == expected.keys()
+        for key in output.keys():
+            assert np.array_equal(output[key], expected[key])
 
-    def test_terminal(_, segments, linestrings):
-        output = segments._outlet_segments(terminal=True)
-        expected = [linestrings[2], linestrings[5]]
-        assert output == expected
+    def test_none(_, segments):
+        output = segments._validate_properties(None, terminal=False)
+        assert output == {}
+
+    def test_convert_to_float(_, segments):
+        props = {
+            "bool": np.ones(6, bool),
+            "int": np.ones(6, int),
+            "float": np.ones(6, float),
+        }
+        output = segments._validate_properties(props, terminal=False)
+        assert list(output.keys()) == list(props.keys())
+        for key in output.keys():
+            assert output[key].dtype == float
+
+    def test_terminal(_, segments):
+        props = {"ones": np.ones(2), "twos": [2, 2]}
+        output = segments._validate_properties(props, terminal=True)
+        expected = {"ones": np.ones(2), "twos": np.full(2, 2)}
+        assert output.keys() == expected.keys()
+        for key in output.keys():
+            assert np.array_equal(output[key], expected[key])
+
+    def test_not_dict(_, segments):
+        with pytest.raises(TypeError) as error:
+            segments._validate_properties("invalid", terminal=False)
+        assert_contains(error, "properties must be a dict")
+
+    def test_bad_keys(_, segments):
+        props = {1: np.ones(6)}
+        with pytest.raises(TypeError) as error:
+            segments._validate_properties(props, terminal=False)
+        assert_contains(error, "key 0")
+
+    def test_not_numeric(_, segments):
+        props = {"values": ["a", "b", "c", "d", "e", "f"]}
+        with pytest.raises(TypeError) as error:
+            segments._validate_properties(props, terminal=False)
+        assert_contains(error, "properties['values']")
+
+    def test_wrong_length(_, segments):
+        props = {"values": np.ones(7)}
+        with pytest.raises(ShapeError) as error:
+            segments._validate_properties(props, terminal=False)
+        assert_contains(error, "properties['values']")
+
+
+class TestValidateExport:
+    def test_valid_no_properties(_, segments):
+        properties, type = segments._validate_export(None, "segments")
+        assert properties == {}
+        assert type == "segments"
+
+    @pytest.mark.parametrize("type", ("segments", "segment outlets"))
+    def test_valid_segments_props(_, segments, type):
+        props = {"slope": [1, 2, 3, 4, 5, 6]}
+        properties, output_type = segments._validate_export(props, type)
+        assert isinstance(properties, dict)
+        assert list(properties.keys()) == ["slope"]
+        assert np.array_equal(
+            properties["slope"], np.array([1, 2, 3, 4, 5, 6]).astype(float)
+        )
+        assert output_type == type
+
+    @pytest.mark.parametrize("type", ("basins", "outlets"))
+    def test_valid_terminal_props(_, segments, type):
+        props = {"slope": [1, 2]}
+        properties, outtype = segments._validate_export(props, type)
+        assert isinstance(properties, dict)
+        assert list(properties.keys()) == ["slope"]
+        assert np.array_equal(properties["slope"], np.array([1, 2]).astype(float))
+        assert outtype == type
+
+    @pytest.mark.parametrize(
+        "type", ("segments", "basins", "outlets", "segment outlets")
+    )
+    @pytest.mark.parametrize("terminal", (True, False))
+    def test_valid_type(_, segments, type, terminal):
+        props, outtype = segments._validate_export(None, type)
+        assert props == {}
+        assert outtype == type
+
+    def test_type_casing(_, segments):
+        _, outtype = segments._validate_export(None, "SeGmEnTs")
+        assert outtype == "segments"
+
+    def test_invalid_type(_, segments):
+        with pytest.raises(ValueError) as error:
+            segments._validate_export(None, "invalid")
+        assert_contains(error, "type", "segments", "outlets", "basins")
+
+    def test_invalid_props(_, segments):
+        with pytest.raises(TypeError) as error:
+            segments._validate_export("invalid", "segments")
+        assert_contains(error, "properties must be a dict")
 
 
 class TestBasinPolygons:
-    def test_all(_, bsegments, basins):
+    def test(_, bsegments, basins):
         mask = basins.astype(bool)
         expected = rasterio.features.shapes(
             basins, mask, connectivity=8, transform=bsegments.transform
         )
-        output = bsegments._basin_polygons(terminal=False)
+        output = bsegments._basin_polygons()
         assert list(output) == list(expected)
-
-    def test_terminal(_, bsegments, outlet_basins):
-        mask = outlet_basins.astype(bool)
-        expected = rasterio.features.shapes(
-            outlet_basins, mask, connectivity=8, transform=bsegments.transform
-        )
-        output = bsegments._basin_polygons(terminal=True)
-        assert list(output) == list(expected)
-
-
-class Test_Geojson:
-    def test_segments(_, segments):
-        segments.keep(ids=[2, 4, 5])
-        output = segments._geojson(properties={}, type="segments", terminal=False)
-        assert isinstance(output, geojson.FeatureCollection)
-        expected = {
-            "features": [
-                {
-                    "geometry": {
-                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-        assert output == expected
-        output = segments._geojson(properties={}, type="segments", terminal=True)
-        assert output == expected
-
-    def test_terminal_outlets(_, segments):
-        output = segments._geojson(properties={}, type="outlets", terminal=True)
-        expected = {
-            "features": [
-                {
-                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-        assert isinstance(output, geojson.FeatureCollection)
-        assert output == expected
-
-    def test_all_outlets(_, segments):
-        output = segments._geojson(properties={}, type="outlets", terminal=False)
-        expected = {
-            "features": [
-                {
-                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-        assert isinstance(output, geojson.FeatureCollection)
-        assert output == expected
-
-    def test_terminal_basins(_, bsegments):
-        output = bsegments._geojson(properties={}, type="basins", terminal=True)
-        expected = {
-            "features": [
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[5.0, 1.0], [5.0, 3.0], [6.0, 3.0], [6.0, 1.0], [5.0, 1.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [
-                                [1.0, 1.0],
-                                [1.0, 4.0],
-                                [2.0, 4.0],
-                                [2.0, 5.0],
-                                [3.0, 5.0],
-                                [3.0, 6.0],
-                                [5.0, 6.0],
-                                [5.0, 4.0],
-                                [6.0, 4.0],
-                                [6.0, 3.0],
-                                [5.0, 3.0],
-                                [5.0, 1.0],
-                                [1.0, 1.0],
-                            ]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-
-        assert isinstance(output, geojson.FeatureCollection)
-        assert output == expected
-
-    def test_nested_basins(_, bsegments):
-        output = bsegments._geojson(properties={}, type="basins", terminal=False)
-        assert isinstance(output, geojson.FeatureCollection)
-        expected = {
-            "features": [
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [
-                                [1.0, 1.0],
-                                [1.0, 4.0],
-                                [2.0, 4.0],
-                                [2.0, 5.0],
-                                [3.0, 5.0],
-                                [3.0, 1.0],
-                                [1.0, 1.0],
-                            ]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[3.0, 1.0], [3.0, 3.0], [5.0, 3.0], [5.0, 1.0], [3.0, 1.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[5.0, 1.0], [5.0, 3.0], [6.0, 3.0], [6.0, 1.0], [5.0, 1.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[4.0, 3.0], [4.0, 4.0], [5.0, 4.0], [5.0, 3.0], [4.0, 3.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[5.0, 3.0], [5.0, 4.0], [6.0, 4.0], [6.0, 3.0], [5.0, 3.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [
-                                [3.0, 3.0],
-                                [3.0, 6.0],
-                                [5.0, 6.0],
-                                [5.0, 4.0],
-                                [4.0, 4.0],
-                                [4.0, 3.0],
-                                [3.0, 3.0],
-                            ]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-        assert output == expected
-
-    def test_with_properties(_, segments):
-        segments.keep(ids=[2, 4, 5])
-        properties = {"slope": [1, 2, 3], "length": [1.1, 2.2, 3.3]}
-        output = segments._geojson(properties, type="segments", terminal=False)
-        assert isinstance(output, geojson.FeatureCollection)
-        expected = {
-            "features": [
-                {
-                    "geometry": {
-                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {"length": 1.1, "slope": 1},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {"length": 2.2, "slope": 2},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {"length": 3.3, "slope": 3},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-        assert output == expected
 
 
 class TestGeojson:
@@ -2639,8 +2275,8 @@ class TestGeojson:
         assert isinstance(output, geojson.FeatureCollection)
         assert output == expected
 
-    def test_all_outlets(_, segments):
-        output = segments.geojson(type="outlets", terminal=False)
+    def test_segment_outlets(_, segments):
+        output = segments.geojson(type="segment outlets")
         expected = {
             "features": [
                 {
@@ -2679,7 +2315,7 @@ class TestGeojson:
         assert isinstance(output, geojson.FeatureCollection)
         assert output == expected
 
-    def test_terminal_basins(_, bsegments):
+    def test_basins(_, bsegments):
         output = bsegments.geojson(type="basins")
         expected = {
             "features": [
@@ -2721,92 +2357,6 @@ class TestGeojson:
             "type": "FeatureCollection",
         }
         assert isinstance(output, geojson.FeatureCollection)
-        assert output == expected
-
-    def test_nested_basins(_, bsegments):
-        output = bsegments.geojson(type="basins", terminal=False)
-        assert isinstance(output, geojson.FeatureCollection)
-        expected = {
-            "features": [
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [
-                                [1.0, 1.0],
-                                [1.0, 4.0],
-                                [2.0, 4.0],
-                                [2.0, 5.0],
-                                [3.0, 5.0],
-                                [3.0, 1.0],
-                                [1.0, 1.0],
-                            ]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[3.0, 1.0], [3.0, 3.0], [5.0, 3.0], [5.0, 1.0], [3.0, 1.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[5.0, 1.0], [5.0, 3.0], [6.0, 3.0], [6.0, 1.0], [5.0, 1.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[4.0, 3.0], [4.0, 4.0], [5.0, 4.0], [5.0, 3.0], [4.0, 3.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [[5.0, 3.0], [5.0, 4.0], [6.0, 4.0], [6.0, 3.0], [5.0, 3.0]]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [
-                                [3.0, 3.0],
-                                [3.0, 6.0],
-                                [5.0, 6.0],
-                                [5.0, 4.0],
-                                [4.0, 4.0],
-                                [4.0, 3.0],
-                                [3.0, 3.0],
-                            ]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
         assert output == expected
 
     def test_with_properties(_, segments):
@@ -2903,6 +2453,17 @@ class TestSave:
         }
         assert output == expected
 
+    def test_empty(self, segments, tmp_path):
+        path = Path(tmp_path) / "output.geojson"
+        segments.keep()
+        assert not path.is_file()
+        segments.save(path)
+        assert path.is_file()
+
+        output = self.read(path)
+        expected = {"features": [], "type": "FeatureCollection"}
+        assert output == expected
+
     def test_terminal_outlets(self, segments, tmp_path):
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
@@ -2929,11 +2490,11 @@ class TestSave:
         assert isinstance(output, geojson.FeatureCollection)
         assert output == expected
 
-    def test_all_outlets(self, segments, tmp_path):
+    def test_segment_outlets(self, segments, tmp_path):
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
 
-        segments.save(path, type="outlets", terminal=False)
+        segments.save(path, type="segment outlets")
         assert path.is_file()
 
         output = self.read(path)
@@ -2975,7 +2536,7 @@ class TestSave:
         assert isinstance(output, geojson.FeatureCollection)
         assert output == expected
 
-    def test_terminal_basins(self, bsegments, tmp_path):
+    def test_basins(self, bsegments, tmp_path):
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
 
@@ -3030,97 +2591,6 @@ class TestSave:
 
         print(output)
         print(expected)
-        assert output == expected
-
-    def test_nested_basins(self, bsegments, tmp_path):
-        path = Path(tmp_path) / "output.geojson"
-        assert not path.is_file()
-
-        bsegments.save(path, type="basins", terminal=False)
-        assert path.is_file()
-
-        output = self.read(path)
-        expected = {
-            "features": [
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [
-                                (1.0, 1.0),
-                                (1.0, 4.0),
-                                (2.0, 4.0),
-                                (2.0, 5.0),
-                                (3.0, 5.0),
-                                (3.0, 1.0),
-                                (1.0, 1.0),
-                            ]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [(3.0, 1.0), (3.0, 3.0), (5.0, 3.0), (5.0, 1.0), (3.0, 1.0)]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [(5.0, 1.0), (5.0, 3.0), (6.0, 3.0), (6.0, 1.0), (5.0, 1.0)]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [(4.0, 3.0), (4.0, 4.0), (5.0, 4.0), (5.0, 3.0), (4.0, 3.0)]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [(5.0, 3.0), (5.0, 4.0), (6.0, 4.0), (6.0, 3.0), (5.0, 3.0)]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [
-                            [
-                                (3.0, 3.0),
-                                (3.0, 6.0),
-                                (5.0, 6.0),
-                                (5.0, 4.0),
-                                (4.0, 4.0),
-                                (4.0, 3.0),
-                                (3.0, 3.0),
-                            ]
-                        ],
-                        "type": "Polygon",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
         assert output == expected
 
     def test_with_properties(self, segments, tmp_path):
