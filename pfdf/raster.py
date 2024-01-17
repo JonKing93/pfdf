@@ -35,6 +35,7 @@ from pfdf._utils.nodata import NodataMask
 from pfdf._utils.transform import Transform
 from pfdf.errors import RasterCrsError, RasterShapeError, RasterTransformError
 from pfdf.typing import (
+    BooleanArray,
     Casting,
     MatrixArray,
     Pathlike,
@@ -127,6 +128,8 @@ class Raster:
         values          - The data values associated with a raster
         dtype           - The dtype of the raster array
         nodata          - The NoData value associated with the raster
+        nodata_mask     - The NoData mask for the raster
+        data_mask       - The valid data mask for the raster
 
     Shape Properties:
         shape           - The shape of the raster array
@@ -261,6 +264,14 @@ class Raster:
     @property
     def nodata(self) -> scalar:
         return self._nodata
+
+    @property
+    def nodata_mask(self) -> BooleanArray:
+        return nodata.mask(self.values, self.nodata)
+
+    @property
+    def data_mask(self) -> BooleanArray:
+        return ~self.nodata_mask
 
     ##### Shape
 

@@ -2792,6 +2792,22 @@ class TestNodata:
         assert raster.nodata == -999
 
 
+class TestNodataMask:
+    def test(_, fraster, araster):
+        raster = Raster(fraster)
+        output = raster.nodata_mask
+        expected = araster == -999
+        assert np.array_equal(output, expected)
+
+
+class TestDataMask:
+    def test(_, fraster, araster):
+        raster = Raster(fraster)
+        output = raster.data_mask
+        expected = araster != -999
+        assert np.array_equal(output, expected)
+
+
 class TestShape:
     def test_shape(_, araster):
         raster = Raster(araster)

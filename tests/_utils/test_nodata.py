@@ -21,14 +21,19 @@ def araster():
 class TestMask:
     def test_number(_, araster):
         araster[araster >= 6] = -999
-        output = nodata._mask(araster, -999)
+        output = nodata.mask(araster, -999)
         assert np.array_equal(output, araster == -999)
 
     def test_nan(_, araster):
         araster = araster.astype(float)
         araster[araster >= 6] = np.nan
-        output = nodata._mask(araster, np.nan)
+        output = nodata.mask(araster, np.nan)
         assert np.array_equal(output, np.isnan(araster))
+
+    def test_none(_, araster):
+        output = nodata.mask(araster, None)
+        expected = np.zeros(araster.shape, bool)
+        assert np.array_equal(output, expected)
 
 
 class TestEqual:
