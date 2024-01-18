@@ -7,13 +7,12 @@ import numpy as np
 import pytest
 import rasterio
 from affine import Affine
-from geojson import Feature, MultiPolygon, Polygon
+from geojson import Feature, MultiPoint, MultiPolygon, Point, Polygon
 from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
 from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 
-from pfdf._utils import validate
 from pfdf._utils.transform import Transform
 from pfdf.errors import (
     CrsError,
@@ -107,6 +106,42 @@ def assert_contains(error, *strings):
     message = error.value.args[0]
     for string in strings:
         assert string in message
+
+
+@pytest.fixture
+def points(tmp_path, crs):
+    points = [[1, 2], [3.3, 4.4], [5, 6]]
+    values = range(len(points))
+
+    records = [
+        Feature(
+            geometry=Point(coords), properties={"test": value, "invalid": "invalid"}
+        )
+        for coords, value in zip(points, values)
+    ]
+    file = Path(tmp_path) / "test.geojson"
+    save_features(file, records, crs)
+    return file
+
+
+@pytest.fixture
+def multipoints(tmp_path, crs):
+    points = [
+        [[1, 2], [3, 4], [5.5, 6.6]],
+        [[8, 9], [2, 7]],
+    ]
+    values = range(len(points))
+
+    records = [
+        Feature(
+            geometry=MultiPoint(coords),
+            properties={"test": value, "invalid": "invalid"},
+        )
+        for coords, value in zip(points, values)
+    ]
+    file = Path(tmp_path) / "test.geojson"
+    save_features(file, records, crs)
+    return file
 
 
 @pytest.fixture
@@ -688,10 +723,12 @@ class TestLoadFeatures:
 
 
 class TestValidatePoint:
-    def test_not_list(_):
+    def test_not_tuple(_):
         with pytest.raises(PointError) as error:
             Raster._validate_point(0, 0, 5)
-        assert_contains(error, "feature[0]", "point[0]", "is not a list")
+        assert_contains(
+            error, "feature[0]", "point[0]", "is neither a list nor a tuple"
+        )
 
     def test_wrong_length(_):
         with pytest.raises(PointError) as error:
@@ -942,6 +979,156 @@ class TestComputeExtent:
 
         assert shape == (25, 10)
         assert transform == Affine(1, 0, 10, 0, -2, 100)
+
+
+class TestFromPoints:
+    def test_invalid_path(_):
+        with pytest.raises(FileNotFoundError):
+            Raster.from_points("not-a-file")
+
+    def test_points(_, points, crs):
+        raster = Raster.from_points(points)
+        assert raster.dtype == bool
+        assert raster.crs == crs
+        assert raster.nodata == False
+        assert raster.transform == Transform.build(1, -1, 1, 6)
+
+        expected = np.array(
+            [
+                [0, 0, 0, 0, 1],
+                [0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0],
+            ]
+        )
+        assert np.array_equal(raster.values, expected)
+
+    def test_multipoints(_, multipoints, crs):
+        raster = Raster.from_points(multipoints)
+        assert raster.dtype == bool
+        assert raster.crs == crs
+        assert raster.nodata == False
+        assert raster.transform == Transform.build(1, -1, 1, 9)
+
+        expected = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        assert np.array_equal(raster.values, expected)
+
+    def test_fixed_res(_, points, crs):
+        raster = Raster.from_points(points, resolution=2)
+        assert raster.dtype == bool
+        assert raster.crs == crs
+        assert raster.nodata == False
+        assert raster.transform == Transform.build(2, -2, 1, 6)
+
+        expected = np.array(
+            [
+                [0, 1, 1],
+                [0, 0, 0],
+                [1, 0, 0],
+            ]
+        )
+        print(raster.values)
+        print(expected)
+        assert np.array_equal(raster.values, expected)
+
+    def test_mixed_res(_, points, crs):
+        raster = Raster.from_points(points, resolution=(2, 1))
+        assert raster.dtype == bool
+        assert raster.crs == crs
+        assert raster.nodata == False
+        assert raster.transform == Transform.build(2, -1, 1, 6)
+
+        expected = np.array(
+            [
+                [0, 0, 1],
+                [0, 1, 0],
+                [0, 0, 0],
+                [0, 0, 0],
+                [1, 0, 0],
+            ]
+        )
+
+        print(raster.values)
+        print(expected)
+        assert np.array_equal(raster.values, expected)
+
+    def test_driver(_, points, crs):
+        newfile = points.parent / "test.shp"
+        os.rename(points, newfile)
+        raster = Raster.from_points(newfile, driver="GeoJSON")
+
+        assert raster.dtype == bool
+        assert raster.crs == crs
+        assert raster.nodata == False
+        assert raster.transform == Transform.build(1, -1, 1, 6)
+
+        expected = np.array(
+            [
+                [0, 0, 0, 0, 1],
+                [0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0],
+            ]
+        )
+        assert np.array_equal(raster.values, expected)
+
+    def test_field(_, points, crs):
+        raster = Raster.from_points(points, field="test")
+        assert raster.dtype == float
+        assert raster.crs == crs
+        assert isnan(raster.nodata)
+        assert raster.transform == Transform.build(1, -1, 1, 6)
+
+        expected = np.array(
+            [
+                [nan, nan, nan, nan, 2],
+                [nan, nan, 1, nan, nan],
+                [nan, nan, nan, nan, nan],
+                [nan, nan, nan, nan, nan],
+                [0, nan, nan, nan, nan],
+            ]
+        )
+        assert np.array_equal(raster.values, expected, equal_nan=True)
+
+    def test_invalid_field(_, points):
+        with pytest.raises(KeyError):
+            Raster.from_points(points, field="missing")
+
+    def test_fill(_, points, crs):
+        raster = Raster.from_points(points, field="test", fill=5)
+        assert raster.dtype == float
+        assert raster.crs == crs
+        assert isnan(raster.nodata)
+        assert raster.transform == Transform.build(1, -1, 1, 6)
+
+        expected = np.array(
+            [
+                [5, 5, 5, 5, 2],
+                [5, 5, 1, 5, 5],
+                [5, 5, 5, 5, 5],
+                [5, 5, 5, 5, 5],
+                [0, 5, 5, 5, 5],
+            ]
+        )
+        assert np.array_equal(raster.values, expected)
+
+    def test_invalid_fill(_, points):
+        with pytest.raises(TypeError) as error:
+            Raster.from_points(points, field="test", fill="invalid")
+        assert_contains(error, "fill")
 
 
 class TestFromPolygons:

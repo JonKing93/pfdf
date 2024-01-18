@@ -856,18 +856,18 @@ class Raster:
             )
 
     @staticmethod
-    def _validate_point(f: int, p: int, point: Any) -> None:
+    def _validate_point(f: int, p: int, point: tuple[float, float]) -> None:
         "Validates a point coordinate array (f: feature index, p: index in the feature)"
 
-        # Must be a list with two elements
+        # Must be a tuple with two elements
         description = ""
-        if not isinstance(point, list):
-            description = "is not a list"
+        if not isinstance(point, tuple) and not isinstance(point, list):
+            description = "is neither a list nor a tuple"
         elif len(point) != 2:
             description = f"has {len(point)} elements"
         if description != "":
             raise PointError(
-                "The coordinate array for each point must be a list with two elements. "
+                "The coordinate array for each point must be a list or tuple with two elements. "
                 f"However in feature[{f}], the coordinate array for point[{p}] {description}."
             )
 
