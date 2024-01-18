@@ -13,10 +13,15 @@ from pysheds.sview import ViewFinder
 from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 
+from pfdf._utils import validate
 from pfdf._utils.transform import Transform
 from pfdf.errors import (
     CrsError,
     DimensionError,
+    FeatureFileError,
+    GeometryError,
+    PointError,
+    PolygonError,
     RasterCrsError,
     RasterShapeError,
     RasterTransformError,
@@ -38,7 +43,7 @@ def araster():
 
 @pytest.fixture
 def crs():
-    return CRS.from_epsg(4326)
+    return CRS.from_epsg(26911)
 
 
 @pytest.fixture
@@ -120,7 +125,9 @@ def polygons(polygon_coords, tmp_path, crs):
     file = Path(tmp_path) / "test.geojson"
     values = range(len(polygon_coords))
     polygons = [
-        Feature(geometry=Polygon(coords), properties={"test": value})
+        Feature(
+            geometry=Polygon(coords), properties={"test": value, "invalid": "invalid"}
+        )
         for coords, value in zip(polygon_coords, values)
     ]
     save_features(file, polygons, crs)
@@ -141,7 +148,10 @@ def multipolygons(tmp_path, crs):
     ]
     values = range(len(coords))
     multis = [
-        Feature(geometry=MultiPolygon(coords), properties={"test": value})
+        Feature(
+            geometry=MultiPolygon(coords),
+            properties={"test": value, "invalid": "invalid"},
+        )
         for coords, value in zip(coords, values)
     ]
     file = Path(tmp_path) / "multitest.geojson"
@@ -150,7 +160,10 @@ def multipolygons(tmp_path, crs):
 
 
 def save_features(path, features, crs):
-    schema = {"geometry": features[0].geometry.type, "properties": {"test": "int"}}
+    schema = {
+        "geometry": features[0].geometry.type,
+        "properties": {"test": "int", "invalid": "str"},
+    }
     with fiona.open(
         path,
         "w",
@@ -579,51 +592,129 @@ class Test_FromArray:
 
 
 #####
-# From Polygons
+# From vector features
 #####
 
 
+class TestValidateResolution:
+    def test_invalid(_):
+        with pytest.raises(ValueError) as error:
+            Raster._validate_resolution(-5)
+        assert_contains(error, "resolution")
+
+    def test_missing(_, araster):
+        raster = Raster.from_array(araster)
+        with pytest.raises(RasterTransformError) as error:
+            Raster._validate_resolution(raster)
+        assert_contains(error, "raster does not have an affine transform")
+
+    def test_scalar(_):
+        output = Raster._validate_resolution(5)
+        assert np.array_equal(output, (5, 5))
+
+    def test_vector(_):
+        output = Raster._validate_resolution((1, 2))
+        assert np.array_equal(output, (1, 2))
+
+    def test_raster(_, fraster):
+        raster = Raster(fraster)
+        output = Raster._validate_resolution(raster)
+        assert np.array_equal(output, raster.resolution)
+
+
 class TestValidateField:
-    schema = {"test": "int:2", "test2": "float:5.5", "bad": "str:47"}
+    def test_none(_):
+        output = Raster._validate_field(None, None, None)
+        assert output == (bool, False, False)
 
-    def test_none(self):
-        Raster._validate_field(None, self.schema)
+    def test_default_fill(_, polygons):
+        output = Raster._validate_field(polygons, "test", fill=None)
+        assert output[0] == float
+        assert isnan(output[1])
+        assert isnan(output[2])
 
-    def test_not_str(self):
-        with pytest.raises(TypeError) as error:
-            Raster._validate_field(5, self.schema)
-        assert_contains(error, "field", "str")
+    def test_user_fill(_, polygons):
+        output = Raster._validate_field(polygons, "test", fill=5)
+        assert output[0] == float
+        assert isnan(output[1])
+        assert output[2] == 5
 
-    def test_missing(self):
+    def test_missing(_, polygons):
         with pytest.raises(KeyError) as error:
-            Raster._validate_field("missing", self.schema)
-        assert_contains(
-            error,
-            "'missing' is not the name of a polygon data field",
-            "Allowed field names are: test, test2",
+            Raster._validate_field(polygons, "missing", None)
+        assert_contains(error, "not the name of a feature data field")
+
+    def test_bad_type(_, polygons):
+        with pytest.raises(TypeError) as error:
+            Raster._validate_field(polygons, "invalid", None)
+        assert_contains(error, "must be an int or float", "has a 'str' type instead")
+
+    def test_invalid_fill(_, polygons):
+        with pytest.raises(TypeError) as error:
+            Raster._validate_field(polygons, "test", "invalid")
+        assert_contains(error, "fill")
+
+
+class TestLoadFeatures:
+    def test(_, polygons, polygon_coords, crs):
+        output, outcrs = Raster._load_features(polygons, None, None, None)
+
+        assert outcrs == crs
+        assert len(output) == 2
+        for f, feature in enumerate(output):
+            geometry = feature["geometry"]
+            assert geometry.type == "Polygon"
+            assert np.array_equal(geometry["coordinates"], polygon_coords[f])
+
+    def test_driver(_, polygons, polygon_coords, crs):
+        newfile = polygons.parent / "test.shp"
+        os.rename(polygons, polygons.parent / "test.shp")
+        output, outcrs = Raster._load_features(
+            newfile, layer=None, driver="GeoJSON", encoding=None
         )
 
-    def test_invalid_type(self):
+        assert outcrs == crs
+        assert len(output) == 2
+        for f, feature in enumerate(output):
+            geometry = feature["geometry"]
+            assert geometry.type == "Polygon"
+            assert np.array_equal(geometry["coordinates"], polygon_coords[f])
+
+    def test_invalid(_, tmp_path):
+        invalid = Path(tmp_path) / "not-a-file.geojson"
+        with pytest.raises(FeatureFileError) as error:
+            Raster._load_features(invalid, None, None, None)
+        assert_contains(error, "Could not read data from the feature file")
+
+
+class TestValidatePoint:
+    def test_not_list(_):
+        with pytest.raises(PointError) as error:
+            Raster._validate_point(0, 0, 5)
+        assert_contains(error, "feature[0]", "point[0]", "is not a list")
+
+    def test_wrong_length(_):
+        with pytest.raises(PointError) as error:
+            Raster._validate_point(1, 2, [1, 2, 3, 4])
+        assert_contains(error, "feature[1]", "point[2]", "has 4 elements")
+
+    def test_valid(_):
+        Raster._validate_point(0, 0, [1, 2])
+
+    def test_wrong_type(_):
         with pytest.raises(TypeError) as error:
-            Raster._validate_field("bad", self.schema)
+            Raster._validate_point(1, 2, ["a", "b"])
         assert_contains(
             error,
-            "The 'bad' field is not an int or float. Instead, it has a 'str' type.",
+            "must have an int or float type",
+            "feature[1]",
+            "the x coordinate for point[2]",
         )
-
-    def test_invalid_casting(self):
-        with pytest.raises(KeyError) as error:
-            Raster._validate_field("TeSt", self.schema)
-        assert_contains(error, "'TeSt' is not the name of a polygon data field")
-
-    @pytest.mark.parametrize("field", ("test", "test2"))
-    def test_valid(self, field):
-        Raster._validate_field(field, self.schema)
 
 
 class TestValidatePolygon:
     def test_not_list(_):
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(PolygonError) as error:
             Raster._validate_polygon(4, 5, "invalid")
         assert_contains(error, "feature[4]", "polygon[5] is not a list")
 
@@ -632,13 +723,13 @@ class TestValidatePolygon:
             [(1, 2), (3, 4), (5, 6), (1, 2)],
             (1, 2),
         ]
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(PolygonError) as error:
             Raster._validate_polygon(4, 5, coords)
         assert_contains(error, "feature[4]", "polygon[5].coordinates[1]", "not a list")
 
     def test_too_short(_):
         coords = [[(1, 2), (2, 3), (1, 2)]]
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(PolygonError) as error:
             Raster._validate_polygon(4, 5, coords)
         assert_contains(
             error, "ring[0]", "feature[4]", "polygon[5]", "does not have 4 positions"
@@ -646,7 +737,7 @@ class TestValidatePolygon:
 
     def test_bad_end(_):
         coords = [[(1, 2), (2, 3), (4, 5), (6, 7)]]
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(PolygonError) as error:
             Raster._validate_polygon(4, 5, coords)
         assert_contains(
             error,
@@ -680,7 +771,7 @@ class TestUpdateBounds:
             "bottom": -10,
             "top": 10,
         }
-        Raster._update_bounds(coords, bounds)
+        Raster._update_bounds(bounds, coords, False)
         assert bounds["left"] == -10
         assert bounds["right"] == 10
         assert bounds["bottom"] == -10
@@ -694,7 +785,7 @@ class TestUpdateBounds:
             "bottom": 0,
             "top": 0,
         }
-        Raster._update_bounds(coords, bounds)
+        Raster._update_bounds(bounds, coords, False)
         assert bounds["left"] == -10
         assert bounds["right"] == 10
         assert bounds["bottom"] == -10
@@ -708,153 +799,155 @@ class TestUpdateBounds:
             "bottom": 0,
             "top": 20,
         }
-        Raster._update_bounds(coords, bounds)
+        Raster._update_bounds(bounds, coords, False)
         assert bounds["left"] == -20
         assert bounds["right"] == 10
         assert bounds["bottom"] == -10
         assert bounds["top"] == 20
 
-
-class TestValidateFeature:
-    def test_no_geometry(_):
-        feature = {"geometry": None}
-        with pytest.raises(ValueError) as error:
-            Raster._validate_feature(5, feature, None, None)
-        assert_contains(error, "Feature[5] does not have a geometry")
-
-    def test_not_polygon(_):
-        feature = {
-            "geometry": {
-                "type": "Point",
-                "coordinates": (1, 2),
-            }
-        }
-        with pytest.raises(ValueError) as error:
-            Raster._validate_feature(5, feature, None, None)
-        assert_contains(
-            error,
-            "must have a Polygon or MultiPolygon geometry",
-            "feature[5] has a Point geometry",
-        )
-
     def test_polygon(_):
-        geometry = {
-            "type": "Polygon",
-            "coordinates": [
-                [(1, 2), (3, 4), (5, 6), (7, 8), (1, 2)],
-                [(1, 2), (2, 2), (2, 1), (1, 2)],
-            ],
-        }
-        feature = {"properties": None, "id": 5, "geometry": geometry}
-        bounds = {
-            "left": -10,
-            "right": 10,
-            "bottom": -10,
-            "top": 10,
-        }
-        initial_bounds = bounds.copy()
-        output = Raster._validate_feature(5, feature, bounds, None)
-        assert output == (geometry, True)
-        assert bounds == initial_bounds
-
-    def test_multipolygon(_):
-        geometry = {
-            "type": "MultiPolygon",
-            "coordinates": [
-                [
-                    [(1, 2), (3, 4), (5, 6), (7, 8), (1, 2)],
-                    [(1, 2), (2, 2), (2, 1), (1, 2)],
-                ],
-                [[(10, -10), (-10, -10), (-10, 10), (10, 10), (10, -10)]],
-            ],
-        }
-        feature = {"properties": None, "id": 5, "geometry": geometry}
-        bounds = {
-            "left": -10,
-            "right": 10,
-            "bottom": -10,
-            "top": 10,
-        }
-        initial_bounds = bounds.copy()
-        output = Raster._validate_feature(5, feature, bounds, None)
-        assert output == (geometry, True)
-        assert bounds == initial_bounds
-
-    def test_invalid_polygon(_):
-        geometry = {
-            "type": "Polygon",
-            "coordinates": [[(1, 2), (3, 4)], [(1, 2), (2, 2), (2, 1), (1, 2)]],
-        }
-        feature = {"properties": None, "id": 5, "geometry": geometry}
-        bounds = {
-            "left": -10,
-            "right": 10,
-            "bottom": -10,
-            "top": 10,
-        }
-        with pytest.raises(ValueError) as error:
-            Raster._validate_feature(5, feature, bounds, None)
-        assert_contains(error, "4 positions")
-
-    def test_update_bounds(_):
-        geometry = {
-            "type": "MultiPolygon",
-            "coordinates": [[[(10, -10), (-10, -10), (-10, 10), (10, 10), (10, -10)]]],
-        }
-        feature = {"properties": None, "id": 5, "geometry": geometry}
+        coords = [[(-10, 10), (10, 10), (10, -10), (-10, -10), (-10, 10)]]
         bounds = {
             "left": 0,
             "right": 0,
             "bottom": 0,
             "top": 0,
         }
-        expected = {
-            "left": -10,
-            "right": 10,
-            "bottom": -10,
-            "top": 10,
-        }
-        output = Raster._validate_feature(5, feature, bounds, None)
-        assert output == (geometry, True)
-        assert bounds == expected
+        Raster._update_bounds(bounds, coords, ispoint=False)
+        assert bounds["left"] == -10
+        assert bounds["right"] == 10
+        assert bounds["bottom"] == -10
+        assert bounds["top"] == 10
 
-    def test_field(_):
-        geometry = {
+    def test_point(_):
+        coords = [10, 10]
+        bounds = {
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "top": 0,
+        }
+        Raster._update_bounds(bounds, coords, ispoint=True)
+        assert bounds["left"] == 0
+        assert bounds["right"] == 10
+        assert bounds["bottom"] == 0
+        assert bounds["top"] == 10
+
+
+class TestValidateFeatures:
+    def test_no_geometry(_):
+        features = [{"geometry": None}]
+        with pytest.raises(GeometryError) as error:
+            Raster._validate_features(features, None, ["Polygon"])
+        assert_contains(error, "Feature[0] does not have a geometry")
+
+    def test_wrong_type(_):
+        features = [
+            {
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": (1, 2),
+                }
+            }
+        ]
+        with pytest.raises(GeometryError) as error:
+            Raster._validate_features(
+                features, field=None, geometries=["Polygon", "MultiPolygon"]
+            )
+        assert_contains(
+            error,
+            "must have a Polygon or MultiPolygon geometry",
+            "feature[0] has a Point geometry",
+        )
+
+    def test_invalid_polygon(_):
+        features = [
+            {
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [1, 2],
+                }
+            }
+        ]
+        with pytest.raises(PolygonError):
+            Raster._validate_features(features, field=None, geometries=["Polygon"])
+
+    def test_invalid_point(_):
+        features = [{"geometry": {"type": "Point", "coordinates": [1, 2, 3]}}]
+        with pytest.raises(PointError):
+            Raster._validate_features(features, field=None, geometries=["Point"])
+
+    def test_points(_):
+        geom1 = {"type": "Point", "coordinates": [0, 0]}
+        geom2 = {"type": "Point", "coordinates": [10, 20]}
+        features = [{"geometry": geom1}, {"geometry": geom2}]
+        output, bounds = Raster._validate_features(features, None, ["Point"])
+        assert output == [(geom1, True), (geom2, True)]
+        assert bounds == {"left": 0, "right": 10, "top": 20, "bottom": 0}
+
+    def test_multipoints(_):
+        geom1 = {"type": "MultiPoint", "coordinates": [[0, 0], [1, 2]]}
+        geom2 = {"type": "MultiPoint", "coordinates": [[5, 10], [10, 20]]}
+        features = [{"geometry": geom1}, {"geometry": geom2}]
+        output, bounds = Raster._validate_features(features, None, ["MultiPoint"])
+        assert output == [(geom1, True), (geom2, True)]
+        assert bounds == {"left": 0, "right": 10, "top": 20, "bottom": 0}
+
+    def test_polygons(_):
+        geom1 = {
             "type": "Polygon",
             "coordinates": [
                 [(1, 2), (3, 4), (5, 6), (7, 8), (1, 2)],
                 [(1, 2), (2, 2), (2, 1), (1, 2)],
             ],
         }
-        field = 17
-        feature = {"properties": {"test": field}, "id": 5, "geometry": geometry}
-        bounds = {
-            "left": -10,
-            "right": 10,
-            "bottom": -10,
-            "top": 10,
+        geom2 = {"type": "Polygon", "coordinates": [[(1, 2), (3, 4), (5, 6), (1, 2)]]}
+        features = [{"geometry": geom1}, {"geometry": geom2}]
+        output, bounds = Raster._validate_features(features, None, ["Polygon"])
+        assert output == [(geom1, True), (geom2, True)]
+        assert bounds == {"left": 1, "right": 7, "top": 8, "bottom": 2}
+
+    def test_multipolygons(_):
+        geom1 = {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [
+                    [(1, 2), (3, 4), (5, 6), (7, 8), (1, 2)],
+                    [(1, 2), (2, 2), (2, 1), (1, 2)],
+                ]
+            ],
         }
-        initial_bounds = bounds.copy()
-        output = Raster._validate_feature(5, feature, bounds, "test")
-        assert output == (geometry, field)
-        assert bounds == initial_bounds
+        features = [{"geometry": geom1}, {"geometry": geom1}]
+        output, bounds = Raster._validate_features(features, None, ["MultiPolygon"])
+        assert output == [(geom1, True), (geom1, True)]
+        assert bounds == {"left": 1, "right": 7, "top": 8, "bottom": 2}
+
+    def test_field(_):
+        geom1 = {"type": "Point", "coordinates": [0, 0]}
+        geom2 = {"type": "Point", "coordinates": [10, 20]}
+        features = [
+            {"geometry": geom1, "properties": {"test": 5}},
+            {"geometry": geom2, "properties": {"test": 19}},
+        ]
+        output, bounds = Raster._validate_features(features, "test", ["Point"])
+        assert output == [(geom1, 5), (geom2, 19)]
+        assert bounds == {"left": 0, "right": 10, "top": 20, "bottom": 0}
+
+
+class TestComputeExtent:
+    def test(_):
+        resolution = (1, 2)
+        bounds = {"left": 10, "right": 20, "top": 100, "bottom": 50}
+        transform, shape = Raster._compute_extent(bounds, resolution)
+
+        assert shape == (25, 10)
+        assert transform == Affine(1, 0, 10, 0, -2, 100)
 
 
 class TestFromPolygons:
     def test_invalid_path(_):
         with pytest.raises(FileNotFoundError):
             Raster.from_polygons("not-a-file")
-
-    def test_invalid_resolution(_, polygons):
-        with pytest.raises(ValueError) as error:
-            Raster.from_polygons(polygons, resolution=-5)
-        assert_contains(error, "resolution")
-
-    def test_missing_resolution(_, polygons, araster):
-        raster = Raster.from_array(araster)
-        with pytest.raises(ValueError) as error:
-            Raster.from_polygons(polygons, resolution=raster)
-        assert_contains(error, "raster does not have an affine transform")
 
     def test_polygons(_, polygons, crs):
         raster = Raster.from_polygons(polygons)

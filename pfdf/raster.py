@@ -859,6 +859,7 @@ class Raster:
     def _validate_point(f: int, p: int, point: Any) -> None:
         "Validates a point coordinate array (f: feature index, p: index in the feature)"
 
+        # Must be a list with two elements
         description = ""
         if not isinstance(point, list):
             description = "is not a list"
@@ -869,6 +870,15 @@ class Raster:
                 "The coordinate array for each point must be a list with two elements. "
                 f"However in feature[{f}], the coordinate array for point[{p}] {description}."
             )
+
+        # Points should be int or float
+        for coord, axis in zip(point, ["x", "y"]):
+            if type(coord) not in [int, float]:
+                raise TypeError(
+                    "The two elements in the coordinate array for each point must "
+                    f"have an int or float type. But in feature[{f}], the {axis} "
+                    f"coordinate for point[{p}] is neither an int nor a float."
+                )
 
     @staticmethod
     def _validate_polygon(f: int, p: int, rings: Any) -> None:
@@ -913,9 +923,14 @@ class Raster:
     ) -> None:
         "Updates bounds (in-place) to include a geometry's coordinates"
 
-        # Get bounds from points or polygon shell
+        # Get bounds from points...
         if ispoint:
-            left, right, top, bottom = coords[0], coords[0], coords[1], coords[1]
+            left = coords[0]
+            right = coords[0]
+            top = coords[1]
+            bottom = coords[1]
+
+        # ...or from a polygon shell
         else:
             shell = np.array(coords[0])
             left = np.min(shell[:, 0])
@@ -939,21 +954,20 @@ class Raster:
         contain the features.
         """
 
-        # Initialize the bounds
+        # Initialize the bounds adn geometry-value tuples
         bounds = {
             "left": inf,
             "right": -inf,
             "bottom": inf,
             "top": -inf,
         }
+        geometry_values = []
 
         # Each feature must have a geometry
         for f, feature in enumerate(features):
             geometry = feature["geometry"]
             if geometry is None:
-                raise GeometryError(
-                    f"Feature[{f}] does not have a geometry, or its geometry is not valid."
-                )
+                raise GeometryError(f"Feature[{f}] does not have a geometry.")
 
             # Require expected geometry
             type = geometry["type"]
@@ -983,7 +997,8 @@ class Raster:
                 value = True
             else:
                 value = feature["properties"][field]
-            return (geometry, value), bounds
+            geometry_values.append((geometry, value))
+        return geometry_values, bounds
 
     @staticmethod
     def _compute_extent(bounds: _bounds, resolution: _dxdy) -> tuple[Affine, shape2d]:
@@ -991,7 +1006,7 @@ class Raster:
 
         # Build the transform
         dx, dy = resolution
-        transform = Transform.build(dx, dy, bounds["left"], bounds["top"])
+        transform = Transform.build(dx, -dy, bounds["left"], bounds["top"])
 
         # Compute the shape
         height = bounds["top"] - bounds["bottom"]
