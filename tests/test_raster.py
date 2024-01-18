@@ -307,10 +307,22 @@ class TestInitUser:
 #####
 
 
+class TestCreate:
+    def test(_, araster, crs, transform):
+        output = Raster._create("test", araster, crs, transform, -999, "unsafe", False)
+        assert isinstance(output, Raster)
+        assert output._name == "test"
+        assert np.array_equal(output._values, araster)
+        assert output._crs == crs
+        assert isinstance(output._transform, Transform)
+        assert output._transform.affine == transform
+        assert output._nodata == -999
+
+
 class TestFinalize:
     def test_no_metadata(_, araster):
         raster = Raster()
-        raster._finalize(araster, None, None, None, "safe")
+        raster._finalize(araster, None, None, None, "safe", False)
 
         assert raster._nodata is None
         assert isinstance(raster._transform, Transform)
@@ -321,7 +333,7 @@ class TestFinalize:
 
     def test_with_metadata(_, araster, crs, transform):
         raster = Raster()
-        raster._finalize(araster, crs, transform, -999, casting="unsafe")
+        raster._finalize(araster, crs, transform, -999, "unsafe", False)
 
         assert raster._nodata == -999
         assert raster._nodata.dtype == raster.dtype
@@ -334,7 +346,7 @@ class TestFinalize:
     def test_nodata_casting(_, araster, crs, transform):
         raster = Raster()
         araster = araster.astype(int)
-        raster._finalize(araster, crs, transform, -2.2, casting="unsafe")
+        raster._finalize(araster, crs, transform, -2.2, "unsafe", False)
 
         assert raster._nodata == -2
         assert raster._nodata.dtype == raster.dtype
@@ -347,18 +359,18 @@ class TestFinalize:
     def test_invalid_crs(_, araster):
         raster = Raster()
         with pytest.raises(CrsError):
-            raster._finalize(araster, "invalid", None, None, "safe")
+            raster._finalize(araster, "invalid", None, None, "safe", False)
 
     def test_invalid_transform(_, araster):
         raster = Raster()
         with pytest.raises(TransformError):
-            raster._finalize(araster, None, "invalid", None, "safe")
+            raster._finalize(araster, None, "invalid", None, "safe", False)
 
     def test_invalid_shear(_, araster):
         raster = Raster()
         transform = Affine(1, 2, 3, 4, 5, 6)
         with pytest.raises(TransformError) as error:
-            raster._finalize(araster, None, transform, None, "unsafe")
+            raster._finalize(araster, None, transform, None, "unsafe", False)
         assert_contains(
             error, "The raster transform must only support scaling and translation."
         )
@@ -366,41 +378,71 @@ class TestFinalize:
     def test_invalid_nodata(_, araster):
         raster = Raster()
         with pytest.raises(TypeError) as error:
-            raster._finalize(araster, None, None, "invalid", "safe")
+            raster._finalize(araster, None, None, "invalid", "safe", False)
         assert_contains(error, "nodata")
 
     def test_invalid_casting_option(_, araster):
         raster = Raster()
         with pytest.raises(ValueError) as error:
-            raster._finalize(araster, None, None, None, "invalid")
+            raster._finalize(araster, None, None, None, "invalid", False)
         assert_contains(error, "casting")
 
     def test_invalid_casting(_, araster):
         raster = Raster()
         araster = araster.astype(int)
         with pytest.raises(TypeError) as error:
-            raster._finalize(araster, None, None, nodata=-2.2, casting="safe")
+            raster._finalize(araster, None, None, -2.2, "safe", False)
         assert_contains(error, "Cannot cast the NoData value")
 
     def test_invalid_values(_):
         raster = Raster(None, "test name")
         with pytest.raises(TypeError) as error:
-            raster._finalize("invalid", None, None, None, "unsafe")
+            raster._finalize("invalid", None, None, None, "unsafe", False)
         assert_contains(error, "test name")
 
     def test_invalid_dtype(_, araster):
         raster = Raster(None, "test name")
         araster = araster.astype("complex")
         with pytest.raises(TypeError) as error:
-            raster._finalize(araster, None, None, None, "unsafe")
+            raster._finalize(araster, None, None, None, "unsafe", False)
         assert_contains(error, "test name")
 
     def test_invalid_shape(_, araster):
         raster = Raster(None, "test name")
         araster = araster.reshape(2, 2, 2)
         with pytest.raises(DimensionError) as error:
-            raster._finalize(araster, None, None, None, "unsafe")
+            raster._finalize(araster, None, None, None, "unsafe", False)
         assert_contains(error, "test name")
+
+    def test_bool(_):
+        raster = Raster()
+        araster = np.array([[1, 0, -9, 1], [0, -9, 0, 1]])
+        expected = np.array([[1, 0, 0, 1], [0, 0, 0, 1]]).astype(bool)
+        raster._finalize(araster, None, None, -9, "unsafe", isbool=True)
+
+        assert raster._nodata == False
+        assert raster._nodata.dtype == bool
+        assert raster._values.dtype == bool
+        assert np.array_equal(raster._values, expected)
+        assert raster._values.flags.writeable == False
+
+    def test_bool_no_nodata(_):
+        raster = Raster()
+        araster = np.array([[1, 0, 0, 1], [0, 0, 0, 1]]).astype(bool)
+        raster._finalize(araster, None, None, None, "safe", isbool=True)
+
+        assert raster._nodata == False
+        assert raster._nodata.dtype == bool
+        assert np.array_equal(raster._values, araster)
+        assert raster._values.dtype == bool
+        assert raster._values.flags.writeable == False
+
+    def test_invalid_bool(_):
+        raster = Raster()
+        araster = np.array([0, 1, 2])
+        with pytest.raises(ValueError) as error:
+            raster._finalize(araster, None, None, None, "unsafe", isbool=True)
+        assert_contains(error, "a boolean raster", "0 or 1")
 
 
 class TestFromFile:
@@ -450,8 +492,8 @@ class TestFromFile:
         raster = Raster.from_file(file, band=2)
         check(raster, "raster", zeros, transform, crs)
 
-    def test_bool(_, araster, transform, crs, tmp_path):
-        araster = np.array([[0, 1, 1, 0], [1, 1, 0, 0]]).astype(float)
+    def test_isbool(_, araster, transform, crs, tmp_path):
+        araster = np.array([[1, 0, -9, 1], [0, -9, 0, 1]])
         file = Path(tmp_path) / "test.tif"
         with rasterio.open(
             file,
@@ -463,15 +505,15 @@ class TestFromFile:
             crs=crs,
             transform=transform,
             dtype=araster.dtype,
+            nodata=-9,
         ) as writer:
             writer.write(araster, 1)
 
         raster = Raster.from_file(file, isbool=True)
-        assert np.array_equal(raster.values, araster.astype(bool))
+        expected = np.array([[1, 0, 0, 1], [0, 0, 0, 1]]).astype(bool)
         assert raster.dtype == bool
+        assert np.array_equal(raster.values, expected)
         assert raster.nodata == False
-        assert raster.crs == crs
-        assert raster.transform == transform
 
 
 class TestFromRasterio:
@@ -502,6 +544,7 @@ class TestFromRasterio:
         with rasterio.open(file) as reader:
             pass
         raster = Raster.from_rasterio(reader, band=2)
+        check(raster, "raster", zeros, transform, crs)
 
     def test_old_reader(_, fraster):
         with rasterio.open(fraster) as reader:
@@ -515,6 +558,32 @@ class TestFromRasterio:
         with pytest.raises(TypeError) as error:
             Raster.from_rasterio("invalid")
         assert_contains(error, "rasterio.DatasetReader")
+
+    def test_isbool(_, araster, transform, crs, tmp_path):
+        araster = np.array([[1, 0, -9, 1], [0, -9, 0, 1]])
+        file = Path(tmp_path) / "test.tif"
+        with rasterio.open(
+            file,
+            "w",
+            driver="GTiff",
+            width=araster.shape[1],
+            height=araster.shape[0],
+            count=1,
+            crs=crs,
+            transform=transform,
+            dtype=araster.dtype,
+            nodata=-9,
+        ) as writer:
+            writer.write(araster, 1)
+
+        with rasterio.open(file) as reader:
+            pass
+
+        raster = Raster.from_rasterio(reader, isbool=True)
+        expected = np.array([[1, 0, 0, 1], [0, 0, 0, 1]]).astype(bool)
+        assert raster.dtype == bool
+        assert np.array_equal(raster.values, expected)
+        assert raster.nodata == False
 
 
 class TestFromPysheds:
@@ -530,6 +599,17 @@ class TestFromPysheds:
         with pytest.raises(TypeError) as error:
             Raster.from_pysheds("invalid")
         assert_contains(error, "pysheds.sview.Raster")
+
+    def test_isbool(_, transform, crs):
+        araster = np.array([[1, 0, -9, 1], [0, -9, 0, 1]])
+        view = ViewFinder(affine=transform, crs=crs, nodata=-9, shape=araster.shape)
+        input = PyshedsRaster(araster, view)
+        raster = Raster.from_pysheds(input, isbool=True)
+
+        expected = np.array([[1, 0, 0, 1], [0, 0, 0, 1]]).astype(bool)
+        assert np.array_equal(raster.values, expected)
+        assert raster.nodata == False
+        assert raster.dtype == bool
 
 
 class TestFromArray:
@@ -617,6 +697,15 @@ class TestFromArray:
         with pytest.raises(TypeError) as error:
             Raster.from_array(araster, spatial=5)
         assert_contains(error, "spatial template must be a pfdf.raster.Raster object")
+
+    def test_isbool(_):
+        araster = np.array([[1, 0, -9, 1], [0, -9, 0, 1]])
+        raster = Raster.from_array(araster, nodata=-9, isbool=True)
+
+        expected = np.array([[1, 0, 0, 1], [0, 0, 0, 1]]).astype(bool)
+        assert np.array_equal(raster.values, expected)
+        assert raster.nodata == False
+        assert raster.dtype == bool
 
 
 class Test_FromArray:

@@ -399,6 +399,7 @@ class Raster:
         self,
         raster: Optional[_RasterInput] = None,
         name: Optional[str] = None,
+        isbool: bool = False,
     ) -> None:
         """
         __init__  Creates a new Raster object
@@ -424,6 +425,14 @@ class Raster:
         the ".name" property, and is used to identify the raster in error messages.
         Defaults to "raster" if unspecified.
 
+        Raster(..., isbool=True)
+        Indicates that the raster represents a boolean array, regardless of the
+        dtype of the data values. The newly created raster will have a bool
+        dtype and values, and its NoData value will be set to False. When using
+        this option, all data pixels in the raster must be equal to 0 or 1.
+        NoData pixels in the raster will be converted to False, regardless of
+        their value.
+
         Raster()
         Returns an empty raster object. The attributes of the raster are all set
         to None. This syntax is typically not useful for users, and is instead
@@ -432,6 +441,8 @@ class Raster:
         Inputs:
             raster: A supported raster dataset
             name: A name for the input raster. Defaults to 'raster'
+            isbool: True indicates that the raster represents a boolean array.
+                False (default) leaves the raster as its original dtype.
 
         Outputs:
             Raster: The Raster object for the dataset
@@ -459,13 +470,13 @@ class Raster:
 
         # Otherwise, build an object using a factory
         elif isinstance(raster, (str, Path)):
-            raster = Raster.from_file(raster, name)
+            raster = Raster.from_file(raster, name, isbool=isbool)
         elif isinstance(raster, rasterio.DatasetReader):
-            raster = Raster.from_rasterio(raster, name)
+            raster = Raster.from_rasterio(raster, name, isbool=isbool)
         elif isinstance(raster, PyshedsRaster):
-            raster = Raster.from_pysheds(raster, name)
+            raster = Raster.from_pysheds(raster, name, isbool=isbool)
         elif isinstance(raster, np.ndarray):
-            raster = Raster.from_array(raster, name)
+            raster = Raster.from_array(raster, name, isbool=isbool)
 
         # Error if the input is not recognized
         elif not isinstance(raster, Raster):
@@ -489,18 +500,33 @@ class Raster:
 
     @staticmethod
     def _create(
-        name: Any, values: Any, crs: Any, transform: Any, nodata: Any, casting: Any
+        name: Any,
+        values: Any,
+        crs: Any,
+        transform: Any,
+        nodata: Any,
+        casting: Any,
+        isbool: bool,
     ) -> Self:
         "Creates a new raster from the provided values and metadata"
+
         raster = Raster(None, name)
-        raster._finalize(values, crs, transform, nodata, casting)
+        raster._finalize(values, crs, transform, nodata, casting, isbool)
         return raster
 
     def _finalize(
-        self, values: Any, crs: Any, transform: Any, nodata: Any, casting: Any
+        self,
+        values: Any,
+        crs: Any,
+        transform: Any,
+        nodata: Any,
+        casting: Any,
+        isbool: bool,
     ) -> None:
         """Validates and sets array values and metadata. Casts NoData to the dtype
-        of the raster. Converts affine to Transform object. Locks array values as read-only
+        of the raster. Converts affine to Transform object. Optionally converts
+        array boolean (after validating bool conversion). Locks array values as
+        read-only
         """
 
         # Validate array values, metadata, and NoData casting
@@ -509,6 +535,11 @@ class Raster:
             crs, transform, nodata, casting, self.dtype
         )
         transform = Transform(transform)
+
+        # Optionally convert to boolean
+        if isbool:
+            self._values = validate.boolean(values, "a boolean raster", ignore=nodata)
+            nodata = self._validate_nodata(False, "safe", bool)
 
         # Set metadata and lock the array values. This prevents users from altering
         # the base array when using views of the data values
@@ -592,14 +623,14 @@ class Raster:
             nodata = file.nodata
 
         # Optionally convert to boolean array and return the Raster
-        if isbool:
-            values = validate.boolean(values, "the saved raster", ignore=nodata)
-            nodata = False
-        return Raster._create(name, values, crs, transform, nodata, "unsafe")
+        return Raster._create(name, values, crs, transform, nodata, "unsafe", isbool)
 
     @staticmethod
     def from_rasterio(
-        reader: rasterio.DatasetReader, name: Optional[str] = None, band: int = 1
+        reader: rasterio.DatasetReader,
+        name: Optional[str] = None,
+        band: int = 1,
+        isbool: bool = False,
     ) -> Self:
         """
         from_rasterio  Builds a raster from a rasterio.DatasetReader
@@ -616,11 +647,21 @@ class Raster:
         Specifies the file band to read when loading the raster from file. Raster
         bands use 1-indexing (and not the 0-indexing common to Python). Raises an
         error if the band does not exist.
+
+        Raster.from_rasterio(..., *, isbool=True)
+        Indicates that the raster represents a boolean array, regardless of the
+        dtype of the file data values. The newly created raster will have a bool
+        dtype and values, and its NoData value will be set to False. When using
+        this option, all data pixels in the original file must be equal to 0 or
+        1. NoData pixels in the file will be converted to False, regardless of
+        their value.
         ----------
         Inputs:
             reader: A rasterio.DatasetReader associated with a raster dataset
             name: An optional name for the raster. Defaults to "raster"
             band: The raster band to read. Uses 1-indexing and defaults to 1
+            isbool: True to convert the raster to a boolean array, with nodata=False.
+                False (default) to leave the raster as the original dtype.
 
         Outputs:
             Raster: The new Raster object
@@ -641,10 +682,14 @@ class Raster:
             )
 
         # Use the file factory with the recorded driver
-        return Raster.from_file(path, name, driver=reader.driver, band=band)
+        return Raster.from_file(
+            path, name, isbool=isbool, driver=reader.driver, band=band
+        )
 
     @staticmethod
-    def from_pysheds(sraster: PyshedsRaster, name: Optional[str] = None) -> Self:
+    def from_pysheds(
+        sraster: PyshedsRaster, name: Optional[str] = None, isbool: bool = False
+    ) -> Self:
         """
         from_pysheds  Creates a Raster from a pysheds.sview.Raster object
         ----------
@@ -656,10 +701,20 @@ class Raster:
         will not affect the new Raster object, and vice versa. The name input
         specifies an optional name for the new Raster. Defaults to "raster" if
         unset.
+
+        Raster.from_pysheds(..., *, isbool=True)
+        Indicates that the raster represents a boolean array, regardless of the
+        dtype of the file data values. The newly created raster will have a bool
+        dtype and values, and its NoData value will be set to False. When using
+        this option, all data pixels in the original file must be equal to 0 or
+        1. NoData pixels in the file will be converted to False, regardless of
+        their value.
         ----------
         Inputs:
             sraster: The pysheds.sview.Raster object used to create the new Raster
             name: An optional name for the raster. Defaults to "raster"
+            isbool: True to convert the raster to a boolean array, with nodata=False.
+                False (default) to leave the raster as the original dtype.
 
         Outputs:
             Raster: The new Raster object
@@ -671,7 +726,7 @@ class Raster:
         crs = CRS.from_wkt(sraster.crs.to_wkt())
         values = np.array(sraster, copy=True)
         return Raster._create(
-            name, values, crs, sraster.affine, sraster.nodata, casting="unsafe"
+            name, values, crs, sraster.affine, sraster.nodata, "unsafe", isbool
         )
 
     @staticmethod
@@ -679,7 +734,9 @@ class Raster:
         array: MatrixArray, *, crs: Any, transform: Any, nodata: Any
     ) -> Self:
         "Builds a Raster from optional metadata and a validated array without copying"
-        return Raster._create(None, array, crs, transform, nodata, casting="safe")
+        return Raster._create(
+            None, array, crs, transform, nodata, casting="safe", isbool=False
+        )
 
     @staticmethod
     def from_array(
@@ -691,6 +748,7 @@ class Raster:
         crs: Optional[CRS | Any] = None,
         spatial: Optional[Self] = None,
         casting: Casting = "safe",
+        isbool: bool = False,
     ) -> Self:
         """
         from_array  Add raster metadata to a raw numpy array
@@ -737,6 +795,14 @@ class Raster:
         object. CRS objects can be obtained using the ".crs" property from rasterio
         or Raster objects, and see also the rasterio documentation for building
         these objects from formats such as well-known text (WKT) and PROJ4 strings.
+
+        Raster.from_array(..., *, isbool=True)
+        Indicates that the raster represents a boolean array, regardless of the
+        dtype of the file data values. The newly created raster will have a bool
+        dtype and values, and its NoData value will be set to False. When using
+        this option, all data pixels in the original file must be equal to 0 or
+        1. NoData pixels in the file will be converted to False, regardless of
+        their value.
         ----------
         Inputs:
             array: A 2D numpy array whose data values represent a raster
@@ -749,6 +815,8 @@ class Raster:
                 for the new Raster.
             transform: An affine transformation for the raster (affine.Affine)
             crs: A coordinate reference system for the raster (rasterio.crs.CRS)
+            isbool: True to convert the raster to a boolean array, with nodata=False.
+                False (default) to leave the raster as the original dtype.
 
         Outputs:
             Raster: A raster object for the array-based raster dataset
@@ -765,7 +833,13 @@ class Raster:
         # Copy array and build the object
         values = np.array(array, copy=True)
         return Raster._create(
-            name, values, metadata["crs"], metadata["transform"], nodata, casting
+            name,
+            values,
+            metadata["crs"],
+            metadata["transform"],
+            nodata,
+            casting,
+            isbool,
         )
 
     #####
@@ -1646,7 +1720,9 @@ class Raster:
         nodatas.fill(data, value)
 
         # Update the raster object
-        self._finalize(data, self.crs, self.transform, nodata=None, casting="unsafe")
+        self._finalize(
+            data, self.crs, self.transform, nodata=None, casting="unsafe", isbool=False
+        )
 
     def find(self, values: RealArray) -> Self:
         """
@@ -1755,7 +1831,9 @@ class Raster:
         values = values.copy()
         high.fill(values, max)
         low.fill(values, min)
-        self._finalize(values, self.crs, self.transform, nodata, casting="safe")
+        self._finalize(
+            values, self.crs, self.transform, nodata, casting="safe", isbool=False
+        )
 
     def _validate_bound(self, value: Any, bound: str) -> ScalarArray:
         """Checks that a user provided bound is castable or provides a default
@@ -1946,7 +2024,7 @@ class Raster:
             left = self.left - self.dx * buffers["left"]
             top = self.top - self.dy * buffers["top"]
             transform = Transform.build(self.dx, self.dy, left, top)
-        self._finalize(values, self._crs, transform, nodata, "safe")
+        self._finalize(values, self._crs, transform, nodata, "safe", isbool=False)
 
     #####
     # Reprojection
@@ -2159,7 +2237,14 @@ class Raster:
         # Restore boolean arrays and update the object
         if isbool:
             values = values.astype(bool)
-        self._finalize(values, crs["template"], transform["aligned"], nodata, "unsafe")
+        self._finalize(
+            values,
+            crs["template"],
+            transform["aligned"],
+            nodata,
+            "unsafe",
+            isbool=False,
+        )
 
     #####
     # Clipping
@@ -2363,7 +2448,7 @@ class Raster:
         transform = Transform.build(
             stransform.dx, stransform.dy, clipped["left"], clipped["top"]
         )
-        self._finalize(values, crs, transform, nodata, casting)
+        self._finalize(values, crs, transform, nodata, casting, isbool=False)
 
     def _clipped_values(
         self, stransform: Transform, clipped: _bounds, nodata: Any, casting: Any
