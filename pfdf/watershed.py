@@ -433,12 +433,8 @@ def catchment(
     if check_flow:
         validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
-    # Get metadata and convert to pysheds
-    flow, metadata = _to_pysheds(flow)
-    column = column[0]
-    row = row[0]
-
     # Get the catchment mask
+    flow, metadata = _to_pysheds(flow)
     grid = Grid.from_raster(flow)
     catchment = grid.catchment(
         fdir=flow, x=column, y=row, xytype="index", **_FLOW_OPTIONS
@@ -520,7 +516,7 @@ def network(
 
     # Optionally enforce a max length
     if max_length is not None:
-        segments = _split_segments(segments, max_length[0])
+        segments = _split_segments(segments, max_length)
     return segments
 
 

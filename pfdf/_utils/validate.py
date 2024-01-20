@@ -260,7 +260,7 @@ def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray
         raise DimensionError(
             f"{name} must have exactly 1 element, but it has {input.size} elements instead."
         )
-    return input
+    return input[0]
 
 
 def vector(

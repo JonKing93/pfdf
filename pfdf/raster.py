@@ -1360,7 +1360,6 @@ class Raster:
         )
         if nodata is not None:
             nodata = validate.scalar(nodata, "nodata", dtype=real)
-            nodata = nodata[0]
 
             # Optionally validate casting and cast the NoData value
             if dtype is not None:
@@ -1707,7 +1706,7 @@ class Raster:
         """
 
         # Validate the fill value
-        value = validate.scalar(value, "fill value", dtype=real)[0]
+        value = validate.scalar(value, "fill value", dtype=real)
         value = validate.casting(value, "fill value", self.dtype, casting="safe")
 
         # Just exit if there's not a NoData Value
@@ -1857,7 +1856,7 @@ class Raster:
 
         # Otherwise, validate user values
         else:
-            value = validate.scalar(value, bound, dtype=real)[0]
+            value = validate.scalar(value, bound, dtype=real)
             value = validate.casting(value, bound, self.dtype, "safe")
             return value
 
