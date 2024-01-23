@@ -880,6 +880,7 @@ class Segments:
     def _validate_id(self, id: Any) -> int:
         "Checks that a segment ID is valid and returns index"
         id = validate.scalar(id, "id", dtype=real)
+        id = id.reshape(1)
         self._check_ids(id, "id")
         return int(np.argwhere(self._ids == id))
 
@@ -1208,7 +1209,7 @@ class Segments:
 
         # Preallocate. Initialize kernel
         theta = self._preallocate()
-        kernel = Kernel(neighborhood[0], *self.raster_shape)
+        kernel = Kernel(neighborhood, *self.raster_shape)
 
         # Determine flow lengths
         width, height = self.resolution

@@ -2,10 +2,16 @@ import pytest
 
 from pfdf.errors import (
     ArrayError,
+    CoordinateError,
     CrsError,
     DimensionError,
     DurationsError,
     EmptyArrayError,
+    FeatureFileError,
+    FeaturesError,
+    GeometryError,
+    PointError,
+    PolygonError,
     RasterCrsError,
     RasterError,
     RasterShapeError,
@@ -21,7 +27,8 @@ def check(error, message, type):
 
 
 @pytest.mark.parametrize(
-    "error", (ArrayError, CrsError, TransformError, RasterError, DurationsError)
+    "error",
+    (ArrayError, CrsError, TransformError, RasterError, DurationsError, FeaturesError),
 )
 def test_base_error(error):
     message = "test message"
@@ -49,3 +56,13 @@ def test_raster_error(error, SecondaryError):
     error = error(message)
     check(error, message, RasterError)
     assert isinstance(error, SecondaryError)
+
+
+@pytest.mark.parametrize(
+    "error",
+    (FeatureFileError, GeometryError, CoordinateError, PolygonError, PointError),
+)
+def test_features_error(error):
+    message = "test message"
+    error = error(message)
+    check(error, message, FeaturesError)

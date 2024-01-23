@@ -33,8 +33,17 @@ from rasterio.enums import Resampling
 from pfdf._utils import all_nones, no_nones, nodata, real, validate
 from pfdf._utils.nodata import NodataMask
 from pfdf._utils.transform import Transform
-from pfdf.errors import RasterCrsError, RasterShapeError, RasterTransformError
+from pfdf.errors import (
+    FeatureFileError,
+    GeometryError,
+    PointError,
+    PolygonError,
+    RasterCrsError,
+    RasterShapeError,
+    RasterTransformError,
+)
 from pfdf.typing import (
+    BooleanArray,
     Casting,
     MatrixArray,
     Pathlike,
@@ -120,13 +129,18 @@ class Raster:
         from_file       - Creates a Raster from a file-based dataset
         from_rasterio   - Creates a Raster from a rasterio.DatasetReader object
         from_pysheds    - Creates a Raster from a pysheds.sview.Raster object
-        from_polygons   - Creates a raster from polygon/multi-polygon features
+
+    From Vector Features:
+        from_points     - Creates a Raster from point / multi-point features
+        from_polygons   - Creates a Raster from polygon / multi-polygon features
 
     Data Properties:
         name            - An optional name to identify the raster
         values          - The data values associated with a raster
         dtype           - The dtype of the raster array
         nodata          - The NoData value associated with the raster
+        nodata_mask     - The NoData mask for the raster
+        data_mask       - The valid data mask for the raster
 
     Shape Properties:
         shape           - The shape of the raster array
@@ -262,6 +276,14 @@ class Raster:
     def nodata(self) -> scalar:
         return self._nodata
 
+    @property
+    def nodata_mask(self) -> BooleanArray:
+        return nodata.mask(self.values, self.nodata)
+
+    @property
+    def data_mask(self) -> BooleanArray:
+        return ~self.nodata_mask
+
     ##### Shape
 
     @property
@@ -377,6 +399,7 @@ class Raster:
         self,
         raster: Optional[_RasterInput] = None,
         name: Optional[str] = None,
+        isbool: bool = False,
     ) -> None:
         """
         __init__  Creates a new Raster object
@@ -402,6 +425,14 @@ class Raster:
         the ".name" property, and is used to identify the raster in error messages.
         Defaults to "raster" if unspecified.
 
+        Raster(..., isbool=True)
+        Indicates that the raster represents a boolean array, regardless of the
+        dtype of the data values. The newly created raster will have a bool
+        dtype and values, and its NoData value will be set to False. When using
+        this option, all data pixels in the raster must be equal to 0 or 1.
+        NoData pixels in the raster will be converted to False, regardless of
+        their value.
+
         Raster()
         Returns an empty raster object. The attributes of the raster are all set
         to None. This syntax is typically not useful for users, and is instead
@@ -410,6 +441,8 @@ class Raster:
         Inputs:
             raster: A supported raster dataset
             name: A name for the input raster. Defaults to 'raster'
+            isbool: True indicates that the raster represents a boolean array.
+                False (default) leaves the raster as its original dtype.
 
         Outputs:
             Raster: The Raster object for the dataset
@@ -437,13 +470,13 @@ class Raster:
 
         # Otherwise, build an object using a factory
         elif isinstance(raster, (str, Path)):
-            raster = Raster.from_file(raster, name)
+            raster = Raster.from_file(raster, name, isbool=isbool)
         elif isinstance(raster, rasterio.DatasetReader):
-            raster = Raster.from_rasterio(raster, name)
+            raster = Raster.from_rasterio(raster, name, isbool=isbool)
         elif isinstance(raster, PyshedsRaster):
-            raster = Raster.from_pysheds(raster, name)
+            raster = Raster.from_pysheds(raster, name, isbool=isbool)
         elif isinstance(raster, np.ndarray):
-            raster = Raster.from_array(raster, name)
+            raster = Raster.from_array(raster, name, isbool=isbool)
 
         # Error if the input is not recognized
         elif not isinstance(raster, Raster):
@@ -467,18 +500,33 @@ class Raster:
 
     @staticmethod
     def _create(
-        name: Any, values: Any, crs: Any, transform: Any, nodata: Any, casting: Any
+        name: Any,
+        values: Any,
+        crs: Any,
+        transform: Any,
+        nodata: Any,
+        casting: Any,
+        isbool: bool,
     ) -> Self:
         "Creates a new raster from the provided values and metadata"
+
         raster = Raster(None, name)
-        raster._finalize(values, crs, transform, nodata, casting)
+        raster._finalize(values, crs, transform, nodata, casting, isbool)
         return raster
 
     def _finalize(
-        self, values: Any, crs: Any, transform: Any, nodata: Any, casting: Any
+        self,
+        values: Any,
+        crs: Any,
+        transform: Any,
+        nodata: Any,
+        casting: Any,
+        isbool: bool,
     ) -> None:
         """Validates and sets array values and metadata. Casts NoData to the dtype
-        of the raster. Converts affine to Transform object. Locks array values as read-only
+        of the raster. Converts affine to Transform object. Optionally converts
+        array boolean (after validating bool conversion). Locks array values as
+        read-only
         """
 
         # Validate array values, metadata, and NoData casting
@@ -487,6 +535,11 @@ class Raster:
             crs, transform, nodata, casting, self.dtype
         )
         transform = Transform(transform)
+
+        # Optionally convert to boolean
+        if isbool:
+            self._values = validate.boolean(values, "a boolean raster", ignore=nodata)
+            nodata = self._validate_nodata(False, "safe", bool)
 
         # Set metadata and lock the array values. This prevents users from altering
         # the base array when using views of the data values
@@ -570,14 +623,14 @@ class Raster:
             nodata = file.nodata
 
         # Optionally convert to boolean array and return the Raster
-        if isbool:
-            values = validate.boolean(values, "the saved raster", ignore=nodata)
-            nodata = False
-        return Raster._create(name, values, crs, transform, nodata, "unsafe")
+        return Raster._create(name, values, crs, transform, nodata, "unsafe", isbool)
 
     @staticmethod
     def from_rasterio(
-        reader: rasterio.DatasetReader, name: Optional[str] = None, band: int = 1
+        reader: rasterio.DatasetReader,
+        name: Optional[str] = None,
+        band: int = 1,
+        isbool: bool = False,
     ) -> Self:
         """
         from_rasterio  Builds a raster from a rasterio.DatasetReader
@@ -594,11 +647,21 @@ class Raster:
         Specifies the file band to read when loading the raster from file. Raster
         bands use 1-indexing (and not the 0-indexing common to Python). Raises an
         error if the band does not exist.
+
+        Raster.from_rasterio(..., *, isbool=True)
+        Indicates that the raster represents a boolean array, regardless of the
+        dtype of the file data values. The newly created raster will have a bool
+        dtype and values, and its NoData value will be set to False. When using
+        this option, all data pixels in the original file must be equal to 0 or
+        1. NoData pixels in the file will be converted to False, regardless of
+        their value.
         ----------
         Inputs:
             reader: A rasterio.DatasetReader associated with a raster dataset
             name: An optional name for the raster. Defaults to "raster"
             band: The raster band to read. Uses 1-indexing and defaults to 1
+            isbool: True to convert the raster to a boolean array, with nodata=False.
+                False (default) to leave the raster as the original dtype.
 
         Outputs:
             Raster: The new Raster object
@@ -619,10 +682,14 @@ class Raster:
             )
 
         # Use the file factory with the recorded driver
-        return Raster.from_file(path, name, driver=reader.driver, band=band)
+        return Raster.from_file(
+            path, name, isbool=isbool, driver=reader.driver, band=band
+        )
 
     @staticmethod
-    def from_pysheds(sraster: PyshedsRaster, name: Optional[str] = None) -> Self:
+    def from_pysheds(
+        sraster: PyshedsRaster, name: Optional[str] = None, isbool: bool = False
+    ) -> Self:
         """
         from_pysheds  Creates a Raster from a pysheds.sview.Raster object
         ----------
@@ -634,10 +701,20 @@ class Raster:
         will not affect the new Raster object, and vice versa. The name input
         specifies an optional name for the new Raster. Defaults to "raster" if
         unset.
+
+        Raster.from_pysheds(..., *, isbool=True)
+        Indicates that the raster represents a boolean array, regardless of the
+        dtype of the file data values. The newly created raster will have a bool
+        dtype and values, and its NoData value will be set to False. When using
+        this option, all data pixels in the original file must be equal to 0 or
+        1. NoData pixels in the file will be converted to False, regardless of
+        their value.
         ----------
         Inputs:
             sraster: The pysheds.sview.Raster object used to create the new Raster
             name: An optional name for the raster. Defaults to "raster"
+            isbool: True to convert the raster to a boolean array, with nodata=False.
+                False (default) to leave the raster as the original dtype.
 
         Outputs:
             Raster: The new Raster object
@@ -649,7 +726,7 @@ class Raster:
         crs = CRS.from_wkt(sraster.crs.to_wkt())
         values = np.array(sraster, copy=True)
         return Raster._create(
-            name, values, crs, sraster.affine, sraster.nodata, casting="unsafe"
+            name, values, crs, sraster.affine, sraster.nodata, "unsafe", isbool
         )
 
     @staticmethod
@@ -657,7 +734,9 @@ class Raster:
         array: MatrixArray, *, crs: Any, transform: Any, nodata: Any
     ) -> Self:
         "Builds a Raster from optional metadata and a validated array without copying"
-        return Raster._create(None, array, crs, transform, nodata, casting="safe")
+        return Raster._create(
+            None, array, crs, transform, nodata, casting="safe", isbool=False
+        )
 
     @staticmethod
     def from_array(
@@ -669,6 +748,7 @@ class Raster:
         crs: Optional[CRS | Any] = None,
         spatial: Optional[Self] = None,
         casting: Casting = "safe",
+        isbool: bool = False,
     ) -> Self:
         """
         from_array  Add raster metadata to a raw numpy array
@@ -715,6 +795,14 @@ class Raster:
         object. CRS objects can be obtained using the ".crs" property from rasterio
         or Raster objects, and see also the rasterio documentation for building
         these objects from formats such as well-known text (WKT) and PROJ4 strings.
+
+        Raster.from_array(..., *, isbool=True)
+        Indicates that the raster represents a boolean array, regardless of the
+        dtype of the file data values. The newly created raster will have a bool
+        dtype and values, and its NoData value will be set to False. When using
+        this option, all data pixels in the original file must be equal to 0 or
+        1. NoData pixels in the file will be converted to False, regardless of
+        their value.
         ----------
         Inputs:
             array: A 2D numpy array whose data values represent a raster
@@ -727,6 +815,8 @@ class Raster:
                 for the new Raster.
             transform: An affine transformation for the raster (affine.Affine)
             crs: A coordinate reference system for the raster (rasterio.crs.CRS)
+            isbool: True to convert the raster to a boolean array, with nodata=False.
+                False (default) to leave the raster as the original dtype.
 
         Outputs:
             Raster: A raster object for the array-based raster dataset
@@ -743,50 +833,134 @@ class Raster:
         # Copy array and build the object
         values = np.array(array, copy=True)
         return Raster._create(
-            name, values, metadata["crs"], metadata["transform"], nodata, casting
+            name,
+            values,
+            metadata["crs"],
+            metadata["transform"],
+            nodata,
+            casting,
+            isbool,
         )
 
     #####
-    # From Polygon
+    # From vector features
     #####
 
-    _ring = list[tuple[float, float]]
+    # Type hints
+    _resolution = scalar | tuple[scalar, scalar] | Self
+    _dxdy = tuple[float, float]
+    _coordinates = list[tuple[float, float]]
     _geometry = dict[str, Any]
+    _bounds = dict[str, float]
+    _features = list[dict]
+    _GeometryValue = tuple[_geometry, float | int | bool]
 
     @staticmethod
-    def _validate_field(field: Any, schema: dict[str, str]) -> None:
-        "Checks that a data property field can be used to build a raster"
+    def _validate_resolution(resolution: _resolution) -> _dxdy:
+        if isinstance(resolution, Raster):
+            if resolution.transform is None:
+                raise RasterTransformError(
+                    f"Cannot use the input raster to specify resolution because the "
+                    f"raster does not have an affine transform."
+                )
+            return resolution.resolution
+        else:
+            return validate.resolution(resolution)
 
-        # Just exit if there isn't a field
+    @staticmethod
+    def _validate_field(
+        path: Path, field: Any, fill: Any
+    ) -> tuple[type, float | bool, float | bool]:
+        "Checks that a feature data field and fill can be used to build a raster"
+
+        # If there's no field, return settings for boolean raster
         if field is None:
-            return
+            return bool, False, False
 
-        # Must be one of the property keys
+        # Get the file schema
+        with fiona.open(path) as file:
+            properties = file.schema["properties"]
+
+        # Field must be one of the property keys...
         validate.type(field, "field", str, "str")
-        fields = schema.keys()
-        if field not in fields:
-            allowed = ", ".join(fields)
+        if field not in properties:
+            allowed = ", ".join(properties)
             raise KeyError(
-                f"'{field}' is not the name of a polygon data field. "
+                f"'{field}' is not the name of a feature data field. "
                 f"Allowed field names are: {allowed}"
             )
 
-        # Must be an int or float type
-        typestr = schema[field]
+        # ...and must be int or float
+        typestr = properties[field]
         if not typestr.startswith(("int", "float")):
             typestr = typestr.split(":")[0]
             raise TypeError(
-                f"The '{field}' field is not an int or float. Instead, it has a '{typestr}' type."
+                f"The '{field}' field must be an int or float, but it has a '{typestr}' type instead."
+            )
+
+        # Validate fill value and return data raster settings
+        if fill is None:
+            fill = np.nan
+        else:
+            fill = validate.scalar(fill, "fill", dtype=real)
+            fill = float(fill)
+        return float, np.nan, fill
+
+    @staticmethod
+    def _load_features(
+        path: Path, layer: int | str | None, driver: str | None, encoding: str | None
+    ) -> tuple[_features, CRS]:
+        "Loads vector features (and CRS) from file"
+
+        # Open file. Load CRS and features
+        try:
+            with fiona.open(
+                path, layer=layer, driver=driver, encoding=encoding
+            ) as file:
+                crs = file.crs
+                features = list(file)
+                return features, crs
+
+        # Informative error if failed. (fiona errors can be cryptic)
+        except Exception:
+            raise FeatureFileError(
+                f"Could not read data from the feature file. "
+                f"The file may be corrupted or formatted incorrectly. "
+                f"File: {path}"
             )
 
     @staticmethod
+    def _validate_point(f: int, p: int, point: tuple[float, float]) -> None:
+        "Validates a point coordinate array (f: feature index, p: index in the feature)"
+
+        # Must be a tuple with two elements
+        description = ""
+        if not isinstance(point, tuple) and not isinstance(point, list):
+            description = "is neither a list nor a tuple"
+        elif len(point) != 2:
+            description = f"has {len(point)} elements"
+        if description != "":
+            raise PointError(
+                "The coordinate array for each point must be a list or tuple with two elements. "
+                f"However in feature[{f}], the coordinate array for point[{p}] {description}."
+            )
+
+        # Points should be int or float
+        for coord, axis in zip(point, ["x", "y"]):
+            if type(coord) not in [int, float]:
+                raise TypeError(
+                    "The two elements in the coordinate array for each point must "
+                    f"have an int or float type. But in feature[{f}], the {axis} "
+                    f"coordinate for point[{p}] is neither an int nor a float."
+                )
+
+    @staticmethod
     def _validate_polygon(f: int, p: int, rings: Any) -> None:
-        """Validates a polygon coordinate array
-        f: Index of the feature, p: index of the polygon in the feature"""
+        "Validates a polygon coordinate array (f: feature index, p: index in feature)"
 
         # Must be a list of linear rings
         if not isinstance(rings, list):
-            raise ValueError(
+            raise PolygonError(
                 "The coordinates array for each polygon must be a list of linear "
                 f"ring coordinates. However in feature[{f}], the coordinates array "
                 f"for polygon[{p}] is not a list."
@@ -795,7 +969,7 @@ class Raster:
         # Validate each ring. Check each is a list of coordinates...
         for r, ring in enumerate(rings):
             if not isinstance(ring, list):
-                raise ValueError(
+                raise PolygonError(
                     f"Each element of a polygon's coordinates array must be a list "
                     f"of linear ring coordinates. However in feature[{f}], "
                     f"polygon[{p}].coordinates[{r}] is not a list."
@@ -803,7 +977,7 @@ class Raster:
 
             # ... with at least 4 coordinates...
             elif len(ring) < 4:
-                raise ValueError(
+                raise PolygonError(
                     f"Each linear ring must have at least 4 positions. However "
                     f"ring[{r}] in polygon[{p}] of feature[{f}] does not have "
                     f"4 positions."
@@ -811,68 +985,226 @@ class Raster:
 
             # ... and matching start/end positions
             elif ring[0] != ring[-1]:
-                raise ValueError(
+                raise PolygonError(
                     f"The final position in each linear ring must match the first "
                     f"position. However, this is not the case for ring[{r}] in "
                     f"polygon[{p}] of feature[{f}]."
                 )
 
     @staticmethod
-    def _update_bounds(coords: list[_ring], bounds: bounds) -> None:
-        "Updates bounds to contain a polygon"
+    def _update_bounds(
+        bounds: dict[str, float], coords: _coordinates, ispoint: bool
+    ) -> None:
+        "Updates bounds (in-place) to include a geometry's coordinates"
 
-        # Get the bounds of the shell
-        shell = np.array(coords[0])
-        left = np.min(shell[:, 0])
-        right = np.max(shell[:, 0])
-        bottom = np.min(shell[:, 1])
-        top = np.max(shell[:, 1])
+        # Get bounds from points...
+        if ispoint:
+            left = coords[0]
+            right = coords[0]
+            top = coords[1]
+            bottom = coords[1]
 
-        # Ensure the bounds contain the shell
+        # ...or from a polygon shell
+        else:
+            shell = np.array(coords[0])
+            left = np.min(shell[:, 0])
+            right = np.max(shell[:, 0])
+            bottom = np.min(shell[:, 1])
+            top = np.max(shell[:, 1])
+
+        # Update the bounds
         bounds["left"] = min(bounds["left"], left)
         bounds["right"] = max(bounds["right"], right)
         bounds["bottom"] = min(bounds["bottom"], bottom)
         bounds["top"] = max(bounds["top"], top)
 
     @staticmethod
-    def _validate_feature(
-        f: int, feature: dict[str, Any], bounds: dict[str, float], field: str | None
-    ) -> tuple[_geometry, int | float | bool]:
-        "Validates a polygon feature, extracts geometry, and updates bounds"
+    def _validate_features(
+        features: _features, field: str | None, geometries: tuple[str, str]
+    ) -> tuple[_GeometryValue, _bounds]:
+        """
+        Checks that input features have valid geometries. Returns features as
+        (geometry, value) tuples. Also returns the spatial bounds needed to fully
+        contain the features.
+        """
 
-        # Require a geometry
-        geometry = feature["geometry"]
-        if geometry is None:
-            raise ValueError(
-                f"Feature[{f}] does not have a geometry, or its geometry is not valid."
+        # Initialize the bounds adn geometry-value tuples
+        bounds = {
+            "left": inf,
+            "right": -inf,
+            "bottom": inf,
+            "top": -inf,
+        }
+        geometry_values = []
+
+        # Each feature must have a geometry
+        for f, feature in enumerate(features):
+            geometry = feature["geometry"]
+            if geometry is None:
+                raise GeometryError(f"Feature[{f}] does not have a geometry.")
+
+            # Require expected geometry
+            type = geometry["type"]
+            if type not in geometries:
+                allowed = " or ".join(geometries)
+                raise GeometryError(
+                    f"Each feature in the input file must have a {allowed} geometry. "
+                    f"However, feature[{f}] has a {type} geometry instead."
+                )
+
+            # Arrange single geometries like multi geometries
+            multicoordinates = geometry["coordinates"]
+            if type in ["Point", "Polygon"]:
+                multicoordinates = [multicoordinates]
+
+            # Validate geometry coordinates and update bounds
+            for c, coordinates in enumerate(multicoordinates):
+                ispoint = "Point" in type
+                if ispoint:
+                    Raster._validate_point(f, c, coordinates)
+                else:
+                    Raster._validate_polygon(f, c, coordinates)
+                Raster._update_bounds(bounds, coordinates, ispoint)
+
+            # Associate each geometry with a value
+            if field is None:
+                value = True
+            else:
+                value = feature["properties"][field]
+            geometry_values.append((geometry, value))
+        return geometry_values, bounds
+
+    @staticmethod
+    def _compute_extent(bounds: _bounds, resolution: _dxdy) -> tuple[Affine, shape2d]:
+        "Computes the transform and shape from the raster bounds and resolution"
+
+        # Build the transform
+        dx, dy = resolution
+        transform = Transform.build(dx, -dy, bounds["left"], bounds["top"])
+
+        # Compute the shape
+        height = bounds["top"] - bounds["bottom"]
+        width = bounds["right"] - bounds["left"]
+        nrows = ceil(height / dy)
+        ncols = ceil(width / dx)
+        return transform, (nrows, ncols)
+
+    @staticmethod
+    def from_points(
+        path: Pathlike,
+        *,
+        field: Optional[str] = None,
+        fill: Optional[scalar] = None,
+        resolution: _resolution = 1,
+        layer: Optional[int | str] = None,
+        driver: Optional[str] = None,
+        encoding: Optional[str] = None,
+    ) -> Self:
+        """
+        Raster.from_points(path)
+        Raster.from_points(path, *, layer)
+        Returns a boolean raster derived from the input point features. Pixels
+        containing a point are set to True. All other pixels are set to False.
+        The CRS of the output raster is inherited from the input feature file.
+        The default resolution of the output raster is 1 (in the units of the
+        CRS), although see below for options for other resolutions. The bounds of
+        the raster will be the minimal bounds required to contain all input points
+        at the indicated resolution.
+
+        The contents of the input file should resolve to a FeatureCollection of
+        Point and/or MultiPoint geometries. If the file contains multiple
+        layers, you can use the "layer" option to indicate the layer that holds
+        the polygon geometries. This may either be an integer index, or the name
+        of the layer in the input file.
+
+        By default, this method will attempt to guess the intended file format and
+        encoding based on the path extension. Raises an error if the format or
+        encoding cannot be determined. However, see below for syntax to specify
+        the driver and encoding, regardless of extension. You can also use:
+            >>> pfdf.utils.driver.extensions('vector')
+        to return a summary of supported file format drivers, and their associated
+        extensions.
+
+        Raster.from_points(..., *, field)
+        Raster.from_points(..., *, field, fill)
+        Builds the raster using the indicated field of the point-feature data properties.
+        The specified field must exist in the data properties, and must be an int
+        or float type. The output raster will have a float dtype, regardless of
+        the type of the data field, and the NoData value will be NaN. Pixels that
+        contain a point are set to the value of the data field for that point.
+        If a pixel contains multiple points, then the pixel's value will match
+        the data field of the final point in the set. By default, all pixels not
+        in a point are set as Nodata (NaN). Use the "fill" option to specify a
+        default data value for these pixels instead.
+
+        Raster.from_points(path, *, resolution)
+        Specifies the resolution of the output raster. The resolution may be a
+        scalar positive number, a 2-tuple of such numbers, or a pfdf.raster.Raster
+        object. If a scalar, indicates the resolution of the output raster (in the
+        units of the CRS) for both the X and Y axes. If a 2-tuple, the first element
+        is the X-axis resolution and the second element is the Y-axis. If a Raster,
+        uses the resolution of the raster, or raises an error if the raster does
+        not have a transform.
+
+        Raster.from_points(..., *, driver)
+        Raster.from_points(..., *, encoding)
+        Specifies the file format driver and encoding used to read the Points
+        feature file. Uses this format regardless of the file extension. You can call:
+            >>> pfdf.utils.driver.vectors()
+        to return a summary of file format drivers that are expected to always work.
+
+        More generally, the pfdf package relies on fiona (which in turn uses GDAL/OGR)
+        to read vector files, and so additional drivers may work if their
+        associated build requirements are met. You can call:
+            >>> fiona.drvsupport.vector_driver_extensions()
+        to summarize the drivers currently supported by fiona, and a complete
+        list of driver build requirements is available here:
+        https://gdal.org/drivers/vector/index.html
+        ----------
+        Inputs:
+            path: The path to a Point or MultiPoint feature file
+            field: The name of a data property field used to set pixel values.
+                The data field must have an int or float type.
+            fill: A default fill value for rasters built using a data field.
+                Ignored if field is None.
+            resolution: The desired resolution of the output raster
+            layer: The layer of the input file from which to load the point geometries
+            driver: The file-format driver to use to read the Point feature file
+            encoding: The encoding of the Point feature file
+
+        Outputs:
+            Raster: The point-derived raster. Pixels that contain a point are set
+                either to True, or to the value of a data field. All other pixels
+                are either a fill value or NoData (False or NaN).
+        """
+
+        # Validate and determine raster settings
+        path = validate.input_path(path, "path")
+        resolution = Raster._validate_resolution(resolution)
+        dtype, nodata, fill = Raster._validate_field(path, field, fill)
+
+        # Load features. Validate, compute bounds. Convert features to
+        # (geometry, value) tuples and get the transform
+        features, crs = Raster._load_features(path, layer, driver, encoding)
+        features, bounds = Raster._validate_features(
+            features, field, geometries=["Point", "MultiPoint"]
+        )
+
+        # Preallocate the raster. Need to pad pre-computed shape by 1 to account
+        # for edge points
+        transform, (nrows, ncols) = Raster._compute_extent(bounds, resolution)
+        shape = (nrows + 1, ncols + 1)
+        raster = np.full(shape, fill, dtype)
+
+        # Add each point to the raster
+        for geometry, value in features:
+            coords = geometry["coordinates"]
+            coords = np.array(coords).reshape(-1, 2)
+            rows, cols = rasterio.transform.rowcol(
+                transform, xs=coords[:, 0], ys=coords[:, 1]
             )
-
-        # Only allow Polygon and MultiPolygon geometries
-        type = geometry["type"]
-        if type not in ["Polygon", "MultiPolygon"]:
-            raise ValueError(
-                "Each feature in the input file must have a Polygon or MultiPolygon "
-                f"geometry. However, feature[{f}] has a {type} geometry instead."
-            )
-
-        # Get a list of polygon coordinate arrays in the feature
-        polygons = geometry["coordinates"]
-        if type == "Polygon":
-            polygons = [polygons]
-
-        # Validate coordinates and update bounds
-        for p, polygon in enumerate(polygons):
-            Raster._validate_polygon(f, p, polygon)
-            Raster._update_bounds(polygon, bounds)
-
-        # Get the pixel values for the polygon
-        if field is None:
-            value = True
-        else:
-            value = feature["properties"][field]
-
-        # Return geometry and data field if relevant
-        return geometry, value
+            raster[rows, cols] = value
+        return Raster._from_array(raster, crs=crs, transform=transform, nodata=nodata)
 
     @staticmethod
     def from_polygons(
@@ -880,7 +1212,7 @@ class Raster:
         *,
         field: Optional[str] = None,
         fill: Optional[scalar] = None,
-        resolution: Optional[scalar | tuple[scalar, scalar] | Self] = 1,
+        resolution: _resolution = 1,
         layer: Optional[int | str] = None,
         driver: Optional[str] = None,
         encoding: Optional[str] = None,
@@ -960,73 +1292,34 @@ class Raster:
         Outputs:
             Raster: The polygon-derived raster. Pixels whose centers are in a
                 polygon are set either to True, or to the value of a data field.
-                All other pixels are NoData (False or NaN, as appropriate).
+                All other pixels are either a fill value or NoData (False or NaN).
         """
 
-        # Validate path and resolution
+        # Validate and determine raster settings from field and fill
         path = validate.input_path(path, "path")
-        if isinstance(resolution, Raster):
-            if resolution.transform is None:
-                raise ValueError(
-                    f"Cannot use the input raster to specify resolution because the "
-                    f"raster does not have an affine transform."
-                )
-            resolution = resolution.resolution
-        else:
-            resolution = validate.resolution(resolution)
+        resolution = Raster._validate_resolution(resolution)
+        dtype, nodata, fill = Raster._validate_field(path, field, fill)
 
-        # Settings for boolean rasters
-        if field is None:
+        # Load features. Validate, compute bounds, and convert features to
+        # (geometry, value) tuples. Compute transform and shape
+        features, crs = Raster._load_features(path, layer, driver, encoding)
+        features, bounds = Raster._validate_features(
+            features, field, geometries=["Polygon", "MultiPolygon"]
+        )
+        transform, shape = Raster._compute_extent(bounds, resolution)
+
+        # Rasterize the polygon features. Use uint8 for bool as required
+        if dtype == bool:
             dtype = "uint8"
-            nodata = False
-            fill = False
-
-        # Settings for data field rasters
-        else:
-            dtype = float
-            nodata = np.nan
-            if fill is None:
-                fill = nodata
-            else:
-                fill = float(validate.scalar(fill, "fill", dtype=real))
-
-        # Open file. Validate field. Load CRS and features
-        with fiona.open(path, layer=layer, driver=driver, encoding=encoding) as file:
-            Raster._validate_field(field, file.schema["properties"])
-            crs = file.crs
-            features = list(file)
-
-        # Initialize spatial bounds
-        bounds = {
-            "left": inf,
-            "right": -inf,
-            "bottom": inf,
-            "top": -inf,
-        }
-
-        # Validate features and extract geometries. Also update spatial bounds
-        # to contain all validated features
-        for f, feature in enumerate(features):
-            features[f] = Raster._validate_feature(f, feature, bounds, field)
-
-        # Compute the shape and transform of the output raster
-        dx, dy = resolution
-        height = bounds["top"] - bounds["bottom"]
-        width = bounds["right"] - bounds["left"]
-        nrows = ceil(height / dy)
-        ncols = ceil(width / dx)
-        transform = Transform.build(dx, -dy, bounds["left"], bounds["top"])
-
-        # Rasterize the polygon features
         raster = rasterio.features.rasterize(
             features,
-            out_shape=[nrows, ncols],
+            out_shape=shape,
             transform=transform,
             fill=fill,
             dtype=dtype,
         )
 
-        # Build final Raster object. Convert to boolean as appropriate
+        # Build final Raster object. Convert to boolean if needed
         if field is None:
             raster = raster.astype(bool)
         return Raster._from_array(raster, crs=crs, transform=transform, nodata=nodata)
@@ -1067,7 +1360,6 @@ class Raster:
         )
         if nodata is not None:
             nodata = validate.scalar(nodata, "nodata", dtype=real)
-            nodata = nodata[0]
 
             # Optionally validate casting and cast the NoData value
             if dtype is not None:
@@ -1427,7 +1719,9 @@ class Raster:
         nodatas.fill(data, value)
 
         # Update the raster object
-        self._finalize(data, self.crs, self.transform, nodata=None, casting="unsafe")
+        self._finalize(
+            data, self.crs, self.transform, nodata=None, casting="unsafe", isbool=False
+        )
 
     def find(self, values: RealArray) -> Self:
         """
@@ -1536,7 +1830,9 @@ class Raster:
         values = values.copy()
         high.fill(values, max)
         low.fill(values, min)
-        self._finalize(values, self.crs, self.transform, nodata, casting="safe")
+        self._finalize(
+            values, self.crs, self.transform, nodata, casting="safe", isbool=False
+        )
 
     def _validate_bound(self, value: Any, bound: str) -> ScalarArray:
         """Checks that a user provided bound is castable or provides a default
@@ -1727,7 +2023,7 @@ class Raster:
             left = self.left - self.dx * buffers["left"]
             top = self.top - self.dy * buffers["top"]
             transform = Transform.build(self.dx, self.dy, left, top)
-        self._finalize(values, self._crs, transform, nodata, "safe")
+        self._finalize(values, self._crs, transform, nodata, "safe", isbool=False)
 
     #####
     # Reprojection
@@ -1940,7 +2236,14 @@ class Raster:
         # Restore boolean arrays and update the object
         if isbool:
             values = values.astype(bool)
-        self._finalize(values, crs["template"], transform["aligned"], nodata, "unsafe")
+        self._finalize(
+            values,
+            crs["template"],
+            transform["aligned"],
+            nodata,
+            "unsafe",
+            isbool=False,
+        )
 
     #####
     # Clipping
@@ -2144,7 +2447,7 @@ class Raster:
         transform = Transform.build(
             stransform.dx, stransform.dy, clipped["left"], clipped["top"]
         )
-        self._finalize(values, crs, transform, nodata, casting)
+        self._finalize(values, crs, transform, nodata, casting, isbool=False)
 
     def _clipped_values(
         self, stransform: Transform, clipped: _bounds, nodata: Any, casting: Any

@@ -17,6 +17,13 @@ Rasters:
     RasterTransformError    - When a raster has an invalid affine transformation
     RasterCrsError          - When a raster has an invalid coordinate reference system
 
+Vector Features:
+    FeaturesError           - When vector features are not valid
+    FeatureFileError        - When a vector feature file cannot be read
+    GeometryError           - When a feature geometry is not valid
+    CoordinatesError        - When a feature's coordinates are not valid
+    PolygonError            - When a polygon's coordinates are not valid
+
 Models:
     DurationsError          - When queried rainfall durations are not recognized
 """
@@ -75,6 +82,35 @@ class RasterTransformError(RasterError, TransformError):
 
 class RasterCrsError(RasterError, CrsError):
     "When a raster has an invalid coordinate reference system"
+
+
+#####
+# Vector Features
+#####
+
+
+class FeaturesError(Exception):
+    "When vector features are not valid"
+
+
+class FeatureFileError(FeaturesError):
+    "When a vector feature file cannot be read"
+
+
+class GeometryError(FeaturesError):
+    "When a vector feature geometry is not valid"
+
+
+class CoordinateError(GeometryError):
+    "When vector feature geometry coordinates are not valid"
+
+
+class PolygonError(CoordinateError):
+    "When polygon feature coordinates are not valid"
+
+
+class PointError(CoordinateError):
+    "When point feature coordinates are not valid"
 
 
 #####

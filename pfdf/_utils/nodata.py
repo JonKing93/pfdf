@@ -19,30 +19,24 @@ Internal:
 """
 
 import operator
-from typing import Callable, Self
+from typing import Callable, Optional, Self
 
 import numpy as np
 from numpy import isnan
 
 from pfdf._utils import aslist, no_nones
-from pfdf.typing import (
-    BooleanArray,
-    RealArray,
-    ScalarArray,
-    VectorArray,
-    ignore,
-    scalar,
-)
+from pfdf.typing import BooleanArray, RealArray, VectorArray, ignore, scalar
 
 # Type alias
-mask = BooleanArray | None
 nodata = scalar | None
 
 
-def _mask(array: RealArray, nodata: ScalarArray) -> BooleanArray:
+def mask(array: RealArray, nodata: nodata) -> BooleanArray:
     "Returns a boolean nodata mask for an array"
 
-    if isnan(nodata):
+    if nodata is None:
+        return np.zeros(array.shape, bool)
+    elif isnan(nodata):
         return isnan(array)
     else:
         return array == nodata
@@ -89,7 +83,7 @@ def isin(array: RealArray, nodata: nodata) -> bool:
     if nodata is None:
         return False
     else:
-        nodata = _mask(array, nodata)
+        nodata = mask(array, nodata)
         return np.any(nodata)
 
 
@@ -127,6 +121,9 @@ class NodataMask:
         values      - Returns array values at the mask indices
     """
 
+    # Type hint
+    other = Self | BooleanArray | None
+
     #####
     # Object Creation
     #####
@@ -153,6 +150,10 @@ class NodataMask:
             NodataMask: The new NodataMask object
         """
 
+        # Initialize attributes
+        self.mask: Optional[BooleanArray] = None
+        self.size: int = array.size
+
         # Remove None NoDatas
         nodata = aslist(nodata)
         nodata = [value for value in nodata if value is not None]
@@ -160,25 +161,21 @@ class NodataMask:
 
         # Build the mask
         if nodata.size == 0:
-            mask = None
+            self.mask = None
         else:
-            mask = _mask(array, nodata[0])
+            self.mask = mask(array, nodata[0])
             for k in range(1, nodata.size):
-                mask = mask | _mask(array, nodata[k])
+                self.mask = self.mask | mask(array, nodata[k])
 
             # Optionally invert
             if invert:
-                mask = ~mask
-
-        # Record attributes
-        self.mask: mask = mask
-        self.size: int = array.size
+                self.mask = ~self.mask
 
     #####
     # Element-wise logical operators
     #####
 
-    def _logical(self, operator: Callable, other: mask | Self) -> Self:
+    def _logical(self, operator: Callable, other: other) -> Self:
         "Implements an element-wise logical operator like 'and' or 'or'."
 
         # Extract the mask array if the second object is also a NodataMask object
@@ -199,7 +196,7 @@ class NodataMask:
         mask.size = self.size
         return mask
 
-    def __or__(self, other: mask | Self) -> Self:
+    def __or__(self, other: other) -> Self:
         """
         __or__  Element-wise logical "or" for nodata masks
         ----------
@@ -216,7 +213,7 @@ class NodataMask:
 
         return self._logical(operator.or_, other)
 
-    def __and__(self, other: mask | Self) -> Self:
+    def __and__(self, other: other) -> Self:
         """
         __and__  Element-wise logical "and" for nodata masks
         ----------
