@@ -1,0 +1,504 @@
+Staley 2017 Models
+==================
+
+Introduction
+------------
+
+The :ref:`staley2017 <pfdf.models.staley2017>` (or ``s17``) module provides functions to implement the logistic regression models of `Staley et al., 2017 <https://doi.org/10.1016/j.geomorph.2016.10.019>`_. In brief, these models estimate debris-flow probability given rainfall accumulation, and vice versa.
+
+::
+
+  >>> from pfdf.models import s17
+
+In the paper, the probability model describes debris-flow probability as a function of terrain, fire burn severity, soil, and rainfall accumulation, such that:
+
+.. _s17-equation-1:
+
+**Equation 1**
+
+.. math::
+
+    p = \mathrm{\frac{e^X}{1 + e^X}}
+
+
+.. math::
+
+    \mathrm{X = B + C_t\ T\ R + C_f\ F\ R + C_s\ S\ R}
+
+
+where:
+
+.. _s17-variables:
+
+.. list-table::
+
+    * - **Variable**
+      - **Description**
+    * - p
+      - Debris-flow probability (0 to 1)
+    * - T
+      - A terrain variable
+    * - F
+      - A fire severity variable
+    * - S
+      - A soil variable
+    * - R
+      - Rainfall accumulation in mm
+    * - B
+      - Model intercept
+    * - Ct, Cf, Cs
+      - Variable coefficients
+
+
+The probability model can also be inverted to compute the rainfall accumulation needed to achieve a given debris-flow probability: 
+
+.. _s17-equation-2:
+
+**Equation 2**
+
+.. math::
+
+    \mathrm{R} = \frac{\mathrm{ln}(\frac{p}{1-p}) - \mathrm{B}}{\mathrm{C_t\ T\ R + C_f\ F\ R + C_s\ S\ R}}
+
+
+The paper then describes 4 specific models, each which uses a different combination of earth-system variables as T, F, and S. Each model is calibrated 3 times: using 15 minute, 30 minute, and 60 minute rainfall durations. The following table summarizes each model:
+
+.. dropdown:: Show Table
+
+  .. list-table::
+    :header-rows: 1
+
+    * - Model
+      - T
+      - F
+      - S
+      - B (15, 30, 60)
+      - Ct
+      - Cf
+      - Cs
+    * - M1
+      - | Proportion of catchment area with both 
+        | (1) moderate or high burn severity, and 
+        | (2) slope >= 23 degrees
+      - Mean catchment dNBR / 1000
+      - Mean catchment KF-factor
+      - -3.63, -3.61, -3.21
+      - 0.41, 0.26, 0.17
+      - 0.67, 0.39, 0.20
+      - 0.70, 0.50, 0.22
+    * - M2
+      - | Mean sin(θ) of catchment area
+        | burned at moderate or high 
+        | severity, where θ is slope 
+        | angle in degrees.
+      - | Mean catchment 
+        | dNBR / 1000
+      - | Mean catchment 
+        | KF-factor
+      - -3.62, -3.61, -3.22
+      - 0.61, 0.42, 0.27
+      - 0.65, 0.38, 0.19
+      - 0.68, 0.49, 0.22
+    * - M3
+      - | Topographic ruggedness. 
+        | (Vertical relief divided by the 
+        | square root of catchment area).
+      - | Proportion of 
+        | catchment area 
+        | burned at moderate 
+        | or high severity.
+      - | Mean catchment 
+        | soil thickness / 100
+      - -3.71, -3.79, -3.46
+      - 0.32, 0.21, 0.14
+      - 0.33, 0.19, 0.10
+      - 0.47, 0.36, 0.18
+    * - M4
+      - | Proportion of catchment area 
+        | that both (1) was burned, and 
+        | (2) has a slope >= 30 degrees
+      - | Mean catchment 
+        | dNBR / 1000
+      - | Mean catchment 
+        | soil thickness / 100
+      - -3.60, -3.64, -3.30
+      - 0.51, 0.33, 0.20
+      - 0.82, 0.46, 0.24
+      - 0.27, 0.26, 0.13
+
+
+
+
+Workflow
+--------
+The :ref:`s17 module <pfdf.models.staley2017>` includes two functions that provide general solutions to :ref:`equation 1 <s17-equation-1>` and :ref:`equation 2 <s17-equation-2>`. The module also provides 4 utility classes, which can be used to compute variables and look up parameters for the 4 models in the paper. A common workflow is to:
+
+1. Use a model class to compute T, F, and S variables
+2. Use the class to retrieve the model's parameters, and then
+3. Solve equation 1 and/or 2 using the variables and parameters
+
+
+Model Classes
+-------------
+
+The module provides the :ref:`M1 <pfdf.models.staley2017.M1>`, :ref:`M2 <pfdf.models.staley2017.M2>`, :ref:`M3 <pfdf.models.staley2017.M3>`, and :ref:`M4 <pfdf.models.staley2017.M4>` classes, and each facilitates one of the models presented in the paper. Each of these models uses different earth-system variables for :ref:`T, F, and S <s17-variables>`, but all 4 models follow the form of :ref:`equations 1 and 2 <s17-equation-1>`.
+
+Each class provides a ``variables`` method, which computes the T, F, and S variables given a stream segment network and various inputs. For example, using the M1 model::
+
+  >>> from pfdf.models import s17
+  >>> T, F, S = s17.M1.variables(segments, moderate_high, slopes, dnbr, kf_factor)
+
+You can alternatively return specific variables, using each model's ``terrain``, ``fire``, and/or ``soil`` method::
+
+  >>> T = s17.M1.terrain(segments, moderate_high, slopes)
+  >>> F = s17.M1.fire(dnbr)
+  >>> S = s17.M1.soil(kf_factor)
+
+.. note:: The specific inputs to these methods will vary by model.
+
+Each class also provides a ``parameters`` method, which returns the :ref:`B, Ct, Cf, and Cs <s17-variables>` coefficients for the model. By default, each parameter is a vector with the values for the 15, 30, and 60 minute calibration, in that order. For example, using the M1 model::
+
+  >>> B, Ct, Cf, Cs = s17.M1.parameters()
+  >>> B
+  array([-3.63, -3.61, -3.21])
+  >>> Ct
+  array([0.41, 0.26, 0.17])
+  >>> Cf
+  array([0.67, 0.39, 0.2 ])
+  >>> Cs
+  array([0.7 , 0.5 , 0.22])
+
+The ``durations`` property reports the default duration-order of parameters::
+
+  >>> s17.M1.durations()
+  [15, 30, 60]
+
+You can also use the ``durations`` option to query specific durations::
+
+  >>> B, Ct, Cf, Cs = s17.M1.parameters(durations=[60, 15])
+  >>> B
+  array([-3.21, -3.63])
+  >>> Ct
+  array([0.17, 0.41])
+  >>> Cf
+  array([0.2 , 0.67])
+  >>> Cs
+  array([0.22, 0.7 ])
+
+:ref:`See below <s17-models>` for implementation details of individual models.
+
+
+
+Probability
+-----------
+
+You can solve :ref:`equation 1 <s17-equation-1>` using the :ref:`probability <pfdf.models.staley2017.probability>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 1. This function solves for debris-flow probability given a set of rainfall accumulations (R). Note that the function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to rainfall accumulations.
+
+In the simplest case - a single rainfall accumulation - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations). For example::
+  
+  >>> T, F, S = s17.M1.variables(segments, mod_high, slopes, dnbr, kf)
+  >>> B, Ct, Cf, Cs = s17.M1.parameters()
+
+  >>> len(segments)
+  2561
+  >>> T.size, F.size, S.size
+  (2561, 2561, 2561)
+  >>> B.size, Ct.size, Cf.size, Cs.size
+  (3, 3, 3, 3)
+
+  >>> R = 0.24 # mm/duration
+  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  >>> p.shape
+  (2561, 3)
+
+You can also solve for multiple rainfall accumulations simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of accumulations::
+
+  >>> R = [0.24, 0.28, 0.3, 0.35]
+  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  >>> p.shape
+  (2561, 3, 4)
+
+
+.. _prob-duration:
+
+Durations and Intensities
++++++++++++++++++++++++++
+
+Note that the input rainfall accumulations should be in millimeters, and are interpreted relative to the duration associated with each set of parameters. Continuing the example, we provided three sets of parameters, for 15, 30 and 60 minute intervals, respectively. So the single rainfall duration was parsed into the following intensities:
+
+* 0.24 mm / 15 minutes = 0.96 mm / hour
+* 0.24 mm / 30 minutes = 0.48 mm / hour
+* 0.24 mm / 60 minutes = 0.24 mm / hour
+
+which correspond to the columns of the output array, respectively.
+
+.. tip:: 
+  
+  If you typically work with rainfall intensities in mm/hour, be sure to scale them to the appropriate duration::
+
+    # Converting mm/hour for 15-minute duration
+    >>> R = 0.24  # mm/hour
+    >>> R = R * (60/15)
+
+    # For a 30-minute duration
+    >>> R = 0.24  # mm/hour
+    >>> R = R * (60/30)
+
+
+
+
+
+Rainfall Accumulation
+---------------------
+You can solve :ref:`equation 2 <s17-equation-2>` using the :ref:`accumulation <pfdf.models.staley2017.accumulation>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 2. This function computes the rainfall accumulation needed to achieve a given debris-flow probability level (p). Note that the function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to probability levels.
+
+In the simplest case - a single probability level - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations).  For example::
+
+  >>> T, F, S = s17.M1.variables(segments, mod_high, slopes, dnbr, kf)
+  >>> B, Ct, Cf, Cs = s17.M1.parameters()
+
+  >>> len(segments)
+  2561
+  >>> T.size, F.size, S.size
+  (2561, 2561, 2561)
+  >>> B.size, Ct.size, Cf.size, Cs.size
+  (3, 3, 3, 3)
+
+  >>> p = 0.5
+  >>> R = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
+  >>> R.shape
+  (2561, 3)
+
+You can also solve for multiple probability levels simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of probability levels::
+
+  >>> p = [.2, .4, .6, .8]
+  >>> R = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
+  >>> R.shape
+  (2561, 3, 4)
+
+
+.. _acc-duration:
+
+Durations and Intensities
++++++++++++++++++++++++++
+
+Note that the rainfall accumulations are in millimeters, and are relative to the duration associated with each set of parameters. Continuing the example, we provided three sets of parameters, for 15, 30, and 60 minute intervals, respectively. So the output accumulations are:
+
+* The accumulation for 50% probability in mm/15-minutes
+* The accumulation for 50% probability in mm/30-minutes
+* The accumulation for 50% probability in mm/60-minutes
+
+which correspond to the columns of the output array, respectively.
+
+.. tip:: 
+  
+  If you want accumulations as hourly intensities (mm/hour), be sure to scale them to the appropriate duration::
+
+    # 15-minute accumulation to mm/hour
+    >>> R = 0.24  # mm/15-minutes
+    >>> R = R * (15/60)
+
+    # 30-minute accumulation to mm/hour
+    >>> R = 0.24  # mm/30-minutes
+    >>> R = R * (30/60)
+
+
+
+Advanced Usage
+--------------
+
+.. tip:: This section is mostly intended for researchers. You probably don't need to read it for standard hazard assessments.
+
+Custom Models
++++++++++++++
+
+As stated, the :ref:`probability <pfdf.models.staley2017.probability>` and :ref:`accumulation <pfdf.models.staley2017.accumulation>` functions solve the general form of equations 1 and 2. As such, you are not required to use the M1-4 models, and you can design custom models instead. In this case, you can compute the variables (T, F, S) and parameters (B, Ct, Cf, Cs) for your custom model, and then use ``probability`` and ``accumulation`` as usual. 
+
+.. note:: 
+  
+  When designing custom models, the rainfall accumulations are always parsed/returned relative to the duration interval used to calibrate the model parameters. See above for an explanation of how this affects the :ref:`probability <prob-duration>` and :ref:`accumulation <acc-duration>` commands for the M1-4 models.
+
+Parameter Sweeps
+++++++++++++++++
+
+Some researchers may be interested in conducting parameter sweeps or using Monte Carlo methods to test model parameters. When doing so, note that each parameter (B, Ct, Cf, Cs) provided as input to ``probability`` and/or ``accumulation`` may either be scalar or a vector. If a parameter is scalar, then the same value is used for each computation. If a parameter is a vector, then each value will correspond to one column of the output array. Note that if multiple parameters are vectors, then the vectors must be the same length.
+
+For example, to test multiple values of a single parameter, you could do something like::
+
+  >>> import numpy as np
+  >>> B = -3.63
+  >>> Ct = np.arange(0.2, 0.5, 0.01)
+  >>> Cf = 0.67
+  >>> Cs = 0.70
+  >>> R = 0.24  # mm/duration
+
+  >>> len(segments)
+  2561
+  >>> Ct.size
+  30
+
+  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  >>> p.shape
+  (2561, 30)
+
+In this example, we have tested an M1-like model using 30 different values of the Ct parameter. The output array is a matrix with one column per tested value.
+
+----
+
+Alternatively, you could instead test multiple values of multiple parameters simultaneously. For example, suppose you use a `latin hyper-cube <https://en.wikipedia.org/wiki/Latin_hypercube_sampling>`_ to sample 5000 different sets of Ct, Cf, and Cs parameters. Your code might resemble the following::
+
+  >>> Ct, Cf, Cs = my_lhc_sampler(N=5000)
+  >>> Ct.size, Cf.size, Cs.size
+  (5000, 5000, 5000)
+
+  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  >>> p.shape
+  (2561, 5000)
+
+Here, the output array is a matrix with one column per sampled set of parameters. 
+
+----
+
+If you need to vary a variable (T, F, S) in conjunction with parameters, then the variable should be a matrix with one column per parameter set. For example, the following code could be used to vary the terrain variable as a function of the Ct parameter::
+
+  >>> Ct = np.arange(0.2, 0.5, 0.01)
+  >>> T = my_terrain_sampler(segments, Ct)
+
+  >>> Ct.size
+  30
+  >>> T.shape
+  (2561, 30)
+
+  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  >>> p.shape
+  (2561, 30)
+
+
+
+
+
+.. _s17-models:
+
+Specific Models
+---------------
+
+.. _m1:
+
+M1
+++
+
+.. list-table::
+  :header-rows: 1
+  :class: word-wrap-table
+
+  * - Variable
+    - Description
+  * - T
+    - | Proportion of catchment area with both 
+      | (1) moderate or high burn severity, and 
+      | (2) slope angle >= 23 degrees.
+  * - F
+    - Mean catchment dNBR / 1000
+  * - S
+    - Mean catchment KF-factor
+
+Example workflow::
+
+  >>> from pfdf import severity, watershed
+  >>> moderate_high = severity.mask(barc4, ["moderate","high"])
+  >>> slopes = watershed.slopes(dem, flow)
+  >>> dnbr = Raster('dnbr.tif')
+  >>> kf = Raster('kf-factor.tif')
+
+  >>> T, F, S = s17.M1.variables(segments, moderate_high, slopes, dnbr, kf)
+  >>> B, Ct, Cf, Cs = s17.M1.parameters()
+
+.. _m2:
+
+M2
+++
+
+.. list-table::
+  :header-rows: 1
+
+  * - Variable
+    - Description
+  * - T
+    - | Mean sin(theta) of catchment area 
+      | burned at moderate or high severity.
+  * - F
+    - Mean catchment dNBR / 1000
+  * - S
+    - Mean catchment soil thickness / 100
+
+Example workflow::
+
+  >>> from pfdf import severity, watershed
+  >>> moderate_high = severity.mask(barc4, ["moderate","high"])
+  >>> slopes = watershed.slopes(dem, flow)
+  >>> dnbr = Raster('dnbr.tif')
+  >>> kf = Raster('kf-factor.tif')
+
+  >>> s17.M2.variables(segments, moderate_high, slopes, dnbr, kf_factor)
+  >>> B, Ct, Cf, Cs = s17.M2.parameters()
+
+.. _m3:
+
+M3
+++
+
+.. list-table::
+  :header-rows: 1
+
+  * - Variable
+    - Description
+  * - T
+    - | Topographic ruggedness. 
+      | (Vertical relief divided by the 
+      | square root of catchment area).
+  * - F
+    - | Proportion of catchment area burned 
+      | at moderate or high severity.
+  * - S
+    - Mean catchment soil thickness / 100
+
+Example workflow::
+
+  >>> from pfdf import severity, watershed
+  >>> moderate_high = severity.mask(barc4, ["moderate","high"])
+  >>> relief = watershed.relief(dem, flow)
+  >>> thickness = Raster('soil-thickness.tif')
+
+  >>> T, F, S = s17.M3.variables(segments, moderate_high, relief, thickness)
+  >>> B, Ct, Cf, Cs = s17.M3.parameters()
+
+.. _m4:
+
+M4
+++
+
+.. list-table::
+  :header-rows: 1
+
+  * - Variable
+    - Description
+  * - T
+    - | Proportion of catchment area that both 
+      | (1) was burned, and 
+      | (2) has a slope angle >= 30 degrees.
+  * - F
+    - Mean catchment dNBR / 1000
+  * - S
+    - Mean catchment soil thickness / 100
+
+Example Workflow::
+
+  >>> from pfdf import severity, watershed
+  >>> isburned = severity.mask(barc4, "burned")
+  >>> slopes = watershed.slopes(dem, flow)
+  >>> dnbr = Raster('dnbr.tif')
+  >>> thickness = Raster('soil-thickness.tif')
+
+  >>> T, F, S = s17.M4.variables(segments, isburned, slopes, dnbr, thickness)
+  >>> B, Ct, Cf, Cs = s17.M4.parameters()
+

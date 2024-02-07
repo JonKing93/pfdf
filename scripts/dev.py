@@ -13,23 +13,14 @@ Poetry Scripts:
     format              - Applies isort and black formatters to the code
     lint                - Checks that all code is formatted correctly
     pipeline            - Runs the checks implemented in the Gitlab pipeline
-
-Other Functions:
-    run                 - Runs a command as a subprocess
 """
 
-from typing import List
-import subprocess
+from . import run
 
 MIN_COVERAGE = 100
 
-
-def pipeline():
-    "Runs the steps of the Gitlab pipeline"
+def safety():
     run(["safety", "check"])
-    lint()
-    tests()
-
 
 def tests():
     """
@@ -64,6 +55,4 @@ def lint():
     run(["black", "tests", "--check"])
 
 
-def run(command: List[str]):
-    "Runs a command as a subprocess. Raises error if encounters an error code"
-    subprocess.run(command, check=True)
+
