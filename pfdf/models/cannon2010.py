@@ -1,59 +1,13 @@
 """
 cannon2010  Implements a combined hazard (probability + volume) assessment model
 ----------
-OVERVIEW:
 This module implements the combined relative hazard classification model presented
 in Cannon et al., 2010 (see citation below). This model determines a relative
 hazard class for a debris flow by considering both the probability and potential
 sediment volume of the debris flow. In brief, the model classifies both probability
-and volumes and assigns a hazard score to each class. These two scores are then 
+and volume hazards and assigns a score to each class. These two scores are then 
 added together, and the combined score is used to determine a final hazard 
-classification. Additional information on the hazard scores and classifications
-is provided below.
-
-Most users will want to start with the "hazard" function. This function returns
-combined relative hazard classes for a set of debris flows, given the debris flow
-probabilities and potential sediment volumes. Note that you can use the
-pfdf.models.staley2017 module to compute debris flow probabilities, and the
-pfdf.models.gartner2014 module to compute potential sediment volumes (although
-the use of these modules is not strictly required).
-
-Advanced users may also be interested in the "pscore", "vscore", and "hscore" 
-methods, which can be used to calculate the individual (p)robability, (v)olume, 
-and (h)azard classification scores. Some users may also be interested in changing
-the model configuration to implement custom hazard assessment routines. This can
-be acomplished by specifying the optional "thresholds" arguments to any functions.
-(and see below for additional details on implementation of custom thresholds).
-
-MODEL THRESHOLDS:
-The following tables summarize the default model thresholds, as presented in the
-paper:
-
-Probability | Score       Volume (m^3) | Score     Combined Score | Hazard Class
------------ | -----       ------------ | -----     -------------- | ------------
-[0, 0.25]   |   1         [0, 1e3]     |   1           1 - 3      |   1 - Low
-(0.25, 0.5] |   2         (1e3, 1e4]   |   2           4 - 6      |   2 - Moderate
-(0.5, 0.75] |   3         (1e4, 1e5]   |   3            >7        |   3 - High
-(0.75, 1]   |   4         > 1e5        |   4           NaN        |   NaN - Missing
-NaN         |   NaN       NaN          |  NaN     
-
-When providing custom thresholds for any portion of the analysis, the thresholds 
-should be a vector of N increasing values, such that thresholds = [T1, T2, ..., Tn]
-Then, the relevant scores are assigned as follows:
-
-Values      | Score
------------ | -----
-[0, T1]  |   1
-(T1, T2]    |   2
-...         |   ...
-(T_n-1, Tn] |   N
-(Tn, Inf]   |   N+1
-NaN         |   NaN
-
-Note that N is the number of break points, and so the number of classification
-groups will be N+1. Also note that, because probability values are restricted to
-the interval from 0 to 1, the final bracket for custom probability thresholds
-will be (Tn, 1].
+classification.
 
 CITATION:
 Cannon, S. H., Gartner, J. E., Rupert, M. G., Michael, J. A., Rea, A. H., 

@@ -23,6 +23,7 @@ Vector Features:
     GeometryError           - When a feature geometry is not valid
     CoordinatesError        - When a feature's coordinates are not valid
     PolygonError            - When a polygon's coordinates are not valid
+    PointError              - When a point's coordinates are not valid
 
 Models:
     DurationsError          - When queried rainfall durations are not recognized
