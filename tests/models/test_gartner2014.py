@@ -96,20 +96,13 @@ class TestValidateVariables:
         variables = {"aname": a}
         with pytest.raises(ShapeError) as error:
             g14._validate_variables(variables, nruns=4)
-        assert_contains(error, "must have either 1 or 4 columns", "aname has 5")
-
-    def test_invalid_ncols_1(_):
-        a = np.arange(0, 10).reshape(2, 5)
-        variables = {"aname": a}
-        with pytest.raises(ShapeError) as error:
-            g14._validate_variables(variables, nruns=1)
-        assert_contains(error, "must have 1 column", "aname has 5")
+        assert_contains(error, "must have either 1 or 4 runs", "aname has 5")
 
     def test_invalid_nrows(_):
         variables = {"aname": [1, 2, 3], "bname": [1, 2, 3, 4]}
         with pytest.raises(ShapeError) as error:
             g14._validate_variables(variables, nruns=1)
-        assert_contains(error, "aname has 3 rows, whereas bname has 4")
+        assert_contains(error, "aname has 3 segments, whereas bname has 4")
 
     def test_valid_zero(_):
         a = np.arange(10).reshape(2, 5)
@@ -125,6 +118,30 @@ class TestValidateVariables:
             g14._validate_variables(variables, nruns=5)
         assert_contains(error, "aname")
 
+    def test_IT_1D(_):
+        variables = {
+            "i15": [1, 2, 3],
+            "i60": [4, 5, 6],
+            "T": [7, 8, 9],
+        }
+        i15, i60, T = g14._validate_variables(variables, nruns=1)
+
+        assert i15.shape == (1, 3)
+        assert i60.shape == (1, 3)
+        assert T.shape == (1, 3)
+
+    def test_IT_column_vector(_):
+        variables = {
+            "i15": np.array([1, 2, 3]).reshape(3, 1),
+            "i60": np.array([4, 5, 6]).reshape(3, 1),
+            "T": np.array([7, 8, 9]).reshape(3, 1),
+        }
+        i15, i60, T = g14._validate_variables(variables, nruns=1)
+
+        assert i15.shape == (3, 1)
+        assert i60.shape == (3, 1)
+        assert T.shape == (3, 1)
+
 
 #####
 # User function tests
@@ -132,27 +149,44 @@ class TestValidateVariables:
 
 
 class TestEmergency:
-    def test(_):
-        i15 = [3, 29, 72]
+    def test_i15_scalar(_):
+        i15 = 3
         Bmh = [0.01, 1.11, 15.01]
         R = [93, 572, 2098]
-        expected = np.array([8.92385523e01, 1.29251677e04, 1.90293621e06]).reshape(3)
+        expected = np.array([8.92385523e01, 3.10949998e03, 1.36645970e05])
 
         output = g14.emergency(i15, Bmh, R)
         assert np.allclose(output, expected, rtol=1e-5)
 
-    def test_scalar(_):
-        i15 = 3
+    def test_i15_1D(_):
+        i15 = [3, 6]
         Bmh = [0.01, 1.11, 15.01]
         R = [93, 572, 2098]
 
+        expected = np.array(
+            [
+                [8.92385523e01, 1.18050716e02],
+                [3.10949998e03, 4.11345422e03],
+                [1.36645970e05, 1.80764415e05],
+            ]
+        )
         output = g14.emergency(i15, Bmh, R)
-        expected = np.array([8.92385523e01, 3.10949998e03, 1.36645970e05]).reshape(3)
-        assert np.allclose(output, expected)
+        assert output.shape == (3, 2)
+        assert np.allclose(output, expected, rtol=1e-5)
 
-    def test_multiple_runs(_):
+    def test_i15_column_vector(_):
+        i15 = np.array([3, 29, 72]).reshape(3, 1)
+        Bmh = [0.01, 1.11, 15.01]
+        R = [93, 572, 2098]
+
+        expected = np.array([8.92385523e01, 1.29251677e04, 1.90293621e06]).reshape(3)
+        output = g14.emergency(i15, Bmh, R)
+        assert output.shape == (3,)
+        assert np.allclose(output, expected, rtol=1e-5)
+
+    def test_multiple_parameters(_):
         # 3 stream segments
-        i15 = [3, 29, 72]
+        i15 = np.array([3, 29, 72]).reshape(3, 1)
         Bmh = [0.01, 1.11, 15.01]
         R = [93, 572, 2098]
 
@@ -170,7 +204,7 @@ class TestEmergency:
         assert np.allclose(output, expected, rtol=1e-5)
 
     def test_singletons(_):
-        i15 = [3, 29, 72]
+        i15 = np.array([3, 29, 72]).reshape(3, 1)
         Bmh = [0.01, 1.11, 15.01]
         R = [93, 572, 2098]
         expected = np.array([8.92385523e01, 1.29251677e04, 1.90293621e06]).reshape(3, 1)
@@ -193,36 +227,56 @@ class TestEmergency:
 
         with pytest.raises(ShapeError) as error:
             g14.emergency(i15, Bmh, R, B=B, Ci=Ci, Cb=Cb, Cr=Cr)
-        assert_contains(error, "must have either 1 or 2 columns", "i15 has 3")
+        assert_contains(error, "must have either 1 or 2 runs", "i15 has 3")
 
 
 class TestLongterm:
-    def test(_):
-        i60 = [3, 29, 72]
+    def test_i60T_scalar(_):
+        i60 = 3
         Bt = [0.1, 1.5, 16]
-        T = [1, 2, 3]
+        T = 1
         A = [0.2, 3, 32]
         R = [93, 572, 2098]
-        expected = np.array([345.20241331, 15358.78198604, 275147.88764569])
+        expected = np.array([345.20241331, 3622.90951263, 37508.12049657])
 
         output = g14.longterm(i60, Bt, T, A, R)
         assert np.allclose(output, expected, rtol=1e-5)
 
-    def test_scalar(_):
-        i60 = 3
+    def test_i60T_1D(_):
+        i60 = [3, 29]
         Bt = [0.1, 1.5, 16]
-        T = [1, 2, 3]
+        T = [1, 2]
         A = [0.2, 3, 32]
         R = [93, 572, 2098]
+
+        expected = np.array(
+            [
+                [345.20241331, 1463.43390267],
+                [3622.90951263, 15358.78198604],
+                [37508.12049657, 159010.05625553],
+            ]
+        )
         output = g14.longterm(i60, Bt, T, A, R)
-        expected = np.array([345.20241331, 3067.68164694, 28814.83926864]).reshape(3)
+        assert output.shape == (3, 2)
         assert np.allclose(output, expected)
 
-    def test_multiple_runs(_):
-        # 3 stream segments
-        i60 = [3, 29, 72]
+    def test_i60T_column_vector(_):
+        i60 = np.array([3, 29, 72]).reshape(3, 1)
         Bt = [0.1, 1.5, 16]
-        T = [1, 2, 3]
+        T = np.array([1, 2, 3]).reshape(3, 1)
+        A = [0.2, 3, 32]
+        R = [93, 572, 2098]
+
+        expected = np.array([345.20241331, 15358.78198604, 275147.88764569])
+        output = g14.longterm(i60, Bt, T, A, R)
+        assert output.shape == (3,)
+        assert np.allclose(output, expected)
+
+    def test_multiple_parameters(_):
+        # 3 stream segments
+        i60 = np.array([3, 29, 72]).reshape(3, 1)
+        Bt = [0.1, 1.5, 16]
+        T = np.array([1, 2, 3]).reshape(3, 1)
         A = [0.2, 3, 32]
         R = [93, 572, 2098]
 
@@ -242,9 +296,9 @@ class TestLongterm:
         assert np.allclose(output, expected, rtol=1e-5)
 
     def test_singletons(_):
-        i60 = [3, 29, 72]
+        i60 = np.array([3, 29, 72]).reshape(3, 1)
         Bt = [0.1, 1.5, 16]
-        T = [1, 2, 3]
+        T = np.array([1, 2, 3]).reshape(3, 1)
         A = [0.2, 3, 32]
         R = [93, 572, 2098]
         expected = np.array([345.20241331, 15358.78198604, 275147.88764569])
@@ -259,7 +313,7 @@ class TestLongterm:
 
     def test_invalid_nruns(_):
         # 3 stream segments
-        i60 = np.array([3, 29, 72]).reshape(1, 3)
+        i60 = [3, 29, 72]
         Bt = [0.1, 1.5, 16]
         T = [1, 2, 3]
         A = [0.2, 3, 32]
@@ -275,4 +329,4 @@ class TestLongterm:
 
         with pytest.raises(ShapeError) as error:
             g14.longterm(i60, Bt, T, A, R, B=B, Ci=Ci, Cb=Cb, Ct=Ct, Ca=Ca, Cr=Cr)
-        assert_contains(error, "must have either 1 or 2 columns", "i60 has 3")
+        assert_contains(error, "must have either 1 or 2 runs", "i60 has 3")

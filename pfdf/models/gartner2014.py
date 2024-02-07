@@ -3,18 +3,7 @@ gartner2014  Functions that implement the debris-flow volume models of Gartner e
 ----------
 This module contains functions that solve the two debris-flow volume models
 presented as Equations 2 and 3 in Gartner et al., 2014 (see citation below). 
-Specifically, these equations are:
-
-Long-Term Model (Equation 2):
-    V = exp[ 6.07 + 0.71*ln(i60) + 0.22*ln(Bt) - 0.24*ln(T) + 0.49*ln(A) + 0.03*sqrt(R) ]
-
-Emergency Assessment Model (Equation 3):
-    V = exp[ 4.22 +  0.39 * sqrt(i15)  +  0.36 * ln(Bmh)  +  0.13 * sqrt(R) ]
-    
-Users can use the "emergency" and "longterm" functions to solve the associated
-models. Also, these functions are generalized so that users can run the models
-with different parameter values (model intercept and coefficients) if desired.
-For example, to test and compare updated model calibrations.
+In brief, these are an emergency assessment, and a long-term assessment model.
 
 CITATION:
 Gartner, J. E., Cannon, S. H., & Santi, P. M. (2014). Empirical models for 
@@ -71,12 +60,25 @@ def emergency(
     The model solves the equation:
         V = exp[ 4.22 +  0.39 * sqrt(i15)  +  0.36 * ln(Bmh)  +  0.13 * sqrt(R) ]
 
-    Each of the three input variables may either be a scalar or a vector of data
-    values (although see below for a syntax that permits a less common 2D case).
-    If a variable is a vector, then it should have one element per stream segment
-    being assessed. If a scalar, then the same value will be used to assess potential
-    sediment volume for each segment in the network. The output volumes will be
-    a 1D numpy array with one element per segment.
+    Each of the three input variables may either be a scalar, vector, or matrix
+    of data values. If a variable is scalar, then the same value is used to assess
+    potential sediment volume for each segment in the network.
+
+    If Bmh or R are a 1D array, then they should have one element per segment in
+    the network. By contrast, if i15 is a 1D array, then each element is interpreted
+    as a parameter for a distinct run of the model. Essentially, the model is run
+    over the stream network for each value of i15.
+
+    If a variable has more than 1 dimension, then it is parsed as a matrix. Rows
+    are interpreted as values for segments, and columns are runs of the model. A
+    variable may have either 1 row or one row per segment. If it has 1 row, then the
+    same value is used for every segment per run. The matrix may have either 1
+    column or one column per run. If it has 1 column, then the same values are
+    used for each run.
+
+    The output volumes will either be a 1D array (for a single run), or a
+    2D array (for multiple runs). Each row holds the values for one stream segment,
+    and each column is a run. (And see below for an option to always return 2D output).
 
     emergency(..., *, B, Ci, Cb, Cr)
     Also specifies the parameters to use in the model. These are the intercept (B),
@@ -88,27 +90,12 @@ def emergency(
     In this case, the model solves the generalized equation:
         V = exp[ B +  Ci * sqrt(i15)  +  Cb * ln(Bmh)  +  Cr * sqrt(R) ]
 
-    In most cases, input parameters will consist of a single value. However, this
-    syntax also allows parameters to have multiple values. We refer to each value
-    of a parameter as a "run". All parameters with more than one value must have the
-    same number of runs. Each set of parameters is then used for an independent
-    run of the model. (Note that parameters with a single value will use the same
-    value for each run). This setup can be useful for comparing model results run
-    with different parameters - for example, using a Monte Carlo process to calibrate
-    model parameters.
-
-    When implementing multiple parameter runs, you may optionally also provide
-    different i15, Bmh, and R values for each run. To provide values for individual
-    runs, a variable should be a matrix with one column per parameter run. The
-    number of rows should either be 1 or the number of segments. If a variable has
-    a single row, then the same value is used for each stream segment in a given
-    run. However, note that 1D variables are always interpreted as representing
-    one value per stream segment, and never as one value per run.
-
-    For multiple parameter runs, the returned volumes V will be a 2D numpy array
-    with 1 row per stream segment, and 1 column per parameter run. If there is a
-    single run (the default case), then V will be a 1D array as usual (although
-    see below for an option to always return 2D output).
+    In many cases, input parameters will be scalar. However, this syntax also allows
+    parameters to be vectors, in which each value is used for a distinct model run.
+    All parameters with more than one value must have the same number of runs.
+    Parameters with a single value will use the same value for each run. This setup
+    can be useful for comparing results for different parameters - for example,
+    using a Monte Carlo process to calibrate model parameters.
 
     emergency(..., *, keepdims = True)
     Always returns output as a 2D array, regardless of the number of parameter runs.
@@ -170,12 +157,25 @@ def longterm(
     The model solves the equation:
         V = exp[ 6.07 + 0.71*ln(i60) + 0.22*ln(Bt) - 0.24*ln(T) + 0.49*ln(A) + 0.03*sqrt(R) ]
 
-    Each of the input variables may either be a scalar or a vector of data values
-    (although see below for a syntax that permits a less common 2D case). If a
-    variable is a vecotr, then it should have one element per stream segment being
-    assessed. If a scalar, then the same value will be used to assess potential
-    sediment volume for each segment in the network. The output volumes will be
-    a 1D numpy array with one element per segment.
+    Each of the input variables may either be a scalar, vector, or matrix of data values.
+    If a variable is scalar, then the same value is used to compute potential sediment
+    volume for each segment in the network.
+
+    If Bt, A, or R are a 1D array, then they should have one element per segment
+    in the network. By contrast, if i60 or T are a 1D array, then each element is
+    interpreted as a parameter for a distinct run of the model. Essentially, the
+    model is run over the stream network for each pair of i15 and T values.
+
+    If a variable has more than 1 dimension, then it is parsed as a matrix. Rows
+    are interpreted as values for segments, and columns are runs of the model. A
+    variable may have either 1 row or one row per segment. If it has 1 row, then the
+    same value is used for every segment per run. The matrix may have either 1
+    column or one column per run. If it has 1 column, then the same values are
+    used for each run.
+
+    The output volumes will either be a 1D array (for a single run), or a
+    2D array (for multiple runs). Each row holds the values for one stream segment,
+    and each column is a run. (And see below for an option to always return 2D output).
 
     longterm(..., *, B, Ci, Cb, Ct, Ca, Cr)
     Also specifies the parameters to use in the model. These are the intercept (B),
@@ -188,27 +188,12 @@ def longterm(
     In this case, the model solves the generalized equation:
         V = exp[ B + Ci*ln(i60) + Cb*ln(Bt) + Ct*ln(T) + Ca*ln(A) + Cr*sqrt(R) ]
 
-    In most cases, input parameters will consist of a single value. However, this
-    syntax also allows parameters to have multiple values. We refer to each value
-    of a parameter as a "run". All parameters with more than one value must have the
-    same number of runs. Each set of parameters is then used for an independent
-    run of the model. (Note that parameters with a single value will use the same
-    value for each run). This setup can be useful for comparing model results run
-    with different parameters - for example, using a Monte Carlo process to calibrate
-    model parameters.
-
-    When implementing multiple parameter runs, you may optionally also provide
-    different i60, Bt, T, A, and R values for each run. To provide values for individual
-    runs, a variable should be a matrix with one column per parameter run. The
-    number of rows should either be 1 or the number of segments. If a variable has
-    a single row, then the same value is used for each stream segment in a given
-    run. However, note that 1D variables are always interpreted as representing
-    one value per stream segment, and never as one value per run.
-
-    For multiple parameter runs, the returned volumes V will be a 2D numpy array
-    with 1 row per stream segment, and 1 column per parameter run. If there is a
-    single run (the default case), then V will be a 1D array as usual (although
-    see below for an option to always return 2D output).
+    In many cases, input parameters will be scalar. However, this syntax also allows
+    parameters to be vectors, in which each value is used for a distinct model run.
+    All parameters with more than one value must have the same number of runs.
+    Parameters with a single value will use the same value for each run. This setup
+    can be useful for comparing results for different parameters - for example,
+    using a Monte Carlo process to calibrate model parameters.
 
     longterm(..., *, keepdims = True)
     Always returns output as a 2D array, regardless of the number of parameter runs.
@@ -282,20 +267,26 @@ def _validate_variables(
 ) -> Tuple[MatrixArray, ...]:
     "Checks that variables are positive, real-valued matrices with allowed shapes"
 
-    # Check each variable is a real-valued matrix
+    # Check each variable is a real-valued matrix. Interpret 1D intensity/time
+    # as runs, rather than segments
     nsegments = 1
     for name, variable in variables.items():
+        if name in ["i15", "i60", "T"]:
+            variable = validate.array(variable, name, dtype=real)
+            if variable.ndim == 1:
+                variable = variable.reshape(1, -1)
         variable = validate.matrix(variable, name, dtype=real)
-        nrows, ncols = variable.shape
 
-        # Must either have 1 or nruns columns
-        if ncols != 1 and ncols != nruns:
-            if nruns == 1:
-                description = "1 column"
-            else:
-                description = f"either 1 or {nruns} columns"
+        # Get shape. Update nruns if this is the first input with multiple runs
+        nrows, ncols = variable.shape
+        if ncols > 1 and nruns == 1:
+            nruns = ncols
+
+        # Otherwise must either have 1 or nruns columns
+        elif ncols != 1 and ncols != nruns:
             raise ShapeError(
-                f"Each variable must have {description}. However, {name} has {ncols} columns."
+                f"Each variable must have either 1 or {nruns} runs. "
+                f"However, {name} has {ncols} runs."
             )
 
         # Record the shape and name of the first variable with multiple rows
@@ -307,8 +298,8 @@ def _validate_variables(
             # Require variables with multiple rows to have the same shape
             elif nrows != nsegments:
                 raise ShapeError(
-                    "All variables with multiple rows must have the same number of rows. "
-                    f"However, {set_segments} has {nsegments} rows, whereas {name} has {nrows}."
+                    "All variables with multiple stream segments must have the same number of segments. "
+                    f"However, {set_segments} has {nsegments} segments, whereas {name} has {nrows}."
                 )
 
         # Elements must be positive

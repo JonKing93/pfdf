@@ -1,90 +1,15 @@
 """
 staley2017  Implements the logistic regression models presented in Staley et al., 2017
 ----------
-BACKGROUND:
-This module solves the logistic regression models presented in Staley et al., 2017 
+This module implements the logistic regression models presented in Staley et al., 2017 
 (see citation below). These models describe debris-flow probability as a function 
-of terrain (T), fire burn severity (F), soil (S), and rainfall accumulation (R),
-such that:
+of terrain (T), fire burn severity (F), soil (S), and rainfall accumulation (R).
+The models can also be inverted to solve for rainfall accumulation given debris-flow
+probability.
 
-    p = e^X / (1 + e^X)                  Equation 1
-    
-    X = B + Ct*T*R + Cf*F*R + Cs*S*R
-
-where:
-    p is the probability of a debris flow
-    T is a terrain variable
-    F is a fire severity variable
-    S is a soil variable
-    R is rainfall accumulation in mm/hour
-    B is a model intercept, and
-    Ct, Cf, Cs are variable coefficients
-
-The paper details 4 specific probability models, each of which uses a different 
-combination of earth-system variables as T, F, and S.
-
-MODULE OVERVIEW:
-This module provides two functions that solve models of this form in the forward
-and reverse directions. The "probability" function solves the model in the forward
-direction - this computes debris-flow probability as a function of rainfall
-accumulation using Equation 1.
-
-By contrast, the "accumulation" function determines the rainfall accumulation
-needed to cause a debris flow at the specified probability levels. This function
-inverts Equation 1, such that:
-
-    R = [ln(p / (1-p)) - B] / (Ct*T + Cf*F + Cs*S)
-
-Both functions can solve for multiple stream segments, parameter values, probability
-thresholds, and rainfall accumulations simultaneously. Note that these functions
-are generic solvers - as such, they are suitable for any of the 4 models described
-in the paper, as well as for any custom models following the form of Equation 1.
-
-In addition to the generic solvers, this module provides the M1, M2, M3, and M4 
-model classes, which provide additional support for implementing the 4 specific
-models described in the paper. Each class provides a "parameters" method, which 
-returns the corresponding B, Ct, Cf, and Cs values published in the paper. Each 
-class also provides a "variables" method, which returns the appropriate T, F, 
-and S variables for a given set of stream segments. These parameters and variables
-can then be used to run the "probability" and/or "accumulation" functions.
-
-EXAMPLE:
-This example demonstrates how to use the M1 model to solve for debris-flow
-probability and rainfall accumulation. First, use the M1 class to obtain the
-parameters and variables needed to implement this model:
-
-    >>> from pfdf.models import staley2017 as s17
-    >>> B, Ct, Cf, Cs = s17.M1.parameters()
-    >>> T, F, S = s17.M1.variables(segments, <other args>)
-
-Note that the first input to any model's "variables" method is always a 
-pfdf.segments.Segments object describing a particular stream segment network. 
-The subsequent inputs will vary, as each model is calibrated to a different set 
-of earth system variables.
-    
-Then, to solve for probability (given rainfall accumulations):
-
-    >>> R = [0.1, 0.2, 0.3]
-    >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
-
-Or to solve for accumulation (given probabilities):
-
-    >>> p = [0.5, 0.75]
-    >>> R = s17.accumulation(p, B, Cr, T, Cf, F, Cs, S)
-
-NOTE ON RASTER SHAPES:
-Each model's "variables" method uses a pfdf.segments.Segments object to
-calculate values from various input rasters. As such, the input rasters must match
-the shape, crs, and (affine) transform of the flow directions raster used to derive
-the Segments object. Please see the documentation of the Segments class, and
-specifically the "Working with Input Rasters" section, for additional details on
-these requirements.
-
-DESIGNING NEW MODELS:
-Advanced users may be interested in implementing new models that follow the form
-of Equation 1. Because the "probability" and "accumulation" functions are generalized,
-you can them to implement these model variants - to do so, provide the custom
-coefficients and variables to a function, and run as usual.
+The module also provides classes to implement the M1-4 models presented in the
+paper. These classes provide methods to return the parameters, and compute the
+variables specific to each model.
 
 CITATION:
 Staley, D. M., Negri, J. A., Kean, J. W., Laber, J. L., Tillery, A. C., & 
@@ -93,8 +18,6 @@ thresholds for post-fire debris-flow generation in the western United States.
 Geomorphology, 278, 149-162.
 https://doi.org/10.1016/j.geomorph.2016.10.019
 ----------
-*FOR USERS*
-
 Key Functions:
     probability         - Solves for debris-flow probabilities given rainfall accumulations
     accumulation        - Solves for the rainfall accumulations needed to achieve given probability levels
@@ -103,9 +26,12 @@ Model Classes:
     M1, M2, M3, M4      - Classes that implement the 4 models described in Staley et al., 2017
     .parameters(...)    - Return a model's B, Ct, Cf, and Cs parameters for queried rainfall durations
     .variables(...)     - Calculate the T, F, and S variables for a model
-    Model               - Abstract base class implementing common functionality for the M1-4 models
+    .terrain(...)       - Calculate the terrain variable (T) for a model
+    .fire(...)          - Calculate the fire variable (F) for a model
+    .soil(...)          - Calculate the soil variable (S) for a model
 
 Internal:
+    Model               - Abstract base class implementing common functionality for the M1-4 models
     _validate           - Validates parameters/variables and reshapes for broadcasting
 """
 
@@ -168,20 +94,23 @@ def accumulation(
     The three variables - T, F, and S - represent the terrain steepness,
     wildfire severity, and surface properties variables for the model. In
     most cases, these are 1D arrays with one element per stream segment
-    being assessed. Variables can also be 2D arrays - see below for details
-    for this less common use case.
+    being assessed. Variables can also be scalar (in which the same value is used
+    for every segment), or 2D arrays (see below for details of this less common
+    use case).
 
     The four parameters - B, Ct, Cf, and Cs - are the parameters of the logistic
     model link equation. B is the intercept, and each C parameter
-    is the coefficient of the associated variable. The parameters should be
-    numpy 1D arrays with one element per run of the hazard assessment model.
-    Here, we define a "run" as an implementation of the hazard model using a
-    unique set of logistic model parameters. A common use case is solving the
-    model for multiple rainfall durations (for example, 15, 30, and 60 minute
-    intervals). In the example with 3 durations, each parameter should have
-    3 elements - each element corresponds to the parameter value appropriate
-    for a particular rainfall duration. Another use case for multiple runs
-    is for Monte Carlo validation of one or more model parameters.
+    is the coefficient of the associated variable. Parameters can be used to
+    implement multiple runs of the assessment model. Here, we define a "run" as
+    an implementation of the hazard model using a unique set of logistic model
+    parameters. Each parameter should be either a scalar, or vector of parameter
+    values. If a vector, the input should have one element per run. If a scalar,
+    then the same value is used for every run of the model. A common use case is
+    solving the model for multiple rainfall durations (for example: 15, 30, and
+    60 minute intervals). In the example with 3 durations, each parameter should
+    have 3 elements - each element corresponds to parameter value for the corresponding
+    rainfall duration. Another use case for multiple runs is implementing a
+    parameter sweep to validate model parameters.
 
     The p-values - p - are the probabilities for which the model should be solved.
     For example, p=0.5 solves for the rainfall intensities that cause a 50%
@@ -268,20 +197,23 @@ def probability(
     The three variables - T, F, and S - represent the terrain steepness,
     wildfire severity, and surface properties variables for the model. In
     most cases, these are 1D arrays with one element per stream segment
-    being assessed. Variables can also be 2D arrays - see below for details
-    for this less common use case.
+    being assessed. Variables can also be scalar (in which the same value is used
+    for every segment), or 2D arrays (see below for details of this less common
+    use case).
 
     The four parameters - B, Ct, Cf, and Cs - are the parameters of the logistic
     model link equation. B is the intercept, and each C parameter
-    is the coefficient of the associated variable. The parameters should be
-    numpy 1D arrays with one element per run of the hazard assessment model.
-    Here, we define a "run" as an implementation of the hazard model using a
-    unique set of logistic model parameters. A common use case is solving the
-    model for multiple rainfall durations (for example, 15, 30, and 60 minute
-    intervals). In the example with 3 durations, each parameter should have
-    3 elements - each element corresponds to the parameter value appropriate
-    for a particular rainfall duration. Another use case for multiple runs
-    is for Monte Carlo validation of one or more model parameters.
+    is the coefficient of the associated variable. Parameters can be used to
+    implement multiple runs of the assessment model. Here, we define a "run" as
+    an implementation of the hazard model using a unique set of logistic model
+    parameters. Each parameter should be either a scalar, or vector of parameter
+    values. If a vector, the input should have one element per run. If a scalar,
+    then the same value is used for every run of the model. A common use case is
+    solving the model for multiple rainfall durations (for example: 15, 30, and
+    60 minute intervals). In the example with 3 durations, each parameter should
+    have 3 elements - each element corresponds to parameter value for the corresponding
+    rainfall duration. Another use case for multiple runs is implementing a
+    parameter sweep to validate model parameters.
 
     The R values are the rainfall accumulations for which the model should be solved.
     For example, R = 6 solves for debris-flow probability when rainfall accumulation
@@ -325,12 +257,11 @@ def probability(
         Cs: The coefficients for the surface properties variable
         S: The surface properties variable
         keepdims: True to always return a 3D numpy array. If False (default),
-            returns a 2D array when there is 1 p-value, and a 1D array if there
-            is 1 p-value and 1 parameter run.
+            returns a 2D array when there is 1 R value, and a 1D array if there
+            is 1 R value and 1 parameter run.
 
     Outputs:
-        numpy 3D array (Segments x Parameter Runs x P-values): The rainfall
-            accumulations required to achieve the specified p-values.
+        numpy 3D array (Segments x Parameter Runs x R values): The computed probability levels
     """
 
     # Validate and reshape for broadcasting.
@@ -356,39 +287,53 @@ def _validate(PR, PRname, B, Ct, Cf, Cs, T, F, S):
     for name, value in variables.items():
         variables[name] = validate.matrix(value, name, dtype=real)
 
-    # Get sizes
+    # Initialize sizes
     nQueries = vectors[PRname].size
-    nRuns = vectors["B"].size
-    nSegments = variables["T"].shape[0]
+    nRuns = 1
+    nSegments = 1
 
     # Process vectors. Reshape p for broadcasting....
     for name, value in vectors.items():
         if name == PRname:
             vectors[name] = value.reshape(1, 1, nQueries)
+            continue
 
-        # Check parameters have the same number of runs
-        elif value.size != nRuns:
+        # Update nRuns if this is the first parameter with multiple runs.
+        # Otherwise, must have 1 or nRuns elements
+        elif nRuns == 1 and value.size > 1:
+            nRuns = value.size
+            set_runs = name
+        elif value.size != 1 and value.size != nRuns:
             raise ShapeError(
-                f"Model parameters (B, Ct, Cf, Cs) must have the same number of elements (runs). "
-                f"But B has {nRuns} element(s), whereas {name} has {value.size}."
+                f"Model parameters (B, Ct, Cf, Cs) must have the same number of runs. "
+                f"But {set_runs} has {nRuns} elements, whereas {name} has {value.size}."
             )
 
         # Reshape parameters for broadcasting
-        else:
-            vectors[name] = value.reshape(1, nRuns, 1)
+        vectors[name] = value.reshape(1, -1, 1)
 
-    # Check that variables have the same number of rows, and either 1 or nRuns columns
+    # Get variable shapes. Update nRuns and nSegments when appropriate
     for name, value in variables.items():
         nrows, ncols = value.shape
-        if nrows != nSegments:
+        if nSegments == 1 and nrows > 1:
+            nSegments = nrows
+            set_segments = name
+        if nRuns == 1 and ncols > 1:
+            nRuns = ncols
+            set_runs = name
+
+        # Check that variables have 1 or nSegments rows
+        if nrows != 1 and nrows != nSegments:
             raise ShapeError(
-                f"Variables (T, F, S) must have the same number of rows (stream segments). "
-                f"But T has {nSegments} row(s), whereas {name} has {value.shape[0]}."
+                "Variables (T, F, S) must have the same number of stream segments. "
+                f"But {set_segments} has {nSegments} rows, whereas {name} has {nrows}."
             )
+
+        # Also require 1 or nRuns columns
         elif ncols != 1 and ncols != nRuns:
             raise ShapeError(
-                f"Variables (T, F, S) must have either 1 or {nRuns} columns. "
-                f"But {name} has {value.shape[1]} column(s)."
+                f"{set_runs} has {nRuns} runs, so {name} must have either 1 or {nRuns} columns. "
+                f"But {name} has {ncols} columns instead."
             )
 
         # Reshape variables for broadcasting
@@ -605,9 +550,97 @@ class M1(Model):
     Cf = [0.67, 0.39, 0.20]
     Cs = [0.70, 0.50, 0.220]
 
-    @classmethod
+    #####
+    # Internal variables (validated)
+    #####
+
+    @staticmethod
+    def _terrain(segments: Segments, moderate_high: Raster, slopes: Raster):
+        "Computes the M1 terrain variable"
+        mask = Model._terrain_mask(moderate_high, slopes, threshold_degrees=23)
+        return segments.upslope_ratio(mask)
+
+    @staticmethod
+    def _fire(segments: Segments, dnbr: Raster, omitnan: bool):
+        "Computes the M1 fire variable"
+        return segments.scaled_dnbr(dnbr, omitnan=omitnan)
+
+    @staticmethod
+    def _soil(segments: Segments, kf_factor: Raster, omitnan: bool):
+        "Computes the M1 soil variable"
+        return segments.kf_factor(kf_factor, omitnan=omitnan)
+
+    #####
+    # Variables
+    #####
+
+    @staticmethod
+    def terrain(segments: Segments, moderate_high: RasterInput, slopes: RasterInput):
+        """
+        Computes the M1 terrain variable
+        ----------
+        M1.terrain(segments, moderate_high, slopes)
+        Returns the M1 terrain variable for the network.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            moderate_high: The moderate-high burn severity mask
+            slopes: Slope raster
+
+        Outputs:
+            numpy 1D array: The M1 terrain variable (T)
+        """
+        moderate_high, slopes = Model._validate(
+            segments, [moderate_high, slopes], ["moderate_high", "slopes"]
+        )
+        return M1._terrain(segments, moderate_high, slopes)
+
+    @staticmethod
+    def fire(segments: Segments, dnbr: RasterInput, omitnan: bool = False):
+        """
+        Computes the M2 fire variable
+        ----------
+        M1.fire(segments, dnbr)
+        M1.fire(segments, dnbr, omitnan=True)
+        Returns the M1 fire variable for the network. Use "omitnan" to ignore
+        NaN and NoData values in the dNBR raster.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            dnbr: A dNBR raster
+            omitnan: True to ignore NaN and NoData values in the dNBR raster.
+                Default is False.
+
+        Outputs:
+            numpy 1D array: The M1 fire variable (F)
+        """
+        (dnbr,) = Model._validate(segments, [dnbr], ["dnbr"])
+        return M1._fire(segments, dnbr, omitnan)
+
+    @staticmethod
+    def soil(segments: Segments, kf_factor: RasterInput, omitnan: bool = False):
+        """
+        Computes the M1 soil variable
+        ----------
+        M1.soil(segments, kf_factor)
+        M1.soil(segments, kf_factor, omitnan=True)
+        Returns the M1 soil variable for the network. Use "omitnan" to ignore NaN
+        and NoData values in the KF-factor raster.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            kf_factor: A KF-factor raster
+            omitnan: True to ignore NaN and NoData values in the KF-factor raster.
+                Default is False
+
+        Outputs:
+            numpy 1D array: The M1 soil variable (S)
+        """
+        (kf_factor,) = Model._validate(segments, [kf_factor], ["kf_factor"])
+        return M1._soil(segments, kf_factor, omitnan)
+
+    @staticmethod
     def variables(
-        cls,
         segments: Segments,
         moderate_high: RasterInput,
         slopes: RasterInput,
@@ -664,18 +697,17 @@ class M1(Model):
         """
 
         # Validate
-        moderate_high, slopes, dnbr, kf_factor = cls._validate(
+        moderate_high, slopes, dnbr, kf_factor = Model._validate(
             segments,
             [moderate_high, slopes, dnbr, kf_factor],
             ["moderate_high", "slopes", "dnbr", "kf_factor"],
         )
-        omitnan = cls._validate_omitnan(omitnan, rasters=["dnbr", "kf_factor"])
+        omitnan = Model._validate_omitnan(omitnan, rasters=["dnbr", "kf_factor"])
 
         # Get variables
-        mask = cls._terrain_mask(moderate_high, slopes, threshold_degrees=23)
-        T = segments.upslope_ratio(mask)
-        F = segments.scaled_dnbr(dnbr, omitnan=omitnan["dnbr"])
-        S = segments.kf_factor(kf_factor, omitnan=omitnan["kf_factor"])
+        T = M1._terrain(segments, moderate_high, slopes)
+        F = M1._fire(segments, dnbr, omitnan["dnbr"])
+        S = M1._soil(segments, kf_factor, omitnan["kf_factor"])
         return T, F, S
 
 
@@ -685,7 +717,7 @@ class M2(Model):
     ----------
     This model's variables are as follows:
 
-        T: The mean sin(theta) of catchment area burned at moderate or high.
+        T: The mean sin(theta) of catchment area burned at moderate or high severity.
            Note that theta is the slope angle.
 
         F: Mean catchment dNBR / 1000
@@ -710,9 +742,118 @@ class M2(Model):
     Cf = [0.65, 0.38, 0.19]
     Cs = [0.68, 0.49, 0.22]
 
-    @classmethod
+    #####
+    # Internal variables (validated)
+    #####
+
+    @staticmethod
+    def _terrain(
+        segments: Segments, slopes: Raster, moderate_high: Raster, omitnan: bool
+    ):
+        "Computes the M2 terrain variable"
+
+        # Convert slopes to sine-thetas, but preserve nodata
+        sine_thetas = slope.to_sine(slopes.values)
+        sine_thetas = sine_thetas.astype(float, copy=False)
+        nodatas = NodataMask(slopes.values, slopes.nodata)
+        nodatas.fill(sine_thetas, nan)
+        sine_thetas = Raster._from_array(
+            sine_thetas, crs=slopes.crs, transform=slopes.transform, nodata=nan
+        )
+
+        # Compute variable
+        return segments.sine_theta(sine_thetas, moderate_high, omitnan=omitnan)
+
+    @staticmethod
+    def _fire(segments: Segments, dnbr: Raster, omitnan: bool):
+        "Computes the M2 fire variable"
+        return segments.scaled_dnbr(dnbr, omitnan=omitnan)
+
+    @staticmethod
+    def _soil(segments: Segments, kf_factor: Raster, omitnan: bool):
+        "Computes the M2 soil variable"
+        return segments.kf_factor(kf_factor, omitnan=omitnan)
+
+    #####
+    # Variables
+    #####
+
+    @staticmethod
+    def terrain(
+        segments: Segments,
+        slopes: RasterInput,
+        moderate_high: RasterInput,
+        omitnan=False,
+    ):
+        """
+        Computes the M2 terrain variable
+        ----------
+        M2.terrain(segments, slopes, moderate_high)
+        M2.terrain(..., omitnan=True)
+        Computes the M2 terrain variable. Set omitnan=True to ignore NaN and NoData
+        values in the slopes raster.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            slope: A slope raster
+            moderate_high: Moderate-high burn severity raster mask
+            omitnan: True to ignore NaN and NoData values in the slopes raster.
+                Default is False
+
+        Outputs:
+            numpy 1D array: The M2 terrain variable (T)
+        """
+        slopes, moderate_high = Model._validate(
+            segments, [slopes, moderate_high], ["slopes", "moderate_high"]
+        )
+        return M2._terrain(segments, slopes, moderate_high, omitnan)
+
+    @staticmethod
+    def fire(segments: Segments, dnbr: RasterInput, omitnan: bool = False):
+        """
+        Computes the M2 fire variable
+        ----------
+        M2.fire(segments, dnbr)
+        M2.fire(segments, dnbr, omitnan=True)
+        Computes the M2 fire variable. Set omitnan=True to ignore NaN and NoData
+        values in the dNBR raster.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            dnbr: A dNBR raster
+            omitnan: True to ignore NaN and NoData values in the dNBR raster.
+                Default is False.
+
+        Outputs:
+            numpy 1D array: The M2 fire variable (F)
+        """
+        (dnbr,) = Model._validate(segments, [dnbr], ["dnbr"])
+        return M2._fire(segments, dnbr, omitnan)
+
+    @staticmethod
+    def soil(segments: Segments, kf_factor: RasterInput, omitnan: bool = False):
+        """
+        Computes the M2 soil variable
+        ----------
+        M2.soil(segments, kf_factor)
+        M2.soil(..., omitnan=True)
+        Computes the M2 soil variable. Set omitnan=True to ignore NaN and NoData
+        values in the KF-factor raster.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            kf_factor: A KF-factor raster
+            omitnan: True to ignore NaN and NoData values in the KF-factor raster.
+                Default is False.
+
+        Outputs:
+            numpy 1D array: The M2 soil variable (S)
+        """
+        (kf_factor,) = Model._validate(segments, [kf_factor], ["kf_factor"])
+        return M2._soil(segments, kf_factor, omitnan)
+
+    @staticmethod
     def variables(
-        cls,
         segments: Segments,
         moderate_high: RasterInput,
         slopes: RasterInput,
@@ -766,30 +907,19 @@ class M2(Model):
         """
 
         # Validate
-        moderate_high, slopes, dnbr, kf_factor = cls._validate(
+        moderate_high, slopes, dnbr, kf_factor = Model._validate(
             segments,
             [moderate_high, slopes, dnbr, kf_factor],
             ["moderate_high", "slopes", "dnbr", "kf_factor"],
         )
-        omitnan = cls._validate_omitnan(
+        omitnan = Model._validate_omitnan(
             omitnan, rasters=["slopes", "dnbr", "kf_factor"]
         )
 
-        # Convert slopes to sine theta values, but preserve NoData values
-        sine_thetas = slope.to_sine(slopes.values)
-        sine_thetas = sine_thetas.astype(float, copy=False)
-        nodatas = NodataMask(slopes.values, slopes.nodata)
-        nodatas.fill(sine_thetas, nan)
-        sine_thetas = Raster._from_array(
-            sine_thetas, crs=slopes.crs, transform=slopes.transform, nodata=nan
-        )
-
-        # Get variables
-        T = segments.sine_theta(
-            sine_thetas, mask=moderate_high, omitnan=omitnan["slopes"]
-        )
-        F = segments.scaled_dnbr(dnbr, omitnan=omitnan["dnbr"])
-        S = segments.kf_factor(kf_factor, omitnan=omitnan["kf_factor"])
+        # Compute variables
+        T = M2._terrain(segments, slopes, moderate_high, omitnan["slopes"])
+        F = M2._fire(segments, dnbr, omitnan["dnbr"])
+        S = M2._soil(segments, kf_factor, omitnan["kf_factor"])
         return T, F, S
 
 
@@ -824,9 +954,91 @@ class M3(Model):
     Cf = [0.33, 0.19, 0.10]
     Cs = [0.47, 0.36, 0.18]
 
-    @classmethod
+    #####
+    # Internal variables (validated)
+    #####
+
+    @staticmethod
+    def _terrain(segments: Segments, relief: Raster):
+        "Computes the M3 terrain variable"
+        return segments.ruggedness(relief)
+
+    @staticmethod
+    def _fire(segments: Segments, moderate_high: Raster):
+        "Computes the M3 fire variable"
+        return segments.upslope_ratio(moderate_high)
+
+    @staticmethod
+    def _soil(segments: Segments, soil_thickness: Raster, omitnan: bool):
+        "Computes the M3 soil variable"
+        return segments.scaled_thickness(soil_thickness, omitnan=omitnan)
+
+    #####
+    # Variables
+    #####
+
+    @staticmethod
+    def terrain(segments: Segments, relief: RasterInput):
+        """
+        Computes the M3 terrain variable
+        ----------
+        M3.terrain(segments, relief)
+        Computes the M3 terrain variable.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            relief: A vertical relief raster
+
+        Outputs:
+            numpy 1D array: The M3 terrain variable (T)
+        """
+        (relief,) = Model._validate(segments, [relief], ["relief"])
+        return M3._terrain(segments, relief)
+
+    @staticmethod
+    def fire(segments: Segments, moderate_high: RasterInput):
+        """
+        Computes the M3 fire variable
+        ----------
+        M3.fire(segments, moderate_high)
+        Computes the M3 fire variable.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            moderate_high: A moderate-high burn severity raster mask
+
+        Outputs:
+            numpy 1D array: The M3 fire variable (F)
+        """
+        (moderate_high,) = Model._validate(segments, [moderate_high], ["moderate_high"])
+        return M3._fire(segments, moderate_high)
+
+    @staticmethod
+    def soil(segments: Segments, soil_thickness: RasterInput, omitnan: bool = False):
+        """
+        Computes the M3 soil variable
+        ----------
+        M3.soil(segments, soil_thickness)
+        M3.soil(..., omitnan=True)
+        Computes the M3 soil variable. Set omitnan=True to ignore NaN and NoData
+        values in the soil_thickness raster.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            soil_thickness: A soil thickness raster
+            omitnan: True to ignore NaN and NoData values in the soil thickness raster.
+                Default is False.
+
+        Outputs:
+            numpy 1D array: The M3 soil variable (S)
+        """
+        (soil_thickness,) = Model._validate(
+            segments, [soil_thickness], ["soil_thickness"]
+        )
+        return M3._soil(segments, soil_thickness, omitnan)
+
+    @staticmethod
     def variables(
-        cls,
         segments: Segments,
         moderate_high: RasterInput,
         relief: RasterInput,
@@ -876,19 +1088,17 @@ class M3(Model):
         """
 
         # Validate
-        moderate_high, relief, soil_thickness = cls._validate(
+        moderate_high, relief, soil_thickness = Model._validate(
             segments,
             [moderate_high, relief, soil_thickness],
             ["moderate_high", "relief", "soil_thickness"],
         )
-        omitnan = cls._validate_omitnan(omitnan, rasters=["soil_thickness"])
+        omitnan = Model._validate_omitnan(omitnan, rasters=["soil_thickness"])
 
         # Get variables
-        T = segments.ruggedness(
-            relief,
-        )
-        F = segments.upslope_ratio(moderate_high)
-        S = segments.scaled_thickness(soil_thickness, omitnan=omitnan["soil_thickness"])
+        T = M3._terrain(segments, relief)
+        F = M3._fire(segments, moderate_high)
+        S = M3._soil(segments, soil_thickness, omitnan["soil_thickness"])
         return T, F, S
 
 
@@ -923,9 +1133,99 @@ class M4(Model):
     Cf = [0.82, 0.46, 0.24]
     Cs = [0.27, 0.26, 0.13]
 
-    @classmethod
+    #####
+    # Internal variables (validated)
+    #####
+
+    @staticmethod
+    def _terrain(segments: Segments, isburned: Raster, slopes: Raster):
+        "Computes the M4 terrain variable"
+        mask = Model._terrain_mask(isburned, slopes, threshold_degrees=30)
+        return segments.upslope_ratio(mask)
+
+    @staticmethod
+    def _fire(segments: Segments, dnbr: Raster, omitnan: bool):
+        "Computes the M4 fire variable"
+        return segments.scaled_dnbr(dnbr, omitnan=omitnan)
+
+    @staticmethod
+    def _soil(segments: Segments, soil_thickness: Raster, omitnan: bool):
+        "Computes the M4 soil variable"
+        return segments.scaled_thickness(soil_thickness, omitnan=omitnan)
+
+    #####
+    # Variables
+    #####
+
+    @staticmethod
+    def terrain(segments: Segments, isburned: RasterInput, slopes: Raster):
+        """
+        Computes the M4 terrain variable
+        ----------
+        M4.terrain(segments, isburned, slopes)
+        Computes the M4 terrain variable.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            isburned: A burned pixel raster mask
+            slopes: A slope raster
+
+        Outputs:
+            numpy 1D array: The M4 terrain variable (T)
+        """
+        isburned, slopes = Model._validate(
+            segments, [isburned, slopes], ["isburned", "slopes"]
+        )
+        return M4._terrain(segments, isburned, slopes)
+
+    @staticmethod
+    def fire(segments: Segments, dnbr: RasterInput, omitnan: bool = False):
+        """
+        Computes the M4 fire variable
+        ----------
+        M4.fire(segments, dnbr)
+        M4.fire(segments, dnbr, omitnan=True)
+        Computes the M4 fire variable. Set omitnan=True to ignore NaN and NoData
+        values in the dNBR raster.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            dnbr: A dNBR raster
+            omitnan: True to ignore NaN and NoData values in the dNBR raster.
+                Default is False.
+
+        Outputs:
+            numpy 1D array: The M4 fire variable (F)
+        """
+        (dnbr,) = Model._validate(segments, [dnbr], ["dnbr"])
+        return M4._fire(segments, dnbr, omitnan)
+
+    @staticmethod
+    def soil(segments: Segments, soil_thickness: RasterInput, omitnan: bool = False):
+        """
+        Computes the M4 soil variable
+        ----------
+        M4.soil(segments, soil_thickness)
+        M4.soil(..., omitnan=True)
+        Computes the M4 soil variable. Set omitnan=True to ignore NaN and NoData
+        values in the soil_thickness raster.
+        ----------
+        Inputs:
+            segments: A stream segment network
+            soil_thickness: A soil thickness raster
+            omitnan: True to ignore NaN and NoData values in the soil thickness raster.
+                Default is False.
+
+        Outputs:
+            numpy 1D array: The M4 soil variable (S)
+        """
+        (soil_thickness,) = Model._validate(
+            segments, [soil_thickness], ["soil_thickness"]
+        )
+        return M4._soil(segments, soil_thickness, omitnan)
+
+    @staticmethod
     def variables(
-        cls,
         segments: Segments,
         isburned: RasterInput,
         slopes: RasterInput,
@@ -980,16 +1280,15 @@ class M4(Model):
         """
 
         # Validate segments and rasters
-        isburned, slopes, dnbr, soil_thickness = cls._validate(
+        isburned, slopes, dnbr, soil_thickness = Model._validate(
             segments,
             [isburned, slopes, dnbr, soil_thickness],
             ["isburned", "slopes", "dnbr", "soil_thickness"],
         )
-        omitnan = cls._validate_omitnan(omitnan, rasters=["dnbr", "soil_thickness"])
+        omitnan = Model._validate_omitnan(omitnan, rasters=["dnbr", "soil_thickness"])
 
         # Get variables
-        mask = cls._terrain_mask(isburned, slopes, threshold_degrees=30)
-        T = segments.upslope_ratio(mask)
-        F = segments.scaled_dnbr(dnbr, omitnan=omitnan["dnbr"])
-        S = segments.scaled_thickness(soil_thickness, omitnan=omitnan["soil_thickness"])
+        T = M4._terrain(segments, isburned, slopes)
+        F = M4._fire(segments, dnbr, omitnan["dnbr"])
+        S = M4._soil(segments, soil_thickness, omitnan["soil_thickness"])
         return T, F, S
