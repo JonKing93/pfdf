@@ -512,7 +512,7 @@ Now that we've updated these variables, we can build the properties ``dict``:
 .. include:: download/code/export.py
     :code:
     :start-line: 30
-    :end-line: 49
+    :end-line: 51
 
 The keys of the dict should be strings, which represent the variable names. The values should be numeric vectors with one element per stream segment.
 
@@ -524,8 +524,8 @@ We can now save the segments to file:
 
 .. include:: download/code/export.py
     :code:
-    :start-line: 51
-    :end-line: 52
+    :start-line: 53
+    :end-line: 54
 
 The segments will have LineString geometries, and will resemble the following:
 
@@ -540,8 +540,8 @@ We'll also export the network's :ref:`outlets <export-types>`. These are Point g
 
 .. include:: download/code/export.py
     :code:
-    :start-line: 54
-    :end-line: 62
+    :start-line: 56
+    :end-line: 64
 
 .. note::
 
@@ -551,8 +551,8 @@ We can now export the outlets by calling :ref:`save <pfdf.segments.Segments.save
 
 .. include:: download/code/export.py
     :code:
-    :start-line: 64
-    :end-line: 65
+    :start-line: 66
+    :end-line: 67
 
 These features will resemble the following:
 
@@ -573,8 +573,8 @@ We'll also export the :ref:`outlet basins <export-types>`. These are Polygon geo
 
 .. include:: download/code/export.py
     :code:
-    :start-line: 65
-    :end-line: 66
+    :start-line: 67
+    :end-line: 68
     
 The basins will resemble the following:
 
@@ -604,5 +604,5 @@ Putting it all together
 .. include:: download/code/export.py
     :code:
     :start-line: 22
-    :end-line: 66
+    :end-line: 68
 

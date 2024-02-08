@@ -1,10 +1,10 @@
 "Code for the hazard assessment tutorial. Does not include plots"
 
-import preprocess
-
 from pfdf import severity, watershed
 from pfdf.models import c10, g14, s17
 from pfdf.segments import Segments
+
+import preprocess
 
 #####
 # Input rasters and parameters

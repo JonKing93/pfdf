@@ -34,12 +34,14 @@ properties = {
     "p_15min_24mm": probability[:, 0, 1],
     "R_15min_50": accumulation[:, 0, 0],
     "V_24mm": volume[:, 2],
+
     # Variables used to run models
     "T": T,
     "F": F,
     "S": S,
     "relief": relief,
     "Bmh_km2": Bmh_km2,
+    
     # Earth system variables
     "area_km2": area_km2,
     "burn_ratio": burn_ratio,
