@@ -12,6 +12,7 @@ from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
 from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
+from rasterio.windows import Window
 
 from pfdf._utils.transform import Transform
 from pfdf.errors import (
@@ -445,6 +446,113 @@ class TestFinalize:
         assert_contains(error, "a boolean raster", "0 or 1")
 
 
+class TestValidateWindow:
+    def test_valid_raster(_, araster):
+        raster = Raster.from_array(araster, transform=(1, 0, 0, 0, 1, 0))
+        output = Raster._validate_window(raster)
+        assert output == raster
+
+    def test_valid_vector(_):
+        output = Raster._validate_window([1, 2, 3, 4])
+        assert np.array_equal(output, [1, 2, 3, 4])
+
+    def test_invalid_raster(_, araster):
+        raster = Raster(araster)
+        with pytest.raises(RasterTransformError):
+            Raster._validate_window(raster)
+
+    def test_invalid_vector(_):
+        with pytest.raises(ShapeError):
+            Raster._validate_window([1, 2, 3, 4, 5])
+
+        with pytest.raises(ValueError):
+            Raster._validate_window([1, 2.2, 3, 4])
+
+        with pytest.raises(ValueError):
+            Raster._validate_window([1, -2, 3, 4])
+
+        with pytest.raises(ValueError) as error:
+            Raster._validate_window([1, 2, 3, 0])
+        assert_contains(error, "Window height cannot be zero")
+
+        with pytest.raises(ValueError) as error:
+            Raster._validate_window([1, 2, 0, 4])
+        assert_contains(error, "Window width cannot be zero")
+
+
+class TestBuildWindow:
+    def test_pixels(_, fraster, crs, transform):
+        window = np.array([1, 1, 2, 1])
+        with rasterio.open(fraster) as file:
+            fcrs = file.crs
+            window, crs, transform = Raster._build_window(
+                window, file, fcrs, file.transform
+            )
+        assert window == Window(1, 1, 2, 1)
+        assert crs == fcrs
+        assert transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_pixels_clip(_, fraster, crs, transform):
+        window = np.array([1, 1, 5, 6])
+        with rasterio.open(fraster) as file:
+            fcrs = file.crs
+            window, crs, transform = Raster._build_window(
+                window, file, fcrs, file.transform
+            )
+        assert window == Window(1, 1, 3, 1)
+        assert crs == fcrs
+        assert transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_raster(_, fraster):
+        transform = Affine(0.06, 0, -3.96, 0, 0.01, -2.96)
+        raster = Raster.from_array(1, transform=transform)
+        with rasterio.open(fraster) as file:
+            fcrs = file.crs
+            window, crs, transform = Raster._build_window(
+                raster, file, fcrs, file.transform
+            )
+        assert window == Window(1, 1, 2, 1)
+        assert crs == fcrs
+        assert transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_raster_clip(_, fraster):
+        transform = Affine(1, 0, -3.96, 0, 1, -2.96)
+        raster = Raster.from_array(1, transform=transform)
+        with rasterio.open(fraster) as file:
+            fcrs = file.crs
+            window, crs, transform = Raster._build_window(
+                raster, file, fcrs, file.transform
+            )
+        assert window == Window(1, 1, 3, 1)
+        assert crs == fcrs
+        assert transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_raster_reproject(_, fraster, crs):
+        transform = Affine(0.06, 0, 668180.64, 0, 0.01, -2.95)
+        xcrs = CRS.from_epsg(26910)
+        raster = Raster.from_array(1, transform=transform, crs=xcrs)
+        with rasterio.open(fraster) as file:
+            fcrs = file.crs
+            window, crs, transform = Raster._build_window(
+                raster, file, fcrs, file.transform
+            )
+        assert window == Window(1, 1, 2, 1)
+        assert crs == fcrs
+        assert transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_inherit_crs(_, fraster, crs):
+        transform = Affine(0.06, 0, -3.96, 0, 0.01, -2.96)
+        raster = Raster.from_array(1, transform=transform, crs=crs)
+        with rasterio.open(fraster) as file:
+            fcrs = file.crs
+            window, crs, transform = Raster._build_window(
+                raster, file, None, file.transform
+            )
+        assert window == Window(1, 1, 2, 1)
+        assert crs == fcrs
+        assert transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+
 class TestFromFile:
     def test_string(_, fraster, araster, transform, crs):
         output = Raster.from_file(str(fraster), "test")
@@ -515,6 +623,33 @@ class TestFromFile:
         assert np.array_equal(raster.values, expected)
         assert raster.nodata == False
 
+    def test_invalid_window(_, fraster):
+        with pytest.raises(ValueError) as error:
+            Raster.from_file(fraster, window=[1, 2, 3, 0])
+        assert_contains(error, "Window height cannot be zero")
+
+    def test_window_pixels(_, fraster, araster, crs):
+        raster = Raster.from_file(fraster, window=[1, 1, 2, 1])
+        expected = araster[1:2, 1:3]
+        assert np.array_equal(raster.values, expected)
+        assert raster.crs == crs
+        assert raster.transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_window_raster(_, fraster, araster, crs):
+        window = Raster.from_array(1, transform=Affine(0.06, 0, -3.96, 0, 0.01, -2.96))
+        raster = Raster.from_file(fraster, window=window)
+        expected = araster[1:2, 1:3]
+        assert np.array_equal(raster.values, expected)
+        assert raster.crs == crs
+        assert raster.transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_window_clipped(_, fraster, araster, crs):
+        raster = Raster.from_file(fraster, window=[1, 1, 5, 6])
+        expected = araster[1:, 1:]
+        assert np.array_equal(raster.values, expected)
+        assert raster.crs == crs
+        assert raster.transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
 
 class TestFromRasterio:
     def test(_, fraster, araster, transform, crs):
@@ -584,6 +719,41 @@ class TestFromRasterio:
         assert raster.dtype == bool
         assert np.array_equal(raster.values, expected)
         assert raster.nodata == False
+
+    def test_invalid_window(_, fraster):
+        with rasterio.open(fraster) as reader:
+            pass
+        with pytest.raises(ValueError) as error:
+            Raster.from_rasterio(reader, window=[1, 2, 3, 0])
+        assert_contains(error, "Window height cannot be zero")
+
+    def test_window_pixels(_, fraster, araster, crs):
+        with rasterio.open(fraster) as reader:
+            pass
+        raster = Raster.from_rasterio(reader, window=[1, 1, 2, 1])
+        expected = araster[1:2, 1:3]
+        assert np.array_equal(raster.values, expected)
+        assert raster.crs == crs
+        assert raster.transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_window_raster(_, fraster, araster, crs):
+        with rasterio.open(fraster) as reader:
+            pass
+        window = Raster.from_array(1, transform=Affine(0.06, 0, -3.96, 0, 0.01, -2.96))
+        raster = Raster.from_rasterio(reader, window=window)
+        expected = araster[1:2, 1:3]
+        assert np.array_equal(raster.values, expected)
+        assert raster.crs == crs
+        assert raster.transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
+
+    def test_window_clipped(_, fraster, araster, crs):
+        with rasterio.open(fraster) as reader:
+            pass
+        raster = Raster.from_rasterio(reader, window=[1, 1, 5, 6])
+        expected = araster[1:, 1:]
+        assert np.array_equal(raster.values, expected)
+        assert raster.crs == crs
+        assert raster.transform == Affine(0.03, 0, -3.97, 0, 0.03, -2.97)
 
 
 class TestFromPysheds:

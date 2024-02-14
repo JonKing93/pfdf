@@ -117,7 +117,7 @@ Solver Functions
 
         ::
 
-            accumulation(..., *, keepdims = True)
+            probability(..., *, keepdims = True)
 
         Always returns the output as a 3D numpy array, regardless of the number of R values and parameter runs.
 
@@ -157,7 +157,7 @@ Computes rainfall accumulations needed for specified debris-flow probability lev
 
     The four parameters - B, Ct, Cf, and Cs - are the parameters of the logistic model link equation. B is the intercept, and each C parameter is the coefficient of the associated variable. Parameters can be used to implement multiple runs of the assessment model. Here, we define a "run" as an implementation of the hazard model using a unique set of logistic model parameters. Each parameter should be either a scalar, or vector of parameter values. If a vector, the input should have one element per run. If a scalar, then the same value is used for every run of the model. A common use case is solving the model for multiple rainfall durations (for example: 15, 30, and 60 minute intervals). In the example with 3 durations, each parameter should have 3 elements - each element corresponds to parameter value for the corresponding rainfall duration. Another use case for multiple runs is implementing a parameter sweep to validate model parameters.
 
-    The p-values - p - are the probabilities for which the model should be solved. For example, p=0.5 solves for the rainfall intensities that cause a 50% likelihood of a debris-flow. p should be a 1D array listing all the probabilities that should be solved for.
+    The p-values - p - are the probabilities for which the model should be solved. For example, p=0.5 solves for the rainfall accumulations that cause a 50% likelihood of a debris-flow. p should be a 1D array listing all the probabilities that should be solved for.
 
     This function solves the rainfall accumulations for all stream segments, parameter runs, and p-values provided. Each accumulation describes the total rainfall required within the rainfall duration associated with its parameters. For example, if using parameters for a 15-minute rainfall duration, the accumulation describes the total rainfall required within a 15-minute window. Accumulation units are the units of the rainfall values used to calibrate the model's parameters. For the 4 models described in the paper, accumulations are in mm.
 

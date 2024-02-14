@@ -113,7 +113,7 @@ def accumulation(
     parameter sweep to validate model parameters.
 
     The p-values - p - are the probabilities for which the model should be solved.
-    For example, p=0.5 solves for the rainfall intensities that cause a 50%
+    For example, p=0.5 solves for the rainfall accumulations that cause a 50%
     likelihood of a debris-flow. p should be a 1D array listing all the
     probabilities that should be solved for.
 
@@ -243,7 +243,7 @@ def probability(
     case could be testing the model using different datasets to derive one or
     more variables.
 
-    accumulation(..., *, keepdims = True)
+    probability(..., *, keepdims = True)
     Always returns the output as a 3D numpy array, regardless of the number
     of R values and parameter runs.
     ----------

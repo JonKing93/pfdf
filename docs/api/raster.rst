@@ -355,7 +355,7 @@ Object Creation
 
 .. _pfdf.raster.Raster.from_file:
 
-.. py:method:: Raster.from_file(path, name = None, *, driver = None, band = 1, isbool = False)
+.. py:method:: Raster.from_file(path, name = None, *, driver = None, band = 1, isbool = False, window = None)
     :staticmethod:
 
     Builds a Raster object from a file-based dataset
@@ -376,6 +376,7 @@ Object Creation
         to return a summary of supported file format drivers, and their associated
         extensions.
 
+
     .. dropdown:: Specify Band
 
         ::
@@ -385,6 +386,31 @@ Object Creation
         Specify the raster band to read. Raises an error if the band does not exist.
 
         .. note:: Raster bands use 1-indexing, rather than the 0-indexing common to Python.
+
+
+    .. dropdown:: Windowed Reading
+
+        ::
+
+            Raster.from_file(..., *, window)
+
+        Only loads data from a windowed subset of the saved dataset. This option is useful when you only need a small portion of a very large raster, and limits the amount of data loaded into memory. You should also use this option whenever a saved raster is larger than your computer's RAM.
+
+        The ``window`` input indicates a rectangular portion of the saved dataset that should be loaded. If the window extends beyond the bounds of the dataset, then the dataset will be windowed to the relevant bound, but no further. The window may either be a Raster object, or a vector with 4 elements. If a raster, then this method will load the portion of the dataset that contains the bounds of the window raster.
+
+        If the window is a vector, then the elements should indicate, in order: 
+        
+        1. The index of the left-most column, 
+        2. The index of the upper-most row, 
+        3. Width (the number of columns), and 
+        4. Height (the number of rows) 
+        
+        All four elements must be positive integers. Width and height cannot be zero. 
+
+        .. attention::
+
+            When filling a window, this command will first read the entirety of one or more data chunks from the file. As such, the total memory usage will temporarily exceed the memory needed to hold just the window. If a raster doesn't use chunks (rare, but possible), then the entire raster will be read into memory before filling the window. In practice, it's important to chunk the data you use for applications.
+
 
     .. dropdown:: Specify File Format
 
@@ -420,7 +446,7 @@ Object Creation
     
 .. _pfdf.raster.Raster.from_rasterio:
 
-.. py:method:: Raster.from_rasterio(reader, name = None, band = 1, isbool = False)
+.. py:method:: Raster.from_rasterio(reader, name = None, *, band = 1, isbool = False, window = None)
     :staticmethod:
 
     Builds a raster from a rasterio.DatasetReader
@@ -438,6 +464,7 @@ Object Creation
         By default, loads the data from band 1. The name input specifies an optional
         name for the new Raster object. Defaults to "raster" if unset.
 
+
     .. dropdown:: Specify Band
 
         ::
@@ -448,6 +475,31 @@ Object Creation
         error if the band does not exist.
 
         .. note:: Raster bands use 1-indexing, rather than the 0-indexing common to Python.
+
+
+    .. dropdown:: Windowed Reading
+
+        ::
+
+            Raster.from_rasterio(..., *, window)
+
+        Only loads data from a windowed subset of the saved dataset. This option is useful when you only need a small portion of a very large raster, and limits the amount of data loaded into memory. You should also use this option whenever a saved raster is larger than your computer's RAM.
+
+        The ``window`` input indicates a rectangular portion of the saved dataset that should be loaded. If the window extends beyond the bounds of the dataset, then the dataset will be windowed to the relevant bound, but no further. The window may either be a Raster object, or a vector with 4 elements. If a raster, then this method will load the portion of the dataset that contains the bounds of the window raster.
+
+        If the window is a vector, then the elements should indicate, in order: 
+        
+        1. The index of the left-most column, 
+        2. The index of the upper-most row, 
+        3. Width (the number of columns), and 
+        4. Height (the number of rows) 
+        
+        All four elements must be positive integers. Width and height cannot be zero. 
+
+        .. attention::
+
+            When filling a window, this command will first read the entirety of one or more data chunks from the file. As such, the total memory usage will temporarily exceed the memory needed to hold just the window. If a raster doesn't use chunks (rare, but possible), then the entire raster will be read into memory before filling the window. In practice, it's important to chunk the data you use for applications.
+
 
     .. dropdown:: Boolean Raster
 

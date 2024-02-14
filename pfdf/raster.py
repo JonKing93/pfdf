@@ -29,8 +29,9 @@ from pysheds.sview import ViewFinder
 from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
+from rasterio.windows import Window
 
-from pfdf._utils import all_nones, no_nones, nodata, real, validate
+from pfdf._utils import all_nones, limits, no_nones, nodata, real, validate
 from pfdf._utils.nodata import NodataMask
 from pfdf._utils.transform import Transform
 from pfdf.errors import (
@@ -52,6 +53,7 @@ from pfdf.typing import (
     VectorArray,
     scalar,
     shape2d,
+    vector,
 )
 
 
@@ -143,13 +145,18 @@ class Raster:
         _finalize           - Validate/sets attributes, casts nodata, locks array
         _from_array         - Builds a raster from an array without copying
 
-    From polygons:
-        _ring               - Type hint for linear ring coordinate array
-        _geometry           - Type hint for a geometry-like dict
-        _validate_polygon   - Validates a polygon coordinate array
-        _update_bounds      - Updates bounds to contain a polygon
-        _validate_feature   - Validates a polygon feature and extracts geometry
-        _validate_field     - Checks that a data field exists and has an int or float type
+    Windowed Reading:
+        _validate_window    - Checks that a raster window is valid
+        _build_window       - Builds a rasterio Window from a vector or Raster
+
+    From features:
+        _validate_resolution    - Checks that a template resolution is valid
+        _validate_field         - Checks that a feature data field and fill can be used to build a raster
+        _validate_point         - Validates a point coordinate array
+        _validate_polygon       - Validates a polygon coordinate array
+        _update_bounds          - Updates bounds in-place to include a geometry's coordinates
+        _validate_features      - Checks that input features have valid geometries
+        _compute_extent         - Computes transform and shape from raster bounds and resolution
 
     Generic Metadata:
         _validate_shape     - Validates a raster shape
@@ -493,6 +500,79 @@ class Raster:
         self._values.setflags(write=False)
 
     @staticmethod
+    def _validate_window(window: Any) -> None | Self | VectorArray:
+        "Checks that a raster window is valid"
+
+        # Just exit if None
+        if window is None:
+            return None
+
+        # Raster must have a transform
+        elif isinstance(window, Raster):
+            if window.transform is None:
+                raise RasterTransformError(
+                    "The window raster doesn't have an affine transform."
+                )
+
+        # Otherwise, must be a vector of 4 positive integers
+        else:
+            window = validate.vector(window, "window", dtype=real, length=4)
+            validate.integers(window, "window")
+            validate.positive(window, "window", allow_zero=True)
+            for value, axis in zip(window[2:], ["width", "height"]):
+                if value == 0:
+                    raise ValueError(f"Window {axis} cannot be zero.")
+        return window
+
+    @staticmethod
+    def _build_window(
+        window: Self | VectorArray,
+        file: rasterio.DatasetReader,
+        crs: CRS | None,
+        transform: Affine,
+    ) -> tuple[Window, CRS, Affine]:
+        "Builds a windowing object for loading a raster from file"
+
+        # If a raster, get window bounds in the dataset CRS
+        if isinstance(window, Raster):
+            left, bottom, right, top = window.bounds
+            crs = Raster._parse_metadatas(window.crs, crs)
+            if crs["source"] != crs["template"]:
+                left, bottom, right, top = rasterio.warp.transform_bounds(
+                    crs["source"], crs["template"], left, bottom, right, top
+                )
+            crs = crs["template"]
+
+            # Convert spatial bounds to pixel indices in a positive orientation
+            rows, cols = rasterio.transform.rowcol(
+                transform, xs=[left, right], ys=[top, bottom], op=round
+            )
+            top, bottom = min(rows), max(rows)
+            left, right = min(cols), max(cols)
+
+        # Otherwise, compute edges from vector
+        else:
+            left, top, width, height = window
+            right = left + width
+            bottom = top + height
+
+        # Trim pixels outside the dataset bounds and build the window
+        rows = limits(top, bottom, file.height)
+        cols = limits(left, right, file.width)
+        window = Window.from_slices(rows, cols)
+
+        # Parse the original transform
+        transform = Transform(transform)
+        dx, dy = transform.dx, transform.dy
+        left, top = transform.left, transform.top
+
+        # Update transform bounds
+        left = left + dx * cols[0]
+        top = top + dy * rows[0]
+        transform = Transform.build(dx, dy, left, top)
+        return window, crs, transform
+
+    @staticmethod
     def from_file(
         path: Pathlike,
         name: Optional[str] = None,
@@ -500,6 +580,7 @@ class Raster:
         driver: Optional[str] = None,
         band: int = 1,
         isbool: bool = False,
+        window: Optional[_RasterInput | vector] = None,
     ) -> Self:
         """
         Builds a Raster object from a file-based dataset
@@ -542,6 +623,31 @@ class Raster:
         this option, all data pixels in the original file must be equal to 0 or
         1. NoData pixels in the file will be converted to False, regardless of
         their value.
+
+        Raster.from_file(..., *, window)
+        Only loads data from a windowed subset of the saved dataset. This option is
+        useful when you only need a small portion of a very large raster, and
+        limits the amount of data loaded into memory. You should also use this
+        option whenever a saved raster is larger than your computer's RAM.
+
+        The "window" input indicates a rectangular portion of the saved dataset
+        that should be loaded. If the window extends beyond the bounds of the
+        dataset, then the dataset will be windowed to the relevant bound, but no
+        further. The window may either be a Raster object, or a vector with 4
+        elements. If a raster, then this method will load the portion of the dataset
+        that contains the bounds of the window raster.
+
+        If the window is a vector, then the elements should indicate, in order:
+        (1) The index of the left-most column, (2) The index of the upper-most row,
+        (3) Width -- number of columns, and (4) Height -- number of rows.
+        All four elements must be positive integers. Width and height cannot be zero.
+
+        Note: When filling a window, this command will first read the entirety of one
+        or more data chunks from the file. As such, the total memory usage will
+        temporarily exceed the memory needed to hold just the window. If a raster
+        doesn't use chunks (rare, but possible), then the entire raster will be
+        read into memory before filling the window. In practice, it's important
+        to chunk the data you use for applications.
         ----------
         Inputs:
             path: A path to a file-based raster dataset
@@ -550,23 +656,32 @@ class Raster:
             driver: A file format to use to read the raster, regardless of extension
             isbool: True to convert the raster to a boolean array, with nodata=False.
                 False (default) to leave the raster as the original dtype.
+            window: Only loads a subset of the saved raster. Either a Raster, or
+                a vector of 4 positive integers.
 
         Outputs:
             Raster: A Raster object for the file-based dataset
         """
 
-        # Validate inputs and initialize Raster
+        # Validate inputs
         path = validate.input_path(path, "path")
         if driver is not None:
             validate.type(driver, "driver", str, "string")
         validate.type(band, "band", int, "int")
+        window = Raster._validate_window(window)
 
-        # Open file. Get data values and metadata
+        # Open file. Get metadata
         with rasterio.open(path) as file:
-            values = file.read(band)
             crs = file.crs
             transform = file.transform
             nodata = file.nodata
+
+            # Locate window and load data values
+            if window is not None:
+                window, crs, transform = Raster._build_window(
+                    window, file, crs, transform
+                )
+            values = file.read(band, window=window)
 
         # Optionally convert to boolean array and return the Raster
         return Raster._create(name, values, crs, transform, nodata, "unsafe", isbool)
@@ -575,8 +690,10 @@ class Raster:
     def from_rasterio(
         reader: rasterio.DatasetReader,
         name: Optional[str] = None,
+        *,
         band: int = 1,
         isbool: bool = False,
+        window: Optional[_RasterInput | vector] = None,
     ) -> Self:
         """
         from_rasterio  Builds a raster from a rasterio.DatasetReader
@@ -601,6 +718,31 @@ class Raster:
         this option, all data pixels in the original file must be equal to 0 or
         1. NoData pixels in the file will be converted to False, regardless of
         their value.
+
+        Raster.from_rasterio(..., *, window)
+        Only loads data from a windowed subset of the saved dataset. This option is
+        useful when you only need a small portion of a very large raster, and
+        limits the amount of data loaded into memory. You should also use this
+        option whenever a saved raster is larger than your computer's RAM.
+
+        The "window" input indicates a rectangular portion of the saved dataset
+        that should be loaded. If the window extends beyond the bounds of the
+        dataset, then the dataset will be windowed to the relevant bound, but no
+        further. The window may either be a Raster object, or a vector with 4
+        elements. If a raster, then this method will load the portion of the dataset
+        that contains the bounds of the window raster.
+
+        If the window is a vector, then the elements should indicate, in order:
+        (1) The index of the left-most column, (2) The index of the upper-most row,
+        (3) Width -- number of columns, and (4) Height -- number of rows.
+        All four elements must be positive integers. Width and height cannot be zero.
+
+        Note: When filling a window, this command will first read the entirety of one
+        or more data chunks from the file. As such, the total memory usage will
+        temporarily exceed the memory needed to hold just the window. If a raster
+        doesn't use chunks (rare, but possible), then the entire raster will be
+        read into memory before filling the window. In practice, it's important
+        to chunk the data you use for applications.
         ----------
         Inputs:
             reader: A rasterio.DatasetReader associated with a raster dataset
@@ -608,6 +750,8 @@ class Raster:
             band: The raster band to read. Uses 1-indexing and defaults to 1
             isbool: True to convert the raster to a boolean array, with nodata=False.
                 False (default) to leave the raster as the original dtype.
+            window: Limits loaded values to a subset of the saved raster. Either
+                a Raster, or a vector of 4 positive integers.
 
         Outputs:
             Raster: The new Raster object
@@ -629,7 +773,7 @@ class Raster:
 
         # Use the file factory with the recorded driver
         return Raster.from_file(
-            path, name, isbool=isbool, driver=reader.driver, band=band
+            path, name, isbool=isbool, driver=reader.driver, band=band, window=window
         )
 
     @staticmethod
@@ -803,6 +947,7 @@ class Raster:
 
     @staticmethod
     def _validate_resolution(resolution: _resolution) -> _dxdy:
+        "Checks that resolution is valid"
         if isinstance(resolution, Raster):
             if resolution.transform is None:
                 raise RasterTransformError(
@@ -974,7 +1119,7 @@ class Raster:
         contain the features.
         """
 
-        # Initialize the bounds adn geometry-value tuples
+        # Initialize the bounds and geometry-value tuples
         bounds = {
             "left": inf,
             "right": -inf,

@@ -13,7 +13,7 @@ from math import nan
 
 import numpy as np
 
-from pfdf._utils import nodata
+from pfdf._utils import limits, nodata
 from pfdf.raster import Raster
 from pfdf.typing import FlowNumber, ScalarArray, scalar, slopes
 
@@ -179,18 +179,16 @@ class Kernel:
         else:
             return (changing, fixed)
 
-    def indices(self, index: int, nMax: int, before: bool) -> list[int]:
+    def indices(self, index: int, length: int, before: bool) -> list[int]:
         """Returns indices adjacent to a processing cell
         index: An index of the processing cell (row or col)
-        nMax: The raster size in the index direction (nRows or nCols)
+        length: The raster size in the index direction (nRows or nCols)
         before: True for up/left, False for down/right
         """
         if before:
-            start = max(0, index - self.neighborhood)
-            stop = index
+            start, stop = limits(index - self.neighborhood, index, index)
         else:
-            start = index + 1
-            stop = min(nMax, index + self.neighborhood + 1)
+            start, stop = limits(index + 1, index + self.neighborhood + 1, length)
         return list(range(start, stop))
 
     @staticmethod

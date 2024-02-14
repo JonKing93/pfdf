@@ -114,7 +114,9 @@ Many pfdf commands require one or more rasters as input, and the library recogni
 
 You are not required to convert raster datasets to Raster objects, as pfdf handles this conversion automatically. However, it's often useful to make this conversion, as Raster objects have access to :doc:`preprocessing methods <preprocess>` that are helpful for most use cases. This section will examine some of the commands available for creating these objects. The simplest approach is often the :ref:`Raster constructor <pfdf.raster.Raster.__init__>`, but :ref:`factory functions <api-raster-creation>` provide additional options for specific types of inputs.
 
-.. tip:: This guide uses GeoTiff files as examples, but pfdf supports most common raster file formats. See also the :ref:`raster driver guide <raster-drivers>` for more information on supported file formats.
+.. tip:: 
+    
+    This guide uses GeoTiff files as examples, but pfdf supports most common raster file formats. See also the :ref:`raster driver guide <raster-drivers>` for more information on supported file formats.
 
 Raster Constructor
 ++++++++++++++++++
@@ -145,13 +147,18 @@ Finally, the ``isbool`` option will convert the data grid to a boolean array, re
 
 from_file
 +++++++++
-The :ref:`from_file <pfdf.raster.Raster.from_file>` method provides some additional options for loading a file-based raster dataset. Most notably, this command adds the ``band`` option, which allows you to load a raster from a particular band of a multi-band raster::
+The :ref:`from_file <pfdf.raster.Raster.from_file>` method provides some additional options for loading a file-based raster dataset. For example,this command adds the ``band`` option, which allows you to load a raster from a particular band of a multi-band raster::
 
     >>> dem = Raster.from_file('my-raster.tif', band=3)
 
-You can also use the ``driver`` option to specify the file format when a file has a nonstandard extension:
+You can also use the ``driver`` option to specify the file format when a file has a nonstandard extension::
 
     >>> dem = Raster.from_file('raster.unusual', driver="GTiff")
+
+The ``window`` option allows you to only load a subset of a raster into memory. This is useful when you only need a small portion of a very large dataset, or when a raster dataset is larger than your computer's RAM::
+
+    >>> window = Raster('small-raster.tif')
+    >>> raster = Raster.from_file('very-large-raster.tif', window=window)
 
 
 from_array

@@ -77,6 +77,17 @@ Raster Factories
 You can also use Raster factories to create a Rasters from specific types of inputs. These factories provide additional creation options, and follow the naming convention ``from_<format>``. For example, the :ref:`from_file factory <pfdf.raster.Raster.from_file>` includes a ``band`` option, which you can use to specify a specific band in a multi-band raster::
 
     >>> dem = Raster.from_file('dem.tif', band=1)
+    >>> dem.shape
+    (2015, 1957)
+    
+
+You can also use the ``window`` option to only load a subset of a saved dataset. This can be useful when you only need a small portion of a very large raster, or if a raster is larger than your computer's RAM::
+
+    >>> window = Raster('dnbr.tif')
+    >>> dem = Raster.from_file('dem.tif', window=window)
+    >>> dem.shape
+    (1280, 1587)
+
 
 The :ref:`from_array factory <pfdf.raster.Raster.from_array>` allows you to add raster metadata (NoData, CRS, and transform) to a Raster derived from a numpy array. For example, if we use the Raster constructor on a numpy array::
 

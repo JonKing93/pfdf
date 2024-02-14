@@ -37,8 +37,14 @@ mask = Raster("mask.tif", isbool=True)
 print(mask.dtype)
 print(mask.nodata)
 
+# Window of a file-based raster
+window = Raster("dnbr.tif")
+dem = Raster.from_file("dem.tif", window=window)
+print(dem.shape)
+
 # File-based raster from specific band
 dem = Raster.from_file("dem.tif", band=1)
+print(dem.shape)
 
 # Array raster without metadata
 raster = Raster(araster)

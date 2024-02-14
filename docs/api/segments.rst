@@ -74,6 +74,8 @@ pfdf.segments module
         :ref:`burned_area <pfdf.segments.Segments.burned_area>`              Computes the burned area of basins
         :ref:`developed_area <pfdf.segments.Segments.developed_area>`        Computes the developed area of basins
         :ref:`confinement <pfdf.segments.Segments.confinement>`              Computes the confinement angle for each segment
+        :ref:`in_mask <pfdf.segments.Segments.in_mask>`                      Checks whether each segment is within a mask
+        :ref:`in_perimeter <pfdf.segments.Segments.in_perimeter>`            Checks whether each segment is within a fire perimeter
         :ref:`kf_factor <pfdf.segments.Segments.kf_factor>`                  Computes mean basin KF-factors
         :ref:`scaled_dnbr <pfdf.segments.Segments.scaled_dnbr>`              Computes mean basin dNBR / 1000
         :ref:`scaled_thickness <pfdf.segments.Segments.scaled_thickness>`    Computes mean basin soil thickness / 100
@@ -637,6 +639,45 @@ Earth-system Variables
     :Outputs: *ndarray* -- The developed catchment area for each basin
 
 
+.. _pfdf.segments.Segments.in_mask:
+
+.. py:method:: Segments.in_mask(self, mask, terminal = False)
+
+    Determines whether segments have pixels within a mask
+
+    ::
+    
+        self.in_mask(mask)
+        self.in_mask(mask, terminal=True)
+
+    Given a raster mask, returns a boolean 1D numpy array with one element per segment. True elements indicate segments that have at least one pixel
+    within the mask. False elements have no pixels within the mask. If terminal=True, only returns values for the terminal segments.
+
+    :Inputs: * **mask** (*Raster*) -- A raster mask for the watershed.
+             * **terminal** (*bool*) -- True to only return values for terminal segments. False (default) to return values for all segments.
+
+    :Outputs: *boolean ndarray* -- Whether each segment has at least one pixel within the mask.
+
+
+.. _pfdf.segments.Segments.in_perimeter:
+
+.. py:method:: Segments.in_perimeter(self, perimeter, terminal=False)
+
+    Determines whether segments have pixels within a fire perimeter
+
+    ::
+
+        self.in_perimeter(perimeter)
+        self.in_perimeter(perimeter, terminal=True)
+
+    Given a fire perimeter mask, returns a boolean 1D numpy array with one element per segment. True elements indicate segments that have at least one pixel within the fire perimeter. False elements have no pixels within the mask. If terminal=True, only returns values for the terminal segments.
+
+    :Inputs: * **perimeter** (*Raster*) -- A fire perimeter raster mask
+             * **terminal** (*bool*) -- True to only return values for terminal segments. False (default) to return values for all segments.
+
+    :Outputs: *boolean ndarray* -- Whether each segment has at least one pixel within the fire perimeter.
+
+
 .. _pfdf.segments.Segments.kf_factor:
 
 .. py:method:: Segments.kf_factor(self, kf_factor, mask = None, *, terminal = False, omitnan = False)
@@ -823,7 +864,7 @@ Earth-system Variables
 
 .. _pfdf.segments.Segments.slope:
 
-.. py:method:: Segments.slope(self, slopes, omitnan = False)
+.. py:method:: Segments.slope(self, slopes, *, terminal = False, omitnan = False)
 
     Returns the mean slope (rise/run) for each segment
 
@@ -832,8 +873,9 @@ Earth-system Variables
         ::
 
             self.slope(slopes)
+            self.slope(..., *, terminal=True)
 
-        Given a raster of slopes (rise/run), returns the mean slope for each segment as a numpy 1D array. If a stream segment's pixels contain NaN or NoData values, then the slope for the segment is set to NaN.
+        Given a raster of slopes (rise/run), returns the mean slope for each segment as a numpy 1D array. If a stream segment's pixels contain NaN or NoData values, then the slope for the segment is set to NaN. If ``terminal=True``, only returns values for the terminal segments.
 
     .. dropdown:: Ignore NaN Pixels
 
@@ -844,6 +886,7 @@ Earth-system Variables
         Ignores NaN and NoData values when computing mean slope. However, if a segment only contains NaN and NoData values, then its value will still be NaN.
 
     :Inputs: * **slopes** (*Raster*) -- A slope (rise/run) raster for the watershed
+             * **terminal** (*bool*) -- True to only return values for terminal segments. False (default) to return values for all segments.
 
     :Outputs: *ndarray* -- The mean slope for each stream segment.
 
@@ -857,10 +900,12 @@ Earth-system Variables
     ::
 
         self.relief(relief)
+        self.relief(relief, terminal=True)
 
-    Returns the vertical relief between each stream segment's outlet and the nearest ridge cell as a numpy 1D array.
+    Returns the vertical relief between each stream segment's outlet and the nearest ridge cell as a numpy 1D array. If ``terminal=True``, only returns values for the terminal segments.
 
     :Inputs: * **relief** (*Raster*) -- A vertical relief raster for the watershed
+             * **terminal** (*bool*) -- True to only return values for terminal segments. False (default) to return values for all segments.
 
     :Outputs: *ndarray* -- The vertical relief for each segment
 
@@ -874,10 +919,12 @@ Earth-system Variables
     ::
 
         self.ruggedness(relief)
+        self.ruggedness(relief, terminal=True)
 
-    Returns the ruggedness of the catchment for each stream segment in the network. Ruggedness is defined as a stream segment's vertical relief, divided by the square root of its catchment area. Returns ruggedness values as a numpy 1D array with one element per stream segment.
+    Returns the ruggedness of the catchment for each stream segment in the network. Ruggedness is defined as a stream segment's vertical relief, divided by the square root of its catchment area. Returns ruggedness values as a numpy 1D array with one element per stream segment. If ``terminal=True``, only returns values for the terminal segments.
 
     :Inputs: * **relief** (*Raster*) -- A vertical relief raster for the watershed
+             * **terminal** (*bool*) -- True to only return values for terminal segments. False (default) to return values for all segments.
 
     :Outputs: *ndarray* -- The topographic ruggedness of each stream segment
     

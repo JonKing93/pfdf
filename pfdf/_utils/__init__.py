@@ -10,6 +10,7 @@ Functions:
     clean_dims  - Optionally removes trailing singleton dimensions from an array
     all_nones   - True if every input is None
     no_nones    - True if every input is not None
+    limits      - Trims limits to valid indices
 
 Modules:
     nodata     - Utilities for working with NoData values
@@ -82,3 +83,9 @@ def no_nones(*args: Any) -> bool:
         if arg is None:
             return False
     return True
+
+
+def limits(start, stop, length):
+    start = max(start, 0)
+    stop = min(stop, length)
+    return (start, stop)

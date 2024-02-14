@@ -29,6 +29,10 @@ The Segments class includes methods to calculate commonly-used physical variable
       - Developed catchment area
     * - :ref:`confinement <pfdf.segments.Segments.confinement>`
       - Confinement angle in degrees
+    * - :ref:`in_mask <pfdf.segments.Segments.in_mask>`
+      - Whether each segment has pixels within a mask
+    * - :ref:`in_perimeter <pfdf.segments.Segments.in_perimeter>`
+      - Whether each segment has pixels in a fire perimeter
     * - :ref:`kf_factor <pfdf.segments.Segments.kf_factor>`
       - Mean catchment KF-factor
     * - :ref:`scaled_dnbr <pfdf.segments.Segments.scaled_dnbr>`
@@ -55,7 +59,7 @@ All of these methods return a 1D numpy array with one element per segment. Most 
 
 .. _terminal-option:
 
-You can also configure the catchment summaries to only return values for terminal basins, by setting the ``terminal`` option to True::
+You can also configure the summaries to only return values for terminal basins, by setting the ``terminal`` option to True::
 
     # Only returns values for terminal basins
     >>> area = segments.area(terminal=True)

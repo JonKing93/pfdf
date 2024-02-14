@@ -1,3 +1,4 @@
+import os
 from math import inf, nan
 from pathlib import Path
 
@@ -818,6 +819,13 @@ class TestInputPath:
         file = Path(tmp_path) / "test.geojson"
         with pytest.raises(FileNotFoundError):
             validate.input_path(file, "")
+
+    def test_folder(_, tmp_path):
+        path = Path(tmp_path) / "test"
+        os.mkdir(path)
+        with pytest.raises(ValueError) as error:
+            validate.input_path(path, "path")
+        assert_contains(error, "path is not a file")
 
 
 #####

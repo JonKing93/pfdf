@@ -169,6 +169,8 @@ class Segments:
         burned_area         - Computes the burned area of basins
         developed_area      - Computes the developed area of basins
         confinement         - Computes the confinement angle for each segment
+        in_mask             - Checks whether each segment is within a mask
+        in_perimeter        - Checks whether each segment is within a fire perimeter
         kf_factor           - Computes mean basin KF-factors
         scaled_dnbr         - Computes mean basin dNBR / 1000
         scaled_thickness    - Computes mean basin soil thickness / 100
@@ -1309,6 +1311,58 @@ class Segments:
         """
         return self.area(isdeveloped, terminal)
 
+    def in_mask(self, mask: RasterInput, terminal: bool = False) -> SegmentValues:
+        """
+        Determines whether segments have pixels within a mask
+        ----------
+        self.in_mask(mask)
+        self.in_mask(mask, terminal=True)
+        Given a raster mask, returns a boolean 1D numpy array with one element
+        per segment. True elements indicate segments that have at least one pixel
+        within the mask. False elements have no pixels within the mask. If
+        terminal=True, only returns values for the terminal segments.
+        ----------
+        Inputs:
+            mask: A raster mask for the watershed.
+            terminal: True to only return values for terminal segments.
+                False (default) to return values for all segments.
+
+        Outputs:
+            boolean 1D numpy array: Whether each segment has at least one pixel
+                within the mask.
+        """
+
+        mask = self._validate(mask, "mask")
+        mask = validate.boolean(mask.values, "mask", ignore=mask.nodata)
+        isin = self.summary("max", mask) == 1
+        if terminal:
+            isin = isin[self.isterminus]
+        return isin
+
+    def in_perimeter(
+        self, perimeter: RasterInput, terminal: bool = False
+    ) -> SegmentValues:
+        """
+        Determines whether segments have pixels within a fire perimeter
+        ----------
+        self.in_perimeter(perimeter)
+        self.in_perimeter(perimeter, terminal=True)
+        Given a fire perimeter mask, returns a boolean 1D numpy array with one
+        element per segment. True elements indicate segments that have at least
+        one pixel within the fire perimeter. False elements have no pixels within
+        the mask. If terminal=True, only returns values for the terminal segments.
+        ----------
+        Inputs:
+            perimeter: A fire perimeter raster mask
+            terminal: True to only return values for terminal segments.
+                False (default) to return values for all segments.
+
+        Outputs:
+            boolean 1D numpy array: Whether each segment has at least one pixel
+                within the fire perimeter.
+        """
+        return self.in_mask(perimeter, terminal)
+
     def kf_factor(
         self,
         kf_factor: RasterInput,
@@ -1549,69 +1603,92 @@ class Segments:
             method = "mean"
         return self.basin_summary(method, sine_thetas, mask, terminal)
 
-    def slope(self, slopes: RasterInput, omitnan: bool = False) -> SegmentValues:
+    def slope(
+        self, slopes: RasterInput, *, terminal: bool = False, omitnan: bool = False
+    ) -> SegmentValues:
         """
         slope  Returns the mean slope (rise/run) for each segment
         ----------
         self.slope(slopes)
+        self.slope(..., *, terminal=True)
         Given a raster of slopes (rise/run), returns the mean slope for each
         segment as a numpy 1D array. If a stream segment's pixels contain NaN or
-        NoData values, then the slope for the segment is set to NaN.
+        NoData values, then the slope for the segment is set to NaN. If terminal=True,
+        only returns values for the terminal segments.
 
-        self.slope(slopes, omitnan=True)
+        self.slope(..., *, omitnan=True)
         Ignores NaN and NoData values when computing mean slope. However, if a
         segment only contains NaN and NoData values, then its value will still
         be NaN.
         ----------
         Inputs:
             slopes: A slope (rise/run) raster for the watershed
+            terminal: True to only return values for terminal segments.
+                False (default) to return values for all segments.
 
         Outputs:
-            numpy 1D array: The mean slope for each stream segment.
+            numpy 1D array: The mean slopes for the segments.
         """
         if omitnan:
             method = "nanmean"
         else:
             method = "mean"
-        return self.summary(method, slopes)
+        slopes = self.summary(method, slopes)
+        if terminal:
+            slopes = slopes[self.isterminus]
+        return slopes
 
-    def relief(self, relief: RasterInput) -> SegmentValues:
+    def relief(self, relief: RasterInput, terminal: bool = False) -> SegmentValues:
         """
         relief  Returns the vertical relief for each segment
         ----------
         self.relief(relief)
+        self.relief(relief, terminal=True)
         Returns the vertical relief between each stream segment's outlet and the
-        nearest ridge cell as a numpy 1D array.
+        nearest ridge cell as a numpy 1D array. If terminal=True, only returns
+        values for the terminal segments.
         ----------
         Inputs:
             relief: A vertical relief raster for the watershed
+            terminal: True to only return values for terminal segments.
+                False (default) to return values for all segments.
 
         Outputs:
             numpy 1D array: The vertical relief for each segment
         """
 
         relief = self._validate(relief, "relief")
-        return self._values_at_outlets(relief)
+        relief = self._values_at_outlets(relief)
+        if terminal:
+            relief = relief[self.isterminus]
+        return relief
 
-    def ruggedness(self, relief: RasterInput) -> SegmentValues:
+    def ruggedness(self, relief: RasterInput, terminal: bool = False) -> SegmentValues:
         """
         ruggedness  Returns the ruggedness of each stream segment catchment
         ----------
         self.ruggedness(relief)
+        self.ruggedness(relief, terminal=True)
         Returns the ruggedness of the catchment for each stream segment in the
         network. Ruggedness is defined as a stream segment's vertical relief,
         divided by the square root of its catchment area. Returns ruggedness
-        values as a numpy 1D array with one element per stream segment.
+        values as a numpy 1D array with one element per stream segment. If
+        terminal=True, only returns values for the terminal segments.
         ----------
         Inputs:
-            relif: A vertical relief raster for the watershed
+            relief: A vertical relief raster for the watershed
+            terminal: True to only return values for terminal segments.
+                False (default) to return values for all segments.
 
         Outputs:
             numpy 1D array: The topographic ruggedness of each stream segment
         """
         area = self.area()
         relief = self.relief(relief)
-        return relief / np.sqrt(area)
+        ruggedness = relief / np.sqrt(area)
+        if terminal:
+            ruggedness = ruggedness[self.isterminus]
+        return ruggedness
 
     def upslope_ratio(self, mask: RasterInput, terminal: bool = False) -> BasinValues:
         """

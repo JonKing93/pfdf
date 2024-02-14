@@ -74,6 +74,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:pysheds.sview",
     "ignore::DeprecationWarning:pysheds.sgrid",
     "ignore::DeprecationWarning:numba.core.typing.context",
+    "ignore::DeprecationWarning:nptyping.pandas_.dataframe",
 ]
 
 [tool.isort]
