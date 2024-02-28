@@ -1,6 +1,6 @@
 Filtering
 =========
-It's often useful to reduce a stream segment network to a subset of its segments. Typically, this is to select model-worthy segments from an initial network. The Segments class includes 3 methods to help filter networks: :ref:`remove`, :ref:`keep`, and :ref:`copy`.
+It's often useful to reduce a stream segment network to a subset of its segments. Typically, this is to select model-worthy segments from an initial network. The *Segments* class includes 3 methods to help filter networks: :ref:`remove`, :ref:`keep`, and :ref:`copy`.
 
 
 .. _remove:
@@ -106,7 +106,7 @@ The :ref:`keep <pfdf.segments.Segments.keep>` method is essentially the inverse 
 copy
 ----
 
-The :ref:`keep` and :ref:`remove` methods permanently alter a Segments object, and discarded segments cannot be restored. However, you can use the :ref:`copy <pfdf.segments.Segments.copy>` method to create a copy of the object before filtering. You can then remove segments from one copy without affecting the other. This can be useful for testing different filtering criteria::
+The :ref:`keep` and :ref:`remove` methods permanently alter a *Segments* object, and discarded segments cannot be restored. However, you can use the :ref:`copy <pfdf.segments.Segments.copy>` method to create a copy of the object before filtering. You can then remove segments from one copy without affecting the other. This can be useful for testing different filtering criteria::
 
   >>> acopy = segments.copy()
   >>> test1 = segments.area() < 100
@@ -120,5 +120,5 @@ The :ref:`keep` and :ref:`remove` methods permanently alter a Segments object, a
 Filtering Effects
 -----------------
 
-When segments are removed, they are permanently deleted from the Segments object. Any new statistical summaries or physical variables will only be calculated for the remaining segments. Similarly, object properties won't contain values for the deleted segments, and the outputs of the :doc:`raster <rasters>` method will only include the remaining segments. Note that a stream segment's ID is not affected by segment removal. Although an ID may be removed from the network, the individual IDs are constant, so are not renumbered when the network becomes smaller.
+When segments are removed, they are permanently deleted from the *Segments* object. Any new statistical summaries or physical variables will only be calculated for the remaining segments. Similarly, object properties won't contain values for the deleted segments, and the outputs of the :doc:`raster <rasters>` method will only include the remaining segments. Note that a stream segment's ID is not affected by segment removal. Although an ID may be removed from the network, the individual IDs are constant, so are not renumbered when the network becomes smaller.
 

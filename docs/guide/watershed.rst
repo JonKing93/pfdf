@@ -8,7 +8,7 @@ The typical base workflow for using this module is to use:
 1. :ref:`condition` to condition a DEM (fill pits and resolve flats), and then
 2. :ref:`flow` to compute D8 flow directions from the conditioned DEM
 
-These flow directions are an essential input to all other watershed functions, as well as the Segments class. From here, many users will use:
+These flow directions are an essential input to all other watershed functions, as well as the :doc:`Segments class <segments/index>`. From here, many users will use:
 
 3. :ref:`accumulation` to compute flow accumulations of various quantities,
 4. :ref:`slopes` to compute flow slopes, and

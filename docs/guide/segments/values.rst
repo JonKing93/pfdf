@@ -12,7 +12,7 @@ This section examines commands that compute such values. We note that *Segments*
 
 Physical Variables
 ------------------
-The Segments class includes methods to calculate commonly used physical variables for each segment in the network. The following table summarizes these methods:
+The *Segments* class includes methods to calculate commonly used physical variables for each segment in the network. The following table summarizes these methods:
 
 .. list-table::
     :header-rows: 1
@@ -84,7 +84,7 @@ In some cases, the omitnan option may not be sufficient. In this case, all catch
 Generic Summaries
 -----------------
 
-Some users may want to compute statistical or physical variables not built-in to the class. To support this, the Segments class provides two methods for calculating generic statistical summaries from a raster of data values. The :ref:`summary <pfdf.segments.Segments.summary>` method computes a statistical summary over the pixels in each segment (roughly, the pixels in the river bed). Analogously, the :ref:`basin_summary <pfdf.segments.Segments.basin_summary>` computes statistical summaries over the pixels in each segment's catchment basin. Both methods support the following statistics:
+Some users may want to compute statistical or physical variables not built-in to the class. To support this, the *Segments* class provides two methods for calculating generic statistical summaries from a raster of data values. The :ref:`summary <pfdf.segments.Segments.summary>` method computes a statistical summary over the pixels in each segment (roughly, the pixels in the river bed). Analogously, the :ref:`basin_summary <pfdf.segments.Segments.basin_summary>` computes statistical summaries over the pixels in each segment's catchment basin. Both methods support the following statistics:
 
 .. list-table::
     :header-rows: 1

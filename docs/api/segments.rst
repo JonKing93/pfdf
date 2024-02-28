@@ -93,7 +93,7 @@ pfdf.segments module
         **Filtering**
         :ref:`remove <pfdf.segments.Segments.remove>`                        Removes segments from the network while optionally preserving continuity
         :ref:`keep <pfdf.segments.Segments.keep>`                            Restricts the network to the indicated segments while optionally preserving continuity
-        :ref:`copy <pfdf.segments.Segments.copy>`                            Returns a deep copy of the Segments object
+        :ref:`copy <pfdf.segments.Segments.copy>`                            Returns a deep copy of the *Segments* object
         ..
         **Export**
         :ref:`geojson <pfdf.segments.Segments.geojson>`                      Returns the network as a ``geojson.FeatureCollection``
@@ -101,7 +101,7 @@ pfdf.segments module
         ===================================================================  ===========
 
 
-    The Segments class is used to build and manage a stream segment network. A common workflow is as follows:
+    The *Segments* class is used to build and manage a stream segment network. A common workflow is as follows:
     
     1. Use :ref:`the constructor <pfdf.segments.Segments.__init__>` to delineate an initial network
     2. Compute :ref:`earth-system variables <api-segments-variables>` needed for filtering
@@ -208,7 +208,7 @@ Dunders
 
             Segments(flow, mask)
 
-        Builds a Segments object to manage the stream segments in a drainage network. Note that stream segments approximate the river beds in the catchment basins, rather than the full catchment basins. The returned object records the pixels associated with each segment in the network.
+        Builds a *Segments* object to manage the stream segments in a drainage network. Note that stream segments approximate the river beds in the catchment basins, rather than the full catchment basins. The returned object records the pixels associated with each segment in the network.
 
         The stream segment network is determined using a :ref:`TauDEM-style <api-taudem-style>` D8 flow direction raster and a raster mask. The mask is used to indicate the pixels under consideration as stream segments. True pixels may possibly be assigned to a stream segment, False pixels will never be assiged to a stream segment. The mask typically screens out pixels with low flow accumulations, and may include other screenings - for example, to remove pixels in bodies of water.
 
@@ -226,13 +226,13 @@ Dunders
                 * **mask** (*Raster*) -- A raster whose True values indicate the pixels that may potentially belong to a stream segment.
                 * **max_length** (*scalar*) -- A maximum allowed length for segments in the network. Units should be the same as the units of the (affine) transform for the flow raster.
 
-    :Outputs: *Segments* -- A Segments object recording the stream segments in the network.
+    :Outputs: *Segments* -- A *Segments* object recording the stream segments in the network.
         
 .. _pfdf.segments.Segments.__len__:
 
 .. py:method:: Segments.__len__(self)
 
-    The number of stream segments in a Segments object
+    The number of stream segments in a *Segments* object
 
     ::
 
@@ -254,7 +254,7 @@ Dunders
 
 .. py:method:: Segments.__geo_interface__(self)
 
-    A geojson dict-like representation of the Segments object
+    A geojson dict-like representation of the *Segments* object
 
     ::
 
@@ -336,7 +336,7 @@ Rasters
             self.locate_basins()
 
         
-        Builds the terminal basin raster and saves it internally. The saved raster will be used to quickly implement other commands that require it. (For example, :ref:`raster <pfdf.segments.Segments.raster>`, :ref:`geojson <pfdf.segments.Segments.geojson>`, and :ref:`save <pfdf.segments.Segments.save>`). Note that the saved raster is deleted if any of the terminal outlets are removed from the Segments object, so it is usually best to call this command *after* filtering the network.
+        Builds the terminal basin raster and saves it internally. The saved raster will be used to quickly implement other commands that require it. (For example, :ref:`raster <pfdf.segments.Segments.raster>`, :ref:`geojson <pfdf.segments.Segments.geojson>`, and :ref:`save <pfdf.segments.Segments.save>`). Note that the saved raster is deleted if any of the terminal outlets are removed from the *Segments* object, so it is usually best to call this command *after* filtering the network.
 
     .. dropdown:: Parallelization
 
@@ -1155,15 +1155,15 @@ Filtering
 
 .. py:method:: Segments.copy(self)
 
-    Returns a copy of a Segments object
+    Returns a copy of a *Segments* object
 
     ::
 
         self.copy()
 
-    Returns a copy of the current Segments object. Stream segments can be removed from the new/old objects without affecting one another. Note that the flow direction raster and saved basin rasters are not duplicated in memory. Instead, both objects reference the same underlying array.
+    Returns a copy of the current *Segments* object. Stream segments can be removed from the new/old objects without affecting one another. Note that the flow direction raster and saved basin rasters are not duplicated in memory. Instead, both objects reference the same underlying array.
 
-    :Outputs: *Segments* -- A copy of the current Segments object.
+    :Outputs: *Segments* -- A copy of the current *Segments* object.
 
 
 .. _api-export:
