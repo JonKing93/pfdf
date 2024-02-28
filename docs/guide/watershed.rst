@@ -100,7 +100,7 @@ D8 flow slopes are often useful for implementing :doc:`hazard assessment models 
 
     >>> slopes = watershed.slopes(dem, flow)
 
-.. note:: The input DEM may be a raw DEM; a conditioned DEM is not required for this function.
+.. note:: The input DEM may be a raw DEM; a conditioned DEM is not required for this function. However, you may wish to use a conditioned DEM for consistency across your analyses.
 
 
 .. _relief:
@@ -112,6 +112,6 @@ Vertical relief is often used to implement :doc:`potential sediment volume model
 
     >>> relief = watershed.relief(dem, flow)
 
-.. note:: As with :ref:`slopes`, the DEM input may be a raw DEM; a conditioned DEM is not required for this function.
+.. note:: As with :ref:`slopes`, the DEM input may be a raw DEM; a conditioned DEM is not required for this function. However, you may wish to use a conditioned DEM for consistency across your analyses.
 
 

@@ -10,6 +10,11 @@ The :ref:`staley2017 <pfdf.models.staley2017>` (or ``s17``) module provides func
 
   >>> from pfdf.models import s17
 
+.. admonition:: Statistics
+
+    Technically, the models estimate debris-flow *likelihood*, rather than probability. However, we use "probability" throughout the documentation to conform with the language of the codebase.
+
+
 In the paper, the probability model describes debris-flow probability as a function of terrain, fire burn severity, soil, and rainfall accumulation, such that:
 
 .. _s17-equation-1:
@@ -50,7 +55,7 @@ where:
       - Variable coefficients
 
 
-The probability model can also be inverted to compute the rainfall accumulation needed to achieve a given debris-flow probability: 
+The probability model can also be inverted to compute the rainfall accumulation needed to achieve a given probability level: 
 
 .. _s17-equation-2:
 
@@ -145,7 +150,7 @@ The module provides the :ref:`M1 <pfdf.models.staley2017.M1>`, :ref:`M2 <pfdf.mo
 
 Each class provides a ``variables`` method, which computes the T, F, and S variables given a stream segment network and various inputs. For example, using the M1 model::
 
-  # Compute (T)errain, (F)ire and (S)oil variables for M1
+  # Compute Terrain, Fire and Soil variables for M1
   >>> from pfdf.models import s17
   >>> T, F, S = s17.M1.variables(segments, moderate_high, slopes, dnbr, kf_factor)
 
@@ -162,6 +167,8 @@ Each class also provides a ``parameters`` method, which returns the :ref:`B, Ct,
 
   # Acquire model parameters
   >>> B, Ct, Cf, Cs = s17.M1.parameters()
+
+  # Examine parameters
   >>> B
   array([-3.63, -3.61, -3.21])
   >>> Ct
@@ -180,6 +187,8 @@ You can also use the ``durations`` option to query specific durations::
 
   # Return parameters for specific rainfall durations
   >>> B, Ct, Cf, Cs = s17.M1.parameters(durations=[60, 15])
+
+  # Examine parameters
   >>> B
   array([-3.21, -3.63])
   >>> Ct
@@ -245,12 +254,12 @@ which correspond to the columns of the output array, respectively.
   If you typically work with rainfall intensities in mm/hour, be sure to scale them to the appropriate duration::
 
     # Converting mm/hour for 15-minute duration
-    >>> R = 0.24  # mm/hour
-    >>> R = R * (60/15)
+    >>> I = 0.24  # mm/hour
+    >>> R = I * (60/15)
 
     # For a 30-minute duration
-    >>> R = 0.24  # mm/hour
-    >>> R = R * (60/30)
+    >>> I = 0.24  # mm/hour
+    >>> R = I * (60/30)
 
 
 
@@ -308,11 +317,11 @@ which correspond to the columns of the output array, respectively.
 
     # 15-minute accumulation to mm/hour
     >>> R = 0.24  # mm/15-minutes
-    >>> R = R * (15/60)
+    >>> I = R * (15/60)
 
     # 30-minute accumulation to mm/hour
     >>> R = 0.24  # mm/30-minutes
-    >>> R = R * (30/60)
+    >>> I = R * (30/60)
 
 
 
