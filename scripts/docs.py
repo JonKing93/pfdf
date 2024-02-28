@@ -6,8 +6,17 @@ import webbrowser
 import os
 import tomllib
 
+import requests
+import zipfile
+import io
+
+
 from . import run
 
+
+#####
+# Sphinx builds
+#####
 
 def locate_docs():
     return Path(__file__).parents[1] / "docs"
@@ -49,12 +58,28 @@ def rebuild():
     open_docs()
 
 
+#####
+# Tutorials / Version
+#####
+
+def download_tutorials():
+
+    # Get URL and download path
+    URL = "https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data/tutorial-resources.zip?ref_type=heads&inline=false"
+    docs = locate_docs()
+
+    # Download and unzip
+    web = requests.get(URL)
+    zip = zipfile.ZipFile(io.BytesIO(web.content))
+    zip.extractall(docs)
+
+
 def figures():
 
     # Locate paths
     here = Path.cwd()
     docs = locate_docs()
-    data = docs / "tutorials" / "download" / "data"
+    data = docs / "tutorial-resources" / "data"
     images = docs / "images"
 
     # Move to the sandbox

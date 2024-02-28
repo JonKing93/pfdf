@@ -11,7 +11,7 @@ evt = Raster("evt.tif")
 # Convert vector features to rasters
 perimeter = Raster.from_polygons("perimeter.geojson", resolution=dem)
 perimeter.buffer(3000)
-kf = Raster.from_polygons("kf-factor.geojson", field="KFFACT", resolution=dem)
+kf = Raster.from_polygons("kf.geojson", field="KFFACT", resolution=dem)
 retainments = Raster.from_points("retainments.geojson", resolution=dem)
 
 # Reproject to the same CRS, resolution and alignment as the DEM

@@ -14,7 +14,10 @@ coverage.lcov
 dist
 
 # Documentation builds
-docs/tutorials/download/data
 docs/images/*
 !docs/images/guide
 public
+
+# Tutorial data
+docs/tutorial-resources
+docs/tutorial-resources.zip

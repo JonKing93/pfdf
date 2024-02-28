@@ -20,7 +20,7 @@ perimeter.buffer(3000)
 plot.mask(perimeter, "Buffered Perimeter", gridalpha=1)
 
 # KF factor
-kf = Raster.from_polygons("kf-factor.geojson", field="KFFACT", resolution=dem)
+kf = Raster.from_polygons("kf.geojson", field="KFFACT", resolution=dem)
 plot.raster(kf, "turbo", "KF-factor", gridalpha=1)
 
 # Retainment features
