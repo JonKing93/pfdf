@@ -30,7 +30,7 @@ By default, both methods will export segments, but you can use the "type" option
     # Save segments as LineStrings (default)
     >>> segments.save('segments.shp')
 
-    # Save basins and outlets
+    # Save basins and outlets (Polygons and Points)
     >>> segments.save('basins.shp', type="basins")
     >>> segments.save('outlets.shp', type="outlets")
     >>> segments.save('all-outlets.shp', type="segment outlets")
@@ -41,6 +41,7 @@ Properties
 
 Both methods allow an optional ``properties`` input, which can be used to tag the features with associated data values. The properties input should be a ``dict`` whose keys are the names of data fields (as strings), and whose values are 1D numpy arrays with one element per exported feature. Currently, the class supports numeric, real-valued properties, so the array dtypes should be integer, floating-point, or boolean. There are no required data fields, so you may use any data field names supported by geojson. However, note that data field names may be truncated when saving to certain vector file formats (for example, saving to a Shapefile will truncate field names to 10 characters)::
 
+    # Export segments and include data properties
     properties = {
         "id": segments.ids,
         "hazard": my_assessment_results,
@@ -51,6 +52,7 @@ Both methods allow an optional ``properties`` input, which can be used to tag th
 
 Note that when exporting basins or outlets, the property values should have one element per local drainage network, rather than one element per segment. The ``isterminus`` property is often useful for this::
 
+    # Export basins and include data properties
     basins = segments.isterminus
     properties = {
         "id": segments.ids[basins],

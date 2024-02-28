@@ -11,7 +11,10 @@ Spatial Metadata
 
 Raster respresentations of the network will always match the spatial metadata of the flow direction raster used to derive the network. You can use the ``flow`` property to return this raster directly, or alternatively the ``raster_shape``, ``transform``, ``crs``, ``resolution``, and ``pixel_area`` properties to return specific characteristics. When relevant, the units of these properties will match the base units of the coordinate reference system for the network. (In practice, these are often units of meters). As an example::
 
+    # Create a network
     >>> segments = Segments(flow, mask)
+
+    # Examine its metadata
     >>> segments.raster_shape
     (3378, 2591)
     >>> print(segments.transform)

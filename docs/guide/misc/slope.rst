@@ -39,22 +39,26 @@ Specifically, the module provides functions to convert from slope gradients to t
       
 Each metric has a ``from_<name>`` and a ``to_<name>`` method. The "from" method converts from that metric to slope gradient, and the "to" method converts from slope gradient to that metric. All functions are configured to operate on numpy arrays. For example::
 
+    # Convert from degrees to gradient
     >>> import numpy as np
     >>> degrees = np.array([10, 20, 30, 40, 50])
     >>> gradient = slope.from_degrees(degrees)
     >>> print(gradient)
     [0.17632698 0.36397023 0.57735027 0.83909963 1.19175359]
 
+    # Convert back to degrees
     >>> slope.to_degrees(gradient)
     array([10., 20., 30., 40., 50.])
 
 Another example (using slope percents)::
 
+    # Convert from gradient to slope percent
     >>> gradient = np.arange(1,10)
     >>> percent = slope.to_percent(gradient)
     >>> print(percent)
     [100 200 300 400 500 600 700 800 900]
 
+    # Convert back to gradient
     >>> slope.from_percent(percent)
     array([1., 2., 3., 4., 5., 6., 7., 8., 9.])
 

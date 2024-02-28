@@ -39,6 +39,7 @@ By default, the function uses the following classification scheme:
 
 However, you can also use the "p_thresholds", "v_thresholds", and "h_thresholds" options to specify different thresholds for the (p)robability, (v)olume, and (h)azard classifications. For example::
 
+    # Use custom thresholds to classify hazards
     >>> hazard = c10.hazard(
             probabilities, 
             volumes, 
@@ -49,6 +50,7 @@ However, you can also use the "p_thresholds", "v_thresholds", and "h_thresholds"
 
 Advanced users may also be interested in the ``pscore`` and ``vscore`` functions, which return the individual probability and volume classes::
 
+    # Classify probability and volume individually
     >>> p = c10.pscore(probabilities)
     >>> v = c10.vscore(volumes)
 

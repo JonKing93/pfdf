@@ -30,6 +30,7 @@ The first step for most users is to apply the :ref:`condition <pfdf.watershed.co
 
 Note that this function returns a new conditioned *Raster* object as output - it does not modify the input DEM dataset::
 
+    # Condition a DEM
     >>> from pfdf import watershed
     >>> from pfdf.raster import Raster
     >>> dem = Raster('dem.tif')
@@ -37,6 +38,7 @@ Note that this function returns a new conditioned *Raster* object as output - it
 
 You can also use the ``fill_pits``, ``fill_depressions``, and ``resolve_flats`` options to disable specific conditioning steps::
 
+    # Disable steps of the DEM conditioning algorithm
     >>> output = watershed.condition(dem, fill_pits=False)
     >>> output = watershed.condition(dem, fill_depressions=False)
     >>> output = watershed.condition(dem, resolve_flats=False)

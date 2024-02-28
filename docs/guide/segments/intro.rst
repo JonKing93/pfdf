@@ -34,25 +34,30 @@ You can build an initial stream segment network by :ref:`initializing a Segments
 
 ::
 
+    # Delineate a network
     >>> segments = Segments(flow, mask)
 
 Note that the flow direction raster must have (affine) transform metadata.
 
 In part, the mask is used to limit stream segments to watershed pixels that likely represent a physical stream bed. To do so, the mask will typically limit the stream segments to pixels that exceed some minimum flow accumulation. The mask might also remove certain areas from the hazard modeling process. For example, a mask might screen out pixels in large bodies of water, or below human development in order to prevent hazard modeling in these areas. For example::
 
+    # Create a delineation mask
     >>> from pfdf import watershed
     >>> flow = watershed.flow(conditioned_dem)
     >>> drainage_area = watershed.accumulation(flow) * flow.pixel_area
     >>> mask = drainage_area >= 100
 
+    # Delineate the network
     >>> segments = Segments(flow, mask)
 
 When building a stream segment network, you may also provide an optional maxmimum length. In this case, any stream segments exceeding the indicated length will be split into multiple pieces in the *Segments* object::
 
+    # Delineate a network and allow any length
     >>> segments = Segments(flow, mask)
     >>> segments.length   # The number of segments
     2422
 
+    # Delineate a network, but limit the maximum length
     >>> segments = Segments(flow, mask, max_length=500)
     >>> segments.length   # More segments because some were split
     2561

@@ -12,18 +12,21 @@ buffer
 ------
 Use the :ref:`buffer <pfdf.raster.Raster.buffer>` command to add NoData pixels to the edges of a raster for a specified distance::
 
+    # Create a Raster from a fire perimeter
     >>> perimeter = Raster.from_polygons('perimeter.shp')
     >>> perimeter.resolution
     (10, 10)
     >>> perimeter.shape
     (3000, 2500)
 
+    # Buffer the perimeter by 1000 units
     >>> perimeter.buffer(distance=1000)
     >>> perimeter.shape
     (3200, 2700)
 
 Note that buffering distance is interpreted in the units of the transform. Use the ``pixels`` option to specify the buffer in pixels instead::
 
+    # Buffer the perimeter by 5 pixels
     >>> perimeter.shape
     (3000, 2500)
     >>> perimeter.buffer(distance=5, pixels=True) 
@@ -35,20 +38,24 @@ reproject
 ---------
 Use the :ref:`reproject <pfdf.raster.Raster.reproject>` method to reproject a *Raster* to the same CRS and transform of another (template) *Raster*::
 
+    # The CRS of the DEM is 26911
     >>> dem = Raster('dem.tif')
     >>> print(dem.CRS)
     EPSG:26911
 
+    # The CRS of the dNBR is 4326
     >>> dnbr = Raster('dnbr.tif')
     >>> print(dnbr.CRS)
     EPSG:4326
 
+    # Reprojects the dNBR to 26911
     >>> dnbr.reproject(template=dem)
     >>> print(dnbr.CRS)
     EPSG:26911
 
 By default, this method will use nearest-neighbor interpolation to reproject the raster. Use the ``resampling`` option to select a different algorithm::
 
+    # Uses bilinear resampling
     >>> dnbr.reproject(template=dem, resampling='bilinear')
 
 See the :ref:`reproject API <pfdf.raster.Raster.reproject>` for a complete list of supported algorithms.
@@ -58,14 +65,17 @@ clip
 ----
 Use the :ref:`clip <pfdf.raster.Raster.clip>` command to match a raster's bounds to the bounds of a second raster::
 
+    # The DEM's spatial bounds
     >>> dem = Raster('dem.tif')
     >>> dem.bounds
     BoundingBox(left=0, bottom=0, right=100, top=100)
 
+    # The dNBR has different bounds
     >>> dnbr = Raster('dnbr.tif')
     >>> dnbr.bounds
     BoundingBox(left=20, bottom=20, right=150, top=150)
 
+    # Clip the dNBR to the bounds of the DEM
     >>> dnbr.clip(bounds=dem)
     >>> dnbr.bounds
     BoundingBox(left=0, bottom=0, right=100, top=100)
@@ -78,6 +88,7 @@ set_range
 ---------
 Use the :ref:`set_range <pfdf.raster.Raster.set_range>` method to constrain a dataset to a valid data range::
 
+    # A raw dNBR dataset has a large range of data values
     >>> import numpy as np
     >>> dnbr = Raster('dnbr.tif')
     >>> np.min(dnbr.values)
@@ -85,6 +96,7 @@ Use the :ref:`set_range <pfdf.raster.Raster.set_range>` method to constrain a da
     >>> np.max(dnbr.max)
     3520
 
+    # Constrain the dNBR to an expected data range
     >>> dnbr.set_range(min=-1000, max=1000)
     >>> np.min(dnbr.values)
     -1000
@@ -93,6 +105,7 @@ Use the :ref:`set_range <pfdf.raster.Raster.set_range>` method to constrain a da
 
 By default, out-of-range pixels are set to the value of the nearest bound. Use the ``fill`` option to replace these pixels with NoData instead::
 
+    # Replaces out-of-range pixels with NoData values
     >>> dnbr.set_range(min=-1000, max=1000, fill=True)
 
 

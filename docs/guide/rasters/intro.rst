@@ -22,6 +22,7 @@ Raster Objects
 
 As stated, rasters are the fundamental input for pfdf analyses. As such, pfdf provides a custom :ref:`Raster class <pfdf.raster.Raster>` to help manage these datasets::
 
+    # Import the Raster class
     >>> from pfdf.raster import Raster
 
 This class includes methods to:
@@ -45,10 +46,12 @@ In many cases, you can create a *Raster* object by calling :ref:`the constructor
 
 And you can save a *Raster* to a file using the :ref:`save method <pfdf.raster.Raster.save>`::
 
+    # Save to file
     >>> raster.save('my-raster.tif')
 
 Each *Raster* represents its data grid as a 2D numpy array. You can use the ``values`` property to return this array::
 
+    # Return Raster data values
     >>> dem.values
     array([[nan, nan, nan, ..., nan, nan, nan],
            [nan, nan, nan, ..., nan, nan, nan],
@@ -121,10 +124,12 @@ Raster Constructor
 ++++++++++++++++++
 The simplest way to create a *Raster* object is using :ref:`the constructor <pfdf.raster.Raster.__init__>`. This option is sufficient for most file-based rasters, as well as pysheds rasters. For example::
 
+    # Create a raster
     >>> dem = Raster('dem.tif')
 
 You can use the ``name`` parameter to specify an optional string to identify the raster. For example::
 
+    # Create a named raster
     >>> dem = Raster('dem.tif', name="DEM 10m")
     >>> print(dem.name)
     DEM 10m
@@ -148,14 +153,17 @@ from_file
 +++++++++
 The :ref:`from_file <pfdf.raster.Raster.from_file>` method provides some additional options for loading a file-based raster dataset. For example,this command adds the ``band`` option, which allows you to load a raster from a particular band of a multi-band raster::
 
+    # Load from band 3
     >>> dem = Raster.from_file('my-raster.tif', band=3)
 
 You can also use the ``driver`` option to specify the file format when a file has a nonstandard extension::
 
+    # Open a GeoTiff with an unusual extension
     >>> dem = Raster.from_file('raster.unusual', driver="GTiff")
 
 The ``window`` option allows you to only load a subset of a raster into memory. This is useful when you only need a small portion of a very large dataset, or when a raster dataset is larger than your computer's RAM::
 
+    # Load the subset of a large raster that's in the bounds of a smaller raster
     >>> window = Raster('small-raster.tif')
     >>> raster = Raster.from_file('very-large-raster.tif', window=window)
 
@@ -165,10 +173,12 @@ from_array
 
 Although you can call the *Raster* constructor on numpy arrays, the resulting object will not have spatial metadata or a NoData value::
 
+    # Use the constructor on a numpy array
     >>> import numpy as np
     >>> araster = np.arange(100).reshape(5,20)
     >>> raster = Raster(araster)
 
+    # The created Raster lacks metadata
     >>> raster.nodata
     None
     >>> raster.crs
@@ -178,10 +188,12 @@ Although you can call the *Raster* constructor on numpy arrays, the resulting ob
 
 The :ref:`Raster.from_array <pfdf.raster.Raster.from_array>` command allows you to optionally provide these values::
 
+    # Use Raster.from_array on a numpy array
     >>> from affine import Affine
     >>> transform = Affine(10, 0, 100,0,-10,5)
     >>> raster = Raster.from_array(araster, nodata=-999, crs="epsg:4326", transform=transform)
 
+    # The created Raster now has metadata
     >>> raster.nodata
     -999
     >>> print(raster.crs)
@@ -193,9 +205,11 @@ The :ref:`Raster.from_array <pfdf.raster.Raster.from_array>` command allows you 
 
 You can also use the ``spatial`` parameter to optionally match the CRS and transform of another *Raster*::
 
+    # Using a spatial template
     >>> dem = Raster('dem.tif')
     >>> raster = Raster.from_array(araster, nodata=-999, spatial=dem)
 
+    # Created raster has the CRS and transform of the template
     >>> raster.nodata
     -999
     >>> print(raster.crs)
@@ -212,6 +226,7 @@ from_polygons
 
 Sometimes, you will have a dataset represented as a set of polygon or multi-polygon features. For example, fire perimeters and soil properties are often represented as polygons. The routines in pfdf require raster datasets, so you will need to convert these polygon datasets to rasters before processing. You can use the :ref:`Raster.from_polygons <pfdf.raster.Raster.from_polygons>` command to do so. The command requires the path to a vector feature file, and we recommend also using the ``resolution`` option to match the resolution of the new raster to an existing raster::
 
+    # Create a Raster from polygon features
     >>> dem = Raster('dem.tif')
     >>> perimeter = Raster.from_polygons("fire-perimeter.shp", resolution=dem)
     >>> print(perimeter.resolution)
@@ -219,6 +234,7 @@ Sometimes, you will have a dataset represented as a set of polygon or multi-poly
 
 By default, this command will create a boolean raster. Pixels inside a polygon will be marked as True, and all other pixels will be False. This is most suitable for polygons that represent a mask, such as a fire perimeter::
 
+    # By default, creates a boolean raster
     >>> print(perimeter.dtype)
     bool
     >>> print(perimeter.nodata)
@@ -226,8 +242,10 @@ By default, this command will create a boolean raster. Pixels inside a polygon w
 
 However, other datasets (such as soil properties) are better represented by numeric values. When this is the case, you can use the ``field`` option to build the raster from one of the polygon data fields. In this case, pixels inside a polygon will be set to the value of the polygon's data field, and all other pixels will be NaN::
 
+    # Create a raster from a polygon field
     >>> kf = Raster.from_polygons('kf-factor.shp', resolution=dem, field="KFFACT")
 
+    # Creates a floating-point raster whose NoData is NaN
     >>> print(kf.dtype)
     float64
     >>> kf.nodata
@@ -261,14 +279,17 @@ Saving Rasters
 
 All pfdf commands that produce a raster will return a *Raster* object as output. You can use the ``values`` property to retrieve the raster's data grid, but it's often useful to use the :ref:`save method <pfdf.raster.Raster.save>` to save the raster to the indicated filepath::
 
+    # Save to file
     >>> araster.save('my-file.tif')
 
 By default, this method will not overwrite existing files, but you can use the ``overwrite`` option to change this::
 
+    # Save to file and overwrite any existing file
     >>> araster.save('my-file.tif', overwrite=True)
 
 You can also use the ``driver`` option to specify the file format for filepaths with non-standard extensions::
 
+    # Save a GeoTiff with an unusual extension
     >>> araster.save('my-file.unusual', driver='GTiff')
 
 

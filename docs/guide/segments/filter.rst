@@ -50,10 +50,12 @@ where the grey (dotted) segments have been removed, and the blue (solid) segment
 
 Since :ref:`remove <pfdf.segments.Segments.remove>` does not necessarily remove all indicated segments, the method returns a 1D boolean array indicating the segments that were actually removed. The array will have one element per segment in the unfiltered network, and True elements indicate removal. For example, we could use::
 
+    # The segments before filtering
     >>> initial_ids = segments.ids
     >>> initial_ids
     array([1, 2, 3, 4, 5, 6, 7, 8, 9])
 
+    # Filter and examine removed/remaining segments
     >>> removed = segments.remove(ids=[1,2,4,7,9])
     >>> initial_ids[removed]
     array([1, 2, 7, 9])
@@ -64,6 +66,7 @@ to see which segments were retained and removed.
 
 If you don't want to preserve flow-continuity, you can disable this behavior by setting the ``continuous`` option to False. For example::
 
+    # Filter without preserving flow-continuity
     >>> removed = segments.remove(ids=[1,2,4,7,9], continuous=False)
 
 would instead result in the following network:
@@ -108,10 +111,12 @@ copy
 
 The :ref:`keep` and :ref:`remove` methods permanently alter a *Segments* object, and discarded segments cannot be restored. However, you can use the :ref:`copy <pfdf.segments.Segments.copy>` method to create a copy of the object before filtering. You can then remove segments from one copy without affecting the other. This can be useful for testing different filtering criteria::
 
+  # Copy the segments and create two different filtering criteria
   >>> acopy = segments.copy()
   >>> test1 = segments.area() < 100
   >>> test2 = segments.area() < 200
 
+  # Filter the segments and the copy using separate criteria
   >>> segments.remove(indices=test1)
   >>> acopy.remove(indices=test2)
 
