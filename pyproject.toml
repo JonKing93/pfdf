@@ -25,6 +25,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
+# Core dependencies
 python = ">=3.11, <3.13"
 numpy = "*"
 nptyping = "*"
@@ -34,9 +35,14 @@ rasterio = "*"
 affine = "*"
 shapely = "*"
 fiona = "*"
-scipy = "^1.10"
+
+# Tutorial plots
 cartopy = { version = ">=0.22", optional = true }
 matplotlib = { version = ">=3.8.2", optional = true }
+
+# Safety checks
+scipy = "^1.10"
+jupyterlab = ">4.0.10"
 
 [tool.poetry.extras]
 tutorials = ["cartopy", "matplotlib"]
