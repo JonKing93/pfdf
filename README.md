@@ -1,11 +1,11 @@
 # pfdf
 
-A Python library to facilitate post-fire debris-flow hazard assessments.
+A Python library to facilitate postfire debris-flow hazard assessments.
 
 
 ## Summary
 
-The pfdf (post-fire debris-flow) package provides utilities intended to facilitate post-fire debris-flow hazard assessments and research. The package contains routines to:
+The pfdf (postfire debris-flow) package provides utilities intended to facilitate postfire debris-flow hazard assessments and research. The package contains routines to:
 
 * Analyze watersheds
 * Delineate and filter stream segment networks
@@ -29,7 +29,7 @@ Please read the [Developer Guide](https://ghsc.code-pages.usgs.gov/lhp/pfdf/reso
 
 ## Suggested Citation
 
-King, J., 2023, pfdf - Python library for post-fire debris-flow hazard assessments and research, version 1.0.0: U.S. Geological Survey software release, https://doi.org/10.5066/P9JO58MJ
+King, J., 2023, pfdf - Python library for postfire debris-flow hazard assessments and research, version 1.0.0: U.S. Geological Survey software release, https://doi.org/10.5066/P9JO58MJ
 
 
 ## DOI
