@@ -50,6 +50,7 @@ pages:
   when: manual
   script:
     - poetry run version
+    - poetry run download_tutorials
     - poetry run figures
     - poetry run docs
   artifacts:

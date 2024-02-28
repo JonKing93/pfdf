@@ -73,12 +73,14 @@ The documentation is built using `sphinx <https://www.sphinx-doc.org/en/master/i
 The docs use the `sphinx_design <https://sphinx-design.readthedocs.io/en/rtd-theme/>`_ extension to enable dropdowns and tabbed panels within the content. The final website is deployed using `Gitlab Pages <https://docs.gitlab.com/ee/user/project/pages/>`_ via a manual job in the `Gitlab pipeline <https://docs.gitlab.com/ee/ci/pipelines/>`_. You must trigger this job manually to deploy new docs. The job will:
 
 * Check that the docs release matches the release in ``pyproject.toml``
+* Download the data and scripts for the tutorials
 * Generate figures for the tutorials, and then
 * Run sphinx to generate the final HTML docs
 
 You can run the individual tasks using::
 
     poetry run version
+    poetry run download_tutorials
     poetry run figures
     poetry run docs
 
@@ -154,6 +156,9 @@ The following is a complete list of available developer scripts:
     * - rebuild
       - Rebuilds the docs, then opens to the indicated page
       - No
+    * - download_tutorials
+      - Downloads the tutorial resources
+      - Docs job (Manually triggered)
     * - figures
       - Runs the tutorial scripts and generates figures
       - Docs job (Manually triggered)
