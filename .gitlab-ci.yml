@@ -17,7 +17,7 @@ build:
     - virtualenv env
     - source env/bin/activate
     - pip install poetry
-    - poetry install --with dev
+    - poetry install --with dev --extras tutorials
   artifacts:
     expire_in: 1 hour
     paths:
@@ -44,6 +44,18 @@ test:
       coverage_report:
         coverage_format: cobertura
         path: coverage.xml
+
+pages:
+  stage: deploy
+  when: manual
+  script:
+    - poetry run version
+    - poetry run download_tutorials
+    - poetry run figures
+    - poetry run docs
+  artifacts:
+    paths:
+    - public
 
 release:
   rules:

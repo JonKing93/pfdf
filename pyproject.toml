@@ -25,6 +25,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
+# Core dependencies
 python = ">=3.11, <3.13"
 numpy = "*"
 nptyping = "*"
@@ -34,7 +35,17 @@ rasterio = "*"
 affine = "*"
 shapely = "*"
 fiona = "*"
+
+# Tutorial plots
+cartopy = { version = ">=0.22", optional = true }
+matplotlib = { version = ">=3.8.2", optional = true }
+
+# Safety checks
 scipy = "^1.10"
+jupyterlab = ">4.0.10"
+
+[tool.poetry.extras]
+tutorials = ["cartopy", "matplotlib"]
 
 [tool.poetry.group.dev]
 optional = true
@@ -46,12 +57,22 @@ isort = "^5.12.0"
 pytest-cov = "*"
 coverage = "*"
 safety = "^2.1.1"
+sphinx = ">=7.2.6"
+sphinx-rtd-theme = ">=1.3.0"
+sphinx_design = ">=0.5"
 
 [tool.poetry.scripts]
 tests = "scripts.dev:tests"
 format = "scripts.dev:format"
 lint = "scripts.dev:lint"
-pipeline = "scripts.dev:pipeline"
+docs = "scripts.docs:build"
+open = "scripts.docs:open_docs"
+rebuild = "scripts.docs:rebuild"
+download_tutorials = "scripts.docs:download_tutorials"
+figures = "scripts.docs:figures"
+version = "scripts.docs:check_version"
+pipeline = "scripts.pipeline:pipeline"
+docs_pipeline = "scripts.pipeline:docs_pipeline"
 
 [tool.pytest.ini_options]
 filterwarnings = [
@@ -60,6 +81,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:pysheds.sview",
     "ignore::DeprecationWarning:pysheds.sgrid",
     "ignore::DeprecationWarning:numba.core.typing.context",
+    "ignore::DeprecationWarning:nptyping.pandas_.dataframe",
 ]
 
 [tool.isort]

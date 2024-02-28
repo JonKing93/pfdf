@@ -208,7 +208,22 @@ class TestValidate:
         S = np.ones(7)
         with pytest.raises(ShapeError) as error:
             s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
-        assert_contains(error, "T has 4 column(s)")
+        assert_contains(error, "T has 4 columns")
+
+    def test_variable_sets_runs(_):
+        PR = 1
+        B = 1
+        Ct = 1
+        Cf = 1
+        Cs = 1
+        T = 1
+        F = np.ones((1, 4))
+        S = 1
+
+        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+        assert F.shape == (1, 4, 1)
+        for array in (PR, B, Ct, Cf, Cs, T, S):
+            assert array.shape == (1, 1, 1)
 
 
 class TestAccumulation:
@@ -646,6 +661,33 @@ class TestTerrainMask:
 
 
 class TestM1:
+    def test_terrain(_, segments, slopes, mask):
+        output = s17.M1.terrain(segments, mask, slopes)
+        T = [3 / 5, 0, 0, 1, 1 / 2, 7 / 11]
+        assert np.array_equal(output, T)
+
+    def test_fire(_, segments, flow):
+        output = s17.M1.fire(segments, flow)
+        F = [23 / 5000, 7 / 1000, 3 / 1000, 5 / 1000, 25 / 4000, 62 / 11000]
+        assert np.array_equal(output, F)
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M1.fire(segments, flow, True)
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        assert np.array_equal(output, F, equal_nan=True)
+
+    def test_soil(_, segments, flow):
+        output = s17.M1.soil(segments, flow)
+        S = [23 / 5, 7, 3, 5, 25 / 4, 62 / 11]
+        assert np.array_equal(output, S)
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M1.soil(segments, flow, True)
+        S = [1, nan, 3, 5, 5.5, 13 / 4]
+        assert np.array_equal(output, S, equal_nan=True)
+
     def test_invalid(_, flow):
         with pytest.raises(TypeError) as error:
             s17.M1.variables(5, flow, flow, flow, flow)
@@ -690,6 +732,42 @@ class TestM2:
         with pytest.raises(TypeError) as error:
             s17.M2.variables(5, flow, flow, flow, flow)
         assert_contains(error, "segments")
+
+    def test_terrain(_, segments, mask, slopes, flow):
+        output = s17.M2.terrain(segments, slopes, mask)
+        T = [0.36914289, 0.25783416, 0.25783416, 0.42261826, 0.34022621, 0.38240609]
+        assert np.allclose(output, T, equal_nan=True)
+
+        values = flow.values.copy()
+        nodatas = values == 7
+        slopes[nodatas] = nan
+        slopes = Raster.from_array(slopes, nodata=nan)
+
+        output = s17.M2.terrain(segments, slopes, mask, True)
+        T = [0.45371394, nan, 0.25783416, 0.42261826, 0.42261826, 0.4381661]
+        assert np.allclose(output, T, equal_nan=True)
+
+    def test_fire(_, segments, flow):
+        output = s17.M2.fire(segments, flow)
+        F = [23 / 5000, 7 / 1000, 3 / 1000, 5 / 1000, 25 / 4000, 62 / 11000]
+        assert np.array_equal(output, F)
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M2.fire(segments, flow, True)
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        assert np.array_equal(output, F, equal_nan=True)
+
+    def test_soil(_, segments, flow):
+        output = s17.M2.soil(segments, flow)
+        S = [23 / 5, 7, 3, 5, 25 / 4, 62 / 11]
+        assert np.array_equal(output, S)
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M2.soil(segments, flow, True)
+        S = [1, nan, 3, 5, 5.5, 13 / 4]
+        assert np.array_equal(output, S, equal_nan=True)
 
     def test(_, segments, flow, slopes, mask):
         output = s17.M2.variables(segments, mask, slopes, flow, flow)
@@ -741,6 +819,27 @@ class TestM3:
             s17.M3.variables(5, flow, flow, flow)
         assert_contains(error, "segments")
 
+    def test_terrain(_, segments, flow):
+        output = s17.M3.terrain(segments, flow)
+        T = np.array([1, 7, 3, 5, 6, 7]) / np.sqrt(segments.area())
+        assert np.array_equal(output, T)
+
+    def test_fire(_, segments, mask2):
+        output = s17.M3.fire(segments, mask2)
+        F = [0, 1, 1, 1, 1, 4 / 11]
+        assert np.array_equal(output, F)
+
+    def test_soil(_, segments, flow):
+        output = s17.M3.soil(segments, flow)
+        S = [23 / 500, 7 / 100, 3 / 100, 5 / 100, 25 / 400, 62 / 1100]
+        assert np.array_equal(output, S)
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M3.soil(segments, flow, True)
+        S = [0.01, nan, 0.03, 0.05, 0.055, 13 / 400]
+        assert np.array_equal(output, S, equal_nan=True)
+
     def test(_, segments, mask2, flow):
         output = s17.M3.variables(segments, mask2, flow, flow)
         T = np.array([1, 7, 3, 5, 6, 7]) / np.sqrt(segments.area())
@@ -780,6 +879,34 @@ class TestM4:
         with pytest.raises(TypeError) as error:
             s17.M4.variables(5, flow, flow, flow, flow)
         assert_contains(error, "segments")
+
+    def test_terrain(_, segments, mask, slopes):
+        slopes[3:, :] = 31
+        output = s17.M4.terrain(segments, mask, slopes)
+        T = [3 / 5, 0, 0, 1, 1 / 2, 7 / 11]
+        assert np.array_equal(output, T)
+
+    def test_fire(_, segments, flow):
+        output = s17.M4.fire(segments, flow)
+        F = [23 / 5000, 7 / 1000, 3 / 1000, 5 / 1000, 25 / 4000, 62 / 11000]
+        assert np.array_equal(output, F)
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M4.fire(segments, flow, True)
+        F = [0.001, nan, 0.003, 0.005, 0.0055, 13 / 4000]
+        assert np.array_equal(output, F, equal_nan=True)
+
+    def test_soil(_, segments, flow):
+        output = s17.M4.soil(segments, flow)
+        S = [23 / 500, 7 / 100, 3 / 100, 5 / 100, 25 / 400, 62 / 1100]
+        assert np.array_equal(output, S)
+        values = flow.values.copy()
+        values[values == 0] = 7
+        flow = Raster.from_array(values, nodata=7)
+        output = s17.M4.soil(segments, flow, True)
+        S = [0.01, nan, 0.03, 0.05, 0.055, 13 / 400]
+        assert np.array_equal(output, S, equal_nan=True)
 
     def test(_, segments, mask, flow, slopes):
         slopes[3:, :] = 31

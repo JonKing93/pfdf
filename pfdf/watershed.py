@@ -7,20 +7,11 @@ functions in this module are for raster-wide analyses. Please see the "segments"
 module if you are instead interested in computing values for individual stream
 segments or stream segment basins.
 
-The typical workflow for using the watershed module is to first use the "condition"
-function to condition a DEM (i.e. filling pits and resolving flats). Then, use the
-"flow" function to compute D8 flow directions from a DEM. These flow directions are
-an essential input to all other watershed functions. With the flow directions, users
-can compute flow accumulation (also referred to as upslope area), D8 flow slopes, 
-and the vertical relief of watershed pixels. We note that the accumulation function 
-essentially counts the number of upslope pixels in its base configuration.
-However, it can also be set to compute weighted and masked sums over upslope areas.
-
-The module also contains the "catchment" and "network" functions, which can be
-used to extract stream segment networks and catchment basins. However, most
-users will not need to use these functions and should instead use the
-pfdf.segments.Segments class to build and manage the stream segments in a drainage
-network.
+Typical workflow is to use the "condition" function to condition a DEM. Then use
+"flow" to compute flow directions. The flow directions can then be used to compute
+slopes, relief, and accumulation. This module also contains the "catchment" and
+"network" functions, but most users will not need these, as they are implemented
+internally by the Segments class.
 
 NODATA VALUES:
 This module relies on the pysheds library, which will assign a default NoData 

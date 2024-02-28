@@ -802,7 +802,10 @@ def input_path(path: Any, name: str) -> Path:
     if isinstance(path, str):
         path = Path(path)
     type(path, name, Path, "file path")
-    return path.resolve(strict=True)
+    path.resolve(strict=True)
+    if not path.is_file():
+        raise ValueError(f"{name} is not a file")
+    return path
 
 
 def output_path(path: Any, overwrite: bool) -> Path:

@@ -1,0 +1,60 @@
+Combined Hazard Classification
+==============================
+
+The ``cannon2010`` (or ``c10``) module provides functions to classify relative hazard based on debris-flow probability and potential sediment volume. This classification is a multi-part process. First, probabilities and volumes are divided into classes. Then, the probability and volume classes are added together for each debris-flow. Finally, these sums are divided into relative hazard classes.
+
+You can use the ``hazard`` function to classify relative hazard. The function requires a set of debris-flow probabilities (on the interval from 0 to 1), and potential sediment volumes (in m^3). These inputs should be numpy arrays, and are often produced by the :doc:`staley2017 <s17>` and :doc:`gartner2014 <g14>` modules. For example::
+
+    >>> from pfdf.models import s17, g14, c10
+    >>> probabilities = s17.probability(...)
+    >>> volumes = g14.emergency(...)
+    >>> hazard = c10.hazard(probabilities, volumes)
+
+By default, the function uses the following classification scheme:
+
+
+.. list-table::
+
+    * - **Class**
+      - **Probability**
+      - **Volume (m^3)**
+      - **Combined Score**
+    * - 1
+      - [0, 0.25]
+      - [0, 10^3]
+      - 1-3
+    * - 2
+      - (0.25, 0.5]
+      - (10^3, 10^4]
+      - 4-6
+    * - 3
+      - (0.5, 0.75]
+      - (10^4, 10^5]
+      - >6
+    * - 4
+      - (0.75, 1]
+      - >10^5
+      - N/A
+
+
+However, you can also use the "p_thresholds", "v_thresholds", and "h_thresholds" options to specify different thresholds for the (p)robability, (v)olume, and (h)azard classifications. For example::
+
+    # Use custom thresholds to classify hazards
+    >>> hazard = c10.hazard(
+            probabilities, 
+            volumes, 
+            p_thresholds=[.3, .6, .9],
+            v_thresholds = [2E3, 2E4, 2E5],
+            h_thresholds = [2,4,6],
+        )
+
+Advanced users may also be interested in the ``pscore`` and ``vscore`` functions, which return the individual probability and volume classes::
+
+    # Classify probability and volume individually
+    >>> p = c10.pscore(probabilities)
+    >>> v = c10.vscore(volumes)
+
+And note that these functions also accept custom thresholds::
+
+    >>> p = c10.pscore(probabilities, thresholds=[.3, .6, .9])
+    >>> v = c10.vscore(volumes, threholds=[2E3, 2E4, 2E5])

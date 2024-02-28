@@ -10,12 +10,10 @@ All the utilities in this module support the case wherein a NoData value is None
 Comparison Functions:
     equal       - True if two NoData values are equal
     isin        - True if an array contains a NoData value
+    mask        - Returns a boolean nodata mask for an array
 
 Class:
     NodataMask  - Objects to facilitate working with nodata/data masks
-
-Internal:
-    _mask       - Returns a boolean nodata mask for an array
 """
 
 import operator

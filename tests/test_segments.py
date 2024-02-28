@@ -1350,6 +1350,38 @@ class TestDevelopedArea:
         assert np.array_equal(output, expected)
 
 
+class TestInMask:
+    def test(_, segments, mask2):
+        mask2[2:4, 4] = False
+        output = segments.in_mask(mask2)
+        assert output.dtype == bool
+        expected = np.array([False, True, True, True, False, False])
+        assert np.array_equal(output, expected)
+
+    def test_terminal(_, segments, mask2):
+        mask2[2:4, 4] = False
+        output = segments.in_mask(mask2, terminal=True)
+        assert output.dtype == bool
+        expected = np.array([True, False])
+        assert np.array_equal(output, expected)
+
+
+class TestInPerimeter:
+    def test(_, segments, mask2):
+        mask2[2:4, 4] = False
+        output = segments.in_perimeter(mask2)
+        assert output.dtype == bool
+        expected = np.array([False, True, True, True, False, False])
+        assert np.array_equal(output, expected)
+
+    def test_terminal(_, segments, mask2):
+        mask2[2:4, 4] = False
+        output = segments.in_perimeter(mask2, terminal=True)
+        assert output.dtype == bool
+        expected = np.array([True, False])
+        assert np.array_equal(output, expected)
+
+
 class TestKfFactor:
     def test_basic(_, segments, values, npixels):
         output = segments.kf_factor(values)
@@ -1492,6 +1524,11 @@ class TestSlope:
         expected = np.array([23 / 5, 7, nan, 5, 6, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
+    def test_terminal(_, segments, values):
+        output = segments.slope(values, terminal=True)
+        expected = np.array([nan, 7])
+        assert np.array_equal(output, expected, equal_nan=True)
+
     def test_omitnan(_, segments, flow):
         flow._nodata = 7
         output = segments.slope(flow, omitnan=True)
@@ -1505,11 +1542,24 @@ class TestRelief:
         expected = np.array([1, 7, nan, 5, 6, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
+    def test_terminal(_, segments, values):
+        output = segments.relief(values, terminal=True)
+        expected = np.array([nan, 7])
+        assert np.array_equal(output, expected, equal_nan=True)
+
 
 class TestRuggedness:
     def test(_, segments, values, flow, npixels):
         output = segments.ruggedness(values)
         relief = np.array([1, 7, nan, 5, 6, 7])
+        area = npixels * flow.pixel_area
+        expected = relief / np.sqrt(area)
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_terminal(_, segments, values, flow, npixels):
+        output = segments.ruggedness(values, terminal=True)
+        relief = np.array([nan, 7])
+        npixels = np.array([npixels[2], npixels[5]])
         area = npixels * flow.pixel_area
         expected = relief / np.sqrt(area)
         assert np.array_equal(output, expected, equal_nan=True)
