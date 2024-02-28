@@ -1,7 +1,7 @@
 Download Tutorial Resources
 ===========================
 
-You can use the following link to download the datasets and scripts for the tutorials: MISSING
+You can use the following link to download the datasets and scripts for the tutorials: `Download Resources <https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data/tutorial-resources.zip?ref_type=heads&inline=false>`_
 
 
 Contents

@@ -11,7 +11,7 @@ The :ref:`pfdf.models <pfdf.models>` subpackage contains modules that implement 
 :doc:`Gartner 2014 <g14>`
     Models to estimate potential sediment volume.
 
-:doc:`Cannon 2010 <c10>`
+:doc:`Combined hazard classification <c10>`
     Classify hazard from probability and potential sediment volume.
 
 .. toctree::
@@ -19,4 +19,4 @@ The :ref:`pfdf.models <pfdf.models>` subpackage contains modules that implement 
 
     Staley 2017 <s17>
     Gartner 2014 <g14>
-    Cannon 2010 <c10>
+    Combined Hazard Classification <c10>

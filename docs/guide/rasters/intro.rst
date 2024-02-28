@@ -210,7 +210,7 @@ You can also use the ``spatial`` parameter to optionally match the CRS and trans
 from_polygons
 +++++++++++++
 
-Sometimes, you'll have a dataset represented as a set of polygon or multi-polygon features. For example, fire perimeters and soil properties are often represented as polygons. The routines in pfdf require raster datasets, so you will need to convert these polygon datasets to rasters before processing. You can use the :ref:`Raster.from_polygons <pfdf.raster.Raster.from_polygons>` command to do so. The command requires the path to a vector feature file, and we recommend also using the ``resolution`` option to match the resolution of the new raster to an existing raster::
+Sometimes, you will have a dataset represented as a set of polygon or multi-polygon features. For example, fire perimeters and soil properties are often represented as polygons. The routines in pfdf require raster datasets, so you will need to convert these polygon datasets to rasters before processing. You can use the :ref:`Raster.from_polygons <pfdf.raster.Raster.from_polygons>` command to do so. The command requires the path to a vector feature file, and we recommend also using the ``resolution`` option to match the resolution of the new raster to an existing raster::
 
     >>> dem = Raster('dem.tif')
     >>> perimeter = Raster.from_polygons("fire-perimeter.shp", resolution=dem)
@@ -241,7 +241,7 @@ You can also use the ``fill`` option to replace non-polygon pixels with a data v
 from_points
 +++++++++++
 
-Sometimes, you'll also need to convert a set of points or multi-points to a raster. This is most common when including debris-flow retainment features in an analysis. You can use the :ref:`Raster.from_points <pfdf.raster.Raster.from_points>` command to do so. The syntax is the same as :ref:`from_polygons <pfdf.raster.Raster.from_polygons>`, except that the file path should be for a point and/or multi-point feature file::
+Sometimes, you may need to convert a set of points or multi-points to a raster. This is most common when including debris-flow retainment features in an analysis. You can use the :ref:`Raster.from_points <pfdf.raster.Raster.from_points>` command to do so. The syntax is the same as :ref:`from_polygons <pfdf.raster.Raster.from_polygons>`, except that the file path should be for a point and/or multi-point feature file::
 
     # Boolean output
     >>> dem = Raster('dem.tif')

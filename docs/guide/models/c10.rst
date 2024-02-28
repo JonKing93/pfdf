@@ -1,5 +1,5 @@
-Cannon 2010 Models
-==================
+Combined Hazard Classification
+==============================
 
 The ``cannon2010`` (or ``c10``) module provides functions to classify relative hazard based on debris-flow probability and potential sediment volume. This classification is a multi-part process. First, probabilities and volumes are divided into classes. Then, the probability and volume classes are added together for each debris-flow. Finally, these sums are divided into relative hazard classes.
 
@@ -11,7 +11,6 @@ You can use the ``hazard`` function to classify relative hazard. The function re
     >>> hazard = c10.hazard(probabilities, volumes)
 
 By default, the function uses the following classification scheme:
-
 
 
 .. list-table::

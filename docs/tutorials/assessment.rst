@@ -35,15 +35,15 @@ We will use various preprocessed rasters to implement the hazard assessment. As 
     * - kf-factor
       - Soil KF-factors. Used to implement the :doc:`models of Staley et al., 2017 </guide/models/s17>`.
     * - retainments
-      - A mask of features designed to stop debris-flows. Used to design the initial network.
+      - A mask of features designed to stop debris flows. Used to design the initial network.
     * - iswater
       - A mask of water bodies. Used to design the initial network.
     * - isdeveloped
       - A mask of human-developed terrain. Used to design the initial network.
 
+
 First Steps
 -----------
-
 
 Getting Started
 +++++++++++++++
@@ -368,7 +368,7 @@ We've finished designing the stream network, so we're now ready to implement the
 
 * The M1 probability/rainfall accumulation model of :doc:`Staley et al., 2017 </guide/models/s17>`
 * The emergency sediment volume model of :doc:`Gartner et al., 2014 </guide/models/g14>`, and
-* The combined hazard classification model of :doc:`Cannon et al., 2010 </guide/models/c10>`
+* The combined hazard classification scheme of :doc:`Cannon et al., 2010 </guide/models/c10>`
 
 
 Probability / Accumulation

@@ -22,12 +22,12 @@ Stream Segments
 .. _def-local:
 
 Local Drainage Network
-    A local drainage network is a subset of stream segments that exhibit flow connectivity. Each segment in a local network flows directly into another local segment and/or has another local segment flow directly into it. It is common for a stream segment network to consist of multiple local drainage networks. Note that the distinguishing characteristic of a local network is connectivity, rather than flow paths. As such, it is possible for a local network to be downstream of another local network. So long as the segments in the two networks do not connect, the networks are considered distinct, even if one network eventually flows into the other.
+    A local drainage network is a subset of stream segments that exhibit flow connectivity. Each segment in a local network flows directly into another local segment and/or has another local segment flow directly into it. It is common for a stream segment network to consist of multiple local drainage networks. Note that the distinguishing characteristic of a local network is connectivity, rather than flow paths. As such, it is possible for a local network to be downstream of another local network. So long as the segments in the two networks do flow directly into one another, the networks are considered distinct, even if one network eventually flows into the other.
 
 .. _def-parents:
 
 Upstream Parents
-    A segment's upstream parents are the segments that flow immediately into the segment. A segment may have no parents (if it is at the top of its local drainage network), or multiple parents (if the segment begins at a confluence point). The key characteristic of a parent is immediate upstream connectivity. A upstream segment that flows into the current segment via intermediate segments is not a parent of the current segment.
+    A segment's upstream parents are the segments that flow immediately into the segment. A segment may have no parents (if it is at the top of its local drainage network), or multiple parents (if the segment begins at a confluence point). The key characteristic of a parent is immediate upstream connectivity. An upstream segment that flows into the current segment via intermediate segments is not a parent of the current segment.
 
 .. _def-child:
 

@@ -28,7 +28,7 @@ This guide provides an initial overview of pfdf, and is intended to introduce us
 
     Working with arrays <arrays>
     Rasters <rasters/index>
-    watershed <watershed>
+    Watershed <watershed>
     Segments <segments/index>
     Models <models/index>
     Misc Utilities <misc/index>

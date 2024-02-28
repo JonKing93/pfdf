@@ -6,13 +6,13 @@ You'll often need to compute a physical or statistical value for each segment in
 * :doc:`Filtering the network <filter>` to model-worthy segments, and
 * Inputs to :doc:`hazard assessment models </guide/models/index>`
 
-This section examines commands that compute such values. We note that only computes these values for stream segments in the network, so these commands are typically faster than computing variables over an entire watershed.
+This section examines commands that compute such values. We note that *Segments* objects only compute these values for stream segments in the network, so these commands are typically faster than computing variables over an entire watershed.
 
 .. _earth-system-variables:
 
 Physical Variables
 ------------------
-The Segments class includes methods to calculate commonly-used physical variables for each segment in the network. The following table summarizes these methods:
+The Segments class includes methods to calculate commonly used physical variables for each segment in the network. The following table summarizes these methods:
 
 .. list-table::
     :header-rows: 1
