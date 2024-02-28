@@ -15,7 +15,7 @@ Creating Rasters
 Constructor
 +++++++++++
 
-The :ref:`Raster constructor <pfdf.raster.Raster.__init__>` is usually the simplest way to create a Raster object. The constructor works for a variety of formats, including file-based rasters::
+The :ref:`Raster constructor <pfdf.raster.Raster.__init__>` is usually the simplest way to create a *Raster* object. The constructor works for a variety of formats, including file-based rasters::
 
     >>> dem = Raster('dem.tif')
 
@@ -74,7 +74,7 @@ we can see the raster is correctly converted to a boolean array.
 Raster Factories
 ++++++++++++++++
 
-You can also use Raster factories to create a Rasters from specific types of inputs. These factories provide additional creation options, and follow the naming convention ``from_<format>``. For example, the :ref:`from_file factory <pfdf.raster.Raster.from_file>` includes a ``band`` option, which you can use to specify a specific band in a multi-band raster::
+You can also use *Raster* factories to create a *Raster* object from specific types of inputs. These factories provide additional creation options, and follow the naming convention ``from_<format>``. For example, the :ref:`from_file factory <pfdf.raster.Raster.from_file>` includes a ``band`` option, which you can use to specify a specific band in a multi-band raster::
 
     >>> dem = Raster.from_file('dem.tif', band=1)
     >>> dem.shape
@@ -89,7 +89,7 @@ You can also use the ``window`` option to only load a subset of a saved dataset.
     (1280, 1587)
 
 
-The :ref:`from_array factory <pfdf.raster.Raster.from_array>` allows you to add raster metadata (NoData, CRS, and transform) to a Raster derived from a numpy array. For example, if we use the Raster constructor on a numpy array::
+The :ref:`from_array factory <pfdf.raster.Raster.from_array>` allows you to add raster metadata (NoData, CRS, and transform) to a *Raster* derived from a numpy array. For example, if we use the *Raster* constructor on a numpy array::
 
     >>> araster = np.arange(200).reshape(20,10)
     >>> raster = Raster(araster)
@@ -112,7 +112,7 @@ we can see the created raster is lacking metadata. By contrast, we could use::
     | 0.00, 1.00, 0.00|
     | 0.00, 0.00, 1.00|
 
-which adds metadata to the new Raster. You can also use the ``spatial`` option to match the CRS and transform of another raster::
+which adds metadata to the new *Raster*. You can also use the ``spatial`` option to match the CRS and transform of another raster::
 
     >>> raster = Raster.from_array(araster, nodata=0, spatial=dem)
     >>> print(raster.nodata)
@@ -133,7 +133,7 @@ Rasters include a number of data properties with information about the associate
 Data Grid
 +++++++++
 
-Each Raster objects uses a 2D numpy array to represent its data grid, and you can use  ``.values`` to return this entire array::
+Each *Raster* object uses a 2D numpy array to represent its data grid, and you can use  ``.values`` to return this entire array::
 
     >>> dem = Raster('dem.tif')
     >>> dem.values
@@ -145,7 +145,7 @@ Each Raster objects uses a 2D numpy array to represent its data grid, and you ca
        [nan, nan, nan, ..., nan, nan, nan],
        [nan, nan, nan, ..., nan, nan, nan]])
 
-Like numpy arrays, Rasters also have ``.dtype``, ``.shape``, and ``.size`` properties, which return the data type, array shape, and number of elements, respectively::
+Like numpy arrays, *Raster* objects also have ``.dtype``, ``.shape``, and ``.size`` properties, which return the data type, array shape, and number of elements, respectively::
 
     >>> print(dem.dtype)
     float64
@@ -154,7 +154,7 @@ Like numpy arrays, Rasters also have ``.dtype``, ``.shape``, and ``.size`` prope
     >>> print(dem.size)
     3943355
 
-Rasters also have ``.height`` and ``.width`` properties, which are analogous to the equivalent properties in `rasterio <https://rasterio.readthedocs.io/>`_. Here, height is the number of rows, and width is the number of columns::
+*Raster* objects also have ``.height`` and ``.width`` properties, which are analogous to the equivalent properties in `rasterio <https://rasterio.readthedocs.io/>`_. Here, height is the number of rows, and width is the number of columns::
 
     >>> dem.height
     2015
@@ -167,7 +167,7 @@ Rasters also have ``.height`` and ``.width`` properties, which are analogous to 
 NoData
 ++++++
 
-Use ``.nodata`` to retrieve a Raster's NoData value::
+Use ``.nodata`` to retrieve the NoData value::
 
     >>> dem.nodata
     nan
@@ -204,7 +204,7 @@ You can also use the ``.data_mask`` and ``.nodata_mask`` properties to return bo
 
 Spatial Metadata
 ++++++++++++++++
-Raster objects also have a number of properties pertaining to spatial metadata. Use ``.crs`` to return the Raster's coordinate reference system This will always be an instance of a `rasterio.crs.CRS object <https://rasterio.readthedocs.io/en/latest/api/rasterio.crs.html#rasterio.crs.CRS>`_::
+*Raster* objects also have a number of properties pertaining to spatial metadata. Use ``.crs`` to return the coordinate reference system This will always be an instance of a `rasterio.crs.CRS object <https://rasterio.readthedocs.io/en/latest/api/rasterio.crs.html#rasterio.crs.CRS>`_::
 
     >>> dem.crs
     EPSG:26911
@@ -245,7 +245,7 @@ Alternatively, use ``.left``, ``.right``, ``.top``, or ``.bottom`` to return the
     >>> dem.bottom
     3772223.9833854814
 
-If a Raster does not have a transform, then its bounds, dx, and dy will all have NaN values. For example::
+If a *Raster* does not have a transform, then its bounds, dx, and dy will all have NaN values. For example::
 
     >>> araster = np.arange(200).reshape(20,10)
     >>> raster = Raster(araster)
@@ -304,7 +304,7 @@ If a raster doesn't have an affine transform, then all pixel properties will be 
 Saving
 ------
 
-Use the :ref:`save method <pfdf.raster.Raster.save>` to save a Raster dataset to file. For example::
+Use the :ref:`save method <pfdf.raster.Raster.save>` to save a *Raster* dataset to a file. For example::
 
     >>> araster = np.arange(200).reshape(20,10)
     >>> raster = Raster(araster)

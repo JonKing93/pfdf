@@ -1,9 +1,9 @@
 Raster Preprocessing
 ====================
 
-Some pfdf routines requires multiple rasters as input. When this is the case, the routine will require each raster to have the same shape, CRS and transform. Other routines require a raster to fall within a valid data range. In reality, most datasets are not this clean, and so Raster objects support a number of preprocessing commands to help meet these requirements.
+Some pfdf routines requires multiple rasters as input. When this is the case, the routine will require each raster to have the same shape, CRS and transform. Other routines require a raster to fall within a valid data range. In reality, most datasets are not this clean, and so *Raster* objects support a number of preprocessing commands to help meet these requirements.
 
-.. note:: The commands in this section usually alter an existing raster in-place, rather than returning a new Raster object.
+.. note:: The commands in this section usually alter an existing raster in-place, rather than returning a new *Raster* object.
 
 .. tip:: See also the :doc:`preprocessing tutorial </tutorials/preprocess>` for in-depth examples of these commands.
 
@@ -33,7 +33,7 @@ Note that buffering distance is interpreted in the units of the transform. Use t
 
 reproject
 ---------
-Use the :ref:`reproject <pfdf.raster.Raster.reproject>` method to reproject a Raster to the same CRS and transform of another (template) Raster::
+Use the :ref:`reproject <pfdf.raster.Raster.reproject>` method to reproject a *Raster* to the same CRS and transform of another (template) *Raster*::
 
     >>> dem = Raster('dem.tif')
     >>> print(dem.CRS)
@@ -114,6 +114,6 @@ Use the :ref:`find <pfdf.raster.Raster.find>` method to locate raster pixels tha
     >>> print(isdeveloped.dtype)
     bool
 
-.. note:: Unlike the other preprocessing routines, this command produces a new Raster as output.
+.. note:: Unlike the other preprocessing routines, this command produces a new *Raster* as output.
 
 

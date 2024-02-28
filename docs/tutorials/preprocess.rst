@@ -106,7 +106,7 @@ We'll start by importing the :doc:`Raster </guide/rasters/intro>` class, which c
   :start-line: 2
   :end-line: 4
 
-Next, we'll create a Raster object for each of the datasets that are already rasters. (And see the :doc:`Rasters tutorial <rasters>` for more practice on these objects):
+Next, we'll create a *Raster* object for each of the datasets that are already rasters. (And see the :doc:`Rasters tutorial <rasters>` for more practice on these objects):
 
 .. include:: download/code/preprocess.py
   :code:

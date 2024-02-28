@@ -10,10 +10,10 @@ These tutorials provide in-depth examples of common use cases. We recommend read
 ----
 
 :doc:`Raster <rasters>`
-    An introduction to Raster objects, their properties, and saving to file.
+    An introduction to *Raster* objects, their properties, and saving to file.
 
 :doc:`Preprocessing <preprocess>`
-    Use Raster objects to clean input datasets prior to assessment.
+    Use *Raster* objects to clean input datasets prior to assessment.
 
 :doc:`Hazard Assessment <assessment>`
     Implement a standard hazard assessment.

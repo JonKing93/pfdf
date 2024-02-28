@@ -9,7 +9,7 @@ This guide provides an initial overview of pfdf, and is intended to introduce us
     Tips for working with numeric inputs.
 
 :doc:`Rasters <rasters/index>`
-    A class to manage Raster datasets.
+    A class to manage raster datasets.
 
 :doc:`Watershed Module <watershed>`
     Functions that analyze watersheds, including flow directions.

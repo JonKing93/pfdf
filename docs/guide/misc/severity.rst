@@ -16,7 +16,7 @@ The :ref:`severity module <pfdf.severity>` provides two utilities for working wi
 
 mask
 ++++
-The :ref:`mask <pfdf.severity.mask>` function is used to generate a mask from a BARC4-like burn severity raster. Given a set of burn descriptors, the function returns a boolean Raster. Pixels that match one of the burn descriptors are marked as True, all other pixels are False. For example::
+The :ref:`mask <pfdf.severity.mask>` function is used to generate a mask from a BARC4-like burn severity raster. Given a set of burn descriptors, the function returns a boolean *Raster* object. Pixels that match one of the burn descriptors are marked as True, all other pixels are False. For example::
 
     >>> from pfdf.raster import Raster
     >>> barc4 = Raster('barc4.tif')

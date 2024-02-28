@@ -74,7 +74,7 @@ Many methods have an optional ``omitnan`` option. Set this value to True to igno
 
 .. _mask-option:
 
-In some cases, the omitnan option may not be sufficient. In this case, all catchment summaries support a ``mask`` option, which accepts a boolean Raster mask. False elements of the mask are ignored when computing catchment summaries. For example::
+In some cases, the omitnan option may not be sufficient. In this case, all catchment summaries support a ``mask`` option, which accepts a boolean *Raster* mask. False elements of the mask are ignored when computing catchment summaries. For example::
     
     # Will ignore False elements when computing summaries
     >>> scaled_dnbr = segments.scaled_dnbr(dnbr, mask)

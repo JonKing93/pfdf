@@ -20,7 +20,7 @@ Here, dx and dy are the change in spatial coordinate when incrementing one colum
 Raster Objects
 --------------
 
-As stated, rasters are the fundamental for pfdf analyses. As such, pfdf provides a custom :ref:`Raster class <pfdf.raster.Raster>` to help manage these datasets::
+As stated, rasters are the fundamental input for pfdf analyses. As such, pfdf provides a custom :ref:`Raster class <pfdf.raster.Raster>` to help manage these datasets::
 
     >>> from pfdf.raster import Raster
 
@@ -31,9 +31,9 @@ This class includes methods to:
 * Preprocess rasters prior to assessment, and
 * Save rasters to file
 
-.. note:: See also the :doc:`raster </tutorials/rasters>` and :doc:`preprocessing </tutorials/preprocess>` tutorials for detailed examples using Raster commands.
+.. note:: See also the :doc:`raster </tutorials/rasters>` and :doc:`preprocessing </tutorials/preprocess>` tutorials for detailed examples using *Raster* commands.
 
-In many cases, you can create a Raster object by calling :ref:`the constructor <pfdf.raster.Raster.__init__>` on a file or an array-like dataset. For example::
+In many cases, you can create a *Raster* object by calling :ref:`the constructor <pfdf.raster.Raster.__init__>` on a file or an array-like dataset. For example::
 
     # File-based dataset
     >>> dem = Raster('dem.tif')
@@ -43,14 +43,13 @@ In many cases, you can create a Raster object by calling :ref:`the constructor <
     >>> array = np.arange(200).reshape(20,10)
     >>> raster = Raster(array)
 
-And you can save rasters to file using the :ref:`save method <pfdf.raster.Raster.save>`::
+And you can save a *Raster* to a file using the :ref:`save method <pfdf.raster.Raster.save>`::
 
     >>> raster.save('my-raster.tif')
 
-Each Raster represents its data grid as a 2D numpy array. You can use the ``values`` property to return this array::
+Each *Raster* represents its data grid as a 2D numpy array. You can use the ``values`` property to return this array::
 
     >>> dem.values
-    
     array([[nan, nan, nan, ..., nan, nan, nan],
            [nan, nan, nan, ..., nan, nan, nan],
            [nan, nan, nan, ..., nan, nan, nan],
@@ -60,7 +59,7 @@ Each Raster represents its data grid as a 2D numpy array. You can use the ``valu
            [nan, nan, nan, ..., nan, nan, nan]])
 
 
-Note that Raster values are read-only, so you will need to make a copy if you want to alter the array::
+Note that *Raster* values are read-only, so you will need to make a copy if you want to alter the array::
 
     # This is fine (not changing values)
     >>> array = dem.values + 1
@@ -98,7 +97,7 @@ Some other useful properties include:
       - True elements indicate NoData pixels
       - 2D boolean numpy array
 
-(and see the :doc:`Raster API </api/raster>` for a complete summary of Raster properties). The remainder of this section will outline key Raster commands, and see also the :doc:`raster tutorial </tutorials/rasters>` and :doc:`preprocessing tutorial </tutorials/preprocess>` for more detailed examples.
+(and see the :doc:`Raster API </api/raster>` for a complete summary of *Raster* properties). The remainder of this section will outline key *Raster* commands, and see also the :doc:`raster tutorial </tutorials/rasters>` and :doc:`preprocessing tutorial </tutorials/preprocess>` for more detailed examples.
 
 
 
@@ -112,7 +111,7 @@ Many pfdf commands require one or more rasters as input, and the library recogni
 * ``rasterio.DatasetReader`` objects, and
 * ``pysheds.sview.Raster`` objects
 
-You are not required to convert raster datasets to Raster objects, as pfdf handles this conversion automatically. However, it's often useful to make this conversion, as Raster objects have access to :doc:`preprocessing methods <preprocess>` that are helpful for most use cases. This section will examine some of the commands available for creating these objects. The simplest approach is often the :ref:`Raster constructor <pfdf.raster.Raster.__init__>`, but :ref:`factory functions <api-raster-creation>` provide additional options for specific types of inputs.
+You are not required to convert raster datasets to *Raster* objects, as pfdf handles this conversion automatically. However, it's often useful to make this conversion, as *Raster* objects have access to :doc:`preprocessing methods <preprocess>` that are helpful for most use cases. This section will examine some of the commands available for creating these objects. The simplest approach is often the :ref:`Raster constructor <pfdf.raster.Raster.__init__>`, but :ref:`factory functions <api-raster-creation>` provide additional options for specific types of inputs.
 
 .. tip:: 
     
@@ -120,7 +119,7 @@ You are not required to convert raster datasets to Raster objects, as pfdf handl
 
 Raster Constructor
 ++++++++++++++++++
-The simplest way to create a Raster object is using :ref:`the constructor <pfdf.raster.Raster.__init__>`. This option is sufficient for most file-based rasters, as well as pysheds rasters. For example::
+The simplest way to create a *Raster* object is using :ref:`the constructor <pfdf.raster.Raster.__init__>`. This option is sufficient for most file-based rasters, as well as pysheds rasters. For example::
 
     >>> dem = Raster('dem.tif')
 
@@ -164,7 +163,7 @@ The ``window`` option allows you to only load a subset of a raster into memory. 
 from_array
 ++++++++++
 
-Although you can call the Raster constructor on numpy arrays, the resulting Raster object will not have spatial metadata or a NoData value::
+Although you can call the *Raster* constructor on numpy arrays, the resulting object will not have spatial metadata or a NoData value::
 
     >>> import numpy as np
     >>> araster = np.arange(100).reshape(5,20)
@@ -192,7 +191,7 @@ The :ref:`Raster.from_array <pfdf.raster.Raster.from_array>` command allows you 
     | 0, -10,   5|
     | 0,   0,   1|
 
-You can also use the ``spatial`` parameter to optionally match the CRS and transform of another Raster::
+You can also use the ``spatial`` parameter to optionally match the CRS and transform of another *Raster*::
 
     >>> dem = Raster('dem.tif')
     >>> raster = Raster.from_array(araster, nodata=-999, spatial=dem)
@@ -260,7 +259,7 @@ Sometimes, you'll also need to convert a set of points or multi-points to a rast
 Saving Rasters
 --------------
 
-All pfdf commands that produce a raster will return a Raster object as output. You can use the ``values`` property to retrieve the raster's data grid, but it's often useful to use the :ref:`save method <pfdf.raster.Raster.save>` to save to the indicated filepath::
+All pfdf commands that produce a raster will return a *Raster* object as output. You can use the ``values`` property to retrieve the raster's data grid, but it's often useful to use the :ref:`save method <pfdf.raster.Raster.save>` to save the raster to the indicated filepath::
 
     >>> araster.save('my-file.tif')
 

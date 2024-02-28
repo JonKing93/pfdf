@@ -266,8 +266,8 @@ Model Classes
             If omitnan is a dict, then it may have the keys "dnbr", and/or "kf_factor". The value of each key should be a boolean indicating whether to omit NaN and NoData values for that raster. If a key is not included, then the omitnan setting for the raster is set to False. Raises a ValueError if the dict includes other keys.
 
         :Inputs: * **segments** (*Segments*) -- A Segments object defining a stream segment network
-                 * **moderate_high** (*Raster*) -- A Raster mask indicating watershed pixels with moderate or high burn severity. True pixels indicate moderate or high severity. False pixels are not burned at these levels.
-                 * **slopes** (*Raster*) -- A Raster with the slope gradients (not angles) for the watershed. NoData pixels are interpreted as locations with slope angles less than 23 degrees.
+                 * **moderate_high** (*Raster*) -- A raster mask indicating watershed pixels with moderate or high burn severity. True pixels indicate moderate or high severity. False pixels are not burned at these levels.
+                 * **slopes** (*Raster*) -- A raster with the slope gradients (not angles) for the watershed. NoData pixels are interpreted as locations with slope angles less than 23 degrees.
                  * **dnbr** (*Raster*) -- A dNBR raster for the watershed
                  * **kf_factor** (*Raster*) -- A KF-factor raster for the watershed
                  * **omitnan** (*bool*) -- A boolean or dict indicating whether to ignore NaN and NoData values in the dnbr and kf_factor rasters
@@ -417,7 +417,7 @@ Model Classes
             If omitnan is a dict, then it may have the keys "slopes", "dnbr", and/or "kf_factor". The value of each key should be a boolean indicating whether to omit NaN and NoData values for that raster. If a key is not included, then the omitnan setting for the raster is set to False. Raises a ValueError if the dict includes other keys.
 
         :Inputs: * **segments** (*Segments*) -- A Segments object defining a stream segment network
-                 * **moderate_high** (*Raster*) -- A Raster mask indicating watershed pixels with moderate or high burn severity. True pixels indicate moderate or high severity. False pixels are not burned at these levels.
+                 * **moderate_high** (*Raster*) -- A raster mask indicating watershed pixels with moderate or high burn severity. True pixels indicate moderate or high severity. False pixels are not burned at these levels.
                  * **slopes** (*Raster*) --- A raster with the slope gradients (not angles) for the watershed
                  * **dnbr** (*Raster*) -- A dNBR raster for the watershed
                  * **kf_factor** (*Raster*) -- A KF-factor raster for the watershed
@@ -570,7 +570,7 @@ Model Classes
             Alternatively, omitnan may be a dict with the single key "soil_thickness". The value of the key should be a boolean indicating whether to omit NaN and NoData values for the soil_thickness raster. Raises a ValueError if the dict includes other keys.
 
         :Inputs: * **segments** (*Segments*) -- A Segments object defining a stream segment network
-                 * **moderate_high** (*Raster*) -- A Raster mask indicating watershed pixels with moderate or high burn severity. True pixels indicate moderate or high severity. False pixels are not burned at these levels.
+                 * **moderate_high** (*Raster*) -- A raster mask indicating watershed pixels with moderate or high burn severity. True pixels indicate moderate or high severity. False pixels are not burned at these levels.
                  * **relief** (*Raster*) -- A vertical relief raster for the watershed
                  * **soil_thickness** (*Raster*) -- A soil thickness raster for the watershed
                  * **omitnan** (*bool*) -- A boolean or dict indicating whether to ignore NaN and NoData values in the soil_thickness raster
@@ -718,7 +718,7 @@ Model Classes
             If omitnan is a dict, then it may have the keys "dnbr" and/or "soil_thickness". The value of each key should be a boolean indicating whether to omit NaN and NoData values for that raster. If a key is not included, then the omitnan setting for the raster is set to False. Raises a ValueError if the dict includes other keys.
 
         :Inputs: * **segments** (*Segments*) -- A Segments object defining a stream segment network
-                 * **isburned** (*Raster*) -- A Raster mask indicating watershed pixels that were burned (low, moderate or high severity). True elements indicate burned pixels, False elements are not burned.
+                 * **isburned** (*Raster*) -- A raster mask indicating watershed pixels that were burned (low, moderate or high severity). True elements indicate burned pixels, False elements are not burned.
                  * **slopes** (*Raster*) -- A raster of slope gradients (not angles) for the watershed
                  * **dnbr** (*Raster*) -- A dNBR raster for the watershed
                  * **soil_thickness** (*Raster*) -- A soil thickness raster for the watershed

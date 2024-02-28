@@ -28,7 +28,7 @@ The first step for most users is to apply the :ref:`condition <pfdf.watershed.co
 2. Fill depressions (multi-cell low points), and
 3. Resolve flats
 
-Note that this function returns a new conditioned Raster as output - it does not modify the input DEM dataset::
+Note that this function returns a new conditioned *Raster* object as output - it does not modify the input DEM dataset::
 
     >>> from pfdf import watershed
     >>> from pfdf.raster import Raster

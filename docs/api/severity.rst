@@ -64,7 +64,7 @@ pfdf.severity module
 
         mask(severity, descriptions)
 
-    Given a burn severity raster, locates pixels that match any of the specified burn severity levels. Returns a Raster holding the mask of matching pixels. Pixels that match one of the specified burn severities will have a value of 1. All other pixels will be 0.
+    Given a burn severity raster, locates pixels that match any of the specified burn severity levels. Returns a *Raster* holding the mask of matching pixels. Pixels that match one of the specified burn severities will have a value of 1. All other pixels will be 0.
 
     Note that the burn severity descriptions are strings describing the appropriate burn severity levels. The supported strings are: "unburned", "burned", "low", "moderate", and "high".
 
@@ -99,7 +99,7 @@ pfdf.severity module
         4      (500, ∞]    High
         =====  =========== ===========
 
-        NoData values are set to 0. Returns a Raster object holding the estimated BARC4 burn severity raster.
+        NoData values are set to 0. Returns a *Raster* object holding the estimated BARC4 burn severity raster.
 
     .. dropdown:: Custom thresholds
         
