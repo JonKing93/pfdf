@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pfdf"
-version = "1.0.0"
+version = "1.1.0"
 description = "A package to facilitate post-wildfire debris-flow hazard assessments and research"
 authors = [
     "Jonathan King <jking@usgs.gov>",
@@ -39,10 +39,6 @@ fiona = "*"
 # Tutorial plots
 cartopy = { version = ">=0.22", optional = true }
 matplotlib = { version = ">=3.8.2", optional = true }
-
-# Safety checks
-scipy = "^1.10"
-jupyterlab = ">4.0.10"
 
 [tool.poetry.extras]
 tutorials = ["cartopy", "matplotlib"]
