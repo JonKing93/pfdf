@@ -46,18 +46,18 @@ Citation
 If you use pfdf for a publication, please consider citing it::
 
     King, J., 2023, pfdf - Python library for postfire debris-flow hazard assessments 
-    and research, version 1.0.0: U.S. Geological Survey software release, 
-    https://doi.org/10.5066/P9JO58MJ
+    and research, version 1.1.0: U.S. Geological Survey software release, 
+    https://doi.org/10.5066/P13RSBEE
 
 
 BibTeX::
 
     @misc{king_2023,
-        title = {pfdf - Python library for postfire debris-flow hazard assessments and research, version 1.0.0},
+        title = {pfdf - Python library for postfire debris-flow hazard assessments and research, version 1.1.0},
         author = {King, Jonathan},
         url = {https://code.usgs.gov/ghsc/lhp},
         year = {2023},
-        doi = {10.5066/P9JO58MJ}
+        doi = {10.5066/P13RSBEE}
     }
 
 
