@@ -29,7 +29,6 @@ Models:
     DurationsError          - When queried rainfall durations are not recognized
 """
 
-
 #####
 # Numpy Arrays
 #####
