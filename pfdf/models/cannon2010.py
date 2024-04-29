@@ -28,7 +28,6 @@ Internal validaters:
     _validate_volumes       - Checks that input sediment volumes are valid
 """
 
-
 from typing import Any, Tuple
 
 import numpy as np

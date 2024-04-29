@@ -48,6 +48,7 @@ Internal:
     _split_segments     - Splits stream network segments longer than a specified length
     _split              - Splits a stream segment into pieces shorter than a specified length
 """
+
 from math import ceil, inf, nan
 from typing import Any, Optional
 

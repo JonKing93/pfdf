@@ -1,6 +1,7 @@
 """
 test_cannon2010  Unit tests for the cannon2010 module
 """
+
 import numpy as np
 import pytest
 
