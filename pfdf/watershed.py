@@ -59,8 +59,11 @@ from pysheds.sview import Raster as PyshedsRaster
 from shapely import LineString
 from shapely.ops import substring
 
-from pfdf._utils import all_nones, real, validate
+import pfdf._validate.core as validate
+from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
+from pfdf.errors import MissingCRSError
+from pfdf.projection import _crs
 from pfdf.raster import Raster, RasterInput
 from pfdf.typing import scalar
 
@@ -438,6 +441,7 @@ def network(
     flow: RasterInput,
     mask: RasterInput,
     max_length: Optional[scalar] = None,
+    meters: bool = False,
     check_flow: bool = True,
 ) -> list[LineString]:
     """
@@ -456,12 +460,14 @@ def network(
     other screenings - for example, to remove pixels in large bodies of water, or
     pixels below developed areas.
 
-    network(flow, mask, max_length)
+    network(..., max_length)
+    network(..., max_length, meters=True)
     Also specifies a maximum length for the segments in the network. Any segment
     longer than this length will be split into multiple pieces. The split pieces
-    will all have the same length, which will be <= max_length. The units of
-    max_length should be the base units of the coordinate reference system associated
-    with the flow raster. In practice, this is almost always units of meters.
+    will all have the same length, which will be <= max_length. By default, the
+    command interprets the units of max_length as the base unit of the flow raster
+    CRS. Set meters=True to interpret max_length as meters instead. Note that the
+    meters option is only available if the flow raster has a CRS.
 
     network(..., check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
@@ -474,8 +480,9 @@ def network(
         flow: A TauDEM-style D8 flow direction raster
         mask: A raster whose True values indicate the pixels that may potentially
             belong to a stream segment.
-        max_length: A maximum allowed length for segments in the network. Units
-            should be the same as the base units of the flow raster CRS (usually meters)
+        max_length: A maximum allowed length for segments in the network.
+        meters: True to interpret the maximum length as meters. False (default)
+            to use the base unit of the X-axis of the flow raster's CRS.
         check_flow: True (default) to validate the flow directions raster.
             False to disable validation checks.
 
@@ -486,11 +493,20 @@ def network(
             flow raster CRS (rather than raster pixel indices).
     """
 
-    # Validate
+    # Meters conversion requires a CRS
+    if meters and flow.crs is None:
+        raise MissingCRSError(
+            "Cannot convert max_length from meters because the flow raster does not "
+            "have a CRS."
+        )
+
+    # Initial validation
     if max_length is not None:
         max_length = validate.scalar(max_length, "max_length", dtype=real)
         validate.positive(max_length, "max_length")
     flow = Raster(flow, "flow directions")
+
+    # Validate mask and flow values
     mask = flow.validate(mask, "mask")
     validate.boolean(mask.values, mask.name, ignore=mask.nodata)
     if check_flow:
@@ -508,6 +524,8 @@ def network(
 
     # Optionally enforce a max length
     if max_length is not None:
+        if meters:
+            max_length = _crs.dy_from_meters(flow.crs, max_length)
         segments = _split_segments(segments, max_length)
     return segments
 

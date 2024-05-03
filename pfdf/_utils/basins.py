@@ -55,8 +55,9 @@ from typing import Any, Optional
 import numpy as np
 from pysheds.grid import Grid
 
+import pfdf._validate.core as validate
 from pfdf import watershed
-from pfdf._utils import real, validate
+from pfdf._utils import real
 from pfdf.raster import Raster
 from pfdf.typing import MatrixArray, Outlets, VectorArray, scalar, shape2d
 

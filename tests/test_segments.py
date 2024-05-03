@@ -7,31 +7,21 @@ import numpy as np
 import pytest
 import rasterio.features
 from affine import Affine
-from rasterio.crs import CRS
 from shapely import LineString
 
 from pfdf._utils.kernel import Kernel
-from pfdf._utils.transform import Transform
 from pfdf.errors import (
     DimensionError,
-    RasterCrsError,
+    MissingCRSError,
+    MissingTransformError,
+    RasterCRSError,
     RasterShapeError,
     RasterTransformError,
     ShapeError,
 )
+from pfdf.projection import CRS, Transform, _crs
 from pfdf.raster import Raster
 from pfdf.segments import Segments
-
-#####
-# Testing Utilities
-#####
-
-
-def assert_contains(error, *strings):
-    message = error.value.args[0]
-    for string in strings:
-        assert string in message
-
 
 ##### Standard fixtures
 
@@ -72,7 +62,7 @@ def flow(transform):
             [0, 0, 0, 0, 0, 0, 0],
         ]
     )
-    return Raster.from_array(flow, nodata=0, transform=transform)
+    return Raster.from_array(flow, nodata=0, transform=transform, crs=26911)
 
 
 @pytest.fixture
@@ -234,7 +224,7 @@ def bflow(transform):
             [0, 0, 0, 0, 0, 0, 0],
         ]
     )
-    return Raster.from_array(flow, nodata=0, transform=transform)
+    return Raster.from_array(flow, nodata=0, transform=transform, crs=26911)
 
 
 @pytest.fixture
@@ -354,6 +344,33 @@ class TestInit:
         assert np.array_equal(segments._child, child)
         assert np.array_equal(segments._parents, parents)
 
+    def test_meters(_, flow, mask, linestrings_split, indices_split):
+        npixels = np.array([3, 5, 2, 2, 1, 4, 11])
+        child = np.array([1, 6, 5, -1, 5, 6, -1])
+        parents = np.array(
+            [
+                [-1, -1],
+                [0, -1],
+                [-1, -1],
+                [-1, -1],
+                [-1, -1],
+                [2, 4],
+                [1, 5],
+            ]
+        )
+        segments = Segments(flow, mask, 2.5, meters=True)
+        assert segments._flow == flow
+
+        print(segments._segments)
+        print(linestrings_split)
+
+        assert segments._segments == linestrings_split
+        assert np.array_equal(segments._ids, np.arange(7) + 1)
+        assert segments._indices == indices_split
+        assert np.array_equal(segments._npixels, npixels)
+        assert np.array_equal(segments._child, child)
+        assert np.array_equal(segments._parents, parents)
+
     def test_split_point_downstream(_, flow, mask, transform):
         # Note that this requires flow to proceed in the opposite direction as
         # the pixel indices
@@ -365,7 +382,7 @@ class TestInit:
                 [0, 0, 0, 0, 0, 0, 0],
             ]
         )
-        flow = Raster.from_array(flow, nodata=0, transform=transform)
+        flow = Raster.from_array(flow, nodata=0, transform=transform, crs=26911)
         mask = np.array(
             [
                 [0, 0, 0, 0, 0, 0, 0],
@@ -404,7 +421,7 @@ class TestInit:
                 [0, 0, 0, 0, 0],
             ]
         )
-        flow = Raster.from_array(flow, nodata=0, transform=transform)
+        flow = Raster.from_array(flow, nodata=0, transform=transform, crs=26911)
         mask = np.ones(flow.shape, bool)
         output = Segments(flow, mask)
         assert np.array_equal(output._child, [3, 3, 3, -1])
@@ -418,15 +435,20 @@ class TestInit:
         )
         assert np.array_equal(output._parents, parents)
 
-    def test_no_transform(_, flow, mask):
-        flow = Raster.from_array(flow.values)
-        with pytest.raises(RasterTransformError) as error:
+    def test_no_transform(_, flow, mask, assert_contains):
+        flow = Raster.from_array(flow.values, crs=26911)
+        with pytest.raises(MissingTransformError) as error:
             Segments(flow, mask)
         assert_contains(
-            error, "The flow direction raster must have (affine) transform metadata."
+            error, "The flow direction raster must have an affine Transform"
         )
 
-    def test_short_maxlength(_, flow, mask):
+    def test_no_crs(_, flow, mask):
+        flow = Raster.from_array(flow.values, transform=flow.transform)
+        with pytest.raises(MissingCRSError):
+            Segments(flow, mask)
+
+    def test_short_maxlength(_, flow, mask, assert_contains):
         with pytest.raises(ValueError) as error:
             Segments(flow, mask, max_length=1)
         assert_contains(error, "max_length", "diagonal")
@@ -503,12 +525,6 @@ def test_segments(segments, linestrings):
     assert segments.segments is not segments._segments
 
 
-def test_lengths(segments, linestrings):
-    expected = np.array([segment.length for segment in linestrings])
-    output = segments.lengths
-    assert np.array_equal(output, expected)
-
-
 def test_ids(segments):
     assert np.array_equal(segments.ids, np.arange(6) + 1)
     assert segments.ids is not segments._ids
@@ -555,12 +571,8 @@ def test_transform(segments, flow):
     assert segments.transform == flow.transform
 
 
-def test_resolution(segments, flow):
-    assert segments.resolution == flow.resolution
-
-
-def test_pixel_area(segments, flow):
-    assert segments.pixel_area == flow.pixel_area
+def test_bounds(segments, flow):
+    assert segments.bounds == flow.bounds
 
 
 #####
@@ -667,22 +679,22 @@ class TestValidate:
         output = segments._validate(input, "")
         assert output == flow
 
-    def test_bad_shape(_, segments, flow):
+    def test_bad_shape(_, segments, flow, assert_contains):
         a = np.arange(10).reshape(2, 5)
         input = Raster.from_array(a, crs=flow.crs, transform=flow.transform)
         with pytest.raises(RasterShapeError) as error:
             segments._validate(input, "test name")
         assert_contains(error, "test name")
 
-    def test_bad_transform(_, segments, flow):
-        flow._transform = Transform(Affine(9, 0, 0, 0, 9, 0))
+    def test_bad_transform(_, segments, flow, assert_contains):
+        flow.override(transform=Transform(9, 9, 0, 0))
         with pytest.raises(RasterTransformError) as error:
             segments._validate(flow, "test name")
         assert_contains(error, "test name")
 
-    def test_bad_crs(_, segments, flow):
+    def test_bad_crs(_, segments, flow, assert_contains):
         flow._crs = CRS.from_epsg(4000)
-        with pytest.raises(RasterCrsError) as error:
+        with pytest.raises(RasterCRSError) as error:
             segments._validate(flow, "test name")
         assert_contains(error, "test name")
 
@@ -693,7 +705,7 @@ class TestValidate:
             (np.ones((3, 3, 3)), DimensionError),
         ),
     )
-    def test_invalid_raster(_, segments, input, error):
+    def test_invalid_raster(_, segments, input, error, assert_contains):
         with pytest.raises(error) as e:
             segments._validate(input, "test name")
         assert_contains(e, "test name")
@@ -704,13 +716,13 @@ class TestCheckIds:
         input = np.array(5).reshape(1)
         segments._check_ids(input, "")
 
-    def test_scalar_missing(_, segments):
+    def test_scalar_missing(_, segments, assert_contains):
         input = np.array(9).reshape(1)
         with pytest.raises(ValueError) as error:
             segments._check_ids(input, "id")
         assert_contains(error, "id (value=9)")
 
-    def test_vector_missing(_, segments):
+    def test_vector_missing(_, segments, assert_contains):
         input = np.array([1, 9])
         with pytest.raises(ValueError) as error:
             segments._check_ids(input, "ids")
@@ -722,12 +734,12 @@ class TestValidateId:
         output = segments._validate_id(5)
         assert output == 4
 
-    def test_not_scalar(_, segments):
+    def test_not_scalar(_, segments, assert_contains):
         with pytest.raises(DimensionError) as error:
             segments._validate_id([5, 2])
         assert_contains(error, "id")
 
-    def test_not_in_network(_, segments):
+    def test_not_in_network(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:
             segments._validate_id(9)
         assert_contains(error, "id (value=9)")
@@ -750,7 +762,7 @@ class TestTerminus:
     def test_valid(_, segments):
         assert segments.terminus(2) == 6
 
-    def test_invalid(_, segments):
+    def test_invalid(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:
             segments.terminus(9)
         assert_contains(error, "id (value=9)")
@@ -783,7 +795,7 @@ class TestOutlet:
         expected = indices[0][0][-1], indices[0][1][-1]
         assert output == expected
 
-    def test_invalid(_, segments):
+    def test_invalid(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:
             segments.outlet(9)
         assert_contains(error, "id (value=9)")
@@ -845,12 +857,12 @@ class TestBasinMask:
         assert output.transform == segments.transform
         assert np.array_equal(output.values, expected)
 
-    def test_invalid_id(_, segments):
+    def test_invalid_id(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:
             segments.basin_mask(id=12)
         assert_contains(error, "id (value=12)")
 
-    def test_multiple_ids(_, segments):
+    def test_multiple_ids(_, segments, assert_contains):
         with pytest.raises(DimensionError) as error:
             segments.basin_mask(id=[1, 2])
         assert_contains(error, "id")
@@ -869,7 +881,7 @@ class TestLocateRaster:
         segments.locate_basins(parallel, nprocess)
         assert np.array_equal(segments._basins, outlet_raster)
 
-    def test_invalid_nprocess(_, segments):
+    def test_invalid_nprocess(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:
             segments.locate_basins(parallel=True, nprocess=2.2)
         assert_contains(error, "nprocess", "integer")
@@ -1150,7 +1162,7 @@ class TestSummary:
         expected = np.array([23, 14, nan, 5, 6, 14])
         assert np.array_equal(output, expected, equal_nan=True)
 
-    def test_invalid_stat(_, segments, flow):
+    def test_invalid_stat(_, segments, flow, assert_contains):
         with pytest.raises(ValueError) as error:
             segments.summary("invalid", flow)
         assert_contains(error, "statistic", "invalid")
@@ -1296,21 +1308,40 @@ class TestBasinSummary:
 #####
 
 
+class TestLengths:
+    def test(_, segments, linestrings):
+        expected = np.array([segment.length for segment in linestrings])
+        output = segments.lengths()
+        assert np.array_equal(output, expected)
+
+    def test_meters(_, segments, linestrings):
+        expected = np.array([segment.length for segment in linestrings])
+        expected = _crs.dy_to_meters(segments.crs, expected)
+        output = segments.lengths(meters=True)
+        assert np.array_equal(output, expected)
+
+
 class TestArea:
     def test_basic(_, segments, flow, npixels):
         output = segments.area()
-        expected = npixels * flow.pixel_area
+        expected = npixels * flow.transform.pixel_area()
+        assert np.array_equal(output, expected)
+
+    def test_kilometers(_, segments, flow, npixels):
+        output = segments.area(kilometers=True)
+        expected = npixels * flow.transform.pixel_area()
+        expected = _crs.dy_to_meters(segments.crs, expected) / 1e6
         assert np.array_equal(output, expected)
 
     def test_masked(_, segments, mask2, flow):
         output = segments.area(mask2)
         npixels = np.array([0, 2, 2, 1, 4, 4])
-        expected = flow.pixel_area * npixels
+        expected = flow.transform.pixel_area() * npixels
         assert np.array_equal(output, expected)
 
     def test_terminal(_, segments, flow, npixels):
         output = segments.area(terminal=True)
-        expected = npixels[[2, 5]] * flow.pixel_area
+        expected = npixels[[2, 5]] * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
 
@@ -1329,24 +1360,24 @@ class TestBurnRatio:
 class TestBurnedArea:
     def test(_, segments, flow, mask2):
         output = segments.burned_area(mask2)
-        expected = np.array([0, 2, 2, 1, 4, 4]) * flow.pixel_area
+        expected = np.array([0, 2, 2, 1, 4, 4]) * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
     def test_terminal(_, segments, flow, mask2):
         output = segments.burned_area(mask2, terminal=True)
-        expected = np.array([2, 4]) * flow.pixel_area
+        expected = np.array([2, 4]) * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
 
 class TestDevelopedArea:
     def test(_, segments, flow, mask2):
         output = segments.developed_area(mask2)
-        expected = np.array([0, 2, 2, 1, 4, 4]) * flow.pixel_area
+        expected = np.array([0, 2, 2, 1, 4, 4]) * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
     def test_terminal(_, segments, flow, mask2):
         output = segments.developed_area(mask2, terminal=True)
-        expected = np.array([2, 4]) * flow.pixel_area
+        expected = np.array([2, 4]) * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
 
@@ -1410,7 +1441,7 @@ class TestKfFactor:
         expected = np.array([1, nan, 3, 5, 5.5, 13 / 4])
         assert np.array_equal(output, expected, equal_nan=True)
 
-    def test_negative(_, segments, values):
+    def test_negative(_, segments, values, assert_contains):
         values = values.values.copy()
         values[0, 0] = -1
         with pytest.raises(ValueError) as error:
@@ -1473,7 +1504,7 @@ class TestScaledThickness:
         expected = sums / npixels[[2, 5]] / 100
         assert np.array_equal(output, expected, equal_nan=True)
 
-    def test_negative(_, segments, values):
+    def test_negative(_, segments, values, assert_contains):
         values = values.values.copy()
         values[0, 0] = -1
         with pytest.raises(ValueError) as error:
@@ -1512,7 +1543,7 @@ class TestSineTheta:
         expected = sums / npixels[[2, 5]] / 10
         assert np.allclose(output, expected, equal_nan=True)
 
-    def test_outside_interval(_, segments, values):
+    def test_outside_interval(_, segments, values, assert_contains):
         with pytest.raises(ValueError) as error:
             segments.sine_theta(values)
         assert_contains(error, "sine_thetas")
@@ -1552,7 +1583,14 @@ class TestRuggedness:
     def test(_, segments, values, flow, npixels):
         output = segments.ruggedness(values)
         relief = np.array([1, 7, nan, 5, 6, 7])
-        area = npixels * flow.pixel_area
+        area = npixels * flow.transform.pixel_area()
+        expected = relief / np.sqrt(area)
+        assert np.array_equal(output, expected, equal_nan=True)
+
+    def test_meters(_, segments, values, flow, npixels):
+        output = segments.ruggedness(values, meters=True)
+        relief = np.array([1, 7, nan, 5, 6, 7])
+        area = npixels * flow.transform.pixel_area()
         expected = relief / np.sqrt(area)
         assert np.array_equal(output, expected, equal_nan=True)
 
@@ -1560,7 +1598,7 @@ class TestRuggedness:
         output = segments.ruggedness(values, terminal=True)
         relief = np.array([nan, 7])
         npixels = np.array([npixels[2], npixels[5]])
-        area = npixels * flow.pixel_area
+        area = npixels * flow.transform.pixel_area()
         expected = relief / np.sqrt(area)
         assert np.array_equal(output, expected, equal_nan=True)
 
@@ -1709,19 +1747,19 @@ class TestValidateSelection:
         output = segments._validate_selection(None, indices)
         assert np.array_equal(output, indices.astype(bool))
 
-    def test_not_boolean_indices(_, segments):
+    def test_not_boolean_indices(_, segments, assert_contains):
         indices = np.arange(6)
         with pytest.raises(ValueError) as error:
             segments._validate_selection(None, indices)
         assert_contains(error, "indices", "0 or 1")
 
-    def test_indices_wrong_length(_, segments):
+    def test_indices_wrong_length(_, segments, assert_contains):
         indices = np.ones(10)
         with pytest.raises(ShapeError) as error:
             segments._validate_selection(None, indices)
         assert_contains(error, "indices", "6")
 
-    def test_invalid_ids(_, segments):
+    def test_invalid_ids(_, segments, assert_contains):
         ids = [1, 2, 7]
         with pytest.raises(ValueError) as error:
             segments._validate_selection(ids, None)
@@ -2185,24 +2223,24 @@ class TestValidateProperties:
         for key in output.keys():
             assert np.array_equal(output[key], expected[key])
 
-    def test_not_dict(_, segments):
+    def test_not_dict(_, segments, assert_contains):
         with pytest.raises(TypeError) as error:
             segments._validate_properties("invalid", terminal=False)
         assert_contains(error, "properties must be a dict")
 
-    def test_bad_keys(_, segments):
+    def test_bad_keys(_, segments, assert_contains):
         props = {1: np.ones(6)}
         with pytest.raises(TypeError) as error:
             segments._validate_properties(props, terminal=False)
         assert_contains(error, "key 0")
 
-    def test_not_numeric(_, segments):
+    def test_not_numeric(_, segments, assert_contains):
         props = {"values": ["a", "b", "c", "d", "e", "f"]}
         with pytest.raises(TypeError) as error:
             segments._validate_properties(props, terminal=False)
         assert_contains(error, "properties['values']")
 
-    def test_wrong_length(_, segments):
+    def test_wrong_length(_, segments, assert_contains):
         props = {"values": np.ones(7)}
         with pytest.raises(ShapeError) as error:
             segments._validate_properties(props, terminal=False)
@@ -2248,12 +2286,12 @@ class TestValidateExport:
         _, outtype = segments._validate_export(None, "SeGmEnTs")
         assert outtype == "segments"
 
-    def test_invalid_type(_, segments):
+    def test_invalid_type(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:
             segments._validate_export(None, "invalid")
         assert_contains(error, "type", "segments", "outlets", "basins")
 
-    def test_invalid_props(_, segments):
+    def test_invalid_props(_, segments, assert_contains):
         with pytest.raises(TypeError) as error:
             segments._validate_export("invalid", "segments")
         assert_contains(error, "properties must be a dict")
@@ -2263,7 +2301,7 @@ class TestBasinPolygons:
     def test(_, bsegments, basins):
         mask = basins.astype(bool)
         expected = rasterio.features.shapes(
-            basins, mask, connectivity=8, transform=bsegments.transform
+            basins, mask, connectivity=8, transform=bsegments.transform.affine
         )
         output = bsegments._basin_polygons()
         assert list(output) == list(expected)
@@ -2445,12 +2483,12 @@ class TestGeojson:
         }
         assert output == expected
 
-    def test_bad_properties(_, segments):
+    def test_bad_properties(_, segments, assert_contains):
         with pytest.raises(TypeError) as error:
             segments.geojson(properties="invalid")
         assert_contains(error, "properties must be a dict")
 
-    def test_bad_type(_, segments):
+    def test_bad_type(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:
             segments.geojson(type="invalid")
         assert_contains(error, "type", "segments", "outlets", "basins")
@@ -2685,13 +2723,13 @@ class TestSave:
         }
         assert output == expected
 
-    def test_bad_properties(_, segments, tmp_path):
+    def test_bad_properties(_, segments, tmp_path, assert_contains):
         path = Path(tmp_path) / "output.geojson"
         with pytest.raises(TypeError) as error:
             segments.save(path, properties="invalid")
         assert_contains(error, "properties must be a dict")
 
-    def test_bad_type(_, segments, tmp_path):
+    def test_bad_type(_, segments, tmp_path, assert_contains):
         path = Path(tmp_path) / "output.geojson"
         with pytest.raises(ValueError) as error:
             segments.geojson(path, type="invalid")

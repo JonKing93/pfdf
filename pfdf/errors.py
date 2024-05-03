@@ -8,14 +8,15 @@ Numpy Arrays:
     ShapeError              - When a numpy axis has an invalid shape
 
 Spatial Metadata:
-    CrsError                - When a coordinate reference system is invalid
+    CRSError                - When a coordinate reference system is invalid
+    MissingCRSError         - When a required CRS is missing
     TransformError          - When an affine transformation is invalid
 
 Rasters:
     RasterError             - Generic class for invalid raster metadata
     RasterShapeError        - When a raster array has an invalid shape
     RasterTransformError    - When a raster has an invalid affine transformation
-    RasterCrsError          - When a raster has an invalid coordinate reference system
+    RasterCRSError          - When a raster has an invalid coordinate reference system
 
 Vector Features:
     FeaturesError           - When vector features are not valid
@@ -51,16 +52,28 @@ class ShapeError(ArrayError):
 
 
 #####
-# Raster Metadata
+# Projection Metadata
 #####
 
 
-class CrsError(Exception):
+class CRSError(Exception):
     "When a coordinate reference system is invalid"
+
+
+class MissingCRSError(Exception):
+    "When a required CRS is missing"
 
 
 class TransformError(Exception):
     "When an affine transformation is invalid"
+
+
+class MissingTransformError(Exception):
+    "When a required transform is missing"
+
+
+class MissingNoDataError(Exception):
+    "When a required NoData value is missing"
 
 
 #####
@@ -80,7 +93,7 @@ class RasterTransformError(RasterError, TransformError):
     "When a raster has an invalid affine transformation"
 
 
-class RasterCrsError(RasterError, CrsError):
+class RasterCRSError(RasterError, CRSError):
     "When a raster has an invalid coordinate reference system"
 
 

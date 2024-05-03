@@ -27,7 +27,8 @@ from typing import Any, Dict, Tuple
 import numpy as np
 from numpy import exp, log, nan, sqrt
 
-from pfdf._utils import clean_dims, real, validate
+import pfdf._validate.core as validate
+from pfdf._utils import clean_dims, real
 from pfdf.errors import ShapeError
 from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volumes
 

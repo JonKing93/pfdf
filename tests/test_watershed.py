@@ -2,14 +2,15 @@ from math import inf, sqrt
 
 import numpy as np
 import pytest
-from affine import Affine
 from geojson import FeatureCollection
 from numpy import isnan, nan
+from pyproj import CRS
 from pysheds.grid import Grid
-from rasterio.crs import CRS
 from shapely import LineString
 
 from pfdf import watershed
+from pfdf.errors import MissingCRSError
+from pfdf.projection import Transform
 from pfdf.raster import PyshedsRaster, Raster
 
 #####
@@ -91,13 +92,13 @@ def assert_contains(error, *strings):
 
 def test_to_pysheds():
     a = np.arange(10).reshape(2, 5)
-    crs = CRS.from_epsg(4000)
-    transform = Affine(0.03, 0, -4, 0, 0.03, -3)
+    crs = CRS.from_epsg(4326)
+    transform = Transform(0.03, 0.03, -4, -3, crs)
     raster = Raster.from_array(a, nodata=-999, crs=crs, transform=transform)
     raster, metadata = watershed._to_pysheds(raster)
 
     assert isinstance(raster, PyshedsRaster)
-    assert raster.affine == transform
+    assert raster.affine == transform.affine
     assert raster.crs == crs
     assert raster.nodata == -999
     assert np.array_equal(raster, a)
@@ -682,6 +683,46 @@ class TestNetwork:
         print(output)
         print(expected)
         assert output == expected
+
+    def test_meters(self):
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        flow = Raster.from_array(flow, nodata=0, crs=26911)
+        mask = np.ones(flow.shape, bool)
+
+        output = watershed.network(flow, mask, max_length=2, meters=True)
+        expected = [
+            LineString([[1.5, 1.5], [2.5, 1.5], [3.5, 1.5]]),
+            LineString([[3.5, 1.5], [4.5, 1.5], [5.5, 1.5]]),
+            LineString([[5.5, 1.5], [6.5, 1.5], [7.5, 1.5]]),
+            LineString([[1.5, 2.5], [2.5, 2.5], [3.5, 2.5]]),
+            LineString([[3.5, 2.5], [4.5, 2.5], [5.5, 2.5]]),
+            LineString([[5.5, 2.5], [6.5, 2.5], [7.5, 2.5]]),
+        ]
+        print(output)
+        print(expected)
+        assert output == expected
+
+    def test_meters_no_crs(self):
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+            ]
+        )
+        flow = Raster.from_array(flow, nodata=0)
+        mask = np.ones(flow.shape, bool)
+
+        with pytest.raises(MissingCRSError):
+            watershed.network(flow, mask, max_length=2, meters=True)
 
     def test_no_check(_):
         flow = np.array(
