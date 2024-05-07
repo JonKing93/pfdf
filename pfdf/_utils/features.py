@@ -158,6 +158,9 @@ def parse_features(
         else:
             value = feature["properties"][field]
         geometry_values.append((geometry, value))
+
+    # Return the geometry-value tuples and the Bounds of the retained features
+    bounds["crs"] = crs
     return geometry_values, BoundingBox.from_dict(bounds)
 
 

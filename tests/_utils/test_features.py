@@ -261,7 +261,7 @@ class TestParseFeatures:
         )
         assert output == [(geom1, True)]
         assert bounds == BoundingBox.from_dict(
-            {"left": 2, "right": 6, "top": 7, "bottom": 2}
+            {"left": 2, "right": 6, "top": 7, "bottom": 2, "crs": crs}
         )
 
     def test_point_window(_):
@@ -274,7 +274,7 @@ class TestParseFeatures:
         output, bounds = features.parse_features(records, None, ["Point"], crs, window)
         assert output == [(geom1, True), (geom3, True)]
         assert bounds == BoundingBox.from_dict(
-            {"left": 2, "right": 4, "top": 4, "bottom": 3}
+            {"left": 2, "right": 4, "top": 4, "bottom": 3, "crs": crs}
         )
 
 
