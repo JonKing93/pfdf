@@ -77,8 +77,8 @@ class Transform(_Locator):
         reproject       - Returns a copy of a Transform in a new CRS
 
     As built-in:
-        asdict          - Converts Transform to a keyword dict
-        aslist          - Converts Transform to a list with 5 elements
+        tolist          - Returns a transform as a list
+        todict          - Returns a transform as a dict
 
     Internal:
         _edge           - Computes the location of a bounding edge
@@ -122,17 +122,21 @@ class Transform(_Locator):
         super().__init__([dx, dy, left, top], crs)
 
     @staticmethod
-    def from_affine(input: Affine) -> Self:
+    def from_affine(input: Affine, crs: Optional[CRSInput] = None) -> Self:
         """
         Creates a Transform from an affine.Affine object
         ----------
         Transform.from_affine(input)
+        Transform.from_affine(input, crs)
         Creates a Transform from an affine.Affine object. The affine object must
         have scalar real-valued coefficients, and cannot implement a shear
         transformation. Equivalently, the "b" and "d" coefficients must be 0.
+        Affine objects do not include CRS information, so use the "crs" option
+        to also probide a CRS.
         ----------
         Inputs:
             input: The affine.Affine object used to create the Transform
+            crs: A CRS input for the transform
 
         Outputs:
             Transform: The new Transform object
@@ -157,7 +161,7 @@ class Transform(_Locator):
                 )
 
         # Build object
-        return Transform(dx=input.a, dy=input.e, left=input.c, top=input.f)
+        return Transform(dx=input.a, dy=input.e, left=input.c, top=input.f, crs=crs)
 
     @staticmethod
     def from_list(input: list | tuple) -> Self:

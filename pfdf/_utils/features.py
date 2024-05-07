@@ -105,7 +105,7 @@ def parse_features(
     # Build a shapely box from the load window
     if window is not None:
         window = window.reproject(crs).orient()
-        window = window.aslist()[:-1]
+        window = window.tolist(crs=False)
         window = shapely.geometry.box(*window)
 
     # Each feature must have a geometry

@@ -466,13 +466,13 @@ class TestToUtm:
         a = BoundingBox(-122, 34, -120, 36, 4326)
         a = a.to_utm()
         assert a.crs == CRS("WGS 84 / UTM zone 10N")
-        coords = a.aslist()[:-1]
         expected = (
             590129.04941026,
             3762606.6598762735,
             777091.295474178,
             3988111.9623426683,
         )
+        coords = a.tolist(crs=False)
         assert np.allclose(coords, expected)
 
     def test_outside_domain(_, assert_contains):
@@ -543,22 +543,25 @@ class TestTransform:
 #####
 
 
-class TestAsList:
+class TestToList:
     def test(_):
-        assert BoundingBox(1, 2, 3, 4).aslist() == [1, 2, 3, 4, None]
-        assert BoundingBox(1, 2, 3, 4, 4326).aslist() == [1, 2, 3, 4, CRS(4326)]
+        assert BoundingBox(1, 2, 3, 4).tolist() == [1, 2, 3, 4, None]
+        assert BoundingBox(1, 2, 3, 4, 4326).tolist() == [1, 2, 3, 4, CRS(4326)]
+
+    def test_no_crs(_):
+        assert BoundingBox(1, 2, 3, 4, 4326).tolist(crs=False) == [1, 2, 3, 4]
 
 
-class TestAsDict:
+class TestToDict:
     def test(_):
-        assert BoundingBox(1, 2, 3, 4).asdict() == {
+        assert BoundingBox(1, 2, 3, 4).todict() == {
             "left": 1,
             "bottom": 2,
             "right": 3,
             "top": 4,
             "crs": None,
         }
-        assert BoundingBox(1, 2, 3, 4, 4326).asdict() == {
+        assert BoundingBox(1, 2, 3, 4, 4326).todict() == {
             "left": 1,
             "bottom": 2,
             "right": 3,

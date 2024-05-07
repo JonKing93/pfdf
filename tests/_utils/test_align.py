@@ -66,7 +66,7 @@ class TestReprojection:
         assert shape == (4, 6)
         expected = Transform(2, 3, 4.1, 4)
 
-        assert np.allclose(transform.aslist()[:-1], expected.aslist()[:-1])
+        assert np.allclose(transform.tolist(False), expected.tolist(False))
 
     def test_invert_orientation(_, crs):
         bounds = Transform(1, 1, 0, 0).bounds(10, 10)
@@ -93,4 +93,4 @@ class TestReprojection:
         transform, shape = align.reprojection(icrs, fcrs, bounds, transform)
         assert shape == (12, 12)
         expected = Transform(10, -10, 1045830, 3802910)
-        assert np.allclose(transform.aslist()[:-1], expected.aslist()[:-1])
+        assert np.allclose(transform.tolist(False), expected.tolist(False))

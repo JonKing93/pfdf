@@ -124,8 +124,13 @@ class BoundingBox(_Locator):
         transform       - Converts the box to a Transform
 
     As built-in types:
-        aslist          - Returns the box to a list with 5 elements
-        asdict          - Returns the box as a dict
+        tolist          - Returns the box as a list
+        todict          - Returns the box as a dict
+
+    Internal:
+        _inversion      - True if an axis requires inversion
+        _buffer_edges   - Computes buffered edges, accounting for orientation
+        _delta          - Computes dx and dy
     """
 
     _names = ["left", "bottom", "right", "top"]

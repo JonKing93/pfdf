@@ -54,7 +54,7 @@ def check(output, name, araster, transform, crs):
     assert output.width == araster.shape[1]
 
     assert output.crs == crs
-    transform = transform.asdict()
+    transform = transform.todict()
     transform["crs"] = crs
     transform = Transform.from_dict(transform)
     assert output.transform == transform
@@ -302,7 +302,7 @@ class TestFinalize:
 
     def test_strip_transform(_, araster, crs, transform):
         raster = Raster()
-        transform = transform.asdict()
+        transform = transform.todict()
         transform["crs"] = None
         raster._finalize(araster, crs, transform, -999, "unsafe", False)
 
@@ -1694,7 +1694,7 @@ class TestClip:
         bounds = BoundingBox(2, 8, 8, 3, crs).reproject(4326)
         raster.clip(bounds)
         assert raster.crs == crs
-        assert np.allclose(raster.transform.aslist()[:-1], (1, 1, 2, 3))
+        assert np.allclose(raster.transform.tolist(False), (1, 1, 2, 3))
         assert raster.nodata is None
         assert np.array_equal(raster.values, araster[3:8, 2:8])
 
@@ -1801,7 +1801,7 @@ class TestReproject:
 
         assert raster.crs == CRS.from_epsg(26910)
         assert np.allclose(
-            raster.transform.aslist()[:-1],
+            raster.transform.tolist(False),
             [
                 10.611506455694325,
                 -9.427027871832252,
@@ -1863,7 +1863,9 @@ class TestReproject:
 
         assert raster.crs == CRS.from_epsg(26911)
         assert raster.nodata == -999
-        assert np.allclose(raster.transform.aslist()[:-1], (20, -20, 492850, 3787010))
+        assert np.allclose(
+            raster.transform.tolist(crs=False), (20, -20, 492850, 3787010)
+        )
 
         expected = np.array(
             [
@@ -1887,7 +1889,7 @@ class TestReproject:
 
         assert raster.crs == CRS.from_epsg(26910)
         assert raster.nodata == -999
-        assert np.allclose(raster.transform.aslist()[:-1], (20, -20, 1045820, 3802920))
+        assert np.allclose(raster.transform.tolist(False), (20, -20, 1045820, 3802920))
 
         expected = np.array(
             [
@@ -1917,7 +1919,7 @@ class TestReproject:
 
         assert raster.crs == CRS.from_epsg(26910)
         assert raster.nodata == -999
-        assert np.allclose(raster.transform.aslist()[:-1], (20, -20, 1045820, 3802920))
+        assert np.allclose(raster.transform.tolist(False), (20, -20, 1045820, 3802920))
 
         expected = np.array(
             [
@@ -1948,7 +1950,7 @@ class TestReproject:
         assert raster.crs == CRS.from_epsg(26910)
         assert raster.nodata == -999
         assert np.allclose(
-            raster.transform.aslist()[:-1],
+            raster.transform.tolist(False),
             [
                 -30.172586417756975,
                 24.700681280344725,
@@ -1981,7 +1983,7 @@ class TestReproject:
 
         assert raster.crs == CRS.from_epsg(26911)
         assert raster.nodata == -999
-        assert np.allclose(raster.transform.aslist()[:-1], (20, -20, 492850, 3787010))
+        assert np.allclose(raster.transform.tolist(False), (20, -20, 492850, 3787010))
 
         expected = np.array(
             [
@@ -2005,7 +2007,7 @@ class TestReproject:
 
         assert raster.crs == CRS.from_epsg(26911)
         assert raster.nodata == False
-        assert np.allclose(raster.transform.aslist()[:-1], (20, -20, 492850, 3787010))
+        assert np.allclose(raster.transform.tolist(False), (20, -20, 492850, 3787010))
 
         assert raster.dtype == bool
         expected = np.array(
@@ -2162,7 +2164,7 @@ class TestCRS:
 
 class TestTransform:
     def test_transform(_, fraster, transform, crs):
-        expected = transform.asdict()
+        expected = transform.todict()
         expected["crs"] = crs
         expected = Transform.from_dict(expected)
         assert Raster(fraster).transform == expected
@@ -2279,7 +2281,7 @@ class TestAffine:
 
 class TestBounds:
     def test_get(_, fraster, bounds, crs):
-        expected = bounds.asdict()
+        expected = bounds.todict()
         expected["crs"] = crs
         expected = BoundingBox.from_dict(expected)
         assert Raster(fraster).bounds == expected

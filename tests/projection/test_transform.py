@@ -453,22 +453,25 @@ class TestValidateConversion:
 #####
 
 
-class TestAsList:
+class TestToList:
     def test(_):
-        assert Transform(1, 2, 3, 4).aslist() == [1, 2, 3, 4, None]
-        assert Transform(1, 2, 3, 4, 4326).aslist() == [1, 2, 3, 4, CRS(4326)]
+        assert Transform(1, 2, 3, 4).tolist() == [1, 2, 3, 4, None]
+        assert Transform(1, 2, 3, 4, 4326).tolist() == [1, 2, 3, 4, CRS(4326)]
+
+    def test_no_crs(_):
+        assert Transform(1, 2, 3, 4, 4326).tolist(crs=False) == [1, 2, 3, 4]
 
 
-class TestAsDict:
+class TestToDict:
     def test(_):
-        assert Transform(1, 2, 3, 4).asdict() == {
+        assert Transform(1, 2, 3, 4).todict() == {
             "dx": 1,
             "dy": 2,
             "left": 3,
             "top": 4,
             "crs": None,
         }
-        assert Transform(1, 2, 3, 4, 4326).asdict() == {
+        assert Transform(1, 2, 3, 4, 4326).todict() == {
             "dx": 1,
             "dy": 2,
             "left": 3,
@@ -487,7 +490,7 @@ class TestReproject:
         a = Transform(1, 2, 3, 4, 26911)
         b = a.reproject(26910)
         assert b.crs == CRS("NAD83 / UTM zone 10N")
-        coords = b.aslist()[:-1]
+        coords = b.tolist(crs=False)
         expected = (
             0.997261140611954,
             1.9945226908862739,

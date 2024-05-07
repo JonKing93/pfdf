@@ -69,8 +69,8 @@ class _Locator(ABC):
 
     Class Conversion:
         _validate_N     - Checks that nrows or ncols is valid
-        aslist          - Returns the object as a list with 5 elements
-        asdict          - Returns the object as a dict
+        tolist          - Returns the object as a list
+        todict          - Returns the object as a dict
     """
 
     #####
@@ -118,7 +118,7 @@ class _Locator(ABC):
     @property
     @abstractmethod
     def orientation(self) -> Quadrant:
-        "The Cartesian quandrant associated with the object"
+        "The Cartesian quandrant associated with the projection object"
 
     #####
     # Object creation
@@ -137,7 +137,23 @@ class _Locator(ABC):
 
     @classmethod
     def from_dict(cls, input: dict) -> Self:
-        "Builds an object from a keyword dict"
+        """
+        Builds a projection class from a keyword dict
+        ----------
+        Class.from_dict(input)
+        Builds a Transform or BoundingBox object from a keyword dict. The dict
+        may have either 4 or 5 keys, and each key must be a string. The dict must
+        include a key for each of the four floats used to initialize the projection
+        class, and the value of each key should be a float. The dict may optionally
+        include a "crs" key, which will be used to add CRS information to the object.
+        ----------
+        Inputs:
+            input: A dict used to create a projection class
+
+        Outputs:
+            Transform | BoundingBox: The projection class being created
+        """
+
         name = f"{cls.__name__} dict"
         args = cls._args()
         validate.type(input, name, dict, "dict")
@@ -151,6 +167,22 @@ class _Locator(ABC):
 
     @classmethod
     def from_list(cls, input: tuple | list) -> Self:
+        """
+        Creates a Transform or BoundingBox from a list or tuple
+        ----------
+        Class.from_list(input)
+        Creates a Transform or BoundingBox from an input list or tuple. The input
+        may have either 4 or 5 or five elements. The first four elements should
+        be floats and correspond to the four floats used to initialize the object.
+        The optional fifth element should be a value used to add CRS information
+        to the object.
+        ----------
+        Inputs:
+            input: A list or tuple with either 4 or 5 elements.
+
+        Outputs:
+            Transform | BoundingBox: The projection class being created
+        """
         name = f"{cls.__name__} sequence"
         validate.type(input, name, (list, tuple), "list or tuple")
         if len(input) not in [4, 5]:
@@ -161,7 +193,16 @@ class _Locator(ABC):
         return cls(*input)
 
     def copy(self) -> Self:
-        return self.from_dict(self.asdict())
+        """
+        Returns a copy of a projection class
+        ----------
+        self.copy()
+        Returns a copy of the current object with the same values and CRS.
+        ----------
+        Outputs:
+            Transform | BoundingBox: A copy of the current object
+        """
+        return self.from_dict(self.todict())
 
     #####
     # Dunders
@@ -169,7 +210,7 @@ class _Locator(ABC):
 
     def __repr__(self) -> str:
         "String representation including class name, float values, and CRS name"
-        args = self.asdict()
+        args = self.todict()
         crs = _crs.name(self.crs)
         if crs != "None":
             crs = f'"{crs}"'
@@ -179,7 +220,7 @@ class _Locator(ABC):
 
     def __eq__(self, other: Any) -> bool:
         "True if other is the same class, and has the same values and CRS"
-        return isinstance(other, type(self)) and (self.aslist() == other.aslist())
+        return isinstance(other, type(self)) and (self.tolist() == other.tolist())
 
     #####
     # Misc
@@ -229,10 +270,39 @@ class _Locator(ABC):
         validate.integers(N, name)
         return int(N)
 
-    def aslist(self) -> list:
-        "Converts object to a list with 5 elements"
-        return [getattr(self, att) for att in self._atts]
+    def tolist(self, crs: bool = True) -> list:
+        """
+        Returns the object as a list
+        ----------
+        self.tolist()
+        self.tolist(crs=False)
+        Returns the current object as a list. By default, the list will have 5
+        elements. The first four elements are the floats used to define the object,
+        and the fifth element is the CRS information. Set crs=False to exclude the
+        CRS information and only return a list with 4 elements.
+        ----------
+        Inputs:
+            crs: True (default) to return CRS information as the 5th element.
+                False to exclude CRS information and return a list with 4 elements.
 
-    def asdict(self) -> dict:
-        "Converts object to a keyword dict"
-        return {name: value for name, value in zip(self._args(), self.aslist())}
+        Outputs:
+            list: The current object as a list
+        """
+        output = [getattr(self, att) for att in self._atts]
+        if not crs:
+            output = output[:-1]
+        return output
+
+    def todict(self) -> dict:
+        """
+        Returns object as a dict
+        ----------
+        self.todict()
+        Returns the object as a dict. The dict will have 5 keys. The first four
+        are the floats used to define the object. The 5th key is "crs" and holds
+        the associated CRS information.
+        ----------
+        Outputs:
+            dict: The object as a dict
+        """
+        return {name: value for name, value in zip(self._args(), self.tolist())}

@@ -235,7 +235,7 @@ class Raster:
         if self._transform is None:
             return None
         else:
-            transform = self._transform.asdict()
+            transform = self._transform.todict()
             transform["crs"] = self.crs
             return Transform.from_dict(transform)
 
@@ -300,7 +300,7 @@ class Raster:
         if self.transform is None:
             return None
         else:
-            bounds = self.transform.bounds(*self.shape).asdict()
+            bounds = self.transform.bounds(*self.shape).todict()
             bounds["crs"] = self.crs
             return BoundingBox.from_dict(bounds)
 
@@ -442,7 +442,7 @@ class Raster:
 
         # Strip CRS from the transform
         if transform is not None:
-            transform = transform.asdict()
+            transform = transform.todict()
             transform["crs"] = None
             transform = Transform.from_dict(transform)
 
