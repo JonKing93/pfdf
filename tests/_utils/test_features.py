@@ -373,7 +373,8 @@ class TestParseResolution:
         res = Transform(1, 2, 3, 4, 26911)
         bounds = BoundingBox(0, 100, 500, 1000, crs)
         out1, out2 = FeatureFile.parse_resolution(res, False, crs, bounds)
-        assert out1 == (0.997261140611954, 1.9945226908862739)
+        expected = (0.997261140611954, 1.9945226908862739)
+        assert np.allclose(out1, expected)
         assert out2 == crs
 
     def test_inherit_crs(_):

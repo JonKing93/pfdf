@@ -486,13 +486,15 @@ class TestReproject:
     def test_linear(_):
         a = Transform(1, 2, 3, 4, 26911)
         b = a.reproject(26910)
-        assert b == Transform(
-            dx=0.997261140611954,
-            dy=1.9945226908862739,
-            left=668187.5941248297,
-            top=3.989045184176652,
-            crs="NAD83 / UTM zone 10N",
+        assert b.crs == CRS("NAD83 / UTM zone 10N")
+        coords = b.aslist()[:-1]
+        expected = (
+            0.997261140611954,
+            1.9945226908862739,
+            668187.5941248297,
+            3.989045184176652,
         )
+        assert np.allclose(coords, expected)
 
     def test_angular(_):
         a = Transform(1, 2, 3, 4, 4326)

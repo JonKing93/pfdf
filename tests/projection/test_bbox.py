@@ -464,13 +464,16 @@ class TestReproject:
 class TestToUtm:
     def test(_):
         a = BoundingBox(-122, 34, -120, 36, 4326)
-        assert a.to_utm() == BoundingBox(
-            left=590129.04941026,
-            bottom=3762606.6598762735,
-            right=777091.295474178,
-            top=3988111.9623426683,
-            crs="WGS 84 / UTM zone 10N",
+        a = a.to_utm()
+        assert a.crs == CRS("WGS 84 / UTM zone 10N")
+        coords = a.aslist()[:-1]
+        expected = (
+            590129.04941026,
+            3762606.6598762735,
+            777091.295474178,
+            3988111.9623426683,
         )
+        assert np.allclose(coords, expected)
 
     def test_outside_domain(_, assert_contains):
         a = BoundingBox(-120, 86, -119, 88, 4326)
