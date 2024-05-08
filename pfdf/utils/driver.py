@@ -34,7 +34,7 @@ from typing import Literal, Optional
 
 from pandas import DataFrame
 
-from pfdf._utils import validate
+import pfdf._validate.core as validate
 from pfdf.typing import Pathlike
 
 # Type aliases

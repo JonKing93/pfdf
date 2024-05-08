@@ -25,18 +25,18 @@ import geojson
 import numpy as np
 import rasterio.features
 import shapely
-from affine import Affine
 from geojson import Feature, FeatureCollection
-from rasterio.crs import CRS
 from rasterio.transform import rowcol
 
+import pfdf._validate.core as validate
 from pfdf import watershed
 from pfdf._utils import all_nones
 from pfdf._utils import basins as _basins
-from pfdf._utils import nodata, real, validate
+from pfdf._utils import nodata, real
 from pfdf._utils.kernel import Kernel
 from pfdf._utils.nodata import NodataMask
-from pfdf.errors import RasterTransformError
+from pfdf.errors import MissingCRSError, MissingTransformError
+from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.raster import Raster, RasterInput
 from pfdf.typing import (
     BasinValues,
@@ -257,6 +257,7 @@ class Segments:
         flow: RasterInput,
         mask: RasterInput,
         max_length: scalar = inf,
+        meters: bool = False,
     ) -> None:
         """
         __init__  Creates a new Segments object
@@ -270,20 +271,21 @@ class Segments:
         The stream segment network is determined using a TauDEM-style D8 flow direction
         raster and a raster mask (and please see the documentation of the pfdf.watershed
         module for details of this style). Note the the flow direction raster must have
-        (affine) transform metadata. The mask is used to indicate the pixels under
+        both a CRS and an affine Transform. The mask is used to indicate the pixels under
         consideration as stream segments. True pixels may possibly be assigned to a
         stream segment, False pixels will never be assiged to a stream segment. The
         mask typically screens out pixels with low flow accumulations, and may include
         other screenings - for example, to remove pixels in large bodies of water, or
         pixels below developed areas.
 
-        Segments(flow, mask, max_length)
+        Segments(..., max_length)
+        Segments(..., max_length, meters=True)
         Also specifies a maximum length for the segments in the network. Any segment
         longer than this length will be split into multiple pieces. The split pieces
-        will all have the same length, which will be <= max_length. The units of
-        max_length should be the base units of the (affine) transform associated
-        with the flow raster. In practice, this is usually units of meters. The
-        maximum length must be at least as long as the diagonal of the raster pixels.
+        will all have the same length, which will be <= max_length. Note that the
+        max_length must be at least as long as the diagonal of the raster pixels.
+        By default, this command interprets max_length in the base unit of the CRS.
+        Set meters=True to specify max_length in meters instead.
         ----------
         Inputs:
             flow: A TauDEM-style D8 flow direction raster
@@ -292,6 +294,8 @@ class Segments:
             max_length: A maximum allowed length for segments in the network. Units
                 should be the same as the units of the (affine) transform for the
                 flow raster.
+            meters: True to specify max_length in meters. False (default) to
+                specify max_length in the base unit of the CRS.
 
         Outputs:
             Segments: A Segments object recording the stream segments in the network.
@@ -309,18 +313,24 @@ class Segments:
 
         # Validate and record flow raster
         flow = Raster(flow, "flow directions")
-        if flow.transform is None:
-            raise RasterTransformError(
-                "The flow direction raster must have (affine) transform metadata."
+        if flow.crs is None:
+            raise MissingCRSError("The flow direction raster must have a CRS.")
+        elif flow.transform is None:
+            raise MissingTransformError(
+                "The flow direction raster must have an affine Transform."
             )
         self._flow = flow
 
-        # max length cannot be shorter than a pixel diagonal
+        # Max length cannot be shorter than a pixel diagonal
         max_length = validate.scalar(max_length, "max_length", dtype=real)
-        if max_length < flow.pixel_diagonal:
+        if meters:
+            max_length = _crs.dy_from_meters(flow.crs, max_length)
+        if max_length < flow.transform.pixel_diagonal():
+            length_m = _crs.dy_to_meters(flow.crs, max_length)
+            diagonal_m = flow.transform.pixel_diagonal(meters=True)
             raise ValueError(
-                f"max_length (value={max_length}) must be at least as long as the "
-                f"diagonals of the pixels in the flow direction raster (length={flow.pixel_diagonal})."
+                f"max_length (value = {length_m} meters) must be at least as long as the "
+                f"diagonals of the pixels in the flow direction raster (length = {diagonal_m} meters)."
             )
 
         # Calculate network. Assign IDs
@@ -346,7 +356,9 @@ class Segments:
 
             # Get the pixel indices for each segment. If the first two indices are
             # identical, then this is downstream of a split point
-            rows, cols = rowcol(self.flow.transform, xs=coords[:, 0], ys=coords[:, 1])
+            rows, cols = rowcol(
+                self.flow.transform.affine, xs=coords[:, 0], ys=coords[:, 1]
+            )
             if rows[0] == rows[1] and cols[0] == cols[1]:
                 split = True
 
@@ -429,11 +441,6 @@ class Segments:
         return self._segments.copy()
 
     @property
-    def lengths(self) -> SegmentValues:
-        "The length of each stream segment in the units of the CRS"
-        return np.array([segment.length for segment in self._segments])
-
-    @property
     def ids(self) -> SegmentValues:
         "The ID of each stream segment"
         return self._ids.copy()
@@ -476,19 +483,14 @@ class Segments:
         return self._flow.shape
 
     @property
-    def transform(self) -> Affine:
+    def transform(self) -> Transform:
         "The (affine) transform of the stream segment raster"
         return self._flow.transform
 
     @property
-    def resolution(self) -> float:
-        "The resolution of the stream segment raster pixels"
-        return self._flow.resolution
-
-    @property
-    def pixel_area(self) -> float:
-        "The area of the stream segment raster pixels in the units of the transform"
-        return self._flow.pixel_area
+    def bounds(self) -> BoundingBox:
+        "The BoundingBox of the stream segment raster"
+        return self._flow.bounds
 
     #####
     # Utilities
@@ -895,7 +897,7 @@ class Segments:
         kernel = Kernel(neighborhood, *self.raster_shape)
 
         # Determine flow lengths
-        width, height = self.resolution
+        width, height = self.transform.resolution()
         scale = neighborhood * factor
         lengths = {
             "horizontal": width * scale,
@@ -1204,27 +1206,56 @@ class Segments:
     # Earth system variables
     #####
 
+    def lengths(self, meters: bool = False) -> SegmentValues:
+        """
+        lengths  Returns the lengths of the stream segments
+        ----------
+        self.lengths()
+        self.lengths(meters=True)
+        Returns the lengths of the stream segments in the network. By default,
+        returns lengths in the default unit of the CRS. Set meters=True to return
+        lengths in meters instead.
+        ----------
+        Inputs:
+            meters: True to return segment lengths in meters. False (default) to
+                return lengths in the default CRS unit.
+
+        Outputs:
+            numpy 1D array: The lengths of the segments in the network
+        """
+        lengths = np.array([segment.length for segment in self._segments])
+        if meters:
+            lengths = _crs.dy_to_meters(self.crs, lengths)
+        return lengths
+
     def area(
-        self, mask: Optional[RasterInput] = None, terminal: bool = False
+        self,
+        mask: Optional[RasterInput] = None,
+        kilometers: bool = False,
+        terminal: bool = False,
     ) -> BasinValues:
         """
         area  Returns the areas of basins
         ----------
         self.area()
+        self.area(..., kilometers=True)
         Computes the total area of the catchment basin for each stream segment.
-        The returned area will be in the same units as the pixel_area property.
+        By default, the returned areas will be in the base unit of the CRS squared.
+        Set kilometers=True to return areas in kilometers instead.
 
         self.area(mask)
         Computes masked areas for the basins. True elements in the mask indicate
         pixels that should be included in the calculation of areas. False pixels
         are ignored and given an area of 0. Nodata elements are interpreted as False.
 
-        self.area(..., *, terminal=True)
+        self.area(..., terminal=True)
         Only returns values for the terminal outlet basins.
         ----------
         Inputs:
             mask: A raster mask whose True elements indicate the pixels that should
                 be used to compute upslope areas.
+            kilometers: True to return catchment areas in square kilometers.
+                False (default) to return areas in the default unit of the CRS squared.
             terminal: True to only compute values for terminal outlet basins.
                 False (default) to compute values for all catchment basins.
 
@@ -1232,11 +1263,17 @@ class Segments:
             numpy 1D array: The catchment area for each stream segment
         """
 
+        # Get the number of pixels
         if mask is None:
             N = self._basin_npixels(terminal)
         else:
             N = self._accumulation(mask=mask, terminal=terminal)
-        return N * self.pixel_area
+
+        # Convert to area
+        area = N * self.transform.pixel_area(meters=kilometers)
+        if kilometers:
+            area = area / 1e6
+        return area
 
     def burn_ratio(self, isburned: RasterInput, terminal: bool = False) -> BasinValues:
         """
@@ -1262,17 +1299,21 @@ class Segments:
         """
         return self.upslope_ratio(isburned, terminal)
 
-    def burned_area(self, isburned: RasterInput, terminal: bool = False) -> BasinValues:
+    def burned_area(
+        self, isburned: RasterInput, kilometers: bool = False, terminal: bool = False
+    ) -> BasinValues:
         """
         burned_area  Returns the total burned area of basins
         ----------
         self.burned_area(isburned)
+        self.burned_area(..., kilometers=True)
         Given a mask of burned pixel locations, returns the total burned area in
         the catchment of each stream segment. Returns a numpy 1D array with the
-        burned area for each segment. The returned areas will be in the same
-        units as the "pixel_area" property.
+        burned area for each segment. By default, areas are returned in the base
+        unit of the CRS, squared. Set kilometers=True to return areas in square
+        kilometers instead.
 
-        self.burned_area(isburned, terminal=True)
+        self.burned_area(..., terminal=True)
         Only computes areas for the terminal outlet basins.
         ----------
         Inputs:
@@ -1284,20 +1325,23 @@ class Segments:
         Outputs:
             numpy 1D array: The burned catchment area for the basins
         """
-        return self.area(isburned, terminal=terminal)
+        return self.area(isburned, kilometers, terminal)
 
     def developed_area(
-        self, isdeveloped: RasterInput, terminal: bool = False
+        self, isdeveloped: RasterInput, kilometers: bool = False, terminal: bool = False
     ) -> BasinValues:
         """
         developed_area  Returns the total developed area of basins
         ----------
         self.developed_area(isdeveloped)
+        self.developed_area(..., kilometers=True)
         Given a mask of developed pixel locations, returns the total developed
         area in the catchment of each stream segment. Returns a numpy 1D array
-        with the developed area for each segment.
+        with the developed area for each segment. By default, returns areas in
+        the base unit of the CRS squared. Set kilometers=True to return areas in
+        square kilometers instead.
 
-        self.developed_area(isdeveloped, terminal)
+        self.developed_area(..., terminal)
         Only computes areas for the terminal outlet basins.
         ----------
         Inputs:
@@ -1309,7 +1353,7 @@ class Segments:
         Outputs:
             numpy 1D array: The developed catchment area for each basin
         """
-        return self.area(isdeveloped, terminal)
+        return self.area(isdeveloped, kilometers, terminal)
 
     def in_mask(self, mask: RasterInput, terminal: bool = False) -> SegmentValues:
         """
@@ -1663,27 +1707,42 @@ class Segments:
             relief = relief[self.isterminus]
         return relief
 
-    def ruggedness(self, relief: RasterInput, terminal: bool = False) -> SegmentValues:
+    def ruggedness(
+        self, relief: RasterInput, meters: bool = False, terminal: bool = False
+    ) -> SegmentValues:
         """
         ruggedness  Returns the ruggedness of each stream segment catchment
         ----------
         self.ruggedness(relief)
-        self.ruggedness(relief, terminal=True)
+        self.ruggedness(relief, meters=True)
         Returns the ruggedness of the catchment for each stream segment in the
         network. Ruggedness is defined as a stream segment's vertical relief,
         divided by the square root of its catchment area. Returns ruggedness
-        values as a numpy 1D array with one element per stream segment. If
-        terminal=True, only returns values for the terminal segments.
+        values as a numpy 1D array with one element per stream segment. By default,
+        interprets the input relief values as the base unit of the CRS. Set
+        meters=True if the relief values are in meters instead.
+
+        self.ruggedness(..., terminal=True)
+        Only returns values for the terminal segments.
         ----------
         Inputs:
             relief: A vertical relief raster for the watershed
+            meters: Set to True if the relief raster is in units of meters. If
+                False (default), the reliefs are interpreted in the base unit
+                of the CRS.
             terminal: True to only return values for terminal segments.
                 False (default) to return values for all segments.
 
         Outputs:
             numpy 1D array: The topographic ruggedness of each stream segment
         """
-        area = self.area()
+
+        # Get the area in the appropriate units
+        area = self.area(kilometers=meters)
+        if meters:
+            area = area * 1e6
+
+        # Compute ruggedness
         relief = self.relief(relief)
         ruggedness = relief / np.sqrt(area)
         if terminal:
@@ -2117,7 +2176,7 @@ class Segments:
         basins = self._basins
         mask = basins.astype(bool)
         return rasterio.features.shapes(
-            basins, mask, connectivity=8, transform=self.transform
+            basins, mask, connectivity=8, transform=self.transform.affine
         )
 
     def geojson(

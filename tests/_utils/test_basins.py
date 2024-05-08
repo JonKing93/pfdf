@@ -55,7 +55,7 @@ def flow(transform):
             [0, 0, 0, 0, 0, 0, 0],
         ]
     )
-    return Raster.from_array(flow, nodata=0, transform=transform)
+    return Raster.from_array(flow, nodata=0, transform=transform, crs=26911)
 
 
 @pytest.fixture

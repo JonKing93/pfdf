@@ -41,7 +41,8 @@ from typing import Any
 
 import numpy as np
 
-from pfdf._utils import clean_dims, real, validate
+import pfdf._validate.core as validate
+from pfdf._utils import clean_dims, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import DurationsError, ShapeError
 from pfdf.raster import Raster, RasterInput

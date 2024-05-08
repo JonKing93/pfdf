@@ -3,7 +3,7 @@ import pytest
 from pfdf.errors import (
     ArrayError,
     CoordinateError,
-    CrsError,
+    CRSError,
     DimensionError,
     DurationsError,
     EmptyArrayError,
@@ -12,7 +12,7 @@ from pfdf.errors import (
     GeometryError,
     PointError,
     PolygonError,
-    RasterCrsError,
+    RasterCRSError,
     RasterError,
     RasterShapeError,
     RasterTransformError,
@@ -28,7 +28,7 @@ def check(error, message, type):
 
 @pytest.mark.parametrize(
     "error",
-    (ArrayError, CrsError, TransformError, RasterError, DurationsError, FeaturesError),
+    (ArrayError, CRSError, TransformError, RasterError, DurationsError, FeaturesError),
 )
 def test_base_error(error):
     message = "test message"
@@ -48,7 +48,7 @@ def test_array_error(error):
     (
         (RasterShapeError, ShapeError),
         (RasterTransformError, TransformError),
-        (RasterCrsError, CrsError),
+        (RasterCRSError, CRSError),
     ),
 )
 def test_raster_error(error, SecondaryError):

@@ -34,7 +34,9 @@ def flow():
             [0, 0, 0, 0, 0, 0, 0],
         ]
     )
-    return Raster.from_array(flow, nodata=0, transform=Affine(1, 0, 0, 0, 1, 0))
+    return Raster.from_array(
+        flow, nodata=0, transform=Affine(1, 0, 0, 0, 1, 0), crs=26911
+    )
 
 
 @pytest.fixture
@@ -576,8 +578,10 @@ class TestModelValidate:
         rasters = [flow, mask]
         raster1, raster2 = s17.Model._validate(segments, rasters, ["", ""])
 
-        expected1 = Raster.from_array(flow.values, nodata=0, transform=flow.transform)
-        expected2 = Raster.from_array(mask, transform=flow.transform)
+        expected1 = Raster.from_array(
+            flow.values, nodata=0, transform=flow.transform, crs=26911
+        )
+        expected2 = Raster.from_array(mask, transform=flow.transform, crs=26911)
         assert raster1 == expected1
         assert raster2 == expected2
 

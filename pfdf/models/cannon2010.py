@@ -32,7 +32,8 @@ from typing import Any, Tuple
 
 import numpy as np
 
-from pfdf._utils import real, validate
+import pfdf._validate.core as validate
+from pfdf._utils import real
 from pfdf._utils.classify import classify
 from pfdf.typing import RealArray, VectorArray, scalar, vector
 
