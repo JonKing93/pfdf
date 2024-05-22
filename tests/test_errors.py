@@ -10,6 +10,7 @@ from pfdf.errors import (
     FeatureFileError,
     FeaturesError,
     GeometryError,
+    NoFeaturesError,
     PointError,
     PolygonError,
     RasterCRSError,
@@ -60,7 +61,14 @@ def test_raster_error(error, SecondaryError):
 
 @pytest.mark.parametrize(
     "error",
-    (FeatureFileError, GeometryError, CoordinateError, PolygonError, PointError),
+    (
+        FeatureFileError,
+        NoFeaturesError,
+        GeometryError,
+        CoordinateError,
+        PolygonError,
+        PointError,
+    ),
 )
 def test_features_error(error):
     message = "test message"

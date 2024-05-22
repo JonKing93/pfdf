@@ -16,10 +16,9 @@ User Functions:
     longterm    - Runs the long-term assessment model
 
 Internal:
-    _validate_parameters    Checks that input parameters are valid
+    _volumes                - Converts lnV to volume, Vmin, and Vmax
+    _validate_parameters    - Checks that input parameters are valid
     _validate_variables     - Checks that input variables are valid
-
-
 """
 
 from typing import Any, Dict, Tuple
@@ -30,7 +29,7 @@ from numpy import exp, log, nan, sqrt
 import pfdf._validate.core as validate
 from pfdf._utils import clean_dims, real
 from pfdf.errors import ShapeError
-from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volumes
+from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volume, Volumes
 
 #####
 # User Functions
@@ -47,6 +46,7 @@ def emergency(
     Ci: Parameters = 0.39,
     Cb: Parameters = 0.36,
     Cr: Parameters = 0.13,
+    RSE: Parameters = 1.04,
     keepdims: bool = False,
 ) -> Volumes:
     """
@@ -55,11 +55,18 @@ def emergency(
     emergency(i15, Bmh, R)
     Solves the emergency assessment model given peak 15-minute rainfall intensity
     in mm/h (i15), the catchment area burned at moderate-or-high intensity
-    in km^2 (Bmh), and the watershed relief in meter (R). Returns the potential
-    volume of debris-flow sediment in m^3 (V).
+    in km^2 (Bmh), and the watershed relief in meter (R). Returns the predicted
+    volume of debris-flow sediment in m^3 (V), the lower bounds of the 95% confidence
+    interval (Vmin), and the upper bound of the 95% confidence interval (Vmax).
 
     The model solves the equation:
-        V = exp[ 4.22 +  0.39 * sqrt(i15)  +  0.36 * ln(Bmh)  +  0.13 * sqrt(R) ]
+        lnV = 4.22 +  0.39 * sqrt(i15)  +  0.36 * ln(Bmh)  +  0.13 * sqrt(R)
+        V = exp(lnV)
+
+    and uses residual standard error (RSE) to estimate the bounds of the 95% confidence
+    interval:
+        Vmin = exp(lnV - 2*RSE)
+        Vmax = exp(lnV + 2*RSE)
 
     Each of the three input variables may either be a scalar, vector, or matrix
     of data values. If a variable is scalar, then the same value is used to assess
@@ -77,19 +84,24 @@ def emergency(
     column or one column per run. If it has 1 column, then the same values are
     used for each run.
 
-    The output volumes will either be a 1D array (for a single run), or a
-    2D array (for multiple runs). Each row holds the values for one stream segment,
-    and each column is a run. (And see below for an option to always return 2D output).
+    The output will be a tuple of 3 arrays, in order: V, Vmin, and Vmax. Each output
+    array will either be a 1D array (for a single run), or a 2D array (for multiple
+    runs). Each row holds the values for one stream segment, and each column is a
+    run. (And see below for an option to always return 2D output). Note that if
+    RSE is the only parameter with multiple runs, V will be a 1D array, but Vmin
+    and Vmax will be 2D arrays.
 
-    emergency(..., *, B, Ci, Cb, Cr)
+    emergency(..., *, B, Ci, Cb, Cr, RSE)
     Also specifies the parameters to use in the model. These are the intercept (B),
-    rainfall intensity coefficient (Ci), burned area coefficient (Cb), and relief
-    coefficient (Cr). By default, each coefficient is set to the value presented
-    in Gartner et al., 2014. This syntax allows you to run the model using different
-    parameter values - for example, for an updated model calibration.
+    rainfall intensity coefficient (Ci), burned area coefficient (Cb), relief
+    coefficient (Cr), and residual standard error (RSE). By default, each coefficient
+    is set to the value presented in Gartner et al., 2014. This syntax allows you
+    to run the model using different parameter values - for example, for an updated
+    model calibration.
 
     In this case, the model solves the generalized equation:
-        V = exp[ B +  Ci * sqrt(i15)  +  Cb * ln(Bmh)  +  Cr * sqrt(R) ]
+        lnV = B +  Ci * sqrt(i15)  +  Cb * ln(Bmh)  +  Cr * sqrt(R)
+        V = exp(lnV)
 
     In many cases, input parameters will be scalar. However, this syntax also allows
     parameters to be vectors, in which each value is used for a distinct model run.
@@ -109,24 +121,28 @@ def emergency(
         Ci: The coefficient of the i15 rainfall intensity term
         Cb: The coefficient of the Bmh burned area term
         Cr: The coefficient of the R watershed relief term
+        RSE: The residual standard error
         keepdims: True to always return a 2D numpy array. If False (default),
             returns a 1D array when there is a single parameter run.
 
     Outputs:
         numpy 2D array (Segments x Parameter Runs): The predicted debris-flow
             sediment volumes in m^3
+        numpy 2D array (Segments x Parameter Runs): The lower bound of the 95%
+            confidence interval
+        numpy 2D array (Segments x Parameter Runs): The upper bound of the 95%
+            confidence interval
     """
 
     # Validate
-    parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Cr": Cr}
+    parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Cr": Cr, "RSE": RSE}
     variables = {"i15": i15, "Bmh": Bmh, "R": R}
-    (B, Ci, Cb, Cr), nruns = _validate_parameters(parameters)
+    (B, Ci, Cb, Cr, RSE), nruns = _validate_parameters(parameters)
     i15, Bmh, R = _validate_variables(variables, nruns)
 
     # Solve the model. Optionally remove trailing singletons
     lnV = B + Ci * sqrt(i15) + Cb * log(Bmh) + Cr * sqrt(R)
-    V = exp(lnV)
-    return clean_dims(V, keepdims)
+    return _volumes(lnV, RSE, keepdims)
 
 
 @np.errstate(divide="ignore")  # Suppress divide-by-zero warning for log(0)
@@ -143,6 +159,7 @@ def longterm(
     Ct: Parameters = -0.24,
     Ca: Parameters = 0.49,
     Cr: Parameters = 0.03,
+    RSE: Parameters = 1.25,
     keepdims=False,
 ) -> Volumes:
     """
@@ -153,10 +170,17 @@ def longterm(
     in mm/h (i60), the catchment area burned at any severity level in km^2 (Bt),
     time since the most recent fire in years (T), total watershed area in km^2 (A),
     and watershed relief in m (R). Returns the predicted volume of debris-flow
-    sediment in m^3 (V).
+    sediment in m^3 (V), the lower bounds of the 95% confidence interval (Vmin),
+    and the upper bound of the 95% confidence interval (Vmax).
 
     The model solves the equation:
-        V = exp[ 6.07 + 0.71*ln(i60) + 0.22*ln(Bt) - 0.24*ln(T) + 0.49*ln(A) + 0.03*sqrt(R) ]
+        lnV = 6.07 + 0.71*ln(i60) + 0.22*ln(Bt) - 0.24*ln(T) + 0.49*ln(A) + 0.03*sqrt(R)
+        V = exp(lnV)
+
+    And uses residual standard error (RSE) to estimate the bounds of the 95%
+    confidence interval:
+        Vmin = exp(lnV - 2*RSE)
+        Vmax = exp(lnV + 2*RSE)
 
     Each of the input variables may either be a scalar, vector, or matrix of data values.
     If a variable is scalar, then the same value is used to compute potential sediment
@@ -174,20 +198,25 @@ def longterm(
     column or one column per run. If it has 1 column, then the same values are
     used for each run.
 
-    The output volumes will either be a 1D array (for a single run), or a
-    2D array (for multiple runs). Each row holds the values for one stream segment,
-    and each column is a run. (And see below for an option to always return 2D output).
+    The output will be a tuple of 3 arrays, in order: V, Vmin, and Vmax. Each output
+    array will either be a 1D array (for a single run), or a 2D array (for multiple
+    runs). Each row holds the values for one stream segment, and each column is a
+    run. (And see below for an option to always return 2D output). Note that if
+    RSE is the only parameter with multiple runs, V will be a 1D array, but Vmin
+    and Vmax will be 2D arrays.
 
-    longterm(..., *, B, Ci, Cb, Ct, Ca, Cr)
+    longterm(..., *, B, Ci, Cb, Ct, Ca, Cr, RSE)
     Also specifies the parameters to use in the model. These are the intercept (B),
     rainfall intensitiy coefficient (Ci), burned area coefficient (Cb), elapsed
-    time coefficient (Ct), total area coefficient (Ca), and relief coefficient (Cr).
-    By default, each coefficient is set to the value presented in Gartner et al., 2014.
-    This syntax allows you to run the model using different parameter values -
-    for example, for an updated model calibration.
+    time coefficient (Ct), total area coefficient (Ca), relief coefficient (Cr),
+    and residual standard error (RSE). By default, each coefficient is set to
+    the value presented in Gartner et al., 2014. This syntax allows you to run
+    the model using different parameter values - for example, for an updated
+    model calibration.
 
     In this case, the model solves the generalized equation:
-        V = exp[ B + Ci*ln(i60) + Cb*ln(Bt) + Ct*ln(T) + Ca*ln(A) + Cr*sqrt(R) ]
+        lnV = B + Ci*ln(i60) + Cb*ln(Bt) + Ct*ln(T) + Ca*ln(A) + Cr*sqrt(R)
+        V = exp(lnV)
 
     In many cases, input parameters will be scalar. However, this syntax also allows
     parameters to be vectors, in which each value is used for a distinct model run.
@@ -211,29 +240,43 @@ def longterm(
         Ct: The coefficient of the T elapsed time term
         Ca: The coefficient of the A total area term
         Cr: The coefficient of the R watershed relief term
+        RSE: The residual standard error of the model
         keepdims: True to always return a 2D numpy array. If False (default),
             returns a 1D array when there is a single parameter run.
 
     Outputs:
         numpy 2D array (Segments x Parameter Runs): The predicted debris-flow
             sediment volumes in m^3
+        numpy 2D array (Segments x Parameter Runs): The lower bound of the 95%
+            confidence interval.
+        numpy 2D array (Segments x Parameter Runs): The upper bound of the 95%
+            confidence interval.
     """
 
     # Validate
-    parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Ct": Ct, "Ca": Ca, "Cr": Cr}
+    parameters = {"B": B, "Ci": Ci, "Cb": Cb, "Ct": Ct, "Ca": Ca, "Cr": Cr, "RSE": RSE}
     variables = {"i60": i60, "Bt": Bt, "T": T, "A": A, "R": R}
-    (B, Ci, Cb, Ct, Ca, Cr), nruns = _validate_parameters(parameters)
+    (B, Ci, Cb, Ct, Ca, Cr, RSE), nruns = _validate_parameters(parameters)
     i60, Bt, T, A, R = _validate_variables(variables, nruns)
 
     # Solve the model. Optionally remove trailing singletons
     lnV = B + Ci * log(i60) + Cb * log(Bt) + Ct * log(T) + Ca * log(A) + Cr * sqrt(R)
-    V = exp(lnV)
-    return clean_dims(V, keepdims)
+    return _volumes(lnV, RSE, keepdims)
 
 
 #####
 # Internal Utilities
 #####
+
+
+def _volumes(lnV: Volume, RSE: Parameters, keepdims: bool) -> Volumes:
+    "Converts ln(V) to min, expected, and max volumes"
+
+    lnV = clean_dims(lnV, keepdims)
+    V = exp(lnV)
+    Vmin = exp(lnV - 2 * RSE)
+    Vmax = exp(lnV + 2 * RSE)
+    return V, Vmin, Vmax
 
 
 def _validate_parameters(

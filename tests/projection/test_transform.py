@@ -47,6 +47,48 @@ class TestCrs:
         assert a.crs == CRS(4326)
 
 
+class TestXunit:
+    def test_none(_):
+        a = Transform(1, 2, 3, 4)
+        assert a.xunit is None
+
+    def test_linear(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.xunit == "metre"
+
+    def test_angular(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        assert a.xunit == "degree"
+
+
+class TestYUnit:
+    def test_none(_):
+        a = Transform(1, 2, 3, 4)
+        assert a.yunit is None
+
+    def test_linear(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.yunit == "metre"
+
+    def test_angular(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        assert a.yunit == "degree"
+
+
+class TestUnits:
+    def test_none(_):
+        a = Transform(1, 2, 3, 4)
+        assert a.units == (None, None)
+
+    def test_linear(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.units == ("metre", "metre")
+
+    def test_angular(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        assert a.units == ("degree", "degree")
+
+
 class TestClass:
     def test(_):
         a = Transform(1, 2, 3, 4)
@@ -368,6 +410,68 @@ class TestPixelDiagonal:
 
 
 #####
+# units per m
+#####
+
+
+class TestXUnitsPerM:
+    def test_none(_):
+        a = Transform(1, 2, 3, 4)
+        assert a.x_units_per_m() is None
+
+    def test_linear(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.x_units_per_m() == 1
+
+    def test_angular_default(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        output = a.x_units_per_m()
+        assert np.allclose(output, 8.993216059187306e-06)
+
+    def test_angular_y(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        output = a.x_units_per_m(30)
+        assert np.allclose(output, 1.0384471425304483e-05)
+
+
+class TestYUnitsPerM:
+    def test_none(_):
+        a = Transform(1, 2, 3, 4)
+        assert a.y_units_per_m() is None
+
+    def test_linear(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.y_units_per_m() == 1
+
+    def test_angular_default(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        output = a.y_units_per_m()
+        assert np.allclose(output, 8.993216059187306e-06)
+
+
+class TestUnitsPerM:
+    def test_none(_):
+        a = Transform(1, 2, 3, 4)
+        assert a.units_per_m() == (None, None)
+
+    def test_linear(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.units_per_m() == (1, 1)
+
+    def test_angular_default(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        output = a.units_per_m()
+        expected = (8.993216059187306e-06, 8.993216059187306e-06)
+        assert np.allclose(output, expected)
+
+    def test_angular_y(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        output = a.units_per_m(30)
+        expected = (1.0384471425304483e-05, 8.993216059187306e-06)
+        assert np.allclose(output, expected)
+
+
+#####
 # Bounds Conversion
 #####
 
@@ -490,14 +594,13 @@ class TestReproject:
         a = Transform(1, 2, 3, 4, 26911)
         b = a.reproject(26910)
         assert b.crs == CRS("NAD83 / UTM zone 10N")
-        coords = b.tolist(crs=False)
-        expected = (
+        expected = Transform(
             0.997261140611954,
             1.9945226908862739,
             668187.5941248297,
             3.989045184176652,
         )
-        assert np.allclose(coords, expected)
+        assert b.isclose(expected)
 
     def test_angular(_):
         a = Transform(1, 2, 3, 4, 4326)
@@ -549,3 +652,37 @@ class TestFormat:
             top=0.0018038773910154836,
             crs="WGS 84",
         )
+
+
+#####
+# Testing
+#####
+
+
+class TestIsClose:
+    def test_close(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        b = Transform(1.0000000000000000001, 2, 3, 4, 4326)
+        assert a.isclose(b) == True
+
+    def test_not_close(_):
+        a = Transform(1, 2, 3, 4)
+        b = Transform(2, 2, 3, 4)
+        assert a.isclose(b) == False
+
+    def test_invalid(_, assert_contains):
+        a = Transform(1, 2, 3, 4)
+        b = (1, 2, 3, 4)
+        with pytest.raises(TypeError) as error:
+            a.isclose(b)
+        assert_contains(error, "Other object must also be a Transform object")
+
+    def test_different_crs(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        b = Transform(1, 2, 3, 4, 26911)
+        assert a.isclose(b) == False
+
+    def test_none_crs(_):
+        a = Transform(1, 2, 3, 4)
+        b = Transform(1, 2, 3, 4, 4326)
+        assert a.isclose(b) == True

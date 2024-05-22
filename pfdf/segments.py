@@ -35,7 +35,7 @@ from pfdf._utils import basins as _basins
 from pfdf._utils import nodata, real
 from pfdf._utils.kernel import Kernel
 from pfdf._utils.nodata import NodataMask
-from pfdf.errors import MissingCRSError, MissingTransformError
+from pfdf.errors import MissingCRSError, MissingTransformError, ShapeError
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.raster import Raster, RasterInput
 from pfdf.typing import (
@@ -82,6 +82,7 @@ Statistic = Literal[
 ]
 StatFunction = Callable[[np.ndarray], ScalarArray]
 FeatureType = Literal["segments", "segment outlets", "outlets", "basins"]
+PropertySchema = dict[str, str]
 
 # Supported statistics -- name: (function, description)
 _STATS = {
@@ -124,6 +125,7 @@ class Segments:
         length              - The number of segments in the network
         nlocal              - The number of local drainage networks in the full network
         crs                 - The coordinate reference system associated with the network
+        crs_units           - The units of the CRS along the X and Y axes
 
     Properties (segments):
         segments            - A list of shapely.LineString objects representing the stream segments
@@ -432,6 +434,11 @@ class Segments:
     def crs(self) -> CRS:
         "The coordinate reference system of the stream segment network"
         return self._flow.crs
+
+    @property
+    def crs_units(self) -> tuple[str, str]:
+        "The units of the CRS along the X and Y axes"
+        return self._flow.crs_units
 
     ##### Segments
 
@@ -815,6 +822,7 @@ class Segments:
         dem: RasterInput,
         neighborhood: scalar,
         factor: scalar = 1,
+        meters: bool = False,
     ) -> SegmentValues:
         """
         confinement  Returns the mean confinement angle of each stream segment
@@ -863,22 +871,31 @@ class Segments:
 
         Important!
         This syntax requires that the units of the DEM are the same as the units
-        of the stream segment resolution (which you can return using the ".resolution"
-        property). Use the following syntax if this is not the case.
+        of the CRS (which you can return using segments.crs_units property). Use
+        the following syntax if this is not the case.
 
+        self.confinement(dem, neighborhood, meters=True)
         self.confinement(dem, neighborhood, factor)
-        Also specifies a multiplicative constant needed to scale the stream segment
-        raster resolution to the same units as the DEM. If the raster resolution
-        uses different units than the DEM data, then confinement slopes will be
-        calculated incorrectly. Use this syntax to correct for this.
+        self.confinement(dem, neighborhood, factor, meters=True)
+        If the raster CRS uses different units that the DEM data, then confinement
+        angle slopes will be calculated incorrectly. Use the "meters" and/or
+        "factor" inputs to correct for this. If the DEM is in meters, then setting
+        meters=True will implement the correction. If the DEM is not in meters,
+        then use the "factor" input to specify a conversion factor constant. By
+        default, the factor is interpreted as the number of DEM units per CRS unit.
+        Set meters=True to instead provide the factor as the number of DEM units
+        per meter.
         ----------
         Inputs:
             dem: A raster of digital elevation model (DEM) data. Should have
                 square pixels.
             neighborhood: The number of raster pixels to search for maximum heights.
                 Must be a positive integer.
-            factor: A multiplicative constant used to scale the stream segment raster
-                resolution to the same units as the DEM data.
+            factor: A conversion factor used to convert between DEM units and CRS
+                units. Either DEM units / CRS unit, or DEM units / meter.
+            meters: Set to True if the DEM units are meters, or if a conversion
+                factor is DEM units / meter. False (default) if the DEM units are
+                not meters AND the conversion factor is DEM units / CRS unit.
 
         Outputs:
             numpy 1D array: The mean confinement angle for each stream segment.
@@ -896,9 +913,14 @@ class Segments:
         theta = self._preallocate()
         kernel = Kernel(neighborhood, *self.raster_shape)
 
+        # Get the pixel length scaling factor
+        if meters:
+            crs_per_m = _crs.y_units_per_m(self.crs)
+            factor = factor / crs_per_m
+        scale = neighborhood * factor
+
         # Determine flow lengths
         width, height = self.transform.resolution()
-        scale = neighborhood * factor
         lengths = {
             "horizontal": width * scale,
             "vertical": height * scale,
@@ -1376,9 +1398,9 @@ class Segments:
                 within the mask.
         """
 
-        mask = self._validate(mask, "mask")
-        mask = validate.boolean(mask.values, "mask", ignore=mask.nodata)
-        isin = self.summary("max", mask) == 1
+        mask = self._validate(mask, "nmask")
+        validate.boolean(mask.values, "mask", ignore=mask.nodata)
+        isin = self.summary("nanmax", mask) == 1
         if terminal:
             isin = isin[self.isterminus]
         return isin
@@ -1849,7 +1871,7 @@ class Segments:
         continuous: bool = True,
         upstream: bool = True,
         downstream: bool = True,
-    ) -> None:
+    ) -> SegmentIndices:
         """
         remove  Removes segments from the network while optionally preserving continuity
         ----------
@@ -1950,7 +1972,7 @@ class Segments:
         continuous: bool = True,
         upstream: bool = True,
         downstream: bool = True,
-    ) -> None:
+    ) -> SegmentIndices:
         """
         keep  Restricts the network to the indicated segments
         ----------
@@ -2051,6 +2073,54 @@ class Segments:
         copy._basins = self._basins
         return copy
 
+    def prune(self) -> SegmentIndices:
+        """
+        Removes all segments in nested drainages
+        ----------
+        self.prune()
+        Removes all segments located in a nested drainage. A nested drainage is
+        a local drainage network that flows into another downstream network, but
+        does not directly connect to the downstream network. Removing the nested
+        networks can provide cleaner results when exporting segment outlets.
+
+        Returns the indices of the segments that were removed from the network as
+        a boolean numpy 1D array. The output indices will have one element per
+        segment in the original network. True elements indicate segments that were
+        removed. False elements are segments that were retained. These indices are
+        often useful for filtering values computed for the original network.
+        ----------
+        Outputs:
+            boolean 1D array: The indices of the segments removed from the network.
+                Has one element per segment in the initial network. True elements
+                indicate removed segments.
+        """
+
+        # Get the basin raster
+        self.locate_basins()
+        basins = self._basins
+
+        # Get the indices of nested outlets
+        terminal = self.isterminus
+        outlets = np.array(self.outlets(terminal=True))
+        ids = self.ids[terminal]
+        basins = basins[outlets[:, 0], outlets[:, 1]]
+        nested = basins != ids
+        nested = np.argwhere(terminal)[nested].reshape(-1).tolist()
+
+        # Locate indices of all segments in a nested network
+        k = 0
+        while k < len(nested):
+            index = nested[k]
+            parents = self._parents[index, :]
+            upstream = [index for index in parents if index != -1]
+            nested += upstream
+            k += 1
+
+        # Remove all nested segments
+        indices = np.zeros(self.length, bool)
+        indices[nested] = True
+        return self.remove(indices=indices, continuous=False)
+
     #####
     # Filtering Updates
     #####
@@ -2135,39 +2205,78 @@ class Segments:
         self,
         properties: Any,
         terminal: bool,
-    ) -> PropertyDict:
+    ) -> tuple[PropertyDict, PropertySchema]:
         "Validates a GeoJSON property dict for export"
 
-        # Properties are optional, use an empty dict if None
+        # Initialize the final property dict and schema. Properties are optional,
+        # so justuse an empty dict if there are none
+        final = {}
+        schema = {}
         if properties is None:
-            return {}
+            properties = {}
 
-        # Get the number of features (the required length)
+        # Get the allowed lengths and the required final length
         length = self._nbasins(terminal)
+        allowed = [self.length]
+        if terminal:
+            allowed.append(self.nlocal)
 
         # Require a dict with string keys
+        dtypes = real + [str]
         validate.type(properties, "properties", dict, "dict")
         for k, key in enumerate(properties.keys()):
             validate.type(key, f"properties key {k}", str, "string")
 
-            # Values must be numpy 1D arrays with one element per feature
+            # Values must be numpy 1D arrays with either one element per segment,
+            # or one element per exported feature
             name = f"properties['{key}']"
-            properties[key] = validate.vector(
-                properties[key], name, length=length, dtype=real
-            ).astype(float, copy=False)
-        return properties
+            vector = validate.vector(properties[key], name, dtype=dtypes)
+            if vector.size not in allowed:
+                allowed = " or ".join([str(length) for length in allowed])
+                raise ShapeError(
+                    f"{name} must have {allowed} elements, but it has "
+                    f"{vector.size} elements instead."
+                )
+
+            # Extract terminal properties as needed
+            if vector.size != length:
+                vector = vector[self.isterminus]
+
+            # Convert boolean to int
+            if vector.dtype == bool:
+                vector = vector.astype("int")
+                schema[key] = "int"
+
+            # If a string, parse the width from the vector dtype
+            elif vector.dtype.char == "U":
+                dtype = str(vector.dtype)
+                k = dtype.find("U")
+                width = int(dtype[k + 1 :])
+                schema[key] = f"str:{width}"
+
+            # Convert int and float precisions to built-in
+            elif np.issubdtype(vector.dtype, np.integer):
+                vector = vector.astype(int, copy=False)
+                schema[key] = "int"
+            elif np.issubdtype(vector.dtype, np.floating):
+                vector = vector.astype(float, copy=False)
+                schema[key] = "float"
+
+            # Record the final vector and return with the schema
+            final[key] = vector
+        return final, schema
 
     def _validate_export(
         self, properties: Any, type: Any
-    ) -> tuple[PropertyDict, FeatureType]:
+    ) -> tuple[FeatureType, PropertyDict, PropertySchema]:
         "Validates export type and properties"
 
         type = validate.option(
             type, "type", allowed=["segments", "segment outlets", "outlets", "basins"]
         )
         terminal = "segment" not in type
-        properties = self._validate_properties(properties, terminal)
-        return properties, type
+        properties, schema = self._validate_properties(properties, terminal)
+        return type, properties, schema
 
     def _basin_polygons(self):
         "Returns a generator of drainage basin (Polygon, ID value) tuples"
@@ -2178,6 +2287,62 @@ class Segments:
         return rasterio.features.shapes(
             basins, mask, connectivity=8, transform=self.transform.affine
         )
+
+    def _geojson(
+        self,
+        properties: PropertyDict | None,
+        type: FeatureType,
+    ) -> tuple[FeatureCollection, PropertySchema]:
+        "Builds geojson.FeatureCollection and property schema"
+
+        # Validate
+        type, properties, schema = self._validate_export(properties, type)
+
+        # Basins are derived from rasterio shapes. Also track basin IDs.
+        # (Basin geometries are unordered, so need to track which property is which)
+        if type == "basins":
+            geometries = self._basin_polygons()
+            ids = self._ids[self.isterminus]
+
+        # Everything else is derived from the shapely linestrings
+        elif type == "outlets":
+            geometries = [
+                segment
+                for keep, segment in zip(self.isterminus, self._segments)
+                if keep
+            ]
+        else:
+            geometries = self._segments
+
+        # Build each feature and group them into a FeatureCollection. Start by
+        # getting a geojson-like geometry for each feature
+        features = []
+        for g, geometry in enumerate(geometries):
+            if "outlets" in type:
+                outlet = geometry.coords[-1]
+                geometry = geojson.Point(outlet)
+            elif type == "segments":
+                geometry = geojson.LineString(geometry.coords)
+
+            # For basins, get the property index in addition to the geometry
+            else:
+                id = geometry[1]
+                geometry = geometry[0]
+                g = int(np.argwhere(id == ids))
+
+            # Get the data properties for each feature as built-in types
+            builtins = {"float": float, "int": int, "str": str}
+            data = {}
+            for field, vector in properties.items():
+                value = vector[g]
+                dtype = schema[field].split(":")[0]
+                convert = builtins[dtype]
+                data[field] = convert(value)
+
+            # Build feature and add to collection
+            feature = Feature(geometry=geometry, properties=data)
+            features.append(feature)
+        return FeatureCollection(features), schema
 
     def geojson(
         self,
@@ -2236,48 +2401,7 @@ class Segments:
             geojson.FeatureCollection: The collection of stream network features
         """
 
-        # Validate
-        properties, type = self._validate_export(properties, type)
-
-        # Basins are derived from rasterio shapes. Also track basin IDs.
-        # (Basin geometries are unordered, so need to track which property is which)
-        if type == "basins":
-            geometries = self._basin_polygons()
-            ids = self._ids[self.isterminus]
-
-        # Everything else is derived from the shapely linestrings
-        elif type == "outlets":
-            geometries = [
-                segment
-                for keep, segment in zip(self.isterminus, self._segments)
-                if keep
-            ]
-        else:
-            geometries = self._segments
-
-        # Build each feature and group them into a FeatureCollection. Start by
-        # getting a geojson-like geometry for each feature
-        features = []
-        for g, geometry in enumerate(geometries):
-            if "outlets" in type:
-                outlet = geometry.coords[-1]
-                geometry = geojson.Point(outlet)
-            elif type == "segments":
-                geometry = geojson.LineString(geometry.coords)
-
-            # For basins, get the property index in addition to the geometry
-            else:
-                id = geometry[1]
-                geometry = geometry[0]
-                g = int(np.argwhere(id == ids))
-
-            # Get the data properties for each feature
-            data = {field: vector[g] for field, vector in properties.items()}
-
-            # Build feature and add to collection
-            feature = Feature(geometry=geometry, properties=data)
-            features.append(feature)
-        return FeatureCollection(features)
+        return self._geojson(properties, type)[0]
 
     def save(
         self,
@@ -2369,16 +2493,9 @@ class Segments:
 
         # Validate and get features as geojson
         validate.output_path(path, overwrite)
-        collection = self.geojson(properties, type=type)
+        collection, property_schema = self._geojson(properties, type)
 
-        # Build the property schema
-        if len(collection["features"]) == 0:
-            properties = {}
-        else:
-            fields = collection["features"][0]["properties"].keys()
-            properties = {field: "float" for field in fields}
-
-        # Build the file schema
+        # Build the schema
         geometries = {
             "segments": "LineString",
             "basins": "Polygon",
@@ -2387,7 +2504,7 @@ class Segments:
         }
         schema = {
             "geometry": geometries[type],
-            "properties": properties,
+            "properties": property_schema,
         }
 
         # Write file

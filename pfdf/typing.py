@@ -113,7 +113,8 @@ S17ModelParameters = tuple[
 ]
 
 # Gartner 2014
-Volumes = NDArray[Shape["Segments, Runs"], Floating]
+Volume = NDArray[Shape["Segments, Runs"], Floating]
+Volumes = tuple[Volume, Volume, Volume]
 
 # Projections
 Quadrant = Literal[1, 2, 3, 4]

@@ -8,6 +8,7 @@ Class:
 from abc import ABC, abstractmethod
 from typing import Any, Self
 
+import numpy as np
 from pyproj import CRS
 
 import pfdf._validate.core as validate
@@ -71,6 +72,9 @@ class _Locator(ABC):
         _validate_N     - Checks that nrows or ncols is valid
         tolist          - Returns the object as a list
         todict          - Returns the object as a dict
+
+    Testing:
+        isclose         - True if two objects have similar floats and the same CRS
     """
 
     #####
@@ -92,18 +96,49 @@ class _Locator(ABC):
         "The names of dict keyword args"
         return cls._names + ["crs"]
 
-    #####
-    # Object properties
-    #####
-
     @property
     def _class(self) -> str:
         return type(self).__name__
 
+    #####
+    # CRS Properties
+    #####
+
     @property
-    def crs(self) -> CRS:
+    def crs(self) -> CRS | None:
         "Coordinate reference system"
         return self._crs
+
+    @property
+    def xunit(self) -> str | None:
+        return _crs.xunit(self.crs)
+
+    @property
+    def yunit(self) -> str | None:
+        return _crs.yunit(self.crs)
+
+    @property
+    def units(self) -> tuple[str, str] | tuple[None, None]:
+        return _crs.units(self.crs)
+
+    ##### Units per meter
+
+    @abstractmethod
+    def x_units_per_m(self, *args) -> float | None:
+        "The number of units per meter along the X axis"
+
+    @property
+    def y_units_per_m(self) -> float | None:
+        "The number of Y axis units per meter"
+        return _crs.y_units_per_m(self.crs)
+
+    @abstractmethod
+    def units_per_m(self, *args) -> tuple[float, float] | tuple[None, None]:
+        "The number of CRS units per meter along the X and Y axes"
+
+    #####
+    # Spatial properties
+    #####
 
     @property
     def left(self) -> float:
@@ -306,3 +341,50 @@ class _Locator(ABC):
             dict: The object as a dict
         """
         return {name: value for name, value in zip(self._args(), self.tolist())}
+
+    #####
+    # Testing
+    #####
+
+    def isclose(
+        self,
+        other: Self,
+        rtol: scalar = 1e-5,
+        atol: scalar = 1e-8,
+    ) -> bool:
+        """
+        True if two projection objects are similar
+        ----------
+        self.isclose(other)
+        Tests if another projection class object has similar values to the current
+        object. Compares both the CRSs and the 4 float values. Uses numpy.allclose
+        to compare the 4 float values. True if numpy.allclose return True AND the
+        two objects have compatible CRSs. (Two CRSs are compatible if the two CRSs
+        are equal, or at least one CRS is None).
+
+        self.isclose(..., rtol, atol)
+        Specify the relative tolerance and absolute tolerance for the
+        numpy.allclose check. By default, uses a relative tolerance of 1E-5,
+        and an absolute tolerance of 1E-8.
+        ----------
+        Inputs:
+            other: Another object of the same projection class
+            rtol: The relative tolerance for float comparison. Defaults to 1E-5.
+            atol: The absolute tolerance for float comparison. Defaults to 1E-8
+
+        Outputs:
+            bool: True if the other object is similar to the current object
+        """
+
+        # Require same type of class
+        if not isinstance(other, self.__class__):
+            raise TypeError(f"Other object must also be a {self._class} object.")
+
+        # False if different CRS
+        if _crs.different(self.crs, other.crs):
+            return False
+
+        # Collect floats and compare
+        selfs = self.tolist(crs=False)
+        others = other.tolist(crs=False)
+        return np.allclose(selfs, others, rtol=rtol, atol=atol)

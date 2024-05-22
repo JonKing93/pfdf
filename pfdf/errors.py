@@ -110,6 +110,10 @@ class FeatureFileError(FeaturesError):
     "When a vector feature file cannot be read"
 
 
+class NoFeaturesError(FeaturesError):
+    "When there are no vector features to convert to a raster"
+
+
 class GeometryError(FeaturesError):
     "When a vector feature geometry is not valid"
 

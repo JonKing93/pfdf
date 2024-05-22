@@ -27,6 +27,64 @@ def assert_contains(error, *strings):
 #####
 
 
+class TestVolumes:
+    def test_single_run(_):
+        lnV = np.log([100, 200, 300, 400]).reshape(4, 1)
+        RSE = 1
+
+        V, Vmin, Vmax = g14._volumes(lnV, RSE, False)
+        assert np.allclose(V, [100, 200, 300, 400])
+        assert np.allclose(Vmin, [13.53352832, 27.06705665, 40.60058497, 54.13411329])
+        assert np.allclose(
+            Vmax, [738.90560989, 1477.81121979, 2216.71682968, 2955.62243957]
+        )
+        assert V.shape == (4,)
+        assert Vmin.shape == (4,)
+        assert Vmax.shape == (4,)
+
+    def test_keepdims(_):
+        lnV = np.log([100, 200, 300, 400]).reshape(4, 1)
+        RSE = 1
+
+        V, Vmin, Vmax = g14._volumes(lnV, RSE, True)
+        assert np.allclose(V.reshape(-1), [100, 200, 300, 400])
+        assert np.allclose(
+            Vmin.reshape(-1), [13.53352832, 27.06705665, 40.60058497, 54.13411329]
+        )
+        assert np.allclose(
+            Vmax.reshape(-1),
+            [738.90560989, 1477.81121979, 2216.71682968, 2955.62243957],
+        )
+        assert V.shape == (4, 1)
+        assert Vmin.shape == (4, 1)
+        assert Vmax.shape == (4, 1)
+
+    def test_multiple_runs(_):
+        lnV = np.log([100, 200, 300, 400]).reshape(4, 1)
+        RSE = np.array([1, 1.5]).reshape(1, 2)
+
+        V, Vmin, Vmax = g14._volumes(lnV, RSE, True)
+        assert np.allclose(V.reshape(-1), [100, 200, 300, 400])
+        expected = np.array(
+            [
+                [13.53352832, 4.97870684],
+                [27.06705665, 9.95741367],
+                [40.60058497, 14.93612051],
+                [54.13411329, 19.91482735],
+            ]
+        )
+        assert np.allclose(Vmin, expected)
+        expected = np.array(
+            [
+                [738.90560989, 2008.55369232],
+                [1477.81121979, 4017.10738464],
+                [2216.71682968, 6025.66107696],
+                [2955.62243957, 8034.21476928],
+            ]
+        )
+        assert np.allclose(Vmax, expected)
+
+
 class TestValidateParameters:
     def test_valid(_):
         parameters = {"a": 1, "b": 2, "c": 3}
@@ -153,36 +211,61 @@ class TestEmergency:
         i15 = 3
         Bmh = [0.01, 1.11, 15.01]
         R = [93, 572, 2098]
-        expected = np.array([8.92385523e01, 3.10949998e03, 1.36645970e05])
+        V, Vmin, Vmax = g14.emergency(i15, Bmh, R)
 
-        output = g14.emergency(i15, Bmh, R)
-        assert np.allclose(output, expected, rtol=1e-5)
+        eV = np.array([8.92385523e01, 3.10949998e03, 1.36645970e05])
+        eVmin = np.array([1.11485913e01, 3.88470492e02, 1.70712101e04])
+        eVmax = [7.14307218e02, 2.48898959e04, 1.09377842e06]
+
+        assert np.allclose(V, eV)
+        assert np.allclose(Vmin, eVmin)
+        assert np.allclose(Vmax, eVmax)
 
     def test_i15_1D(_):
         i15 = [3, 6]
         Bmh = [0.01, 1.11, 15.01]
         R = [93, 572, 2098]
+        V, Vmin, Vmax = g14.emergency(i15, Bmh, R)
 
-        expected = np.array(
+        eV = np.array(
             [
                 [8.92385523e01, 1.18050716e02],
                 [3.10949998e03, 4.11345422e03],
                 [1.36645970e05, 1.80764415e05],
             ]
         )
-        output = g14.emergency(i15, Bmh, R)
-        assert output.shape == (3, 2)
-        assert np.allclose(output, expected, rtol=1e-5)
+        eVmin = np.array(
+            [
+                [1.11485913e01, 1.47481010e01],
+                [3.88470492e02, 5.13894709e02],
+                [1.70712101e04, 2.25829367e04],
+            ]
+        )
+        eVmax = np.array(
+            [
+                [7.14307218e02, 9.44933289e02],
+                [2.48898959e04, 3.29260165e04],
+                [1.09377842e06, 1.44692314e06],
+            ]
+        )
+
+        for output, expected in zip([V, Vmin, Vmax], [eV, eVmin, eVmax]):
+            assert output.shape == (3, 2)
+            assert np.allclose(output, expected)
 
     def test_i15_column_vector(_):
         i15 = np.array([3, 29, 72]).reshape(3, 1)
         Bmh = [0.01, 1.11, 15.01]
         R = [93, 572, 2098]
+        V, Vmin, Vmax = g14.emergency(i15, Bmh, R)
 
-        expected = np.array([8.92385523e01, 1.29251677e04, 1.90293621e06]).reshape(3)
-        output = g14.emergency(i15, Bmh, R)
-        assert output.shape == (3,)
-        assert np.allclose(output, expected, rtol=1e-5)
+        eV = np.array([8.92385523e01, 1.29251677e04, 1.90293621e06]).reshape(3)
+        eVmin = [1.11485913e01, 1.61474394e03, 2.37734224e05]
+        eVmax = [7.14307218e02, 1.03459103e05, 1.52319937e07]
+
+        for output, expected in zip([V, Vmin, Vmax], [eV, eVmin, eVmax]):
+            assert output.shape == (3,)
+            assert np.allclose(output, expected)
 
     def test_multiple_parameters(_):
         # 3 stream segments
@@ -196,22 +279,46 @@ class TestEmergency:
         Cb = [0.4, 0.5]
         Cr = [0.2, 0.3]
 
-        expected1 = np.array([1.91079101e02, 1.35622519e05, 1.44229067e08])
-        expected2 = np.array([4.15607215e02, 2.83693652e06, 4.76289276e10])
-        expected = np.stack((expected1, expected2), axis=-1)
+        V, Vmin, Vmax = g14.emergency(i15, Bmh, R, B=B, Ci=Ci, Cb=Cb, Cr=Cr)
+        eV = np.array(
+            [
+                [1.91079101e02, 4.15607215e02],
+                [1.35622519e05, 2.83693652e06],
+                [1.44229067e08, 4.76289276e10],
+            ]
+        )
+        eVmin = np.array(
+            [
+                [2.38715526e01, 5.19218976e01],
+                [1.69433500e04, 3.54419081e05],
+                [1.80185680e07, 5.95029203e09],
+            ]
+        )
+        eVmax = np.array(
+            [
+                [1.52948672e03, 3.32671503e03],
+                [1.08558623e06, 2.27081702e07],
+                [1.15447708e09, 3.81244270e11],
+            ]
+        )
 
-        output = g14.emergency(i15, Bmh, R, B=B, Ci=Ci, Cb=Cb, Cr=Cr)
-        assert np.allclose(output, expected, rtol=1e-5)
+        assert np.allclose(V, eV)
+        assert np.allclose(Vmin, eVmin)
+        assert np.allclose(Vmax, eVmax)
 
     def test_singletons(_):
         i15 = np.array([3, 29, 72]).reshape(3, 1)
         Bmh = [0.01, 1.11, 15.01]
         R = [93, 572, 2098]
-        expected = np.array([8.92385523e01, 1.29251677e04, 1.90293621e06]).reshape(3, 1)
+        V, Vmin, Vmax = g14.emergency(i15, Bmh, R, keepdims=True)
 
-        output = g14.emergency(i15, Bmh, R, keepdims=True)
-        assert output.shape == (3, 1)
-        assert np.allclose(output, expected, rtol=1e-5)
+        eV = np.array([8.92385523e01, 1.29251677e04, 1.90293621e06]).reshape(3, 1)
+        eVmin = np.array([1.11485913e01, 1.61474394e03, 2.37734224e05]).reshape(3, 1)
+        eVmax = np.array([7.14307218e02, 1.03459103e05, 1.52319937e07]).reshape(3, 1)
+
+        for output, expected in zip([V, Vmin, Vmax], [eV, eVmin, eVmax]):
+            assert output.shape == (3, 1)
+            assert np.allclose(output, expected)
 
     def test_invalid_nruns(_):
         # 2 runs
@@ -237,10 +344,14 @@ class TestLongterm:
         T = 1
         A = [0.2, 3, 32]
         R = [93, 572, 2098]
-        expected = np.array([345.20241331, 3622.90951263, 37508.12049657])
+        V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R)
 
-        output = g14.longterm(i60, Bt, T, A, R)
-        assert np.allclose(output, expected, rtol=1e-5)
+        eV = np.array([345.20241331, 3622.90951263, 37508.12049657])
+        eVmin = [28.33593962, 297.38652236, 3078.85401935]
+        eVmax = [4205.42631537, 44136.07325785, 456942.45142678]
+
+        for output, expected in zip([V, Vmin, Vmax], [eV, eVmin, eVmax]):
+            assert np.allclose(output, expected)
 
     def test_i60T_1D(_):
         i60 = [3, 29]
@@ -248,17 +359,32 @@ class TestLongterm:
         T = [1, 2]
         A = [0.2, 3, 32]
         R = [93, 572, 2098]
+        V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R)
 
-        expected = np.array(
+        eV = np.array(
             [
                 [345.20241331, 1463.43390267],
                 [3622.90951263, 15358.78198604],
                 [37508.12049657, 159010.05625553],
             ]
         )
-        output = g14.longterm(i60, Bt, T, A, R)
-        assert output.shape == (3, 2)
-        assert np.allclose(output, expected)
+        eVmin = np.array(
+            [
+                [28.33593962, 120.12596989],
+                [297.38652236, 1260.72559819],
+                [3078.85401935, 13052.34024892],
+            ]
+        )
+        eVmax = np.array(
+            [
+                [4205.42631537, 17828.27468111],
+                [44136.07325785, 187108.26878864],
+                [456942.45142678, 1937139.05002409],
+            ]
+        )
+        for output, expected in zip([V, Vmin, Vmax], [eV, eVmin, eVmax]):
+            assert output.shape == (3, 2)
+            assert np.allclose(output, expected)
 
     def test_i60T_column_vector(_):
         i60 = np.array([3, 29, 72]).reshape(3, 1)
@@ -266,11 +392,14 @@ class TestLongterm:
         T = np.array([1, 2, 3]).reshape(3, 1)
         A = [0.2, 3, 32]
         R = [93, 572, 2098]
+        V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R)
 
-        expected = np.array([345.20241331, 15358.78198604, 275147.88764569])
-        output = g14.longterm(i60, Bt, T, A, R)
-        assert output.shape == (3,)
-        assert np.allclose(output, expected)
+        eV = np.array([345.20241331, 15358.78198604, 275147.88764569])
+        eVmin = [28.33593962, 1260.72559819, 22585.51397876]
+        eVmax = [4205.42631537, 187108.26878864, 3351987.47954388]
+        for output, expected in zip([V, Vmin, Vmax], [eV, eVmin, eVmax]):
+            assert output.shape == (3,)
+            assert np.allclose(output, expected)
 
     def test_multiple_parameters(_):
         # 3 stream segments
@@ -288,12 +417,32 @@ class TestLongterm:
         Ca = [0.6, 0.7]
         Cr = [0.5, 0.1]
 
-        expected1 = np.array([3.79595704e04, 2.72289138e09, 2.37775307e15])
-        expected2 = np.array([7.39131287e02, 3.53689316e05, 8.22273236e07])
-        expected = np.stack((expected1, expected2), axis=-1)
-
-        output = g14.longterm(i60, Bt, T, A, R, B=B, Ci=Ci, Cb=Cb, Ct=Ct, Ca=Ca, Cr=Cr)
-        assert np.allclose(output, expected, rtol=1e-5)
+        V, Vmin, Vmax = g14.longterm(
+            i60, Bt, T, A, R, B=B, Ci=Ci, Cb=Cb, Ct=Ct, Ca=Ca, Cr=Cr
+        )
+        eV = np.array(
+            [
+                [3.79595704e04, 7.39131287e02],
+                [2.72289138e09, 3.53689316e05],
+                [2.37775307e15, 8.22273236e07],
+            ]
+        )
+        eVmin = np.array(
+            [
+                [3.11591129e03, 6.06715907e01],
+                [2.23508535e08, 2.90325870e04],
+                [1.95177857e14, 6.74962974e06],
+            ]
+        )
+        eVmax = np.array(
+            [
+                [4.62442237e05, 9.00446244e03],
+                [3.31716077e10, 4.30881796e06],
+                [2.89669624e16, 1.00173387e09],
+            ]
+        )
+        for output, expected in zip([V, Vmin, Vmax], [eV, eVmin, eVmax]):
+            assert np.allclose(output, expected)
 
     def test_singletons(_):
         i60 = np.array([3, 29, 72]).reshape(3, 1)
@@ -301,15 +450,17 @@ class TestLongterm:
         T = np.array([1, 2, 3]).reshape(3, 1)
         A = [0.2, 3, 32]
         R = [93, 572, 2098]
-        expected = np.array([345.20241331, 15358.78198604, 275147.88764569])
-        expected = expected.reshape(3, 1)
+        V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, keepdims=True)
 
-        output = g14.longterm(i60, Bt, T, A, R, keepdims=True)
-        assert output.shape == (3, 1)
+        eV = np.array([345.20241331, 15358.78198604, 275147.88764569]).reshape(3, 1)
+        eVmin = np.array([28.33593962, 1260.72559819, 22585.51397876]).reshape(3, 1)
+        eVmax = np.array([4205.42631537, 187108.26878864, 3351987.47954388]).reshape(
+            3, 1
+        )
 
-        print(output)
-        print(expected)
-        assert np.allclose(output, expected, rtol=1e-5)
+        for output, expected in zip([V, Vmin, Vmax], [eV, eVmin, eVmax]):
+            assert output.shape == (3, 1)
+            assert np.allclose(output, expected)
 
     def test_invalid_nruns(_):
         # 3 stream segments

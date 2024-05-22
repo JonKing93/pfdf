@@ -517,6 +517,10 @@ def test_crs(segments, flow):
     assert segments.crs == flow.crs
 
 
+def test_crs_units(segments):
+    assert segments.crs_units == ("metre", "metre")
+
+
 ##### Segments
 
 
@@ -1035,8 +1039,36 @@ class TestConfinement:
         )
         assert np.allclose(output, expected, equal_nan=True)
 
+    def test_meters(_, segments, dem):
+        output = segments.confinement(dem, neighborhood=2, meters=True)
+        expected = np.array(
+            [
+                175.26275123,
+                264.20279455,
+                175.71489195,
+                258.69006753,
+                93.94635581,
+                21.80295443,
+            ]
+        )
+        assert np.allclose(output, expected)
+
     def test_factor(_, segments, dem):
         output = segments.confinement(dem, neighborhood=2, factor=10)
+        expected = np.array(
+            [
+                185.45654969,
+                233.5188839,
+                161.13428831,
+                206.56505118,
+                124.60025165,
+                124.71632661,
+            ]
+        )
+        assert np.allclose(output, expected)
+
+    def test_factor_meters(_, segments, dem):
+        output = segments.confinement(dem, neighborhood=2, factor=10, meters=True)
         expected = np.array(
             [
                 185.45654969,
@@ -2186,6 +2218,42 @@ class TestCopy:
         assert copy._basins is not None
 
 
+class TestPrune:
+    def test_leaf(_, flow, mask):
+        mask[4, 2] = 0
+        segments = Segments(flow, mask)
+        initial = segments.copy()
+        assert segments.length == 5
+
+        segments.prune()
+        assert segments.length == 4
+        assert segments.segments == initial.segments[1:]
+        assert np.array_equal(segments.ids, [2, 3, 4, 5])
+
+    def test_multiple_in_one_network(_, flow, mask):
+        mask[3, 4] = 0
+        segments = Segments(flow, mask)
+        initial = segments.copy()
+        assert segments.length == 4
+
+        segments.prune()
+        assert segments.length == 2
+        assert segments.segments == [initial.segments[0], initial.segments[2]]
+        assert np.array_equal(segments.ids, [1, 3])
+
+    def test_multiple_networks(_, flow, mask):
+        mask[4, 2] = 0
+        mask[3, 4] = 0
+        segments = Segments(flow, mask)
+        assert segments.length == 5
+        initial = segments.copy()
+
+        segments.prune()
+        assert segments.length == 2
+        assert segments.segments == [initial.segments[2], initial.segments[4]]
+        assert np.array_equal(segments.ids, [3, 5])
+
+
 #####
 # Export
 #####
@@ -2193,35 +2261,28 @@ class TestCopy:
 
 class TestValidateProperties:
     def test_valid(_, segments):
-        props = {"ones": np.ones(6), "twos": [2, 2, 2, 2, 2, 2]}
-        output = segments._validate_properties(props, terminal=False)
+        props = {"ones": np.ones(6, float), "twos": [2, 2, 2, 2, 2, 2]}
+        output, schema = segments._validate_properties(props, terminal=False)
         expected = {"ones": np.ones(6), "twos": np.full(6, 2)}
         assert output.keys() == expected.keys()
         for key in output.keys():
             assert np.array_equal(output[key], expected[key])
+        print(schema)
+        assert schema == {"ones": "float", "twos": "int"}
 
     def test_none(_, segments):
-        output = segments._validate_properties(None, terminal=False)
+        output, schema = segments._validate_properties(None, terminal=False)
         assert output == {}
-
-    def test_convert_to_float(_, segments):
-        props = {
-            "bool": np.ones(6, bool),
-            "int": np.ones(6, int),
-            "float": np.ones(6, float),
-        }
-        output = segments._validate_properties(props, terminal=False)
-        assert list(output.keys()) == list(props.keys())
-        for key in output.keys():
-            assert output[key].dtype == float
+        assert schema == {}
 
     def test_terminal(_, segments):
-        props = {"ones": np.ones(2), "twos": [2, 2]}
-        output = segments._validate_properties(props, terminal=True)
+        props = {"ones": np.ones(2, float), "twos": [2, 2]}
+        output, schema = segments._validate_properties(props, terminal=True)
         expected = {"ones": np.ones(2), "twos": np.full(2, 2)}
         assert output.keys() == expected.keys()
         for key in output.keys():
             assert np.array_equal(output[key], expected[key])
+        assert schema == {"ones": "float", "twos": "int"}
 
     def test_not_dict(_, segments, assert_contains):
         with pytest.raises(TypeError) as error:
@@ -2234,56 +2295,98 @@ class TestValidateProperties:
             segments._validate_properties(props, terminal=False)
         assert_contains(error, "key 0")
 
-    def test_not_numeric(_, segments, assert_contains):
-        props = {"values": ["a", "b", "c", "d", "e", "f"]}
-        with pytest.raises(TypeError) as error:
-            segments._validate_properties(props, terminal=False)
-        assert_contains(error, "properties['values']")
-
     def test_wrong_length(_, segments, assert_contains):
         props = {"values": np.ones(7)}
         with pytest.raises(ShapeError) as error:
             segments._validate_properties(props, terminal=False)
         assert_contains(error, "properties['values']")
 
+    def test_nsegments_basins(_, segments):
+        props = {"ones": np.ones(6, float), "twos": [2, 2, 2, 2, 2, 2]}
+        output, schema = segments._validate_properties(props, terminal=True)
+        expected = {"ones": np.ones(2), "twos": np.full(2, 2)}
+        assert output.keys() == expected.keys()
+        for key in output.keys():
+            assert np.array_equal(output[key], expected[key])
+        assert schema == {"ones": "float", "twos": "int"}
+
+    def test_bool(_, segments):
+        props = {"test": np.ones(6, bool)}
+        output, schema = segments._validate_properties(props, False)
+        expected = {"test": np.ones(6, int)}
+        assert output.keys() == expected.keys()
+        for key in output.keys():
+            assert np.array_equal(output[key], expected[key])
+        assert schema == {"test": "int"}
+
+    def test_str(_, segments):
+        props = {"test": np.full(6, "test"), "test2": np.full(6, "longer")}
+        output, schema = segments._validate_properties(props, False)
+        expected = props
+        assert output.keys() == expected.keys()
+        for key in output.keys():
+            assert np.array_equal(output[key], expected[key])
+        assert schema == {"test": "str:4", "test2": "str:6"}
+
+    def test_int(_, segments):
+        props = {"test": np.ones(6, int)}
+        output, schema = segments._validate_properties(props, False)
+        expected = {"test": np.ones(6, int)}
+        assert output.keys() == expected.keys()
+        for key in output.keys():
+            assert np.array_equal(output[key], expected[key])
+        assert schema == {"test": "int"}
+
+    def test_float(_, segments):
+        props = {"test": np.ones(6, "float32")}
+        output, schema = segments._validate_properties(props, False)
+        expected = {"test": np.ones(6, float)}
+        assert output.keys() == expected.keys()
+        for key in output.keys():
+            assert np.array_equal(output[key], expected[key])
+        assert schema == {"test": "float"}
+
 
 class TestValidateExport:
     def test_valid_no_properties(_, segments):
-        properties, type = segments._validate_export(None, "segments")
+        type, properties, schema = segments._validate_export(None, "segments")
         assert properties == {}
         assert type == "segments"
+        assert schema == {}
 
     @pytest.mark.parametrize("type", ("segments", "segment outlets"))
     def test_valid_segments_props(_, segments, type):
         props = {"slope": [1, 2, 3, 4, 5, 6]}
-        properties, output_type = segments._validate_export(props, type)
+        output_type, properties, schema = segments._validate_export(props, type)
         assert isinstance(properties, dict)
         assert list(properties.keys()) == ["slope"]
         assert np.array_equal(
             properties["slope"], np.array([1, 2, 3, 4, 5, 6]).astype(float)
         )
         assert output_type == type
+        assert schema == {"slope": "int"}
 
     @pytest.mark.parametrize("type", ("basins", "outlets"))
     def test_valid_terminal_props(_, segments, type):
         props = {"slope": [1, 2]}
-        properties, outtype = segments._validate_export(props, type)
+        outtype, properties, schema = segments._validate_export(props, type)
         assert isinstance(properties, dict)
         assert list(properties.keys()) == ["slope"]
         assert np.array_equal(properties["slope"], np.array([1, 2]).astype(float))
         assert outtype == type
+        assert schema == {"slope": "int"}
 
     @pytest.mark.parametrize(
         "type", ("segments", "basins", "outlets", "segment outlets")
     )
-    @pytest.mark.parametrize("terminal", (True, False))
-    def test_valid_type(_, segments, type, terminal):
-        props, outtype = segments._validate_export(None, type)
-        assert props == {}
+    def test_valid_type(_, segments, type):
+        outtype, properties, schema = segments._validate_export(None, type)
+        assert properties == {}
         assert outtype == type
+        assert schema == {}
 
     def test_type_casing(_, segments):
-        _, outtype = segments._validate_export(None, "SeGmEnTs")
+        outtype, _, _ = segments._validate_export(None, "SeGmEnTs")
         assert outtype == "segments"
 
     def test_invalid_type(_, segments, assert_contains):
@@ -2449,7 +2552,11 @@ class TestGeojson:
 
     def test_with_properties(_, segments):
         segments.keep(ids=[2, 4, 5])
-        properties = {"slope": [1, 2, 3], "length": [1.1, 2.2, 3.3]}
+        properties = {
+            "slope": [1, 2, 3],
+            "length": [1.1, 2.2, 3.3],
+            "astring": ["Low", "Moderate", "High"],
+        }
         output = segments.geojson(properties)
         assert isinstance(output, geojson.FeatureCollection)
         expected = {
@@ -2459,7 +2566,7 @@ class TestGeojson:
                         "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
-                    "properties": {"length": 1.1, "slope": 1},
+                    "properties": {"length": 1.1, "slope": 1, "astring": "Low"},
                     "type": "Feature",
                 },
                 {
@@ -2467,7 +2574,7 @@ class TestGeojson:
                         "coordinates": [[5.5, 3.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
-                    "properties": {"length": 2.2, "slope": 2},
+                    "properties": {"length": 2.2, "slope": 2, "astring": "Moderate"},
                     "type": "Feature",
                 },
                 {
@@ -2475,7 +2582,7 @@ class TestGeojson:
                         "coordinates": [[4.5, 3.5], [3.5, 4.5]],
                         "type": "LineString",
                     },
-                    "properties": {"length": 3.3, "slope": 3},
+                    "properties": {"length": 3.3, "slope": 3, "astring": "High"},
                     "type": "Feature",
                 },
             ],
@@ -2685,7 +2792,11 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
 
         segments.keep(ids=[2, 4, 5])
-        properties = {"slope": [1, 2, 3], "length": [1.1, 2.2, 3.3]}
+        properties = {
+            "slope": [1, 2, 3],
+            "length": [1.1, 2.2, 3.3],
+            "astring": ["low", "moderate", "high"],
+        }
         assert not path.is_file()
 
         segments.save(path, properties)
@@ -2699,7 +2810,7 @@ class TestSave:
                         "coordinates": [(4.5, 1.5), (4.5, 2.5), (4.5, 3.5)],
                         "type": "LineString",
                     },
-                    "properties": {"length": 1.1, "slope": 1},
+                    "properties": {"length": 1.1, "slope": 1, "astring": "low"},
                     "type": "Feature",
                 },
                 {
@@ -2707,7 +2818,7 @@ class TestSave:
                         "coordinates": [(5.5, 3.5), (4.5, 3.5)],
                         "type": "LineString",
                     },
-                    "properties": {"length": 2.2, "slope": 2},
+                    "properties": {"length": 2.2, "slope": 2, "astring": "moderate"},
                     "type": "Feature",
                 },
                 {
@@ -2715,7 +2826,7 @@ class TestSave:
                         "coordinates": [(4.5, 3.5), (3.5, 4.5)],
                         "type": "LineString",
                     },
-                    "properties": {"length": 3.3, "slope": 3},
+                    "properties": {"length": 3.3, "slope": 3, "astring": "high"},
                     "type": "Feature",
                 },
             ],

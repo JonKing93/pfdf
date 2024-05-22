@@ -45,19 +45,101 @@ class TestCrs:
         assert a.crs == CRS(4326)
 
 
+class TestXunit:
+    def test_none(_):
+        a = BoundingBox(1, 2, 3, 4)
+        assert a.xunit is None
+
+    def test_linear(_):
+        a = BoundingBox(1, 2, 3, 4, 26911)
+        assert a.xunit == "metre"
+
+    def test_angular(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        assert a.xunit == "degree"
+
+
+class TestYUnit:
+    def test_none(_):
+        a = BoundingBox(1, 2, 3, 4)
+        assert a.yunit is None
+
+    def test_linear(_):
+        a = BoundingBox(1, 2, 3, 4, 26911)
+        assert a.yunit == "metre"
+
+    def test_angular(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        assert a.yunit == "degree"
+
+
+class TestUnits:
+    def test_none(_):
+        a = BoundingBox(1, 2, 3, 4)
+        assert a.units == (None, None)
+
+    def test_linear(_):
+        a = BoundingBox(1, 2, 3, 4, 26911)
+        assert a.units == ("metre", "metre")
+
+    def test_angular(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        assert a.units == ("degree", "degree")
+
+
+class TestXUnitsPerM:
+    def test_none(_):
+        a = BoundingBox(0, 29, 0, 31)
+        assert a.x_units_per_m is None
+
+    def test_linear(_):
+        a = BoundingBox(0, 29, 0, 31, 26911)
+        assert a.x_units_per_m == 1
+
+    def test_angular(_):
+        a = BoundingBox(0, 29, 0, 31, 4326)
+        output = a.x_units_per_m
+        assert np.allclose(output, 1.0384471425304483e-05)
+
+
+class TestYUnitsPerM:
+    def test_none(_):
+        a = BoundingBox(0, 29, 0, 31)
+        assert a.y_units_per_m is None
+
+    def test_linear(_):
+        a = BoundingBox(0, 29, 0, 31, 26911)
+        assert a.y_units_per_m == 1
+
+    def test_angular_default(_):
+        a = BoundingBox(0, 29, 0, 31, 4326)
+        output = a.y_units_per_m
+        assert np.allclose(output, 8.993216059187306e-06)
+
+
+class TestUnitsPerM:
+    def test_none(_):
+        a = BoundingBox(0, 29, 0, 31)
+        assert a.units_per_m == (None, None)
+
+    def test_linear(_):
+        a = BoundingBox(0, 29, 0, 31, 26911)
+        assert a.units_per_m == (1, 1)
+
+    def test_angular(_):
+        a = BoundingBox(0, 29, 0, 31, 4326)
+        output = a.units_per_m
+        expected = (1.0384471425304483e-05, 8.993216059187306e-06)
+        assert np.allclose(output, expected)
+
+
 class TestOrientation:
     @pytest.mark.parametrize(
-        "dx,dy,quadrant",
-        ((1, -2, 1), (-1, -2, 2), (-1, 2, 3), (1, 2, 4)),
+        "left,bottom,quadrant",
+        ((1, 2, 1), (5, 2, 2), (5, 5, 3), (1, 5, 4)),
     )
-    def test(_, dx, dy, quadrant):
-        assert Transform(dx, dy, 3, 4).orientation == quadrant
-
-
-class TestAffine:
-    def test(_):
-        a = Transform(1, 2, 3, 4, 4326)
-        assert a.affine == Affine(1, 0, 3, 0, 2, 4)
+    def test(_, left, bottom, quadrant):
+        assert BoundingBox(left, bottom, 3, 4).orientation == quadrant
 
 
 #####
@@ -103,6 +185,16 @@ class TestBounds:
 class TestCenter:
     def test(_):
         assert BoundingBox(0, 10, 50, 100).center == (25, 55)
+
+
+class TestCenterX:
+    def test(_):
+        assert BoundingBox(0, 10, 50, 100).center_x == 25
+
+
+class TestCenterY:
+    def test(_):
+        assert BoundingBox(0, 10, 50, 100).center_y == 55
 
 
 #####
@@ -466,14 +558,13 @@ class TestToUtm:
         a = BoundingBox(-122, 34, -120, 36, 4326)
         a = a.to_utm()
         assert a.crs == CRS("WGS 84 / UTM zone 10N")
-        expected = (
+        expected = BoundingBox(
             590129.04941026,
             3762606.6598762735,
             777091.295474178,
             3988111.9623426683,
         )
-        coords = a.tolist(crs=False)
-        assert np.allclose(coords, expected)
+        assert a.isclose(expected)
 
     def test_outside_domain(_, assert_contains):
         a = BoundingBox(-120, 86, -119, 88, 4326)
@@ -568,3 +659,37 @@ class TestToDict:
             "top": 4,
             "crs": CRS(4326),
         }
+
+
+#####
+# Testing
+#####
+
+
+class TestIsClose:
+    def test_close(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        b = BoundingBox(1.0000000000000000001, 2, 3, 4, 4326)
+        assert a.isclose(b) == True
+
+    def test_not_close(_):
+        a = BoundingBox(1, 2, 3, 4)
+        b = BoundingBox(2, 2, 3, 4)
+        assert a.isclose(b) == False
+
+    def test_invalid(_, assert_contains):
+        a = BoundingBox(1, 2, 3, 4)
+        b = (1, 2, 3, 4)
+        with pytest.raises(TypeError) as error:
+            a.isclose(b)
+        assert_contains(error, "Other object must also be a BoundingBox object")
+
+    def test_different_crs(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        b = BoundingBox(1, 2, 3, 4, 26911)
+        assert a.isclose(b) == False
+
+    def test_none_crs(_):
+        a = BoundingBox(1, 2, 3, 4)
+        b = BoundingBox(1, 2, 3, 4, 4326)
+        assert a.isclose(b) == True

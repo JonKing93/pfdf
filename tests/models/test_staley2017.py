@@ -357,11 +357,21 @@ class TestAccumulation:
         S = 0.4
 
         R = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
-        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        output = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         assert np.allclose(output, p)
 
+    def test_screen(_):
+        output = s17.accumulation(p=0.5, B=10, Ct=0, T=0, Cf=0, F=0, Cs=1, S=1)
+        assert np.isnan(output)
 
-class TestProbability:
+    def test_noscreen(_):
+        output = s17.accumulation(
+            p=0.5, B=10, Ct=0, T=0, Cf=0, F=0, Cs=1, S=1, screen=False
+        )
+        assert output == -10
+
+
+class TestLikelihood:
     def test_invalid_parameters(_):
         R = 0.5
         B = np.ones(6)
@@ -373,7 +383,7 @@ class TestProbability:
         F = np.ones(7)
         S = np.ones(7)
         with pytest.raises(ShapeError) as error:
-            s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+            s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         assert_contains(error, "B has 6", "Ct has 7")
 
     def test_invalid_R(_):
@@ -386,7 +396,7 @@ class TestProbability:
         F = np.ones(7)
         S = np.ones(7)
         with pytest.raises(ValueError) as error:
-            s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+            s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         assert_contains(error, "R")
 
     def test_ncols_1(_):
@@ -416,7 +426,7 @@ class TestProbability:
         )
         expected = np.stack((expected1, expected2), axis=2)
 
-        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        output = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         assert np.allclose(output, expected)
 
     def test_ncols_nruns(_):
@@ -434,7 +444,7 @@ class TestProbability:
         )
         expected = np.stack((expected1, expected2), axis=2)
 
-        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        output = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         assert np.allclose(output, expected)
 
     def test_keep_trailing(_):
@@ -454,7 +464,7 @@ class TestProbability:
             ]
         ).reshape(5, 3, 1)
 
-        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S, keepdims=True)
+        output = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S, keepdims=True)
         assert output.shape == expected.shape
         assert np.allclose(output, expected)
 
@@ -475,7 +485,7 @@ class TestProbability:
             ]
         ).reshape(5, 3)
 
-        output = s17.probability(R, B, Ct, T, Cf, F, Cs, S, keepdims=False)
+        output = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S, keepdims=False)
         assert output.shape == expected.shape
         assert np.allclose(output, expected)
 
@@ -486,7 +496,7 @@ class TestProbability:
         F = 0.3
         S = 0.4
 
-        p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+        p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
         assert np.allclose(output, R)
 

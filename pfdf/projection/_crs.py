@@ -27,6 +27,16 @@ Unit Conversion:
     dy_from_meters  - Converts a length along the y-axis from meters to axis units
     buffers_from_meters - Converts buffering distances from meters to axis units
 
+Unit Info:
+    unit_info       - Returns info or None if CRS is None
+    unit            - Returns the unit along an axis
+    xunit           - Returns the X axis unit
+    yunit           - Returns the Y axis unit
+    units           - Returns the (X, Y) units
+    x_units_per_m   - Returns the number of X axis units per meter
+    y_units_per_m   - Returns the number of Y axis units per meter
+    units_per_m     - Returns the number of (X, Y) axis units per meter
+
 Misc:
     reproject       - Reprojects X and Y coordinates to a different projection
     utm_zone        - Returns the best UTM CRS for an input X,Y coordinate
@@ -35,7 +45,7 @@ Misc:
 """
 
 from math import asin, atan2, cos, sin, sqrt
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 import pyproj.exceptions
@@ -190,7 +200,7 @@ def dy_to_meters(crs: CRS, dy: float) -> float:
 
 def dx_to_meters(crs: CRS, dx: float, y: float | None) -> float:
     """Converts a distance along the X axis from axis units to meters.
-    If y is not specified, meausres dx along the equator. Both dx and
+    If y is not specified, measures dx along the equator. Both dx and
     y should be in axis units"""
 
     # Get x axis. Convert dx to meters (linear) or radians (angular)
@@ -209,7 +219,7 @@ def dx_to_meters(crs: CRS, dx: float, y: float | None) -> float:
     return dx
 
 
-def dx_from_meters(crs: CRS, dx: float, lat: float | None) -> float:
+def dx_from_meters(crs: CRS, dx: float, y: float | None) -> float:
     "Converts a length along the x-axis from meters to axis units"
 
     # Get axis. If angular CRS, first convert meters to radians
@@ -218,9 +228,9 @@ def dx_from_meters(crs: CRS, dx: float, lat: float | None) -> float:
         dx = dx / EARTH_RADIUS_M
 
         # If possible, use inverse haversine for distance
-        if lat is not None:
+        if y is not None:
             yaxis = get_axis(crs, "y")
-            lat = lat * yaxis.unit_conversion_factor
+            lat = y * yaxis.unit_conversion_factor
             cosd = cos(dx)
             sinlat = sin(lat)
             y = asin(cosd * sinlat)
@@ -247,6 +257,57 @@ def buffers_from_meters(obj, buffers):
     top = dy_from_meters(obj.crs, buffers["top"])
     bottom = dy_from_meters(obj.crs, buffers["bottom"])
     return {"left": left, "bottom": bottom, "right": right, "top": top}
+
+
+#####
+# Unit Info
+#####
+
+
+def unit_info(crs: CRS | None, info: Callable, *args: Any) -> Any | None:
+    "Returns unit information or None if CRS is None"
+    if crs is None:
+        return None
+    else:
+        return info(crs, *args)
+
+
+def unit(crs: CRS, axis: axis) -> str:
+    "Returns an axis unit"
+    axis = get_axis(crs, axis)
+    return axis.unit_name
+
+
+def xunit(crs: CRS | None) -> str | None:
+    "Returns the X axis unit"
+    return unit_info(crs, unit, "x")
+
+
+def yunit(crs: CRS | None) -> str | None:
+    "Returns the Y axis unit"
+    return unit_info(crs, unit, "y")
+
+
+def units(crs: CRS | None) -> tuple[str, str] | None:
+    "Returns the X and Y axis units"
+    return xunit(crs), yunit(crs)
+
+
+def x_units_per_m(crs: CRS | None, y: float | None) -> float | None:
+    "Returns the number of X axis units per meter"
+    return unit_info(crs, dx_from_meters, 1, y)
+
+
+def y_units_per_m(crs: CRS | None) -> float | None:
+    "Returns the number of Y axis units per meter"
+    return unit_info(crs, dy_from_meters, 1)
+
+
+def units_per_m(crs: CRS | None, y: float | None) -> tuple[float, float] | None:
+    "Returns the number of CRS units per meter along the X and Y axes"
+    x = x_units_per_m(crs, y)
+    y = y_units_per_m(crs)
+    return x, y
 
 
 #####

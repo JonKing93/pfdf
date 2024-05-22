@@ -4,7 +4,7 @@ import rasterio
 from rasterio.windows import Window
 
 from pfdf._utils import limits
-from pfdf.projection import CRS, BoundingBox, Transform, _crs
+from pfdf.projection import BoundingBox, Transform, _crs
 
 
 def build(

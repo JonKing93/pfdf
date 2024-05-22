@@ -329,6 +329,6 @@ def broadcastable(shape1: shape, name1: str, shape2: shape, name2: str) -> shape
         return np.broadcast_shapes(shape1, shape2)
     except ValueError:
         raise ValueError(
-            f"The shape of the {name1} array ({shape1}) cannot be broadcasted "
-            f"with the shape of the {name2} array ({shape2})."
+            f"The shape of the {name1} array {shape1} cannot be broadcasted "
+            f"with the shape of the {name2} array {shape2}."
         )

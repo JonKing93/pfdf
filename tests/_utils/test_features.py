@@ -1,6 +1,4 @@
-import os
 from math import inf, isnan
-from pathlib import Path
 
 import fiona
 import fiona.model
@@ -14,6 +12,7 @@ from pfdf.errors import (
     FeatureFileError,
     GeometryError,
     MissingCRSError,
+    NoFeaturesError,
     PointError,
     PolygonError,
 )
@@ -277,6 +276,25 @@ class TestParseFeatures:
             {"left": 2, "right": 4, "top": 4, "bottom": 3, "crs": crs}
         )
 
+    def test_no_features(_):
+        records = []
+        field = None
+        geometries = ["Point", "MultiPoint"]
+        crs = None
+        window = None
+        output = features.parse_features(records, field, geometries, crs, window)
+        assert output == (None, None)
+
+    def test_no_features_in_bounds(_):
+        geom1 = {"type": "Point", "coordinates": [2, 3]}
+        geom2 = {"type": "Point", "coordinates": [9, 9]}
+        geom3 = {"type": "Point", "coordinates": [4, 4]}
+        records = [{"geometry": geom1}, {"geometry": geom2}, {"geometry": geom3}]
+        crs = CRS(4326)
+        window = BoundingBox(50, 50, 60, 60, crs)
+        output = features.parse_features(records, None, ["Point"], crs, window)
+        assert output == (None, None)
+
 
 class TestInit:
     def test_valid(_, fraster):
@@ -447,3 +465,24 @@ class TestProcess:
         assert dtype == float
         assert isnan(nodata)
         assert fill == 5
+
+    def test_empty_file(_, polygons, crs, assert_contains):
+        schema = {"geometry": "Polygon", "features": {}}
+        with fiona.open(polygons, "w", schema=schema, crs=crs) as file:
+            pass
+        with pytest.raises(NoFeaturesError) as error:
+            with FeatureFile("point", polygons, None, None, None) as file:
+                file.process(None, 5, (1, 1), False, None)
+        assert_contains(
+            error,
+            "The point feature file is empty and does not have any point features",
+        )
+
+    def test_none_in_bounds(_, polygons, crs, assert_contains):
+        bounds = BoundingBox(10000, 10000, 10001, 10001, crs)
+        with pytest.raises(NoFeaturesError) as error:
+            with FeatureFile("polygon", polygons, None, None, None) as file:
+                file.process(None, 5, (1, 1), False, bounds)
+        assert_contains(
+            error, "None of the polygon features intersect the input bounds"
+        )
