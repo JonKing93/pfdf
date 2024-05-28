@@ -65,7 +65,7 @@ def emergency(
         lnV = 4.22 +  0.39 * sqrt(i15)  +  0.36 * ln(Bmh)  +  0.13 * sqrt(R)
         V = exp(lnV)
 
-    and uses residual standard error (RSE = 1.04) to estimate the bounds of the 
+    and uses residual standard error (RSE = 1.04) to estimate the bounds of the
     95% confidence interval:
         Vmin = exp(lnV - 1.96 * 1.04)
         Vmax = exp(lnV + 1.96 * 1.04)
@@ -98,8 +98,8 @@ def emergency(
     emergency(..., *, B, Ci, Cb, Cr)
     Also specifies the parameters to use in the model. These are the intercept (B),
     rainfall intensity coefficient (Ci), burned area coefficient (Cb), and relief
-    coefficient (Cr). By default, each coefficient is set to the value presented 
-    in Gartner et al., 2014. This syntax allows you to run the model using different 
+    coefficient (Cr). By default, each coefficient is set to the value presented
+    in Gartner et al., 2014. This syntax allows you to run the model using different
     parameter values - for example, for an updated model calibration.
 
     In this case, the model solves the generalized equation:
@@ -114,7 +114,7 @@ def emergency(
     using a Monte Carlo process to calibrate model parameters.
 
     emergency(..., *, CI, RSE)
-    Also specifies parameters for estimating confidence intervals. CI is the 
+    Also specifies parameters for estimating confidence intervals. CI is the
     confidence interval and should be a value between 0 and 1. For example, use
     CI=0.95 to estimate the 95% confidence interval. RSE is the residual standard
     error of the model. When using these parameters, the confidence interval is
@@ -200,7 +200,7 @@ def longterm(
         lnV = 6.07 + 0.71*ln(i60) + 0.22*ln(Bt) - 0.24*ln(T) + 0.49*ln(A) + 0.03*sqrt(R)
         V = exp(lnV)
 
-    and uses residual standard error (RSE = 1.25) to estimate the bounds of the 
+    and uses residual standard error (RSE = 1.25) to estimate the bounds of the
     95% confidence interval:
         Vmin = exp(lnV - 1.96 * 1.04)
         Vmax = exp(lnV + 1.96 * 1.04)
@@ -234,8 +234,8 @@ def longterm(
     Also specifies the parameters to use in the model. These are the intercept (B),
     rainfall intensitiy coefficient (Ci), burned area coefficient (Cb), elapsed
     time coefficient (Ct), total area coefficient (Ca), and relief coefficient (Cr).
-    By default, each coefficient is set to the value presented in Gartner et al., 2014. 
-    This syntax allows you to run the model using different parameter values. For 
+    By default, each coefficient is set to the value presented in Gartner et al., 2014.
+    This syntax allows you to run the model using different parameter values. For
     example, for an updated model calibration.
 
     In this case, the model solves the generalized equation:
@@ -250,7 +250,7 @@ def longterm(
     using a Monte Carlo process to calibrate model parameters.
 
     longterm(..., *, CI, RSE)
-    Also specifies parameters for estimating confidence intervals. CI is the 
+    Also specifies parameters for estimating confidence intervals. CI is the
     confidence interval and should be a value between 0 and 1. For example, use
     CI=0.95 to estimate the 95% confidence interval. RSE is the residual standard
     error of the model. When using these parameters, the confidence interval is
@@ -298,7 +298,14 @@ def longterm(
 
     # Validate
     parameters = {
-        "B": B, "Ci": Ci, "Cb": Cb, "Ct": Ct, "Ca": Ca, "Cr": Cr, "CI": CI, "RSE": RSE
+        "B": B,
+        "Ci": Ci,
+        "Cb": Cb,
+        "Ct": Ct,
+        "Ca": Ca,
+        "Cr": Cr,
+        "CI": CI,
+        "RSE": RSE,
     }
     variables = {"i60": i60, "Bt": Bt, "T": T, "A": A, "R": R}
     (B, Ci, Cb, Ct, Ca, Cr, CI, RSE), nruns = _validate_parameters(parameters)
@@ -321,7 +328,7 @@ def _volumes(lnV: Volume, CI: Parameters, RSE: Parameters, keepdims: bool) -> Vo
     lnV = clean_dims(lnV, keepdims)
 
     # Compute the percentile multiplier
-    q = 1 - (1-CI)/2
+    q = 1 - (1 - CI) / 2
     X = norm.ppf(q)
 
     # Compute volume and CI

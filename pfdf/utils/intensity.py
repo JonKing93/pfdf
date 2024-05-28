@@ -34,8 +34,8 @@ def to_accumulation(I: vector, durations: vector) -> VectorArray:
     ----------
     to_accumulation(I, durations)
     Converts the input rainfall intensities (in mm/hour) to rainfall accumulations
-    (mm accumulated over a duration). The input intensities should be a vector in 
-    mm/hour. The input durations should be in minutes. The durations may either 
+    (mm accumulated over a duration). The input intensities should be a vector in
+    mm/hour. The input durations should be in minutes. The durations may either
     be scalar, or a vector with one element per intensity.
     ----------
     Inputs:
@@ -67,9 +67,9 @@ def from_accumulation(R: RealArray, durations: vector) -> RealArray:
     from_accumulation(R, durations)
     Converts the input rainfall accumulations from mm over a duration to rainfall
     intensities in mm/hour. R should be an array of values representing millimeters
-    of accumulation over one or more durations. The array is assumed to originate 
-    from the s17.accumulation function, so durations are broadcast across the 
-    second dimension. The input durations should be in minutes and may either be 
+    of accumulation over one or more durations. The array is assumed to originate
+    from the s17.accumulation function, so durations are broadcast across the
+    second dimension. The input durations should be in minutes and may either be
     scalar or a vector with one element per column in R.
     ----------
     Inputs:
