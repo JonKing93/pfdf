@@ -28,8 +28,12 @@ import numpy as np
 import shapely.geometry
 
 import pfdf._validate.core as validate
-from pfdf._utils import real
-from pfdf.errors import FeatureFileError, GeometryError, MissingCRSError
+from pfdf.errors import (
+    FeatureFileError,
+    GeometryError,
+    MissingCRSError,
+    NoFeaturesError,
+)
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.typing import Pathlike, shape2d
 
@@ -159,9 +163,14 @@ def parse_features(
             value = feature["properties"][field]
         geometry_values.append((geometry, value))
 
-    # Return the geometry-value tuples and the Bounds of the retained features
-    bounds["crs"] = crs
-    return geometry_values, BoundingBox.from_dict(bounds)
+    # Return None if there aren't any features (error handling will occur later)
+    if len(geometry_values) == 0:
+        return None, None
+
+    # Otherwise, return the geometry-value tuples, and the bounds of the features
+    else:
+        bounds["crs"] = crs
+        return geometry_values, BoundingBox.from_dict(bounds)
 
 
 #####
@@ -282,9 +291,8 @@ class FeatureFile:
 
         # Vector: Convert from meters as needed
         elif meters:
-            _, y = bounds.center
             xres, yres = resolution
-            xres = _crs.dx_from_meters(crs, xres, y)
+            xres = _crs.dx_from_meters(crs, xres, bounds.center_y)
             yres = _crs.dy_from_meters(crs, yres)
             resolution = (xres, yres)
         return resolution, crs
@@ -320,7 +328,7 @@ class FeatureFile:
         fill: float | None,
         resolution: tuple | Transform,
         meters: bool,
-        bounds: BoundingBox,
+        window: BoundingBox | None,
     ) -> tuple[list, CRS, Transform, shape2d, type, float, float]:
 
         # Get geometries
@@ -336,7 +344,20 @@ class FeatureFile:
 
         # Load and validate features. Convert to (geometry, value) tuples and get bounds
         features = self.load()
-        features, bounds = parse_features(features, field, geometries, crs, bounds)
+        features, bounds = parse_features(features, field, geometries, crs, window)
+
+        # Informative error if there are no valid features
+        if features is None:
+            if window is None:
+                raise NoFeaturesError(
+                    f"The {self.type} feature file is empty and does not have any "
+                    f"{self.type} features.\nFile: {self.path}"
+                )
+            else:
+                raise NoFeaturesError(
+                    f"None of the {self.type} features intersect the input bounds.\n"
+                    f"File: {self.path}"
+                )
 
         # Convert resolution to axis unit. Then compute transform and shape
         resolution, crs = self.parse_resolution(resolution, meters, crs, bounds)

@@ -50,6 +50,7 @@ from pfdf.typing import (
     shape2d,
     vector,
 )
+from pfdf.utils.nodata import default as default_nodata
 
 
 class Raster:
@@ -65,7 +66,42 @@ class Raster:
     rasters will return the new raster as a Raster object. Use the "save" method
     to save these rasters to file.
     ----------
-    FOR USERS:
+    PROPERTIES:
+    Data / NoData:
+        name            - An optional name to identify the raster
+        values          - The data values associated with a raster
+        dtype           - The dtype of the raster array
+        nodata          - The NoData value associated with the raster
+        nodata_mask     - The NoData mask for the raster
+        data_mask       - The valid data mask for the raster
+
+    Shape:
+        shape           - The shape of the raster array
+        size            - The size (number of elements) in the raster array
+        height          - The number of rows in the raster array
+        width           - The number of columns in the raster array
+
+    CRS:
+        crs             - The coordinate reference system associated with the raster
+        crs_units       - The units of the CRS X and Y axes
+        crs_units_per_m - The number of CRS units per meter along the X and Y axes
+
+    Transform:
+        transform       - A Transform object for the raster
+        affine          - An affine.Affine object for the raster's transform
+
+    BoundingBox:
+        bounds          - A BoundingBox object for the raster
+        left            - The spatial coordinate of the raster's left edge
+        bottom          - The spatial coordinate of the raster's bottom edge
+        right           - The spatial coordinate of the raster's right edge
+        top             - The spatial coordinate of the raster's top edge
+        center          - The (X, Y) coordinate of the raster's center
+        center_x        - The X coordinate of the center
+        center_y        - The Y coordinate of the center
+        orientation     - The Cartesian quadrant of the bounding box
+
+    METHODS:
     Object Creation:
         __init__        - Returns a raster object for a supported raster input
         from_array      - Creates a Raster object from a numpy array
@@ -77,24 +113,9 @@ class Raster:
         from_points     - Creates a Raster from point / multi-point features
         from_polygons   - Creates a Raster from polygon / multi-polygon features
 
-    Data Properties:
-        name            - An optional name to identify the raster
-        values          - The data values associated with a raster
-        dtype           - The dtype of the raster array
-        nodata          - The NoData value associated with the raster
-        nodata_mask     - The NoData mask for the raster
-        data_mask       - The valid data mask for the raster
-
-    Shape Properties:
-        shape           - The shape of the raster array
-        size            - The size (number of elements) in the raster array
-        height          - The number of rows in the raster array
-        width           - The number of columns in the raster array
-
-    Spatial Properties:
-        crs             - The coordinate reference system associated with the raster
-        transform       - The affine Transform used to map raster pixels to spatial coordinates
-        bounds          - A BoundingBox with the spatial coordinates of the raster's edges
+    Metadata:
+        ensure_nodata   - Sets a NoData value if the Raster does not already have one
+        override        - Overrides metadata fields with new values
 
     Comparisons:
         __eq__          - True if the second object is a Raster with the same values, nodata, transform, and crs
@@ -112,6 +133,13 @@ class Raster:
         buffer          - Buffers the edges of a raster by specified distances
         reproject       - Reprojects a raster to match a specified CRS, resolution, and grid alignment
         clip            - Clips a raster to the specified bounds
+
+    Pixel Info:
+        dx              - The change in X coordinate when moving one pixel right
+        dy              - The change in Y coordinate when moving one pixel down
+        resolution      - The X, Y resolution of a pixel
+        pixel_area      - The area of a pixel
+        pixel_diagonal  - The length of a pixel diagonal
 
     INTERNAL:
     Attributes:
@@ -228,6 +256,14 @@ class Raster:
             )
         self._crs = validate.crs(crs)
 
+    @property
+    def crs_units(self):
+        return _crs.units(self.crs)
+
+    @property
+    def crs_units_per_m(self):
+        return _crs.units_per_m(self.crs, self.center_y)
+
     ##### Transform
 
     @property
@@ -266,8 +302,7 @@ class Raster:
             return None
         method = getattr(self.transform, method)
         if needs_y:
-            _, y = self.bounds.center
-            return method(meters, y)
+            return method(meters, self.center_y)
         else:
             return method(meters)
 
@@ -344,55 +379,16 @@ class Raster:
         return self._bound("center")
 
     @property
+    def center_x(self):
+        return self._bound("center_x")
+
+    @property
+    def center_y(self):
+        return self._bound("center_y")
+
+    @property
     def orientation(self):
         return self._bound("orientation")
-
-    ##### Misc metadata
-
-    def override(
-        self,
-        *,
-        crs: Optional[CRSInput] = None,
-        transform: Optional[TransformInput] = None,
-        nodata: Optional[scalar] = None,
-        casting: Casting = "safe",
-    ):
-        """
-        Overrides current metadata values
-        ----------
-        self.override(*, crs)
-        self.override(*, transform)
-        self.override(*, nodata)
-        self.override(*, nodata, casting)
-        Overrides current metadata values and replaces them with new values. The
-        new values must still be valid metadata. For example, the new CRS must be
-        convertible to a rasterio CRS object, the nodata value must be a scalar,
-        etc. By default, requires safe nodata casting - use the casting input to
-        specify a different casting rule.
-
-        IMPORTANT: Only use this method if you know what you're doing! This command
-        replaces existing metadata values, but does not ensure that those values
-        are correct. For example, overriding the CRS **will not** reproject
-        the raster. It will merely replace the CRS metadata. As such, incorrect
-        usage of this command will result in rasters with incorrect georeferencing
-        and/or incorrect data masks. Most users should not use this method.
-        ----------
-        Inputs:
-            crs: New CRS metadata for the raster
-            transform: A new affine transform for the raster
-            nodata: A new NoData value for the raster
-            casting: The type of data casting allowed to occur when converting a
-                NoData value to the dtype of the Raster. Options are "no", "equiv",
-                "safe" (default), "same_kind", and "unsafe".
-        """
-
-        if crs is None:
-            crs = self.crs
-        if transform is None:
-            transform = self.transform
-        if nodata is None:
-            nodata = self.nodata
-        self._finalize(self.values, crs, transform, nodata, casting)
 
     #####
     # Low-level initialization
@@ -473,6 +469,9 @@ class Raster:
         raster: Optional[RasterInput] = None,
         name: Optional[str] = None,
         isbool: bool = False,
+        ensure_nodata: bool = True,
+        default_nodata: Optional[scalar] = None,
+        casting: str = "safe",
     ) -> None:
         """
         __init__  Creates a new Raster object
@@ -510,12 +509,30 @@ class Raster:
         Returns an empty raster object. The attributes of the raster are all set
         to None. This syntax is typically not useful for users, and is instead
         intended for developers.
+
+        Raster(..., *, default_nodata)
+        Raster(..., *, default_nodata, casting)
+        Raster(..., *, ensure_nodata=False)
+        Specifies additional options for NoData values. By default, if the raster
+        file does not have a NoData value, then this routine will set a default
+        NoData value based on the dtype of the raster. Set ensure_nodata=False to
+        disable this behavior. Alternatively, you can use the "default_nodata" option
+        to specify a different default NoData value. The default nodata value should
+        be safely castable to the raster dtype, or use the "casting" option to
+        specify other casting rules.
         ----------
         Inputs:
             raster: A supported raster dataset
             name: A name for the input raster. Defaults to 'raster'
             isbool: True indicates that the raster represents a boolean array.
                 False (default) leaves the raster as its original dtype.
+            ensure_nodata: True (default) to assign a default NoData value based
+                on the raster dtype if the file does not record a NoData value.
+                False to leave missing NoData as None.
+            default_nodata: The default NoData value to use if the raster file is
+                missing one. Overrides any default determined from the raster's dtype.
+            casting: The casting rule to use when converting the default NoData
+                value to the raster's dtype.
 
         Outputs:
             Raster: The Raster object for the dataset
@@ -543,13 +560,34 @@ class Raster:
 
         # Otherwise, build an object using a factory
         elif isinstance(raster, (str, Path)):
-            raster = Raster.from_file(raster, name, isbool=isbool)
+            raster = Raster.from_file(
+                raster,
+                name,
+                isbool=isbool,
+                ensure_nodata=ensure_nodata,
+                default_nodata=default_nodata,
+                casting=casting,
+            )
         elif isinstance(raster, rasterio.DatasetReader):
-            raster = Raster.from_rasterio(raster, name, isbool=isbool)
+            raster = Raster.from_rasterio(
+                raster,
+                name,
+                isbool=isbool,
+                ensure_nodata=ensure_nodata,
+                default_nodata=default_nodata,
+                casting=casting,
+            )
         elif isinstance(raster, PyshedsRaster):
             raster = Raster.from_pysheds(raster, name, isbool=isbool)
         elif isinstance(raster, np.ndarray):
-            raster = Raster.from_array(raster, name, isbool=isbool)
+            raster = Raster.from_array(
+                raster,
+                name,
+                isbool=isbool,
+                nodata=default_nodata,
+                ensure_nodata=ensure_nodata,
+                casting=casting,
+            )
 
         # Error if the input is not recognized
         elif not isinstance(raster, Raster):
@@ -574,6 +612,9 @@ class Raster:
         band: int = 1,
         isbool: bool = False,
         bounds: Optional[BoundsInput] = None,
+        ensure_nodata: bool = True,
+        default_nodata: Optional[scalar] = None,
+        casting: str = "safe",
     ) -> Self:
         """
         Builds a Raster object from a file-based dataset
@@ -584,7 +625,9 @@ class Raster:
         the file cannot be located. Loads file data when building the object
         By default, loads all data from band 1, but see below for additional options.
         The name input can be used to provide an optional name for the raster,
-        defaults to "raster" if unset.
+        defaults to "raster" if unset. By default, if the file does not have a
+        NoData value, then selects a default value based on the dtype. See below
+        for other NoData options.
 
         Also, by default the method will attempt to use the file extension to
         detect the file format driver used to read data from the file. Raises an
@@ -641,6 +684,17 @@ class Raster:
         doesn't use chunks (rare, but possible), then the entire raster will be
         read into memory before filling the window. In practice, it's important
         to chunk the data you use for applications.
+
+        Raster.from_file(..., *, default_nodata)
+        Raster.from_file(..., *, default_nodata, casting)
+        Raster.from_file(..., *, ensure_nodata=False)
+        Specifies additional options for NoData values. By default, if the raster
+        file does not have a NoData value, then this routine will set a default
+        NoData value based on the dtype of the raster. Set ensure_nodata=False to
+        disable this behavior. Alternatively, you can use the "default_nodata" option
+        to specify a different default NoData value. The default nodata value should
+        be safely castable to the raster dtype, or use the "casting" option to
+        specify other casting rules.
         ----------
         Inputs:
             path: A path to a file-based raster dataset
@@ -651,6 +705,13 @@ class Raster:
                 False (default) to leave the raster as the original dtype.
             window: Only loads a subset of the saved raster. Either a Raster, or
                 a vector of 4 positive integers.
+            ensure_nodata: True (default) to assign a default NoData value based
+                on the raster dtype if the file does not record a NoData value.
+                False to leave missing NoData as None.
+            default_nodata: The default NoData value to use if the raster file is
+                missing one. Overrides any default determined from the raster's dtype.
+            casting: The casting rule to use when converting the default NoData
+                value to the raster's dtype.
 
         Outputs:
             Raster: A Raster object for the file-based dataset
@@ -675,8 +736,11 @@ class Raster:
                 bounds, crs, transform = window.build(file, bounds)
             values = file.read(band, window=bounds)
 
-        # Return Raster, optionally converting to boolean
-        return Raster._create(name, values, crs, transform, nodata, "unsafe", isbool)
+        # Return Raster, optionally converting to boolean and adding nodata
+        raster = Raster._create(name, values, crs, transform, nodata, "unsafe", isbool)
+        if ensure_nodata:
+            raster.ensure_nodata(default_nodata, casting)
+        return raster
 
     @staticmethod
     def from_rasterio(
@@ -686,6 +750,9 @@ class Raster:
         band: int = 1,
         isbool: bool = False,
         bounds: Optional[BoundsInput] = None,
+        ensure_nodata: bool = True,
+        default_nodata: Optional[scalar] = None,
+        casting: str = "safe",
     ) -> Self:
         """
         from_rasterio  Builds a raster from a rasterio.DatasetReader
@@ -735,6 +802,17 @@ class Raster:
         doesn't use chunks (rare, but possible), then the entire raster will be
         read into memory before filling the window. In practice, it's important
         to chunk the data you use for applications.
+
+        Raster.from_rasterio(..., *, default_nodata)
+        Raster.from_rasterio(..., *, default_nodata, casting)
+        Raster.from_rasterio(..., *, ensure_nodata=False)
+        Specifies additional options for NoData values. By default, if the raster
+        file does not have a NoData value, then this routine will set a default
+        NoData value based on the dtype of the raster. Set ensure_nodata=False to
+        disable this behavior. Alternatively, you can use the "default_nodata" option
+        to specify a different default NoData value. The default nodata value should
+        be safely castable to the raster dtype, or use the "casting" option to
+        specify other casting rules.
         ----------
         Inputs:
             reader: A rasterio.DatasetReader associated with a raster dataset
@@ -744,6 +822,13 @@ class Raster:
                 False (default) to leave the raster as the original dtype.
             window: Limits loaded values to a subset of the saved raster. Either
                 a Raster, or a vector of 4 positive integers.
+            ensure_nodata: True (default) to assign a default NoData value based
+                on the raster dtype if the file does not record a NoData value.
+                False to leave missing NoData as None.
+            default_nodata: The default NoData value to use if the raster file is
+                missing one. Overrides any default determined from the raster's dtype.
+            casting: The casting rule to use when converting the default NoData
+                value to the raster's dtype.
 
         Outputs:
             Raster: The new Raster object
@@ -765,7 +850,15 @@ class Raster:
 
         # Use the file factory with the recorded driver
         return Raster.from_file(
-            path, name, isbool=isbool, driver=reader.driver, band=band, bounds=bounds
+            path,
+            name,
+            isbool=isbool,
+            driver=reader.driver,
+            band=band,
+            bounds=bounds,
+            ensure_nodata=ensure_nodata,
+            default_nodata=default_nodata,
+            casting=casting,
         )
 
     @staticmethod
@@ -834,18 +927,19 @@ class Raster:
         name: Optional[str] = None,
         *,
         nodata: Optional[scalar] = None,
-        transform: Optional[Affine] = None,
         crs: Optional[CRS | Any] = None,
+        transform: Optional[Affine] = None,
         spatial: Optional[Self] = None,
         casting: Casting = "safe",
         isbool: bool = False,
+        ensure_nodata: bool = True,
     ) -> Self:
         """
         from_array  Add raster metadata to a raw numpy array
         ----------
         Raster.from_array(array, name)
-        Initializes a Raster object from a raw numpy array. The NoData value,
-        transform, and crs for the returned object will all be None. The raster
+        Initializes a Raster object from a raw numpy array. Infers a NoData value
+        from the dtype of the array. The Transform and CRS will both be None. The raster
         name can be returned using the ".name" property and is used to identify
         the raster in error messages. Defaults to 'raster' if unset. Note that
         the new Raster object holds a copy of the input array, so changes to the
@@ -868,23 +962,14 @@ class Raster:
         By default, transform and crs properties from the template will be copied
         to the new raster. However, see below for a syntax to override this behavior.
 
-        Raster.from_array(..., *, transform)
         Raster.from_array(..., *, crs)
-        Specifies the crs and/or transform that should be associated with the
-        raster. If used in conjunction with the "spatial" option, then any keyword
-        options will take precedence over the metadata in the spatial template.
-
-        The transform specifies the affine transformation used to map pixel indices
-        to spatial points, and should be an affine.Affine object. Common ways
-        to obtain such an object are using the ".transform" property from rasterio
-        and Raster objects, via the ".affine" property of pysheds rasters, or via
-        the Affine class itself.
-
-        The crs is the coordinate reference system used to locate spatial points.
-        This input should a rasterio.crs.CRS object, or convertible to such an
-        object. CRS objects can be obtained using the ".crs" property from rasterio
-        or Raster objects, and see also the rasterio documentation for building
-        these objects from formats such as well-known text (WKT) and PROJ4 strings.
+        Raster.from_array(..., *, transform)
+        Raster.from_array(..., *, bounds)
+        Specifies the crs, transform, and/or bounding box that should be associated
+        with the raster. If used in conjunction with the "spatial" option, then
+        any keyword options will take precedence over the metadata in the spatial
+        template. Also note that you cannot provide both the transform and bounds
+        options - at least one of the two must be None.
 
         Raster.from_array(..., *, isbool=True)
         Indicates that the raster represents a boolean array, regardless of the
@@ -893,6 +978,10 @@ class Raster:
         this option, all data pixels in the original file must be equal to 0 or
         1. NoData pixels in the file will be converted to False, regardless of
         their value.
+
+        Raster.from_array(..., *, ensure_nodata=False)
+        Disables the use of default NoData values. The returned raster's nodata
+        value will be None unless the "nodata" option is specified.
         ----------
         Inputs:
             array: A 2D numpy array whose data values represent a raster
@@ -903,14 +992,20 @@ class Raster:
                 "safe" (default), "same_kind", and "unsafe".
             spatial: A Raster object to use as a default spatial metadata template
                 for the new Raster.
-            transform: An affine transformation for the raster (affine.Affine)
-            crs: A coordinate reference system for the raster (rasterio.crs.CRS)
+            crs: A coordinate reference system for the raster
+            transform: An affine transformation for the raster
+            bounds: A BoundingBox for the raster
             isbool: True to convert the raster to a boolean array, with nodata=False.
                 False (default) to leave the raster as the original dtype.
+            ensure_nodata: True (default) to infer a default NoData value from the
+                raster's dtype when a NoData value is not provided. False to
+                disable this behavior.
 
         Outputs:
             Raster: A raster object for the array-based raster dataset
         """
+
+        # Parse bounds and transform. Convert bounds to transform
 
         # Validate metadata. Parse from template and keyword options
         crs, transform, nodata = validate.metadata(crs, transform, nodata, casting)
@@ -920,7 +1015,7 @@ class Raster:
 
         # Copy array and build the object
         values = np.array(array, copy=True)
-        return Raster._create(
+        raster = Raster._create(
             name,
             values,
             crs,
@@ -929,6 +1024,11 @@ class Raster:
             casting,
             isbool,
         )
+
+        # Optionally set NoData and return the Raster.
+        if ensure_nodata:
+            raster.ensure_nodata()
+        return raster
 
     #####
     # From vector features
@@ -1195,6 +1295,91 @@ class Raster:
         return Raster._from_array(
             raster, crs=crs, transform=transform, nodata=nodata, bounds=bounds
         )
+
+    #####
+    # Metadata Manipulation
+    #####
+
+    def ensure_nodata(
+        self, default: Optional[scalar] = None, casting: str = "safe"
+    ) -> None:
+        """
+        Ensures a raster has a NoData value, setting a default value if missing
+        ----------
+        self.ensure_nodata()
+        Checks if the raster has a NoData value. If so, no action is taken. If
+        not, then sets the NoData value to a default determined by the raster's
+        dtype.
+
+        self.ensure_nodata(default)
+        self.ensure_nodata(default, casting)
+        Specifies the default NoData value to use if the raster does not have NoData.
+        By default, the NoData value must be safely castable to the dtype of the
+        raster. Use the "casting" option to select other casting rules.
+        ----------
+        Inputs:
+            default: A default NoData value. This will override the default value
+                determined automatically from the raster dtype.
+            casting: The type of data casting allowed to occur when converting a
+                NoData value to the dtype of the Raster. Options are "no", "equiv",
+                "safe" (default), "same_kind", and "unsafe".
+        """
+
+        # Just exit is there's already a NoData value
+        if self.nodata is not None:
+            return
+
+        # Parse the default and update the NoData
+        if default is None:
+            default = default_nodata(self.dtype)
+        else:
+            default = validate.nodata(default, casting, self.dtype)
+        self._finalize(self.values, self.crs, self.transform, default)
+
+    def override(
+        self,
+        *,
+        crs: Optional[CRSInput] = None,
+        transform: Optional[TransformInput] = None,
+        nodata: Optional[scalar] = None,
+        casting: Casting = "safe",
+    ):
+        """
+        Overrides current metadata values
+        ----------
+        self.override(*, crs)
+        self.override(*, transform)
+        self.override(*, nodata)
+        self.override(*, nodata, casting)
+        Overrides current metadata values and replaces them with new values. The
+        new values must still be valid metadata. For example, the new CRS must be
+        convertible to a rasterio CRS object, the nodata value must be a scalar,
+        etc. By default, requires safe nodata casting - use the casting input to
+        specify a different casting rule.
+
+        IMPORTANT: Only use this method if you know what you're doing! This command
+        replaces existing metadata values, but does not ensure that those values
+        are correct. For example, overriding the CRS **will not** reproject
+        the raster. It will merely replace the CRS metadata. As such, incorrect
+        usage of this command will result in rasters with incorrect georeferencing
+        and/or incorrect data masks. Most users should not use this method.
+        ----------
+        Inputs:
+            crs: New CRS metadata for the raster
+            transform: A new affine transform for the raster
+            nodata: A new NoData value for the raster
+            casting: The type of data casting allowed to occur when converting a
+                NoData value to the dtype of the Raster. Options are "no", "equiv",
+                "safe" (default), "same_kind", and "unsafe".
+        """
+
+        if crs is None:
+            crs = self.crs
+        if transform is None:
+            transform = self.transform
+        if nodata is None:
+            nodata = self.nodata
+        self._finalize(self.values, crs, transform, nodata, casting)
 
     #####
     # Metadata Parsing

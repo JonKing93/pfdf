@@ -192,6 +192,7 @@ class TestCondition:
                 [0, 0, 0, 0, 0],
             ]
         )
+        dem = Raster.from_array(dem, nodata=0)
         expected = np.array(
             [
                 [-inf, -inf, -inf, -inf, -inf],
@@ -303,6 +304,10 @@ class TestFlow:
         dem = watershed.condition(dem)
         flow = watershed.flow(dem)
         assert isinstance(flow, Raster)
+
+        print(flow.values)
+        print(expected)
+
         assert np.array_equal(flow.values, expected)
         assert flow.nodata == 0
         assert flow.crs is None

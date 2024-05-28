@@ -2,7 +2,7 @@
 staley2017  Implements the logistic regression models presented in Staley et al., 2017
 ----------
 This module implements the logistic regression models presented in Staley et al., 2017 
-(see citation below). These models describe debris-flow probability as a function 
+(see citation below). These models describe debris-flow likelihood as a function 
 of terrain (T), fire burn severity (F), soil (S), and rainfall accumulation (R).
 The models can also be inverted to solve for rainfall accumulation given debris-flow
 probability.
@@ -19,7 +19,7 @@ Geomorphology, 278, 149-162.
 https://doi.org/10.1016/j.geomorph.2016.10.019
 ----------
 Key Functions:
-    probability         - Solves for debris-flow probabilities given rainfall accumulations
+    likelihood          - Solves for debris-flow likelihoods given rainfall accumulations
     accumulation        - Solves for the rainfall accumulations needed to achieve given probability levels
 
 Model Classes:
@@ -81,6 +81,7 @@ def accumulation(
     S: Variables,
     *,
     keepdims: bool = False,
+    screen: bool = True,
 ) -> SegmentAccumulations:
     """
     accumulation  Computes rainfall accumulations needed for specified debris-flow probability levels
@@ -131,7 +132,8 @@ def accumulation(
     dimension is p-values. If only a single p-value is provided, the output is
     returned as a 2D array. If there is a single parameter run and a single p-value,
     then output is returned as a 1D array. (Or see below for an option that always
-    returns a 3D array).
+    returns a 3D array). By default, the routine screens out unphysical negative
+    accumulations and replaces them with nan. See below to disable this screening.
 
     As mentioned, one or more variable can also be a 2D array. In this case
     each row is a stream segment, and each column is a parameter run. Each
@@ -143,6 +145,10 @@ def accumulation(
     accumulation(..., *, keepdims = True)
     Always returns the output as a 3D numpy array, regardless of the number
     of p-values and parameter runs.
+
+    accumulation(..., *, screen = False)
+    Disables the screening of negative accumulations. When screening is disabled,
+    negative accumulations are retained in the output.
     ----------
     Inputs:
         p: The probabilities for which to solve the model
@@ -156,6 +162,8 @@ def accumulation(
         keepdims: True to always return a 3D numpy array. If false (default),
             returns a 2D array when there is 1 p-value, and a 1D array if there
             is 1 p-value and 1 parameter run.
+        screen: True (default) to replace negative accumulations with NaN. False
+            to disable this screening.
 
     Outputs:
         numpy 3D array (Segments x Parameter Runs x P-values): The rainfall
@@ -166,14 +174,21 @@ def accumulation(
     p, B, Ct, Cf, Cs, T, F, S = _validate(p, "p", B, Ct, Cf, Cs, T, F, S)
     validate.inrange(p, "p", min=0, max=1, ignore=np.nan)
 
-    # Solve the model. Optionally remove trailing singleton dimensions
+    # Solve the model
     numerator = np.log(p / (1 - p)) - B
     denominator = Ct * T + Cf * F + Cs * S
     accumulation = numerator / denominator
+
+    # Optionally screen negative values and remove trailing dimensions
+    if screen:
+        negative = accumulation < 0
+        if np.any(negative):
+            accumulation = accumulation.astype(float)
+            accumulation[negative] = np.nan
     return clean_dims(accumulation, keepdims)
 
 
-def probability(
+def likelihood(
     R: Accumulations,
     B: Parameters,
     Ct: Parameters,
@@ -182,14 +197,13 @@ def probability(
     F: Variables,
     Cs: Parameters,
     S: Variables,
-    *,
     keepdims: bool = False,
 ) -> SegmentPvalues:
     """
-    probability  Computes debris-flow probability for the specified rainfall durations
+    likelihood  Computes debris-flow likelihood for specified rainfall accumulations
     ----------
     probability(R, B, Ct, T, Cf, F, Cs, S)
-    Solves the debris-flow probabilities for the specified rainfall accumulations.
+    Solves the debris-flow likelihoods for the specified rainfall accumulations.
     This function is agnostic to the actual model being run, and thus can
     implement all 4 of the models presented in the paper (as well as any other
     model following the form of Equation 1).
@@ -244,7 +258,7 @@ def probability(
     case could be testing the model using different datasets to derive one or
     more variables.
 
-    probability(..., *, keepdims = True)
+    likelihood(..., *, keepdims = True)
     Always returns the output as a 3D numpy array, regardless of the number
     of R values and parameter runs.
     ----------
@@ -262,17 +276,17 @@ def probability(
             is 1 R value and 1 parameter run.
 
     Outputs:
-        numpy 3D array (Segments x Parameter Runs x R values): The computed probability levels
+        numpy 3D array (Segments x Parameter Runs x R values): The estimated likelihoods
     """
 
     # Validate and reshape for broadcasting.
     R, B, Ct, Cf, Cs, T, F, S = _validate(R, "R", B, Ct, Cf, Cs, T, F, S)
     validate.positive(R, "R", allow_zero=True, ignore=np.nan)
 
-    # Solve the model. Optionally remove trailing singletons
+    # Solve the model. Optionally remove trailing dimensions
     eX = np.exp(B + Ct * T * R + Cf * F * R + Cs * S * R)
-    probability = eX / (1 + eX)
-    return clean_dims(probability, keepdims)
+    likelihood = eX / (1 + eX)
+    return clean_dims(likelihood, keepdims)
 
 
 def _validate(PR, PRname, B, Ct, Cf, Cs, T, F, S):

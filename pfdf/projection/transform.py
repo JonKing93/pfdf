@@ -6,7 +6,7 @@ Class:
 """
 
 from math import sqrt
-from typing import Optional, Self
+from typing import Any, Optional, Self
 
 from affine import Affine
 
@@ -43,7 +43,13 @@ class Transform(_Locator):
     See the "bounds" method to implement this functionality.
     ----------
     PROPERTIES:
+    CRS:
         crs             - The coordinate reference system (pyproj.crs or None)
+        units           - The units along the X and Y axes
+        xunit           - The X axis unit
+        yunit           - The Y axis unit
+
+    Misc:
         affine          - The affine.Affine object for the Transform
         left            - The spatial coordinate of the left edge
         top             - The spatial coordinate of the top edge
@@ -68,6 +74,11 @@ class Transform(_Locator):
         pixel_area      - The area of a pixel
         pixel_diagonal  - The length of a pixel diagonal
 
+    Units Per Meter:
+        units_per_m     - The number of CRS units per meter along the X and Y axes
+        x_units_per_m   - The number of X axis units per meter
+        y_units_per_m   - The number of Y axis units per meter
+
     BoundingBox conversion:
         right           - Computes the right edge, given a number of columns
         bottom          - Computes the bottom edge, given a number of rows
@@ -80,7 +91,10 @@ class Transform(_Locator):
         tolist          - Returns a transform as a list
         todict          - Returns a transform as a dict
 
-    Internal:
+    Testing:
+        isclose         - True if an input is a Transform with similar values
+
+    INTERNAL:
         _edge           - Computes the location of a bounding edge
         _format         - Ensures the Transform for a bounded dataset matches a template CRS
     """
@@ -209,6 +223,16 @@ class Transform(_Locator):
     # Resolution
     #####
 
+    @staticmethod
+    def _validate_y(y: Any | None) -> float | None:
+        "Checks that y is valid for unit conversion"
+        if y is None:
+            return None
+        else:
+            y = validate.scalar(y, "y", dtype=real)
+            validate.finite(y, "y")
+            return y
+
     def dx(self, meters: bool = False, y: Optional[float] = None) -> float:
         """
         Return the change in X coordinate when moving one pixel right
@@ -237,9 +261,7 @@ class Transform(_Locator):
 
         # Validate y and meters conversion
         self._validate_conversion(meters, "dx")
-        if y is not None:
-            y = validate.scalar(y, "y", dtype=real)
-            validate.finite(y, "y")
+        y = self._validate_y(y)
 
         # Compute dx, converting to meters as appropriate
         dx = self._dx
@@ -411,6 +433,76 @@ class Transform(_Locator):
         return sqrt(xres**2 + yres**2)
 
     #####
+    # Units per meter
+    #####
+
+    def x_units_per_m(self, y: Optional[float] = None) -> float | None:
+        """
+        Returns the number of X axis units per meter
+        ----------
+        self.x_units_per_m()
+        self.x_units_per_m(y)
+        Returns the number of X axis units per meter. None if the Transform does
+        not have a CRS. If the Transofrm uses an angular (geographic) CRS, converts
+        units to meters as if along the equator. Use the "y" input to specify a
+        different latitude for meters conversion. Note that y should be in the
+        base units of the CRS.
+        ----------
+        Inputs:
+            y: An optional Y coordinate (in the units of the CRS) indicating the
+                latitude at which meters converson is assessed. Ignored if the
+                CRS is not angular (geographic). Defaults to the equator.
+
+        Outputs:
+            float | None: The number of X axis units per meter
+        """
+        y = self._validate_y(y)
+        return _crs.x_units_per_m(self.crs, y)
+
+    def y_units_per_m(self) -> float | None:
+        """
+        Returns the number of Y units per meter
+        ----------
+        self.y_units_per_m()
+        Returns the number of Y axis units per meter, or None if the Transform
+        does not have a CRS.
+        ----------
+        Outputs:
+            float | None: The number of Y axis units per meter.
+        """
+
+        # Converting from property to function for consistency with x_per_m
+        return super(Transform, self).y_units_per_m
+
+    def units_per_m(
+        self, y: Optional[float] = None
+    ) -> tuple[float, float] | tuple[None, None]:
+        """
+        Returns the number of units per meter along the X and Y axes
+        ----------
+        self.units_per_m()
+        self.units_per_m(y)
+        Returns the number of CRS axis units per meter. None if the Transform does
+        not have a CRS. Otherwise, returns a tuple with the values for the X and
+        Y axes, respectively. If the Transform uses an angular (geographic) CRS,
+        converts units to meters as if along the equator. Use the "y" input to
+        specify a different latitude for meters conversion. Note that y should be
+        in the units of the CRS.
+        ----------
+        Inputs:
+            y: An optional Y coordinate (in the units of the CRS) indicating the
+                latitude at which meters conversion is assessed. Ignored if the
+                CRS is not angular (geographic). Defaults to the equator.
+
+        Outputs:
+            (float, float) | (None, None): The conversion factors for the X and Y axes,
+                or None if the Transform does not have a CRS
+        """
+        x = self.x_units_per_m(y)
+        y = self.y_units_per_m()
+        return x, y
+
+    #####
     # Bounds Conversion
     #####
 
@@ -510,7 +602,6 @@ class Transform(_Locator):
         "Ensures the Transform for a bounded datasets matches a template CRS"
         if _crs.different(self.crs, crs):
             bounds = bounds.reproject(self.crs)
-            _, y = bounds.center
-            return self.reproject(crs, y)
+            return self.reproject(crs, bounds.center_y)
         else:
             return self

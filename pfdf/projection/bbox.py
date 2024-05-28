@@ -9,6 +9,7 @@ from math import isfinite
 from statistics import mean
 from typing import Any, Callable, Optional, Self
 
+import numpy as np
 import rasterio.warp
 from pyproj import CRS
 
@@ -86,10 +87,24 @@ class BoundingBox(_Locator):
         ys              - A (bottom, top) tuple
         bounds          - A (left, bottom, right, top) tuple
 
-    Misc:
+    CRS:
         crs             - Coordinate reference system (pyproj.CRS or None)
-        orientation     - The Cartesian quadrant of the box's orientation
+        units           - The units of the X and Y axes
+        xunit           - The unit of the CRS X axis
+        yunit           - The unit of the CRS Y axis
+
+    Units per meter:
+        units_per_m     - The number of CRS units per meter along the X and Y axes
+        x_units_per_m   - The number of CRS X units per meter
+        y_units_per_m   - The number of CRS Y units per meter
+
+    Center:
         center          - The (X, Y) coordinate of the box's center
+        center_x        - The X coordinate of the box's center
+        center_y        - The Y coordinate of the box's center
+
+    Orientation:
+        orientation     - The Cartesian quadrant of the box's orientation
 
     METHODS:
     Object Creation:
@@ -127,7 +142,10 @@ class BoundingBox(_Locator):
         tolist          - Returns the box as a list
         todict          - Returns the box as a dict
 
-    Internal:
+    Testing:
+        isclose         - True if an input is a BoundingBox with similar values
+
+    INTERNAL:
         _inversion      - True if an axis requires inversion
         _buffer_edges   - Computes buffered edges, accounting for orientation
         _delta          - Computes dx and dy
@@ -198,6 +216,23 @@ class BoundingBox(_Locator):
         "A (left, bottom, right, top) tuple"
         return self.left, self.bottom, self.right, self.top
 
+    ##### Center
+
+    @property
+    def center_x(self) -> float:
+        "The X coordinate of the BoundingBox's center"
+        return np.mean(self.xs)
+
+    @property
+    def center_y(self) -> float:
+        "The Y coordinate of the BoundingBox's center"
+        return np.mean(self.ys)
+
+    @property
+    def center(self) -> tuple[float, float]:
+        "The (X, Y) coordinate of the BoundingBox's center"
+        return self.center_x, self.center_y
+
     ##### Misc
 
     @property
@@ -208,9 +243,16 @@ class BoundingBox(_Locator):
         return self._orientation(xinverted, yinverted)
 
     @property
-    def center(self) -> tuple[float, float]:
-        "The (X, Y) coordinate of the box's center"
-        return mean(self.xs), mean(self.ys)
+    def x_units_per_m(self) -> float | None:
+        "The number of X axis units per meter"
+        return _crs.x_units_per_m(self.crs, self.center_y)
+
+    @property
+    def units_per_m(self) -> tuple[float, float] | tuple[None, None]:
+        "The number of CRS units per meter for the X and Y axes"
+        x = self.x_units_per_m
+        y = self.y_units_per_m
+        return x, y
 
     #####
     # Box Lengths
@@ -239,8 +281,7 @@ class BoundingBox(_Locator):
         self._validate_conversion(meters, "xdisp")
         xdisp = self.right - self.left
         if meters:
-            _, y = self.center
-            xdisp = _crs.dx_to_meters(self.crs, xdisp, y)
+            xdisp = _crs.dx_to_meters(self.crs, xdisp, self.center_y)
         return xdisp
 
     def ydisp(self, meters: bool = False) -> float:

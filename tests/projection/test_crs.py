@@ -262,6 +262,40 @@ class TestBuffersFromMeters:
 
 
 #####
+# Unit Info
+#####
+
+
+class TestUnits:
+    def test_none(_):
+        assert _crs.units(None) == (None, None)
+
+    def test_linear(_):
+        assert _crs.units(CRS(26911)) == ("metre", "metre")
+
+    def test_angular(_):
+        assert _crs.units(CRS(4326)) == ("degree", "degree")
+
+
+class TestUnitsPerM:
+    def test_none(_):
+        assert _crs.units_per_m(None, None) == (None, None)
+
+    def test_linear(_):
+        assert _crs.units_per_m(CRS(26911), None) == (1, 1)
+
+    def test_angular_default(_):
+        output = _crs.units_per_m(CRS(4326), None)
+        expected = (8.993216059187306e-06, 8.993216059187306e-06)
+        assert np.allclose(output, expected)
+
+    def test_angular_y(_):
+        output = _crs.units_per_m(CRS(4326), 30)
+        expected = (1.0384471425304483e-05, 8.993216059187306e-06)
+        assert np.allclose(output, expected)
+
+
+#####
 # Misc
 #####
 
