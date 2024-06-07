@@ -346,7 +346,7 @@ class Raster:
         ----------
         self.dx()
         self.dx(base_unit=True)
-        Returns the change in Y-axis spatial coordinate when moving one pixel 
+        Returns the change in Y-axis spatial coordinate when moving one pixel
         down. By default, returns dy in meters. Set base_unit=True to return
         dy in the base unit of the raster's CRS/Transform.
         ----------
@@ -2276,4 +2276,4 @@ class Raster:
 #####
 # Type Hints
 #####
-RasterInput = str | Path | rasterio.DatasetReader | MatrixArray | Raster | PyshedsRaster""
+RasterInput = str | Path | rasterio.DatasetReader | MatrixArray | Raster | PyshedsRaster
