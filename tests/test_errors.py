@@ -19,6 +19,7 @@ from pfdf.errors import (
     RasterTransformError,
     ShapeError,
     TransformError,
+    handle_memory_error,
 )
 
 
@@ -74,3 +75,31 @@ def test_features_error(error):
     message = "test message"
     error = error(message)
     check(error, message, FeaturesError)
+
+
+class TestHandleMemoryError:
+    def test_memory(_, assert_contains):
+        a = MemoryError("test")
+        message = "more info"
+        with pytest.raises(MemoryError) as error:
+            handle_memory_error(a, message)
+        assert_contains(error, message)
+
+    def test_value(_, assert_contains):
+        a = ValueError("Maximum allowed dimension exceeded")
+        message = "more info"
+        with pytest.raises(MemoryError) as error:
+            handle_memory_error(a, message)
+        assert_contains(error, message)
+
+    def test_unrecognized_value(_, assert_contains):
+        a = ValueError("Some other issue")
+        with pytest.raises(ValueError) as error:
+            handle_memory_error(a, "memory info")
+        assert_contains(error, "Some other issue")
+
+    def test_other(_, assert_contains):
+        a = TypeError("Some other issue")
+        with pytest.raises(TypeError) as error:
+            handle_memory_error(a, "memory info")
+        assert_contains(error, "Some other issue")

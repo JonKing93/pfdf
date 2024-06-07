@@ -13,6 +13,7 @@ from pfdf.errors import (
     CRSError,
     DimensionError,
     MissingCRSError,
+    MissingNoDataError,
     MissingTransformError,
     RasterCRSError,
     RasterShapeError,
@@ -601,6 +602,17 @@ class TestFromArray:
         assert output.transform is None
         assert output.crs is None
 
+    def test_copy(_, araster):
+        output = Raster.from_array(araster)
+        assert isinstance(output, Raster)
+        assert np.array_equal(output.values, araster)
+        assert output.values.base is not araster
+
+    def test_no_copy(_, araster):
+        output = Raster.from_array(araster, copy=False)
+        assert isinstance(output, Raster)
+        assert output.values.base is araster
+
     def test_with_metadata(_, araster, transform, crs):
         output = Raster.from_array(
             araster, name="test", nodata=-999, transform=transform, crs=crs
@@ -633,16 +645,16 @@ class TestFromArray:
         assert output.transform.affine == transform.affine
         assert output.crs == crs
 
-    def test_spatial_override(_, araster, fraster, transform):
+    def test_spatial_override(_, araster, fraster):
         template = Raster(fraster)
-        crs = CRS(4326)
-        output = Raster.from_array(araster, spatial=template, crs=crs)
+        transform = Transform(1, 2, 3, 4)
+        output = Raster.from_array(araster, spatial=template, transform=transform)
         assert isinstance(output, Raster)
         assert np.array_equal(output.values, araster)
         assert output.name == "raster"
         assert np.isnan(output.nodata)
         assert output.transform.affine == transform.affine
-        assert output.crs == crs
+        assert output.crs == template.crs
 
     def test_nodata_not_scalar(_, araster, assert_contains):
         nodata = [1, 2]
@@ -690,12 +702,53 @@ class TestFromArray:
         raster = Raster.from_array(araster, ensure_nodata=False)
         assert raster.nodata is None
 
+    def test_bounds_and_transform(_, araster, assert_contains):
+        with pytest.raises(ValueError) as error:
+            Raster.from_array(araster, transform=1, bounds=2)
+        assert_contains(
+            error,
+            'You cannot specify both "transform" and "bounds" metadata. The two inputs are mutually exclusive.',
+        )
 
-class Test_FromArray:
-    def test(_, araster):
-        raster = Raster._from_array(araster, crs=None, transform=None, nodata=None)
-        assert raster._values.base is araster
-        assert raster._values.flags.writeable == False
+    def test_bounds(_, araster, transform):
+        bounds = transform.bounds(*araster.shape)
+        raster = Raster.from_array(araster, bounds=bounds)
+        assert transform.isclose(raster.transform)
+        assert raster.bounds == bounds
+        assert np.array_equal(raster.values, araster)
+
+    def test_inherit_crs(_, araster):
+        transform = Transform(1, 2, 3, 4, 26911)
+        raster = Raster.from_array(araster, transform=transform)
+        assert raster.crs == CRS(26911)
+        bounds = BoundingBox(1, 2, 3, 4, 26911)
+        raster = Raster.from_array(araster, bounds=bounds)
+        assert raster.crs == CRS(26911)
+
+    def test_reproject_transform(_, araster):
+        transform = Transform(1, 1, 0, 0, 26911)
+        raster = Raster.from_array(araster, crs=4326, transform=transform)
+        assert raster.crs == CRS(4326)
+        expected = Transform(
+            dx=8.958996673413822e-06,
+            dy=9.019375921135681e-06,
+            left=-121.48874388438703,
+            top=0.0,
+            crs=4326,
+        )
+        assert raster.transform.isclose(expected)
+
+    def test_reproject_bounds(_, araster):
+        bounds = BoundingBox(0, 0, 100, 100, 26911)
+        raster = Raster.from_array(araster, crs=4326, bounds=bounds)
+        expected = BoundingBox(
+            left=-121.48874388494063,
+            bottom=2.786575690246623e-10,
+            right=-121.4878479834734,
+            top=0.0009019375809660552,
+            crs=4326,
+        )
+        assert raster.bounds.isclose(expected)
 
 
 #####
@@ -725,6 +778,15 @@ class TestFromPoints:
             ]
         )
         assert np.array_equal(raster.values, expected)
+
+    def test_memory(_, points, assert_contains):
+        with pytest.raises(MemoryError) as error:
+            Raster.from_points(points, resolution=1e-20)
+        assert_contains(
+            error,
+            "requested array is too large",
+            'Try increasing the "resolution" input',
+        )
 
     def test_multipoints(_, multipoints, crs):
         raster = Raster.from_points(multipoints)
@@ -892,6 +954,15 @@ class TestFromPolygons:
             ],
         )
         assert np.array_equal(raster.values, expected)
+
+    def test_memory(_, polygons, assert_contains):
+        with pytest.raises(MemoryError) as error:
+            Raster.from_polygons(polygons, resolution=1e-20)
+        assert_contains(
+            error,
+            "requested array is too large",
+            'Try increasing the "resolution" input',
+        )
 
     def test_multipolygons(_, multipolygons, crs):
         raster = Raster.from_polygons(multipolygons)
@@ -1112,6 +1183,11 @@ class TestOverride:
         raster.override(transform=(1, 2, 3, 4))
         assert raster.transform == Transform(1, 2, 3, 4, crs)
 
+    def test_bounds(_, fraster, crs):
+        raster = Raster(fraster)
+        raster.override(bounds=(0, 0, 100, 100))
+        assert raster.bounds == BoundingBox(0, 0, 100, 100, crs)
+
     def test_nodata(_, fraster):
         raster = Raster(fraster)
         assert raster.nodata != 5
@@ -1143,37 +1219,60 @@ class TestOverride:
 #####
 
 
-class TestParseNodata:
-    def test_none(_, araster, assert_contains):
-        raster = Raster.from_array(araster, ensure_nodata=False)
-        with pytest.raises(ValueError) as error:
-            raster._parse_nodata(None, "unsafe")
-        assert_contains(error, "raster does not have a NoData value")
+class TestParseProjection:
+    def test_none(_):
+        crs = CRS(4326)
+        projection = None
+        assert Raster._parse_projection(crs, projection, (3, 4)) == (crs, None)
 
-    def test_both(_, araster, assert_contains):
-        raster = Raster.from_array(araster, nodata=5)
-        with pytest.raises(ValueError) as error:
-            raster._parse_nodata(6, "unsafe")
-        assert_contains(error, "the raster already has a NoData value")
+    def test_bounds(_):
+        crs = CRS(26911)
+        bounds = BoundingBox(0, 1, 100, 501, 26911)
+        outcrs, transform = Raster._parse_projection(crs, bounds, (10, 100))
+        assert outcrs == crs
+        assert transform == Transform(1, -50, 0, 501, 26911)
 
-    def test_self(_, araster):
-        raster = Raster.from_array(araster, nodata=5)
-        assert raster._parse_nodata(None, "unsafe") == 5
+    def test_transform(_):
+        crs = CRS(26911)
+        transform = Transform(10, 5, 0, 1)
+        outcrs, outtransform = Raster._parse_projection(crs, transform, (10, 100))
+        assert outcrs == crs
+        assert outtransform == transform
 
-    def test_user(_, araster):
-        raster = Raster.from_array(araster, ensure_nodata=False)
-        assert raster._parse_nodata(6, "unsafe") == 6
+    def test_inherit(_):
+        crs = None
+        transform = Transform(1, 2, 3, 4, 26911)
+        outcrs, outtransform = Raster._parse_projection(crs, transform, (10, 11))
+        assert outcrs == CRS(26911)
+        assert outtransform == transform
 
-    def test_invalid_user(_, araster):
-        raster = Raster.from_array(araster, ensure_nodata=False)
-        with pytest.raises(TypeError):
-            assert raster._parse_nodata("invalid", "unsafe")
+    def test_reproject_from_transform(_):
+        crs = CRS(4326)
+        transform = Transform(1, 2, 3, 4, 26911)
+        outcrs, outtra = Raster._parse_projection(crs, transform, (10, 5))
+        expected = Transform(
+            dx=8.958995962871086e-06,
+            dy=1.8038752956919747e-05,
+            left=-121.4887170073974,
+            top=3.607750457626307e-05,
+            crs=crs,
+        )
+        assert outcrs == crs
+        assert outtra.isclose(expected)
 
-    def test_invalid_casting(_, araster):
-        araster = araster.astype(int)
-        raster = Raster.from_array(araster, ensure_nodata=False)
-        with pytest.raises(TypeError):
-            assert raster._parse_nodata(2.2, "safe")
+    def test_reproject_from_bounds(_):
+        crs = CRS(4326)
+        bounds = BoundingBox(0, 0, 100, 500, 26911)
+        outcrs, outtra = Raster._parse_projection(crs, bounds, (10, 5))
+        expected = Transform(
+            dx=0.00017918258576798962,
+            dy=-0.0004509677872809176,
+            left=-121.48874389822696,
+            top=0.004509687904713325,
+            crs=crs,
+        )
+        assert outcrs == crs
+        assert outtra.isclose(expected)
 
 
 class TestParseTemplate:
@@ -1580,45 +1679,22 @@ class TestSetRange:
 
     def test_missing_nodata(_, araster, assert_contains):
         raster = Raster(araster, ensure_nodata=False)
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(MissingNoDataError) as error:
             raster.set_range(min=3, max=6, fill=True)
         assert_contains(error, "raster does not have a NoData value")
 
-    def test_extra_nodata(_, araster, assert_contains):
-        raster = Raster.from_array(araster, nodata=-999)
+    def test_invalid_exclusive(_, araster, assert_contains):
+        raster = Raster(araster)
         with pytest.raises(ValueError) as error:
-            raster.set_range(min=3, max=6, fill=True, nodata=0)
-        assert_contains(error, "raster already has a NoData value")
+            raster.set_range(min=0, exclusive=True)
+        assert_contains(error, "You can only set exclusive=True when fill=True.")
 
-    def test_set_nodata(_, araster):
-        raster = Raster(araster, ensure_nodata=False)
-        raster.set_range(min=3, max=6, fill=True, nodata=-999)
+    def test_exclusive(_, araster):
+        raster = Raster.from_array(araster, nodata=-999)
+        raster.set_range(min=3, max=6, fill=True, exclusive=True)
         expected = araster.copy()
-        expected[expected < 3] = -999
-        expected[expected > 6] = -999
-        assert np.array_equal(raster.values, expected)
-        assert raster.nodata == -999
-
-    def test_invalid_nodata(_, araster, assert_contains):
-        raster = Raster(araster, ensure_nodata=False)
-        with pytest.raises(TypeError) as error:
-            raster.set_range(min=3, fill=True, nodata="invalid")
-        assert_contains(error, "nodata")
-
-    def test_invalid_casting(_, araster, assert_contains):
-        araster = araster.astype(int)
-        raster = Raster(araster, ensure_nodata=False)
-        with pytest.raises(TypeError) as error:
-            raster.set_range(min=3, max=6, fill=True, nodata=2.2)
-        assert_contains(error, "NoData value", "cast", "safe")
-
-    def test_cast_nodata(_, araster):
-        araster = araster.astype(int)
-        raster = Raster(araster, ensure_nodata=False)
-        raster.set_range(min=3, max=6, fill=True, nodata=-999.1, casting="unsafe")
-        expected = araster.copy()
-        expected[expected < 3] = -999
-        expected[expected > 6] = -999
+        expected[expected <= 3] = -999
+        expected[expected >= 6] = -999
         assert np.array_equal(raster.values, expected)
         assert raster.nodata == -999
 
@@ -1641,6 +1717,15 @@ class TestBuffer:
 
         transform = Affine(0.03, 0, -4.09, 0, 0.03, -3.09)
         assert raster.transform.affine == transform
+
+    def test_memory(_, fraster, assert_contains):
+        raster = Raster(fraster)
+        with pytest.raises(MemoryError) as error:
+            raster.buffer(1e200)
+        assert_contains(
+            error,
+            "buffered array is too large for memory. Try decreasing the buffering distance.",
+        )
 
     def test_left(_, fraster, araster):
         raster = Raster(fraster)
@@ -1725,7 +1810,7 @@ class TestBuffer:
     def test_invert_transform(_, araster):
         transform = Affine(-0.03, 0, -4, 0, -0.03, -3)
         raster = Raster.from_array(araster, transform=transform, nodata=-999)
-        raster.buffer(distance=0.09)
+        raster.buffer(distance=0.09, units="base")
 
         values = np.full(
             (araster.shape[0] + 6, araster.shape[1] + 6), -999, dtype=raster.dtype
@@ -1779,49 +1864,9 @@ class TestBuffer:
 
     def test_missing_nodata(_, araster, transform, assert_contains):
         raster = Raster.from_array(araster, transform=transform, ensure_nodata=False)
-        with pytest.raises(ValueError) as error:
-            raster.buffer(distance=3)
+        with pytest.raises(MissingNoDataError) as error:
+            raster.buffer(distance=3, units="base")
         assert_contains(error, "does not have a NoData value")
-
-    def test_extra_nodata(_, fraster, assert_contains):
-        raster = Raster(fraster)
-        with pytest.raises(ValueError) as error:
-            raster.buffer(distance=3, nodata=0)
-        assert_contains(error, "raster already has a NoData value")
-
-    def test_nodata(_, araster):
-        raster = Raster(araster, ensure_nodata=False)
-        raster.buffer(distance=2, units="pixels", nodata=-999)
-        values = np.full((6, 8), -999, dtype=raster.dtype)
-        values[2:4, 2:6] = araster
-        assert np.array_equal(values, raster.values)
-
-    def test_invalid_nodata(_, araster, assert_contains):
-        raster = Raster(araster, ensure_nodata=False)
-        with pytest.raises(TypeError) as error:
-            raster.buffer(distance=2, nodata="invalid", units="pixels")
-        assert_contains(error, "nodata")
-
-    def test_invalid_casting(_, araster, assert_contains):
-        araster = araster.astype(int)
-        raster = Raster(araster, ensure_nodata=False)
-        with pytest.raises(TypeError) as error:
-            raster.buffer(distance=2, nodata=1.2, units="pixels")
-        assert_contains(error, "casting")
-
-    def test_invalid_casting_option(_, araster, assert_contains):
-        raster = Raster(araster, ensure_nodata=False)
-        with pytest.raises(ValueError) as error:
-            raster.buffer(distance=2, nodata=1.2, casting="invalid", units="pixels")
-        assert_contains(error, "casting", "safe", "unsafe", "no")
-
-    def test_change_casting(_, araster):
-        araster = araster.astype(int)
-        raster = Raster(araster, ensure_nodata=False)
-        raster.buffer(distance=2, units="pixels", nodata=-999.2, casting="unsafe")
-        values = np.full((6, 8), -999, dtype=raster.dtype)
-        values[2:4, 2:6] = araster
-        assert np.array_equal(values, raster.values)
 
     def test_0_buffer(_, fraster, assert_contains):
         raster = Raster(fraster)
@@ -1934,9 +1979,9 @@ class TestReproject:
             transform=Affine.identity(),
             ensure_nodata=False,
         )
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(MissingNoDataError) as error:
             raster.reproject(crs=CRS.from_epsg(26910))
-        assert_contains(error, "raster does not have a NoData value")
+        assert_contains(error, "does not have a NoData value")
 
     def test_invalid_resampling(_, araster, assert_contains):
         raster = Raster.from_array(
@@ -2029,6 +2074,12 @@ class TestReproject:
             ]
         )
         assert np.allclose(raster.values, expected)
+
+    def test_memory(_, fraster, assert_contains):
+        raster = Raster(fraster)
+        with pytest.raises(MemoryError) as error:
+            raster.reproject(transform=(1e-200, 1e-200, 0, 0))
+        assert_contains(error, "reprojected raster is too large for memory")
 
     def test_reproject(_):
         araster = np.arange(100).reshape(10, 10).astype(float)
@@ -2359,6 +2410,22 @@ class TestCrsUnitsPerM:
         assert np.allclose(output, expected)
 
 
+class TestUtmZone:
+    def test_no_crs(_, araster):
+        raster = Raster.from_array(araster, bounds=(1, 2, 3, 4))
+        assert raster.utm_zone is None
+
+    def test_no_bounds(_, araster):
+        raster = Raster.from_array(araster, crs=4326)
+        assert raster.utm_zone is None
+
+    def test(_, araster):
+        raster = Raster.from_array(
+            araster, crs=4326, bounds=BoundingBox(-119, 30, -115, 50)
+        )
+        assert raster.utm_zone == CRS(32611)
+
+
 #####
 # Transform Properties
 #####
@@ -2387,7 +2454,7 @@ class TestTransform:
         with pytest.raises(TypeError):
             raster.transform = "invalid"
 
-    def test_set_crs(_, araster):
+    def test_inherit_crs(_, araster):
         raster = Raster(araster)
         crs = CRS(4326)
         transform = Transform(1, 2, 3, 4, crs)
@@ -2395,14 +2462,18 @@ class TestTransform:
         assert raster.crs == crs
         assert raster.transform == transform
 
-    def test_invalid_crs(_, araster, assert_contains):
+    def test_reproject(_, araster):
         raster = Raster.from_array(araster, crs=4326)
-        transform = Transform(1, 2, 3, 4, 26911)
-        with pytest.raises(CRSError) as error:
-            raster.transform = transform
-        assert_contains(
-            error, "Cannot set the transform because the CRS", "is different"
+        raster.transform = Transform(1, 2, 3, 4, 26911)
+        expected = Transform(
+            dx=8.958995962871086e-06,
+            dy=1.8038752956919747e-05,
+            left=-121.4887170073974,
+            top=3.607750457626307e-05,
+            crs=4326,
         )
+        assert raster.transform.isclose(expected)
+        assert raster.crs == CRS(4326)
 
 
 class TestPixel:
@@ -2419,9 +2490,18 @@ class TestDx:
     def test(_, fraster):
         raster = Raster(fraster)
         transform = raster.transform
-        assert raster.dx() == transform.dx()
         _, y = raster.center
-        assert raster.dx(meters=True) == transform.dx(meters=True, y=y)
+        assert raster.dx() == transform.dx(meters=True, y=y)
+        assert raster.dx(base_unit=True) == transform.dx(meters=False, y=y)
+
+    def test_invalid_meters(_, araster, assert_contains):
+        raster = Raster(araster)
+        raster.transform = (1, 1, 0, 0)
+        with pytest.raises(RuntimeError) as error:
+            raster.dx()
+        assert_contains(
+            error, "Cannot convert raster dx to meters", "does not have a CRS"
+        )
 
 
 class TestDy:
@@ -2431,8 +2511,17 @@ class TestDy:
     def test(_, fraster, transform):
         raster = Raster(fraster)
         transform = raster.transform
-        assert raster.dy() == transform.dy()
-        assert raster.dy(meters=True) == transform.dy(meters=True)
+        assert raster.dy() == transform.dy(meters=True)
+        assert raster.dy(base_unit=True) == transform.dy(meters=False)
+
+    def test_invalid_meters(_, araster, assert_contains):
+        raster = Raster(araster)
+        raster.transform = (1, 1, 0, 0)
+        with pytest.raises(RuntimeError) as error:
+            raster.dy()
+        assert_contains(
+            error, "Cannot convert raster dy to meters", "does not have a CRS"
+        )
 
 
 class TestResolution:
@@ -2443,8 +2532,17 @@ class TestResolution:
         raster = Raster(fraster)
         transform = raster.transform
         _, y = raster.center
-        assert raster.resolution() == transform.resolution(y)
-        assert raster.resolution(True) == transform.resolution(True, y)
+        assert raster.resolution() == transform.resolution(meters=False, y=y)
+        assert raster.resolution(True) == transform.resolution(meters=False, y=y)
+
+    def test_invalid_meters(_, araster, assert_contains):
+        raster = Raster(araster)
+        raster.transform = (1, 1, 0, 0)
+        with pytest.raises(RuntimeError) as error:
+            raster.resolution()
+        assert_contains(
+            error, "Cannot convert raster resolution to meters", "does not have a CRS"
+        )
 
 
 class TestPixelArea:
@@ -2455,8 +2553,17 @@ class TestPixelArea:
         raster = Raster(fraster)
         transform = raster.transform
         _, y = raster.center
-        assert raster.pixel_area() == transform.pixel_area(y)
-        assert raster.pixel_area(True) == transform.pixel_area(True, y)
+        assert raster.pixel_area() == transform.pixel_area(meters=True, y=y)
+        assert raster.pixel_area(True) == transform.pixel_area(meters=False, y=y)
+
+    def test_invalid_meters(_, araster, assert_contains):
+        raster = Raster(araster)
+        raster.transform = (1, 1, 0, 0)
+        with pytest.raises(RuntimeError) as error:
+            raster.pixel_area()
+        assert_contains(
+            error, "Cannot convert raster pixel_area to meters", "does not have a CRS"
+        )
 
 
 class TestPixelDiagonal:
@@ -2467,8 +2574,21 @@ class TestPixelDiagonal:
         raster = Raster(fraster)
         transform = raster.transform
         _, y = raster.center
-        assert raster.pixel_diagonal() == transform.pixel_diagonal(y)
-        assert raster.pixel_diagonal(True) == transform.pixel_diagonal(True, y)
+        assert raster.pixel_diagonal() == transform.pixel_diagonal(meters=True, y=y)
+        assert raster.pixel_diagonal(True) == transform.pixel_diagonal(
+            meters=False, y=y
+        )
+
+    def test_invalid_meters(_, araster, assert_contains):
+        raster = Raster(araster)
+        raster.transform = (1, 1, 0, 0)
+        with pytest.raises(RuntimeError) as error:
+            raster.pixel_diagonal()
+        assert_contains(
+            error,
+            "Cannot convert raster pixel_diagonal to meters",
+            "does not have a CRS",
+        )
 
 
 class TestAffine:
@@ -2507,6 +2627,26 @@ class TestBounds:
         with pytest.raises(ValueError) as error:
             raster.bounds = bounds
         assert_contains(error, "already has bounds")
+
+    def test_inherit_crs(_, araster):
+        raster = Raster.from_array(araster)
+        bounds = BoundingBox(1, 2, 3, 4, 4326)
+        raster.bounds = bounds
+        assert raster.bounds == bounds
+        assert raster.crs == bounds.crs
+
+    def test_reproject(_, araster):
+        raster = Raster.from_array(araster, crs=4326)
+        bounds = BoundingBox(0, 0, 100, 100, 26911)
+        raster.bounds = bounds
+        expected = BoundingBox(
+            left=-121.48874388494063,
+            bottom=2.786575690246623e-10,
+            right=-121.4878479834734,
+            top=0.0009019375809660552,
+            crs=4326,
+        )
+        assert raster.bounds.isclose(expected)
 
 
 class TestLeft:

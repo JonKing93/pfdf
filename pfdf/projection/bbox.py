@@ -6,7 +6,6 @@ Class:
 """
 
 from math import isfinite
-from statistics import mean
 from typing import Any, Callable, Optional, Self
 
 import numpy as np

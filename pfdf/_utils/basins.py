@@ -187,8 +187,8 @@ def new_raster(shape: shape2d, dtype: type = "int32") -> MatrixArray:
 
 def get_outlets(segments) -> tuple[VectorArray, Outlets]:
     "Returns terminal outlet IDs and locations"
-    ids = segments.ids[segments.isterminus]
-    outlets = segments.outlets(terminal=True)
+    ids = segments.terminal_ids
+    outlets = segments.outlets(ids)
     return ids, outlets
 
 

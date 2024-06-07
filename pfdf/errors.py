@@ -137,3 +137,26 @@ class PointError(CoordinateError):
 
 class DurationsError(Exception):
     "When queried rainfall durations are not reported in Table 4 of Staley et al., 2017"
+
+
+#####
+# Memory Errors
+#####
+
+
+def handle_memory_error(error, message):
+
+    # Detect whether this is a memory issue
+    ismemory = False
+    if isinstance(error, MemoryError):
+        ismemory = True
+    elif isinstance(error, ValueError):
+        for pattern in ["Maximum allowed dimension exceeded", "array is too big"]:
+            if pattern in error.args[0]:
+                ismemory = True
+
+    # Supplement memory issues, reraise anything else
+    if ismemory:
+        raise MemoryError(message) from error
+    else:
+        raise error from None

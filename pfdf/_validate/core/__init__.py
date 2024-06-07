@@ -40,7 +40,7 @@ Array Elements:
     sorted          - Checks elements are in sorted order
     flow            - Checks elements represents TauDEM-style flow directions (integers 1 to 8)
 
-Buffers:
+Misc:
     buffers         - Checks inputs represent buffering distances for a rectangle
 
 Vector Features:
@@ -71,4 +71,4 @@ from pfdf._validate.core._elements import (
     sorted,
 )
 from pfdf._validate.core._features import field, point, polygon
-from pfdf._validate.core._misc import input_path, option, output_path, type
+from pfdf._validate.core._misc import conversion, input_path, option, output_path, type

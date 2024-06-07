@@ -286,21 +286,6 @@ def parents245():
     )
 
 
-@pytest.fixture
-def basins245():
-    return np.array(
-        [
-            [0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 2, 2, 0, 0],
-            [0, 0, 0, 2, 2, 0, 0],
-            [0, 0, 0, 0, 5, 4, 0],
-            [0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0],
-        ]
-    )
-
-
 #####
 # Dunders
 #####
@@ -358,7 +343,7 @@ class TestInit:
                 [1, 5],
             ]
         )
-        segments = Segments(flow, mask, 2.5, meters=True)
+        segments = Segments(flow, mask, max_length=2.5)
         assert segments._flow == flow
 
         print(segments._segments)
@@ -390,7 +375,7 @@ class TestInit:
                 [0, 0, 0, 0, 0, 0, 0],
             ]
         )
-        segments = Segments(flow, mask, max_length=2.5)
+        segments = Segments(flow, mask, max_length=2.5, base_unit=True)
 
         linestrings = [
             LineString([[5.5, 1.5], [4.5, 1.5], [3.5, 1.5], [3, 1.5]]),
@@ -444,7 +429,7 @@ class TestInit:
         )
 
     def test_no_crs(_, flow, mask):
-        flow = Raster.from_array(flow.values, transform=flow.transform)
+        flow = Raster.from_array(flow.values)
         with pytest.raises(MissingCRSError):
             Segments(flow, mask)
 
@@ -534,19 +519,8 @@ def test_ids(segments):
     assert segments.ids is not segments._ids
 
 
-def test_parents(segments):
-    expected = [[0, 0], [0, 0], [0, 0], [0, 0], [2, 4], [1, 5]]
-    assert np.array_equal(segments.parents, expected)
-
-
-def test_child(segments):
-    expected = [6, 5, 0, 5, 6, 0]
-    assert np.array_equal(segments.child, expected)
-
-
-def test_isterminus(segments):
-    expected = [False, False, True, False, False, True]
-    assert np.array_equal(segments.isterminus, expected)
+def test_terminal_ids(segments):
+    assert np.array_equal(segments.terminal_ids, [3, 6])
 
 
 def test_indices(segments, indices):
@@ -608,6 +582,11 @@ class TestIndicesToIds:
         segments._ids = ids
         output = segments._indices_to_ids(parents)
         assert np.array_equal(output, expected)
+
+    def test_empty(_, segments):
+        indices = np.array([])
+        output = segments._indices_to_ids(indices)
+        assert np.array_equal(output, [])
 
 
 class TestPreallocate:
@@ -749,72 +728,190 @@ class TestValidateId:
         assert_contains(error, "id (value=9)")
 
 
+class TestValidateIds:
+    def test_none(_, segments):
+        output = segments._validate_ids(None)
+        assert np.array_equal(output, [0, 1, 2, 3, 4, 5])
+
+    def test_valid(_, segments):
+        segments.remove(ids=3)
+        print(segments.ids)
+        output = segments._validate_ids([5, 1, 2, 5, 4])
+        assert np.array_equal(output, [3, 0, 1, 3, 2])
+
+    def test_not_vector(_, segments, assert_contains):
+        with pytest.raises(TypeError) as error:
+            segments._validate_ids("invalid")
+        assert_contains(error, "ids")
+
+    def test_not_in_network(_, segments, assert_contains):
+        with pytest.raises(ValueError) as error:
+            segments._validate_ids(22)
+        assert_contains(error, "ids[0] (value=22)")
+
+
 #####
 # Outlets
 #####
 
 
-class Test_Terminus:
-    def test_end(_, segments):
-        assert segments._terminus(2) == 2
+class TestIsTerminal:
+    def test_all(_, segments):
+        output = segments.isterminal()
+        expected = [False, False, True, False, False, True]
+        assert np.array_equal(output, expected)
 
-    def test_not_end(_, segments):
-        assert segments._terminus(1) == 5
-
-
-class TestTerminus:
-    def test_valid(_, segments):
-        assert segments.terminus(2) == 6
-
-    def test_invalid(_, segments, assert_contains):
-        with pytest.raises(ValueError) as error:
-            segments.terminus(9)
-        assert_contains(error, "id (value=9)")
-
-
-class Test_Termini:
-    def test(_, segments):
-        output = segments._termini()
-        expected = [2, 5]
+    def test_ids(_, segments):
+        ids = [5, 3]
+        output = segments.isterminal(ids)
+        expected = [False, True]
         assert np.array_equal(output, expected)
 
 
 class TestTermini:
-    def test(_, segments):
+    def test_all(_, segments):
         output = segments.termini()
-        expected = [3, 6]
+        expected = [6, 6, 3, 6, 6, 6]
+        assert np.array_equal(output, expected)
+
+    def test_nested(_, flow, mask):
+        mask[4, 2] = 0
+        segments = Segments(flow, mask)
+        output = segments.termini()
+        expected = [1, 5, 3, 5, 5]
+        assert np.array_equal(output, expected)
+
+    def test_ids(_, segments):
+        ids = [5, 3]
+        output = segments.termini(ids)
+        expected = [6, 3]
         assert np.array_equal(output, expected)
 
 
-class Test_Outlet:
-    def test(_, segments, indices):
-        output = segments._outlet(1)
-        expected = indices[1][0][-1], indices[1][1][-1]
-        assert output == expected
-
-
-class TestOutlet:
-    def test_valid(_, segments, indices):
-        output = segments.outlet(1)
-        expected = indices[0][0][-1], indices[0][1][-1]
-        assert output == expected
-
-    def test_invalid(_, segments, assert_contains):
-        with pytest.raises(ValueError) as error:
-            segments.outlet(9)
-        assert_contains(error, "id (value=9)")
-
-
 class TestOutlets:
-    def test_all(_, segments, indices):
+    def test(_, segments):
         output = segments.outlets()
-        expected = [(index[0][-1], index[1][-1]) for index in indices]
+        expected = [(5, 3), (5, 3), (1, 5), (5, 3), (5, 3), (5, 3)]
         assert output == expected
 
-    def test_terminal(_, segments, indices):
-        output = segments.outlets(terminal=True)
-        expected = [(index[0][-1], index[1][-1]) for index in [indices[2], indices[5]]]
+    def test_ids(_, segments):
+        ids = [5, 3]
+        output = segments.outlets(ids)
+        expected = [(5, 3), (1, 5)]
         assert output == expected
+
+    def test_segment_outlets(_, segments):
+        output = segments.outlets(segment_outlets=True)
+        expected = [(4, 2), (2, 4), (1, 5), (3, 5), (3, 4), (5, 3)]
+        assert output == expected
+
+    def test_as_array(_, segments):
+        output = segments.outlets(segment_outlets=True, as_array=True)
+        expected = np.array([(4, 2), (2, 4), (1, 5), (3, 5), (3, 4), (5, 3)]).reshape(
+            -1, 2
+        )
+        assert np.array_equal(output, expected)
+
+
+#####
+# Local Networks
+#####
+
+
+class TestGetParents:
+    def test_top(_, segments):
+        output = segments._get_parents(0)
+        assert np.array_equal(output, [])
+
+    def test(_, segments):
+        output = segments._get_parents(5)
+        assert np.array_equal(output, [0, 4])
+
+
+class TestParents:
+    def test(_, segments):
+        output = segments.parents(5)
+        assert output == [2, 4]
+
+    def test_none(_, segments):
+        output = segments.parents(1)
+        assert output is None
+
+
+class TestChild:
+    def test(_, segments):
+        output = segments.child(2)
+        assert output == 5
+
+    def test_none(_, segments):
+        output = segments.child(3)
+        assert output is None
+
+
+class TestAncestors:
+    def test_top(_, segments):
+        output = segments.ancestors(1)
+        assert np.array_equal(output, [])
+
+    def test(_, segments):
+        output = segments.ancestors(6)
+        assert np.array_equal(output, [1, 5, 2, 4])
+
+
+class TestDescendents:
+    def test_bottom(_, segments):
+        output = segments.descendents(6)
+        assert np.array_equal(output, [])
+
+    def test(_, segments):
+        output = segments.descendents(2)
+        assert np.array_equal(output, [5, 6])
+
+
+class TestFamily:
+    def test_isolated(_, segments):
+        output = segments.family(3)
+        assert np.array_equal(output, [3])
+
+    def test(_, segments):
+        output = segments.family(5)
+        assert np.array_equal(output, [6, 1, 5, 2, 4])
+
+
+class TestIsNested:
+    def test_no_nests(_, segments):
+        output = segments.isnested()
+        expected = [False] * 6
+        assert np.array_equal(output, expected)
+
+    def test_nested(_, flow, mask):
+        mask[4, 2] = 0
+        segments = Segments(flow, mask)
+        output = segments.isnested()
+        expected = [True, False, False, False, False]
+        assert np.array_equal(output, expected)
+
+    def test_multiple_in_one_network(_, flow, mask):
+        mask[3, 4] = 0
+        segments = Segments(flow, mask)
+        output = segments.isnested()
+        expected = [False, True, False, True]
+        assert np.array_equal(output, expected)
+
+    def test_multiple_nests(_, flow, mask):
+        mask[4, 2] = 0
+        mask[3, 4] = 0
+        segments = Segments(flow, mask)
+        output = segments.isnested()
+        expected = [True, True, False, True, False]
+        assert np.array_equal(output, expected)
+
+    def test_ids(_, flow, mask):
+        mask[4, 2] = 0
+        segments = Segments(flow, mask)
+        ids = [3, 1]
+        output = segments.isnested(ids)
+        assert np.array_equal(output, [False, True])
 
 
 #####
@@ -1015,7 +1112,9 @@ class TestConfinement:
     def test_nan_flow(_, segments, dem):
         flow = segments.flow.values.copy()
         flow[1, 1] = 0
-        flow = Raster.from_array(flow, nodata=0, transform=segments.transform)
+        flow = Raster.from_array(
+            flow, nodata=0, transform=segments.transform, crs=segments.crs
+        )
         segments._flow = flow
         output = segments.confinement(dem, neighborhood=2)
         expected = np.array(
@@ -1039,8 +1138,8 @@ class TestConfinement:
         )
         assert np.allclose(output, expected, equal_nan=True)
 
-    def test_meters(_, segments, dem):
-        output = segments.confinement(dem, neighborhood=2, meters=True)
+    def test_crs_meters(_, segments, dem):
+        output = segments.confinement(dem, neighborhood=2)
         expected = np.array(
             [
                 175.26275123,
@@ -1053,30 +1152,32 @@ class TestConfinement:
         )
         assert np.allclose(output, expected)
 
-    def test_factor(_, segments, dem):
-        output = segments.confinement(dem, neighborhood=2, factor=10)
+    def test_crs_not_meters(_, segments, dem):
+        segments._flow.override(crs=4326)
+        output = segments.confinement(dem, neighborhood=2)
         expected = np.array(
             [
-                185.45654969,
-                233.5188839,
-                161.13428831,
-                206.56505118,
-                124.60025165,
-                124.71632661,
+                180.00200957,
+                180.00888846,
+                179.99600663,
+                180.00257637,
+                179.99253076,
+                179.99458963,
             ]
         )
         assert np.allclose(output, expected)
 
-    def test_factor_meters(_, segments, dem):
-        output = segments.confinement(dem, neighborhood=2, factor=10, meters=True)
+    def test_convert_units(_, segments, dem):
+        dem = Raster.from_array(dem.values / 1000, nodata=dem.nodata)
+        output = segments.confinement(dem, neighborhood=2, dem_per_m=0.001)
         expected = np.array(
             [
-                185.45654969,
-                233.5188839,
-                161.13428831,
-                206.56505118,
-                124.60025165,
-                124.71632661,
+                175.26275123,
+                264.20279455,
+                175.71489195,
+                258.69006753,
+                93.94635581,
+                21.80295443,
             ]
         )
         assert np.allclose(output, expected)
@@ -1355,24 +1456,24 @@ class TestLengths:
 
 class TestArea:
     def test_basic(_, segments, flow, npixels):
-        output = segments.area()
+        output = segments.area(base_unit=True)
         expected = npixels * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
     def test_kilometers(_, segments, flow, npixels):
-        output = segments.area(kilometers=True)
+        output = segments.area()
         expected = npixels * flow.transform.pixel_area()
         expected = _crs.dy_to_meters(segments.crs, expected) / 1e6
         assert np.array_equal(output, expected)
 
     def test_masked(_, segments, mask2, flow):
-        output = segments.area(mask2)
+        output = segments.area(mask2, base_unit=True)
         npixels = np.array([0, 2, 2, 1, 4, 4])
         expected = flow.transform.pixel_area() * npixels
         assert np.array_equal(output, expected)
 
     def test_terminal(_, segments, flow, npixels):
-        output = segments.area(terminal=True)
+        output = segments.area(base_unit=True, terminal=True)
         expected = npixels[[2, 5]] * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
@@ -1391,24 +1492,24 @@ class TestBurnRatio:
 
 class TestBurnedArea:
     def test(_, segments, flow, mask2):
-        output = segments.burned_area(mask2)
+        output = segments.burned_area(mask2, base_unit=True)
         expected = np.array([0, 2, 2, 1, 4, 4]) * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
     def test_terminal(_, segments, flow, mask2):
-        output = segments.burned_area(mask2, terminal=True)
+        output = segments.burned_area(mask2, base_unit=True, terminal=True)
         expected = np.array([2, 4]) * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
 
 class TestDevelopedArea:
     def test(_, segments, flow, mask2):
-        output = segments.developed_area(mask2)
+        output = segments.developed_area(mask2, base_unit=True)
         expected = np.array([0, 2, 2, 1, 4, 4]) * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
     def test_terminal(_, segments, flow, mask2):
-        output = segments.developed_area(mask2, terminal=True)
+        output = segments.developed_area(mask2, base_unit=True, terminal=True)
         expected = np.array([2, 4]) * flow.transform.pixel_area()
         assert np.array_equal(output, expected)
 
@@ -1619,8 +1720,9 @@ class TestRuggedness:
         expected = relief / np.sqrt(area)
         assert np.array_equal(output, expected, equal_nan=True)
 
-    def test_meters(_, segments, values, flow, npixels):
-        output = segments.ruggedness(values, meters=True)
+    def test_conversion(_, segments, values, flow, npixels):
+        values._values = values.values.copy() / 1000
+        output = segments.ruggedness(values, relief_per_m=0.001)
         relief = np.array([1, 7, nan, 5, 6, 7])
         area = npixels * flow.transform.pixel_area()
         expected = relief / np.sqrt(area)
@@ -1850,47 +1952,43 @@ class TestRemovable:
         assert np.array_equal(output, expected)
 
 
-class TestContinuousRemoval:
-    def test_none_requested(_, segments):
+class TestContinuous:
+    def test_none(_, segments):
         requested = np.zeros(segments.length, bool)
         expected = requested.copy()
-        output = segments._continuous_removal(requested, upstream=True, downstream=True)
+        output = segments.continuous(indices=requested)
         assert np.array_equal(output, expected)
 
     def test_no_edges(_, segments):
         requested = np.zeros(segments.length, bool)
         requested[4] = 1
-        output = segments._continuous_removal(requested, upstream=True, downstream=True)
+        output = segments.continuous(indices=requested)
         expected = np.zeros(segments.length, bool)
         assert np.array_equal(output, expected)
 
-    def test_neither(_, segments):
+    def test_neither_up_nor_down(_, segments):
         requested = np.array([1, 0, 1, 0, 0, 1], bool)
-        output = segments._continuous_removal(
-            requested, upstream=False, downstream=False
+        output = segments.continuous(
+            indices=requested, upstream=False, downstream=False
         )
         expected = np.array([0, 0, 0, 0, 0, 0], bool)
         assert np.array_equal(output, expected)
 
-    def test_downstream(_, segments):
+    def test_no_up(_, segments):
         requested = np.array([0, 1, 1, 0, 0, 1], bool)
-        output = segments._continuous_removal(
-            requested, upstream=False, downstream=True
-        )
+        output = segments.continuous(indices=requested, upstream=False)
         expected = np.array([0, 0, 1, 0, 0, 1], bool)
         assert np.array_equal(output, expected)
 
-    def test_upstream(_, segments):
+    def test_no_down(_, segments):
         requested = np.array([0, 1, 1, 0, 0, 1], bool)
-        output = segments._continuous_removal(
-            requested, upstream=True, downstream=False
-        )
+        output = segments.continuous(indices=requested, downstream=False)
         expected = np.array([0, 1, 1, 0, 0, 0])
         assert np.array_equal(output, expected)
 
-    def test_both(_, segments):
+    def test_both_up_and_down(_, segments):
         requested = np.array([0, 1, 1, 0, 0, 1], bool)
-        output = segments._continuous_removal(requested, upstream=True, downstream=True)
+        output = segments.continuous(indices=requested)
         expected = np.array([0, 1, 1, 0, 0, 1])
         assert np.array_equal(output, expected)
 
@@ -1904,17 +2002,38 @@ class TestContinuousRemoval:
     def test_nested_downstream(_, segments, requested, expected):
         requested = np.array(requested, bool)
         expected = np.array(expected, bool)
-        output = segments._continuous_removal(
-            requested, upstream=False, downstream=True
-        )
+        output = segments.continuous(indices=requested, upstream=False)
         assert np.array_equal(output, expected)
 
     def test_nested_upstream(_, segments):
         requested = np.array([0, 1, 0, 1, 1, 1], bool)
         expected = np.array([0, 1, 0, 1, 1, 0], bool)
-        output = segments._continuous_removal(
-            requested, upstream=True, downstream=False
-        )
+        output = segments.continuous(indices=requested, downstream=False)
+        assert np.array_equal(output, expected)
+
+    def test_indices(_, segments):
+        requested = np.array([0, 1, 1, 0, 0, 1], bool)
+        output = segments.continuous(indices=requested)
+        expected = np.array([0, 1, 1, 0, 0, 1])
+        assert np.array_equal(output, expected)
+
+    def test_ids(_, segments):
+        ids = [2, 6, 3]
+        output = segments.continuous(ids=ids)
+        expected = np.array([0, 1, 1, 0, 0, 1])
+        assert np.array_equal(output, expected)
+
+    def test_mixed(_, segments):
+        requested = np.array([0, 1, 0, 0, 0, 1], bool)
+        ids = 3
+        output = segments.continuous(ids=ids, indices=requested)
+        expected = np.array([0, 1, 1, 0, 0, 1])
+        assert np.array_equal(output, expected)
+
+    def test_keep(_, segments):
+        requested = ~np.array([0, 1, 1, 0, 0, 1], bool)
+        output = segments.continuous(indices=requested, keep=True, upstream=False)
+        expected = ~np.array([0, 0, 1, 0, 0, 1], bool)
         assert np.array_equal(output, expected)
 
 
@@ -1923,7 +2042,7 @@ class TestRemove:
         _, bsegments, bflow, linestrings, indices, bpixels, child, parents, basins
     ):
         bsegments.locate_basins()
-        output = bsegments.remove()
+        bsegments.remove()
         assert bsegments._flow == bflow
         assert bsegments._segments == linestrings
         assert bsegments._indices == indices
@@ -1931,9 +2050,6 @@ class TestRemove:
         assert np.array_equal(bsegments._child, child)
         assert np.array_equal(bsegments._parents, parents)
         assert np.array_equal(bsegments._basins, basins)
-
-        expected = np.zeros(bsegments.length, bool)
-        assert np.array_equal(output, expected)
 
     def test_ids(
         _,
@@ -1946,7 +2062,7 @@ class TestRemove:
         parents245,
     ):
         bsegments.locate_basins()
-        output = bsegments.remove(ids=[1, 3, 6], continuous=False)
+        bsegments.remove(ids=[1, 3, 6])
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -1954,9 +2070,6 @@ class TestRemove:
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
         assert bsegments._basins is None
-
-        expected = np.array([1, 0, 1, 0, 0, 1], bool)
-        assert np.array_equal(output, expected)
 
     def test_indices(
         _,
@@ -1970,7 +2083,7 @@ class TestRemove:
     ):
         bsegments.locate_basins()
         indices = np.array([1, 0, 1, 0, 0, 1], bool)
-        output = bsegments.remove(indices=indices, continuous=False)
+        bsegments.remove(indices=indices)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -1978,9 +2091,6 @@ class TestRemove:
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
         assert bsegments._basins is None
-
-        expected = np.array([1, 0, 1, 0, 0, 1], bool)
-        assert np.array_equal(output, expected)
 
     def test_mixed(
         _,
@@ -1995,7 +2105,7 @@ class TestRemove:
         indices = np.array([1, 0, 1, 0, 0, 0], bool)
         ids = [3, 6]
         bsegments.locate_basins()
-        output = bsegments.remove(ids=ids, indices=indices, continuous=False)
+        bsegments.remove(ids=ids, indices=indices)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -2004,48 +2114,16 @@ class TestRemove:
         assert np.array_equal(bsegments._parents, parents245)
         assert bsegments._basins is None
 
-        expected = np.array([1, 0, 1, 0, 0, 1], bool)
-        assert np.array_equal(output, expected)
-
-    def test_continuous_removal(_, bsegments, bflow, linestrings, indices, bpixels):
-        bsegments.locate_basins()
-        output = bsegments.remove(ids=[1, 2, 6], upstream=False)
-        assert bsegments.flow == bflow
-        assert bsegments.segments == linestrings[1:5]
-        assert bsegments.indices == indices[1:5]
-        assert np.array_equal(bsegments.npixels, bpixels[1:5])
-
-        child = [5, 0, 5, 0]
-        assert np.array_equal(bsegments.child, child)
-
-        parents = np.array(
-            [
-                [0, 0],
-                [0, 0],
-                [0, 0],
-                [2, 4],
-            ]
-        )
-        assert np.array_equal(bsegments.parents, parents)
-        assert bsegments._basins is None
-
-        expected = np.array([1, 0, 0, 0, 0, 1], bool)
-        assert np.array_equal(output, expected)
-
     def test_all(_, bsegments, bflow):
         bsegments.locate_basins()
-        output = bsegments.remove(ids=[1, 2, 3, 4, 5, 6])
+        bsegments.remove(ids=[1, 2, 3, 4, 5, 6])
         assert bsegments.flow == bflow
         assert bsegments.segments == []
         assert bsegments.indices == []
         assert bsegments.npixels.size == 0
-        assert bsegments.child.size == 0
-        assert bsegments.parents.size == 0
-        basins = np.zeros(bflow.shape)
+        assert bsegments._child.size == 0
+        assert bsegments._parents.size == 0
         assert bsegments._basins is None
-
-        expected = np.ones(6, bool)
-        assert np.array_equal(output, expected)
 
 
 class TestKeep:
@@ -2053,7 +2131,7 @@ class TestKeep:
         _, bsegments, bflow, linestrings, indices, bpixels, child, parents, basins
     ):
         bsegments.locate_basins()
-        output = bsegments.keep(ids=[1, 2, 3, 4, 5, 6])
+        bsegments.keep(ids=[1, 2, 3, 4, 5, 6])
         assert bsegments._flow == bflow
         assert bsegments._segments == linestrings
         assert bsegments._indices == indices
@@ -2061,9 +2139,6 @@ class TestKeep:
         assert np.array_equal(bsegments._child, child)
         assert np.array_equal(bsegments._parents, parents)
         assert np.array_equal(bsegments._basins, basins)
-
-        expected = np.ones(6, bool)
-        assert np.array_equal(output, expected)
 
     def test_ids(
         _,
@@ -2074,10 +2149,9 @@ class TestKeep:
         bpixels245,
         child245,
         parents245,
-        basins245,
     ):
         bsegments.locate_basins()
-        output = bsegments.keep(ids=[2, 4, 5], continuous=False)
+        bsegments.keep(ids=[2, 4, 5])
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -2085,9 +2159,6 @@ class TestKeep:
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
         assert bsegments._basins is None
-
-        expected = np.array([0, 1, 0, 1, 1, 0], bool)
-        assert np.array_equal(output, expected)
 
     def test_indices(
         _,
@@ -2098,11 +2169,10 @@ class TestKeep:
         bpixels245,
         child245,
         parents245,
-        basins245,
     ):
         bsegments.locate_basins()
         indices = np.array([0, 1, 0, 1, 1, 0], bool)
-        output = bsegments.keep(indices=indices, continuous=False)
+        bsegments.keep(indices=indices)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -2110,9 +2180,6 @@ class TestKeep:
         assert np.array_equal(bsegments._child, child245)
         assert np.array_equal(bsegments._parents, parents245)
         assert bsegments._basins is None
-
-        expected = np.array([0, 1, 0, 1, 1, 0], bool)
-        assert np.array_equal(output, expected)
 
     def test_mixed(
         _,
@@ -2123,12 +2190,11 @@ class TestKeep:
         bpixels245,
         child245,
         parents245,
-        basins245,
     ):
         bsegments.locate_basins()
         indices = np.array([0, 1, 0, 1, 0, 0], bool)
         ids = [4, 5]
-        output = bsegments.keep(ids=ids, indices=indices, continuous=False)
+        bsegments.keep(ids=ids, indices=indices)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -2137,50 +2203,16 @@ class TestKeep:
         assert np.array_equal(bsegments._parents, parents245)
         assert bsegments._basins is None
 
-        expected = np.array([0, 1, 0, 1, 1, 0], bool)
-        assert np.array_equal(output, expected)
-
-    def test_continuous_removal(
-        _, bsegments, bflow, linestrings, indices, bpixels, child
-    ):
-        bsegments.locate_basins()
-        output = bsegments.keep(ids=[3, 4, 5], upstream=False)
-        assert bsegments.flow == bflow
-        assert bsegments.segments == linestrings[1:5]
-        assert bsegments.indices == indices[1:5]
-        assert np.array_equal(bsegments.npixels, bpixels[1:5])
-
-        child = [5, 0, 5, 0]
-        assert np.array_equal(bsegments.child, child)
-
-        parents = np.array(
-            [
-                [0, 0],
-                [0, 0],
-                [0, 0],
-                [2, 4],
-            ]
-        )
-        assert np.array_equal(bsegments.parents, parents)
-        assert bsegments._basins is None
-
-        expected = np.array([0, 1, 1, 1, 1, 0], bool)
-        assert np.array_equal(output, expected)
-
     def test_none(_, bsegments, bflow):
         bsegments.locate_basins()
-        output = bsegments.keep()
+        bsegments.keep()
         assert bsegments.flow == bflow
         assert bsegments.segments == []
         assert bsegments.indices == []
         assert bsegments.npixels.size == 0
-        assert bsegments.child.size == 0
-        assert bsegments.parents.size == 0
-        basins = np.zeros(bflow.shape)
+        assert bsegments._child.size == 0
+        assert bsegments._parents.size == 0
         assert bsegments._basins is None
-
-        expected = np.zeros(6, bool)
-        assert np.array_equal(output, expected)
 
 
 class TestCopy:
@@ -2216,42 +2248,6 @@ class TestCopy:
         assert copy._child is not None
         assert copy._parents is not None
         assert copy._basins is not None
-
-
-class TestPrune:
-    def test_leaf(_, flow, mask):
-        mask[4, 2] = 0
-        segments = Segments(flow, mask)
-        initial = segments.copy()
-        assert segments.length == 5
-
-        segments.prune()
-        assert segments.length == 4
-        assert segments.segments == initial.segments[1:]
-        assert np.array_equal(segments.ids, [2, 3, 4, 5])
-
-    def test_multiple_in_one_network(_, flow, mask):
-        mask[3, 4] = 0
-        segments = Segments(flow, mask)
-        initial = segments.copy()
-        assert segments.length == 4
-
-        segments.prune()
-        assert segments.length == 2
-        assert segments.segments == [initial.segments[0], initial.segments[2]]
-        assert np.array_equal(segments.ids, [1, 3])
-
-    def test_multiple_networks(_, flow, mask):
-        mask[4, 2] = 0
-        mask[3, 4] = 0
-        segments = Segments(flow, mask)
-        assert segments.length == 5
-        initial = segments.copy()
-
-        segments.prune()
-        assert segments.length == 2
-        assert segments.segments == [initial.segments[2], initial.segments[4]]
-        assert np.array_equal(segments.ids, [3, 5])
 
 
 #####

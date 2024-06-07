@@ -48,7 +48,7 @@ class TestExterior:
         cols = [-2, 13]
 
         araster = np.arange(100).reshape(10, 10) + 1
-        values = clip._exterior(araster, rows, cols, nodata=np.array(0))
+        values = clip._exterior("", araster, rows, cols, nodata=np.array(0))
 
         expected = np.full((20, 15), 0)
         expected[5:15, 2:12] = araster
@@ -60,19 +60,29 @@ class TestExterior:
 
         araster = np.arange(100).reshape(10, 10) + 1
         with pytest.raises(MissingNoDataError) as error:
-            clip._exterior(araster, rows, cols, nodata=None)
-        assert_contains(error, "must provide a NoData value")
+            clip._exterior("raster", araster, rows, cols, nodata=None)
+        assert_contains(
+            error, "Cannot clip the raster because it does not have a NoData value"
+        )
 
     def test_partial(_):
         rows = [15, -5]
         cols = [3, 8]
 
         araster = np.arange(100).reshape(10, 10) + 1
-        values = clip._exterior(araster, rows, cols, nodata=np.array(0))
+        values = clip._exterior("", araster, rows, cols, nodata=np.array(0))
 
         expected = np.full((20, 5), 0)
         expected[5:15, :] = araster[:, 3:8]
         assert np.array_equal(values, expected)
+
+    def test_memory(_, assert_contains):
+        rows = [0, -20000000000]
+        cols = [0, 20000000000]
+        araster = np.arange(100).reshape(10, 10)
+        with pytest.raises(MemoryError) as error:
+            clip._exterior("", araster, rows, cols, nodata=np.array(0))
+        assert_contains(error, "clipped raster is too large for memory")
 
 
 class TestInterior:
@@ -92,7 +102,7 @@ class TestValues:
         araster = np.arange(100).reshape(10, 10)
         bounds = BoundingBox(2, 8, 8, 3)
         stransform = Transform(1, 1, 0, 0).affine
-        values = clip.values(araster, bounds, stransform, nodata=np.array(-9))
+        values = clip.values("", araster, bounds, stransform, nodata=np.array(-9))
         assert np.array_equal(values, araster[3:8, 2:8])
         assert values.base is araster.base
 
@@ -100,7 +110,7 @@ class TestValues:
         araster = np.arange(100).reshape(10, 10)
         bounds = BoundingBox(-5, 15, 8, 3)
         affine = Transform(1, 1, 0, 0).affine
-        values = clip.values(araster, bounds, affine, nodata=np.array(0))
+        values = clip.values("", araster, bounds, affine, nodata=np.array(0))
 
         expected = np.zeros((12, 13))
         expected[:7, 5:] = araster[3:, :8]
@@ -117,6 +127,6 @@ class TestValues:
         araster = np.arange(100).reshape(10, 10)
         bounds = BoundingBox.from_dict(clipped)
         affine = Transform(1, 1, 0, 0).affine
-        values = clip.values(araster, bounds, affine, nodata=np.array(-9))
+        values = clip.values("", araster, bounds, affine, nodata=np.array(-9))
         assert np.array_equal(values, araster[3:8, 2:8])
         assert values.base is araster.base

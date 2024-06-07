@@ -622,38 +622,6 @@ class TestReproject:
         )
 
 
-class TestFormat:
-    def test_same(_):
-        a = Transform(1, 2, 3, 4)
-        bounds = BoundingBox(1, 2, 3, 4)
-        assert a._format(4326, bounds) == a
-
-    def test_reproject(_):
-        a = Transform(10, 10, 100, 200, 26911)
-        bounds = BoundingBox(30, 30, 30, 30, 26911)
-        output = a._format(4326, bounds)
-        assert output == Transform(
-            dx=8.958985614526682e-05,
-            dy=9.019410357881852e-05,
-            left=-121.48784798637938,
-            top=0.0018038773910154836,
-            crs="WGS 84",
-        )
-
-    def test_reproject_box(_):
-        a = Transform(10, 10, 100, 200, 26911)
-        bounds = BoundingBox(30, 30, 30, 30, 26911)
-        bounds = bounds.reproject(26910)
-        output = a._format(4326, bounds)
-        assert output == Transform(
-            dx=8.958985614526682e-05,
-            dy=9.019410357881852e-05,
-            left=-121.48784798637938,
-            top=0.0018038773910154836,
-            crs="WGS 84",
-        )
-
-
 #####
 # Testing
 #####

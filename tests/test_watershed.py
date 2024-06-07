@@ -9,7 +9,7 @@ from pysheds.grid import Grid
 from shapely import LineString
 
 from pfdf import watershed
-from pfdf.errors import MissingCRSError
+from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import Transform
 from pfdf.raster import PyshedsRaster, Raster
 
@@ -76,13 +76,6 @@ def masked_segments(segments):
     return [
         segment for s, segment in enumerate(segments) if s in [0, 1, 2, 4, 5, 8, 9, 10]
     ]
-
-
-def assert_contains(error, *strings):
-    "Check exception message contains specific strings"
-    message = error.value.args[0]
-    for string in strings:
-        assert string in message
 
 
 #####
@@ -166,7 +159,7 @@ def test_split_segments():
 
 
 class TestCondition:
-    def test_none(_):
+    def test_none(_, assert_contains):
         dem = np.array(
             [
                 [0, 0, 0, 0, 0],
@@ -315,7 +308,7 @@ class TestFlow:
 
 
 class TestSlopes:
-    def test(_):
+    def test_crs_meters(_):
         dem = np.array(
             [
                 [1, 1, 1, 1, 1],
@@ -325,6 +318,7 @@ class TestSlopes:
                 [1, 1, 1, 1, 1],
             ]
         )
+        dem = Raster.from_array(dem, nodata=1, crs=26911, transform=(1, 1, 0, 0))
         flow = np.array(
             [
                 [0, 0, 0, 0, 0],
@@ -351,6 +345,101 @@ class TestSlopes:
         assert flow.crs is None
         assert flow.transform is None
 
+    def test_crs_not_meters(_):
+        dem = np.array(
+            [
+                [1, 1, 1, 1, 1],
+                [1, 4, 3, 2, 1],
+                [1, 6, 20, 100, 1],
+                [1, 8, 50, 10, 1],
+                [1, 1, 1, 1, 1],
+            ]
+        )
+        dem = Raster.from_array(dem, nodata=1, crs=4326, transform=(1, 1, 0, 0))
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 1, 1, 1, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        flow = Raster.from_array(flow, nodata=0)
+        expected = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [
+                    0,
+                    8.99321606e-06,
+                    8.99321606e-06,
+                    8.99321606e-06,
+                    0,
+                ],
+                [
+                    0,
+                    1.79864321e-05,
+                    6.35916406e-05,
+                    3.17958203e-04,
+                    0,
+                ],
+                [
+                    0,
+                    1.79864321e-05,
+                    2.69796482e-04,
+                    8.09389445e-05,
+                    0,
+                ],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        slopes = watershed.slopes(dem, flow)
+        assert isinstance(slopes, Raster)
+        assert np.allclose(slopes.values, expected)
+        assert np.isnan(slopes.nodata)
+        assert flow.crs is None
+        assert flow.transform is None
+
+    def test_convert_units(_):
+        dem = np.array(
+            [
+                [1, 1, 1, 1, 1],
+                [1, 4, 3, 2, 1],
+                [1, 6, 20, 100, 1],
+                [1, 8, 50, 10, 1],
+                [1, 1, 1, 1, 1],
+            ]
+        )
+        dem = Raster.from_array(dem, nodata=1, crs=26911, transform=(1, 1, 0, 0))
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 1, 1, 1, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        flow = Raster.from_array(flow, nodata=0)
+        expected = (
+            np.array(
+                [
+                    [0, 0, 0, 0, 0],
+                    [0, 1, 1, 1, 0],
+                    [0, 2, 10 / sqrt(2), 50 / sqrt(2), 0],
+                    [0, 2, 30, 9, 0],
+                    [0, 0, 0, 0, 0],
+                ]
+            )
+            / 10
+        )
+        slopes = watershed.slopes(dem, flow, dem_per_m=10)
+        assert isinstance(slopes, Raster)
+        assert np.array_equal(slopes.values, expected)
+        assert np.isnan(slopes.nodata)
+        assert flow.crs is None
+        assert flow.transform is None
+
     def test_no_check(_):
         dem = np.array(
             [
@@ -361,6 +450,7 @@ class TestSlopes:
                 [1, 1, 1, 1, 1],
             ]
         )
+        dem = Raster.from_array(dem, crs=26911, transform=(1, 1, 0, 0))
         flow = np.array(
             [
                 [0, 0, 0, 0, 0],
@@ -371,6 +461,62 @@ class TestSlopes:
             ]
         )
         watershed.slopes(dem, flow, check_flow=False)
+
+    def test_missing_crs(_, assert_contains):
+        dem = np.array(
+            [
+                [1, 1, 1, 1, 1],
+                [1, 4, 3, 2, 1],
+                [1, 6, 20, 100, 1],
+                [1, 8, 50, 10, 1],
+                [1, 1, 1, 1, 1],
+            ]
+        )
+        dem = Raster.from_array(dem, nodata=1, transform=(1, 1, 0, 0))
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 1, 1, 1, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        flow = Raster.from_array(flow, nodata=0)
+        with pytest.raises(MissingCRSError) as error:
+            watershed.slopes(dem, flow)
+        assert_contains(
+            error,
+            "In order to compute flow slopes, the conditioned DEM must have a CRS.",
+        )
+
+    def test_missing_transform(_, assert_contains):
+        dem = np.array(
+            [
+                [1, 1, 1, 1, 1],
+                [1, 4, 3, 2, 1],
+                [1, 6, 20, 100, 1],
+                [1, 8, 50, 10, 1],
+                [1, 1, 1, 1, 1],
+            ]
+        )
+        dem = Raster.from_array(dem, nodata=1, crs=26911)
+        flow = np.array(
+            [
+                [0, 0, 0, 0, 0],
+                [0, 1, 1, 1, 0],
+                [0, 3, 8, 6, 0],
+                [0, 3, 3, 1, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
+        flow = Raster.from_array(flow, nodata=0)
+        with pytest.raises(MissingTransformError) as error:
+            watershed.slopes(dem, flow)
+        assert_contains(
+            error,
+            "In order to compute flow slopes, the conditioned DEM must have an affine transform.",
+        )
 
 
 class TestRelief:
@@ -676,7 +822,7 @@ class TestNetwork:
         flow = Raster.from_array(flow, nodata=0)
         mask = np.ones(flow.shape, bool)
 
-        output = watershed.network(flow, mask, max_length=2)
+        output = watershed.network(flow, mask, max_length=2, base_unit=True)
         expected = [
             LineString([[1.5, 1.5], [2.5, 1.5], [3.5, 1.5]]),
             LineString([[3.5, 1.5], [4.5, 1.5], [5.5, 1.5]]),
@@ -701,7 +847,7 @@ class TestNetwork:
         flow = Raster.from_array(flow, nodata=0, crs=26911)
         mask = np.ones(flow.shape, bool)
 
-        output = watershed.network(flow, mask, max_length=2, meters=True)
+        output = watershed.network(flow, mask, max_length=2)
         expected = [
             LineString([[1.5, 1.5], [2.5, 1.5], [3.5, 1.5]]),
             LineString([[3.5, 1.5], [4.5, 1.5], [5.5, 1.5]]),
@@ -727,7 +873,7 @@ class TestNetwork:
         mask = np.ones(flow.shape, bool)
 
         with pytest.raises(MissingCRSError):
-            watershed.network(flow, mask, max_length=2, meters=True)
+            watershed.network(flow, mask, max_length=2)
 
     def test_no_check(_):
         flow = np.array(

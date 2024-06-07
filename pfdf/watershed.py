@@ -62,7 +62,7 @@ from shapely.ops import substring
 import pfdf._validate.core as validate
 from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
-from pfdf.errors import MissingCRSError
+from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import _crs
 from pfdf.raster import Raster, RasterInput
 from pfdf.typing import scalar
@@ -139,7 +139,7 @@ def condition(
         dem = grid.fill_depressions(dem, nodata_out=-inf)
     if resolve_flats:
         dem = grid.resolve_flats(dem, nodata_out=-inf)
-    return Raster._from_array(dem, nodata=-inf, **metadata)
+    return Raster.from_array(dem, nodata=-inf, **metadata, copy=False)
 
 
 def flow(dem: RasterInput) -> Raster:
@@ -172,19 +172,34 @@ def flow(dem: RasterInput) -> Raster:
     grid = Grid.from_raster(dem, nodata=nan)
     flow = grid.flowdir(dem, flats=0, pits=0, nodata_out=0, **_FLOW_OPTIONS)
     flow = flow.astype("int8")
-    return Raster._from_array(flow, nodata=0, **metadata)
+    return Raster.from_array(flow, nodata=0, **metadata, copy=False)
 
 
-def slopes(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Raster:
+def slopes(
+    dem: RasterInput,
+    flow: RasterInput,
+    dem_per_m: Optional[scalar] = None,
+    check_flow: bool = True,
+) -> Raster:
     """
     slopes  Computes D8 flow slopes for a watershed
     ----------
     slopes(dem, flow)
     Returns D8 flow slopes for a watershed. Computes these slopes using a DEM
     raster, and TauDEM-style D8 flow directions. Note that the DEM should be a
-    raw DEM - it does not need to resolve pits and flats.
+    raw DEM - it does not need to resolve pits and flats. The returned slopes will
+    be unitless gradients. The rise is determined using the DEM, and the run is
+    determined from the CRS and transform. If the CRS base unit is not meters,
+    converts the run to meters before returning slopes. Note that the DEM is
+    raster is required to have both a CRS and transform.
 
-    slopes(dem, flow, check_flow=False)
+    slopes(..., dem_per_m)
+    By default, this routine assumes that the DEM units are in meters. When this
+    is not the case, use the "dem_per_m" option to specify a conversion factor.
+    This will ensure that the returned slopes are unitless gradients. Neglecting
+    this factor will return slopes in (DEM units) / meter instead.
+
+    slopes(..., check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
     necessary for flow directions directly output by the "watershed.flow" function,
     and disabling the validation can improve runtimes for large rasters. However,
@@ -194,6 +209,7 @@ def slopes(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
     Inputs:
         dem: A digital elevation model raster
         flow: A raster with TauDEM-style D8 flow directions
+        dem_per_m: A conversion factor for when the DEM uses units other than meters.
         check_flow: True (default) to validate the flow directions raster.
             False to disable validation checks.
 
@@ -201,23 +217,43 @@ def slopes(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
         slopes: The computed D8 flow slopes for the watershed
     """
 
-    # Validate
+    # Validate DEM metadata
     dem = Raster(dem, "dem")
+    if dem.crs is None:
+        raise MissingCRSError(
+            "In order to compute flow slopes, the conditioned DEM must have a CRS."
+        )
+    if dem.transform is None:
+        raise MissingTransformError(
+            "In order to compute flow slopes, the conditioned DEM must have an affine transform."
+        )
+
+    # Validate flow and conversion factor
+    dem_per_m = validate.conversion(dem_per_m, "dem_per_m")
     flow = dem.validate(flow, "flow directions")
     if check_flow:
         validate.flow(flow.values, flow.name, ignore=flow.nodata)
 
-    # Get metadata and convert to pysheds
-    dem, metadata = _to_pysheds(dem)
+    # Get metadata and convert to pysheds. Compute slopes
+    demsheds, metadata = _to_pysheds(dem)
     flow = flow.as_pysheds()
-
-    # Compute slopes
     grid = Grid.from_raster(flow, nodata=nan)
-    slopes = grid.cell_slopes(dem, flow, nodata_out=nan, **_FLOW_OPTIONS)
-    return Raster._from_array(slopes, nodata=nan, **metadata)
+    slopes = grid.cell_slopes(demsheds, flow, nodata_out=nan, **_FLOW_OPTIONS)
+
+    # Ensure slopes are unitless gradients and return raster
+    if dem_per_m is not None:
+        slopes = slopes / dem_per_m
+    if dem.crs_units[1] != "metre":
+        crs_per_m = _crs.y_units_per_m(dem.crs)
+        slopes = slopes * crs_per_m
+    return Raster.from_array(slopes, nodata=nan, **metadata, copy=False)
 
 
-def relief(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Raster:
+def relief(
+    dem: RasterInput,
+    flow: RasterInput,
+    check_flow: bool = True,
+) -> Raster:
     """
     relief  Computes vertical relief to the highest ridge cell
     ----------
@@ -229,7 +265,7 @@ def relief(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
     flow directions. Note that the DEM should be a raw DEM - it does not need to
     resolve pits and flats.
 
-    relief(dem, flow, check_flow=False)
+    relief(..., check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
     necessary for flow directions directly output by the "watershed.flow" function,
     and disabling the validation can improve runtimes for large rasters. However,
@@ -268,7 +304,7 @@ def relief(dem: RasterInput, flow: RasterInput, check_flow: bool = True) -> Rast
         flow, weights=drops, nodata_out=nan, **_FLOW_OPTIONS
     )
     nodatas.fill(relief, nan)
-    return Raster._from_array(relief, nodata=nan, **metadata)
+    return Raster.from_array(relief, nodata=nan, **metadata, copy=False)
 
 
 def accumulation(
@@ -377,12 +413,13 @@ def accumulation(
     # Get metadata and convert to pysheds. Note that weights.nodata should be NaN
     # to prevent the algorithm from stopping at 0s when ignoring NaNs
     flow, metadata = _to_pysheds(flow)
-    weights = Raster._from_array(weights, nodata=nan, **metadata).as_pysheds()
+    weights = Raster.from_array(weights, nodata=nan, **metadata, copy=False)
+    weights = weights.as_pysheds()
 
     # Compute accumulation
     grid = Grid.from_raster(flow)
     accumulation = grid.accumulation(flow, weights, nodata_out=nan, **_FLOW_OPTIONS)
-    return Raster._from_array(accumulation, nodata=nan, **metadata)
+    return Raster.from_array(accumulation, nodata=nan, **metadata, copy=False)
 
 
 def catchment(
@@ -434,14 +471,14 @@ def catchment(
     catchment = grid.catchment(
         fdir=flow, x=column, y=row, xytype="index", **_FLOW_OPTIONS
     )
-    return Raster._from_array(catchment, nodata=False, **metadata)
+    return Raster.from_array(catchment, nodata=False, **metadata, copy=False)
 
 
 def network(
     flow: RasterInput,
     mask: RasterInput,
     max_length: Optional[scalar] = None,
-    meters: bool = False,
+    base_unit: bool = False,
     check_flow: bool = True,
 ) -> list[LineString]:
     """
@@ -461,13 +498,14 @@ def network(
     pixels below developed areas.
 
     network(..., max_length)
-    network(..., max_length, meters=True)
+    network(..., max_length, base_unit=True)
     Also specifies a maximum length for the segments in the network. Any segment
     longer than this length will be split into multiple pieces. The split pieces
     will all have the same length, which will be <= max_length. By default, the
-    command interprets the units of max_length as the base unit of the flow raster
-    CRS. Set meters=True to interpret max_length as meters instead. Note that the
-    meters option is only available if the flow raster has a CRS.
+    command interprets the units of max_length as meters. Set base_unit=True to
+    provide a maximum length in the base unit of the affine Transform instead.
+    Note that the default meters interpretaion is only available when the flow
+    raster has a CRS. The base_unit option relaxes this requirement.
 
     network(..., check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
@@ -481,8 +519,8 @@ def network(
         mask: A raster whose True values indicate the pixels that may potentially
             belong to a stream segment.
         max_length: A maximum allowed length for segments in the network.
-        meters: True to interpret the maximum length as meters. False (default)
-            to use the base unit of the X-axis of the flow raster's CRS.
+        base_unit: True to interpret the maximum length as the base unit of the
+            affine Transform. False (default) to interpret max_length in meters.
         check_flow: True (default) to validate the flow directions raster.
             False to disable validation checks.
 
@@ -493,18 +531,17 @@ def network(
             flow raster CRS (rather than raster pixel indices).
     """
 
-    # Meters conversion requires a CRS
-    if meters and flow.crs is None:
-        raise MissingCRSError(
-            "Cannot convert max_length from meters because the flow raster does not "
-            "have a CRS."
-        )
-
-    # Initial validation
+    # Initial Validation
+    flow = Raster(flow, "flow directions")
     if max_length is not None:
         max_length = validate.scalar(max_length, "max_length", dtype=real)
         validate.positive(max_length, "max_length")
-    flow = Raster(flow, "flow directions")
+        meters = not base_unit
+        if meters and flow.crs is None:
+            raise MissingCRSError(
+                "Cannot convert max_length from meters because the flow raster does not "
+                "have a CRS."
+            )
 
     # Validate mask and flow values
     mask = flow.validate(mask, "mask")

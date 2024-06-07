@@ -96,7 +96,6 @@ class Transform(_Locator):
 
     INTERNAL:
         _edge           - Computes the location of a bounding edge
-        _format         - Ensures the Transform for a bounded dataset matches a template CRS
     """
 
     _names = ["dx", "dy", "left", "top"]
@@ -597,11 +596,3 @@ class Transform(_Locator):
         dx = right - left
         dy = bottom - top
         return Transform(dx, dy, left, top, crs)
-
-    def _format(self, crs, bounds):
-        "Ensures the Transform for a bounded datasets matches a template CRS"
-        if _crs.different(self.crs, crs):
-            bounds = bounds.reproject(self.crs)
-            return self.reproject(crs, bounds.center_y)
-        else:
-            return self

@@ -112,8 +112,8 @@ def mask(severity: RasterInput, descriptions: strs) -> Raster:
 
     # Return the severity mask
     mask = np.isin(severity.values, classes)
-    return Raster._from_array(
-        mask, nodata=False, crs=severity.crs, transform=severity.transform
+    return Raster.from_array(
+        mask, nodata=False, crs=severity.crs, transform=severity.transform, copy=False
     )
 
 
@@ -166,8 +166,8 @@ def estimate(raster: RasterInput, thresholds: Thresholds = [125, 250, 500]) -> R
     # Get the burn severity classes and return as raster
     severity = classify(raster.values, thresholds, nodata=raster.nodata, nodata_to=0)
     severity = severity.astype("int8", copy=False)
-    return Raster._from_array(
-        severity, nodata=0, crs=raster.crs, transform=raster.transform
+    return Raster.from_array(
+        severity, nodata=0, crs=raster.crs, transform=raster.transform, copy=False
     )
 
 
