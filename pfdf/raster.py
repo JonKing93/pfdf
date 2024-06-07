@@ -321,23 +321,103 @@ class Raster:
             kwargs["y"] = self.center_y
         return getattr(self.transform, method)(**kwargs)
 
-    def dx(self, base_unit: bool = False):
+    def dx(self, base_unit: bool = False) -> float:
+        """
+        Returns the change in the X-axis spatial coordinate when moving one pixel left
+        ----------
+        self.dx()
+        self.dx(base_unit=True)
+        Returns the change in X-axis spatial coordinate when moving one pixel to
+        the left. By default, returns dx in meters. Set base_unit=True to return
+        dx in the base unit of the raster's CRS/Transform.
+        ----------
+        Inputs:
+            base_unit: True to return dx in the Transform base unit. False (default)
+                to return dx in meters.
+
+        Outputs:
+            float: The change in X coordinate when moving one pixel left
+        """
         return self._pixel("dx", base_unit)
 
-    def dy(self, base_unit: bool = False):
+    def dy(self, base_unit: bool = False) -> float:
+        """
+        Returns the change in the Y-axis spatial coordinate when moving one pixel down
+        ----------
+        self.dx()
+        self.dx(base_unit=True)
+        Returns the change in Y-axis spatial coordinate when moving one pixel 
+        down. By default, returns dy in meters. Set base_unit=True to return
+        dy in the base unit of the raster's CRS/Transform.
+        ----------
+        Inputs:
+            base_unit: True to return dy in the Transform base unit. False (default)
+                to return dy in meters.
+
+        Outputs:
+            float: The change in Y coordinate when moving one pixel down
+        """
         return self._pixel("dy", base_unit, needs_y=False)
 
-    def resolution(self, base_unit: bool = False):
+    def resolution(self, base_unit: bool = False) -> tuple[float, float]:
+        """
+        Returns the raster resolution
+        ----------
+        self.resolution()
+        self.resolution(base_unit=True)
+        Returns the raster resolution as a tuple with two elements. The first
+        element is the X resolution, and the second element is Y resolution. Note
+        that resolution is strictly positive. By default, returns resolution in
+        meters. Set base_unit=True to return resolution in the base unit of the
+        CRS/Transform.
+        ----------
+        Inputs:
+            base_unit: True to return resolution in the Transform base unit.
+                False (default) to return resolution in meters.
+
+        Outputs:
+            float, float: The X and Y axis pixel resolution
+        """
         return self._pixel("resolution", base_unit)
 
-    def pixel_area(self, base_unit: bool = False):
+    def pixel_area(self, base_unit: bool = False) -> float:
+        """
+        Returns the area of one pixel
+        ----------
+        self.pixel_area()
+        self.pixel_area(base_unit=True)
+        Returns the area of a raster pixel. By default, returns area in meters^2.
+        Set base_unit=True to return area in the base unit of the Transform squared.
+        ----------
+        Inputs:
+            base_unit: True to return area in the Transform base unit squared.
+                False (default) to return area in meters^2
+
+        Outputs:
+            float: The area of a raster pixel
+        """
         return self._pixel("pixel_area", base_unit)
 
-    def pixel_diagonal(self, base_unit: bool = False):
+    def pixel_diagonal(self, base_unit: bool = False) -> float:
+        """
+        Returns the length of a pixel diagonal
+        ----------
+        self.pixel_diagonal()
+        self.pixel_diagonal(base_unit=True)
+        Returns the length of a pixel diagonal. By default, returns area in meters.
+        Set base_unit=True to return length in the base unit of the Transform.
+        ----------
+        Inputs:
+            base_unit: True to return length in the Transform base unit.
+                False (default) to return length in meters
+
+        Outputs:
+            float: The area of a raster pixel
+        """
         return self._pixel("pixel_diagonal", base_unit)
 
     @property
-    def affine(self):
+    def affine(self) -> Affine | None:
         if self.transform is None:
             return None
         else:
@@ -2196,4 +2276,4 @@ class Raster:
 #####
 # Type Hints
 #####
-RasterInput = str | Path | rasterio.DatasetReader | MatrixArray | Raster | PyshedsRaster
+RasterInput = str | Path | rasterio.DatasetReader | MatrixArray | Raster | PyshedsRaster""
