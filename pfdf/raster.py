@@ -123,6 +123,7 @@ class Raster:
         validate        - Checks that a second raster has a compatible shape, transform, and crs
 
     IO:
+        __repr__        - Returns a string summarizing the Raster
         save            - Saves a raster dataset to file
         copy            - Creates a copy of the current Raster
         as_pysheds      - Returns a Raster as a pysheds.sview.Raster object
@@ -1666,6 +1667,44 @@ class Raster:
     #####
     # IO
     #####
+
+    def __repr__(self):
+        """
+        Returns a string summarizing the raster
+        ----------
+        repr(self)
+        Returns a string summarizing key information about the raster. Includes
+        the shape, dtype, NoData, CRS, Transform, and BoundingBox.
+        ----------
+        Outputs:
+            str: A string summary of the raster
+        """
+
+        # CRS
+        if self.crs is None:
+            crs = "CRS: None"
+        else:
+            crs = f'CRS("{_crs.name(self.crs)}")'
+
+        # Transform and bounds
+        if self.transform is None:
+            transform = "Transform: None"
+            bounds = "BoundingBox: None"
+        else:
+            transform = str(self.transform)
+            bounds = str(self.bounds)
+
+        # Build final string
+        return (
+            f"Raster:\n"
+            f"    Name: {self.name}\n"
+            f"    Shape: {self.shape}\n"
+            f"    Dtype: {self.dtype}\n"
+            f"    NoData: {self.nodata}\n"
+            f"    {crs}\n"
+            f"    {transform}\n"
+            f"    {bounds}\n"
+        )
 
     def save(
         self,

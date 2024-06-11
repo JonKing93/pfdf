@@ -1415,6 +1415,42 @@ class TestValidate:
 #####
 
 
+class TestRepr:
+    def test_all(_, araster, crs, transform):
+        araster = araster.astype("float32")
+        raster = Raster.from_array(
+            araster, nodata=5, crs=crs, transform=transform, name="test"
+        )
+        output = repr(raster)
+        expected = (
+            f"Raster:\n"
+            f"    Name: test\n"
+            f"    Shape: {araster.shape}\n"
+            f"    Dtype: float32\n"
+            f"    NoData: 5.0\n"
+            f'    CRS("{crs.name}")\n'
+            f"    {raster.transform}\n"
+            f"    {raster.bounds}\n"
+        )
+        assert output == expected
+
+    def test_none(_, araster):
+        araster = araster.astype("float32")
+        raster = Raster(araster, ensure_nodata=False)
+        output = repr(raster)
+        expected = (
+            "Raster:\n"
+            "    Name: raster\n"
+            f"    Shape: {araster.shape}\n"
+            "    Dtype: float32\n"
+            "    NoData: None\n"
+            "    CRS: None\n"
+            "    Transform: None\n"
+            "    BoundingBox: None\n"
+        )
+        assert output == expected
+
+
 class TestSave:
     def test_standard(_, fraster, tmp_path, araster, transform, crs):
         path = Path(tmp_path) / "output.tif"
