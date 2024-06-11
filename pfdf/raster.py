@@ -37,7 +37,7 @@ from pfdf.errors import (
     RasterCRSError,
     RasterShapeError,
     RasterTransformError,
-    handle_memory_error,
+    _handle_memory_error,
 )
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.typing import (
@@ -1260,7 +1260,7 @@ class Raster:
                 "too large for your computer's memory. Try increasing the "
                 '"resolution" input to a coarser resolution.'
             )
-            handle_memory_error(error, message)
+            _handle_memory_error(error, message)
 
         # Build the raster array
         raster = np.full(shape, fill, dtype)
@@ -1408,7 +1408,7 @@ class Raster:
                 "too large for your computer's memory. Try increasing the "
                 '"resolution" input to a coarser resolution.'
             )
-            handle_memory_error(error, message)
+            _handle_memory_error(error, message)
 
         # Convert to boolean as needed and build final Raster
         if field is None:
@@ -2117,7 +2117,7 @@ class Raster:
                 f"Cannot buffer the {self.name} because the buffered array is too "
                 "large for memory. Try decreasing the buffering distance."
             )
-            handle_memory_error(error, message)
+            _handle_memory_error(error, message)
 
         # Copy the current array into the buffered array
         rows = slice(buffers["top"], buffers["top"] + self.height)
@@ -2289,7 +2289,7 @@ class Raster:
                 "is too large for memory. Try increasing the Transform's dx and dy "
                 "to coarser resolution."
             )
-            handle_memory_error(error, message)
+            _handle_memory_error(error, message)
 
         # Reproject the array
         rasterio.warp.reproject(

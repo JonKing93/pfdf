@@ -28,7 +28,12 @@ Vector Features:
 
 Models:
     DurationsError          - When queried rainfall durations are not recognized
+
+Internal:
+    _handle_memory_error    - Detects and supplements memory errors
 """
+
+from typing import NoReturn
 
 #####
 # Numpy Arrays
@@ -144,7 +149,8 @@ class DurationsError(Exception):
 #####
 
 
-def handle_memory_error(error, message):
+def _handle_memory_error(error: Exception, message: str) -> NoReturn:
+    "Detects and supplements memory errors"
 
     # Detect whether this is a memory issue
     ismemory = False

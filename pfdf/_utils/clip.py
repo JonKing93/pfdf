@@ -15,7 +15,7 @@ import numpy as np
 import rasterio.transform
 from affine import Affine
 
-from pfdf.errors import MissingNoDataError, handle_memory_error
+from pfdf.errors import MissingNoDataError, _handle_memory_error
 from pfdf.projection import BoundingBox
 from pfdf.typing import MatrixArray, ScalarArray, VectorArray
 
@@ -79,7 +79,7 @@ def _exterior(
             f"Cannot clip the {name} because the clipped raster is too large for "
             "memory. Try clipping to a smaller bounding box."
         )
-        handle_memory_error(error, message)
+        _handle_memory_error(error, message)
 
     # Get the complete set of indices for the final clipped array
     crows = np.arange(0, nrows)
