@@ -45,7 +45,7 @@ def araster():
 
 @pytest.fixture
 def points(tmp_path, crs):
-    points = [[1, 2], [3.3, 4.4], [5, 6]]
+    points = [[10, 20], [33, 44], [50, 60]]
     values = range(len(points))
 
     records = [
@@ -62,8 +62,8 @@ def points(tmp_path, crs):
 @pytest.fixture
 def multipoints(tmp_path, crs):
     points = [
-        [[1, 2], [3, 4], [5.5, 6.6]],
-        [[8, 9], [2, 7]],
+        [[10, 20], [30, 40], [55, 66]],
+        [[80, 90], [20, 70]],
     ]
     values = range(len(points))
 
@@ -83,10 +83,10 @@ def multipoints(tmp_path, crs):
 def polygon_coords():
     return [
         (
-            [(2, 2), (2, 7), (6, 7), (6, 2), (2, 2)],
-            [(2, 2), (2, 4), (4, 4), (4, 2), (2, 2)],  # hole in upper-left
+            [(20, 20), (20, 70), (60, 70), (60, 20), (20, 20)],
+            [(20, 20), (20, 40), (40, 40), (40, 20), (20, 20)],  # hole in upper-left
         ),
-        ([(4, 6), (4, 9), (9, 9), (9, 6), (4, 6)],),
+        ([(40, 60), (40, 90), (90, 90), (90, 60), (40, 60)],),
     ]
 
 
@@ -109,12 +109,12 @@ def multipolygons(tmp_path, crs):
     coords = [
         [  # Multipolygon A
             [  # Polygon A1
-                [(2, 2), (2, 7), (6, 7), (6, 2), (2, 2)],
-                [(2, 2), (2, 4), (4, 4), (4, 2), (2, 2)],
+                [(20, 20), (20, 70), (60, 70), (60, 20), (20, 20)],
+                [(20, 20), (20, 40), (40, 40), (40, 20), (20, 20)],
             ],
-            [[(4, 6), (4, 9), (9, 9), (9, 6), (4, 6)]],  # Polygon A2
+            [[(40, 60), (40, 90), (90, 90), (90, 60), (40, 60)]],  # Polygon A2
         ],
-        [[[(5, 3), (5, 4), (6, 4), (6, 3), (5, 3)]]],  # Multipolygon B
+        [[[(50, 30), (50, 40), (60, 40), (60, 30), (50, 30)]]],  # Multipolygon B
     ]
     values = range(len(coords))
     multis = [

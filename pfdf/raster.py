@@ -123,7 +123,6 @@ class Raster:
         validate        - Checks that a second raster has a compatible shape, transform, and crs
 
     IO:
-        __repr__        - Returns a string summarizing the Raster
         save            - Saves a raster dataset to file
         copy            - Creates a copy of the current Raster
         as_pysheds      - Returns a Raster as a pysheds.sview.Raster object
@@ -1139,7 +1138,7 @@ class Raster:
         *,
         field: Optional[str] = None,
         fill: Optional[scalar] = None,
-        resolution: ResolutionInput = 1,
+        resolution: ResolutionInput = 10,
         base_unit: bool = False,
         bounds: Optional[BoundsInput] = None,
         layer: Optional[int | str] = None,
@@ -1154,8 +1153,8 @@ class Raster:
         Returns a boolean raster derived from the input point features. Pixels
         containing a point are set to True. All other pixels are set to False.
         The CRS of the output raster is inherited from the input feature file.
-        The default resolution of the output raster is 1 (in the units of the
-        CRS), although see below for options for other resolutions. The bounds of
+        The default resolution of the output raster is 10 meters,
+        although see below for options for other resolutions. The bounds of
         the raster will be the minimal bounds required to contain all input points
         at the indicated resolution.
 
@@ -1279,7 +1278,7 @@ class Raster:
         *,
         field: Optional[str] = None,
         fill: Optional[scalar] = None,
-        resolution: ResolutionInput = 1,
+        resolution: ResolutionInput = 10,
         base_unit: bool = False,
         bounds: Optional[BoundsInput] = None,
         layer: Optional[int | str] = None,
@@ -1294,8 +1293,8 @@ class Raster:
         Returns a boolean raster derived from the input polygon features. Pixels
         whose centers are in any of the polygons are set to True. All other pixels
         are set to False. The CRS of the output raster is inherited from the input
-        feature file. The default resolution of the output raster is 1 (in the
-        units of the polygon's CRS), although see below for options for other
+        feature file. The default resolution of the output raster is 10 meters,
+        although see below for options for other
         resolutions. The bounds of the raster will be the minimal bounds required
         to contain all input polygons at the indicated resolution.
 
@@ -1667,44 +1666,6 @@ class Raster:
     #####
     # IO
     #####
-
-    def __repr__(self):
-        """
-        Returns a string summarizing the raster
-        ----------
-        repr(self)
-        Returns a string summarizing key information about the raster. Includes
-        the shape, dtype, NoData, CRS, Transform, and BoundingBox.
-        ----------
-        Outputs:
-            str: A string summary of the raster
-        """
-
-        # CRS
-        if self.crs is None:
-            crs = "CRS: None"
-        else:
-            crs = f'CRS("{_crs.name(self.crs)}")'
-
-        # Transform and bounds
-        if self.transform is None:
-            transform = "Transform: None"
-            bounds = "BoundingBox: None"
-        else:
-            transform = str(self.transform)
-            bounds = str(self.bounds)
-
-        # Build final string
-        return (
-            f"Raster:\n"
-            f"    Name: {self.name}\n"
-            f"    Shape: {self.shape}\n"
-            f"    Dtype: {self.dtype}\n"
-            f"    NoData: {self.nodata}\n"
-            f"    {crs}\n"
-            f"    {transform}\n"
-            f"    {bounds}\n"
-        )
 
     def save(
         self,

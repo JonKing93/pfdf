@@ -441,12 +441,12 @@ class TestProcess:
     def test_polygons(_, polygons, crs):
         with FeatureFile("polygon", polygons, None, None, None) as file:
             feats, outcrs, transform, shape, dtype, nodata, fill = file.process(
-                "test", 5, (1, 1), False, None
+                "test", 5, (10, 10), False, None
             )
         assert isinstance(feats, list)
         assert len(feats) == 2
         assert outcrs == crs
-        assert transform == Transform(1, -1, 2, 9)
+        assert transform == Transform(10, -10, 20, 90)
         assert shape == (7, 7)
         assert dtype == float
         assert isnan(nodata)
@@ -455,12 +455,12 @@ class TestProcess:
     def test_points(_, points, crs):
         with FeatureFile("point", points, None, None, None) as file:
             feats, outcrs, transform, shape, dtype, nodata, fill = file.process(
-                "test", 5, (1, 1), False, None
+                "test", 5, (10, 10), False, None
             )
         assert isinstance(feats, list)
         assert len(feats) == 3
         assert outcrs == crs
-        assert transform == Transform(1, -1, 1, 6)
+        assert transform == Transform(10, -10, 10, 60)
         assert shape == (4, 4)
         assert dtype == float
         assert isnan(nodata)

@@ -766,7 +766,7 @@ class TestFromPoints:
         assert raster.dtype == bool
         assert raster.crs == crs
         assert raster.nodata == False
-        assert raster.transform.affine == Transform(1, -1, 1, 6).affine
+        assert raster.transform.affine == Transform(10, -10, 10, 60).affine
 
         expected = np.array(
             [
@@ -793,7 +793,7 @@ class TestFromPoints:
         assert raster.dtype == bool
         assert raster.crs == crs
         assert raster.nodata == False
-        assert raster.transform.affine == Transform(1, -1, 1, 9).affine
+        assert raster.transform.affine == Transform(10, -10, 10, 90).affine
 
         expected = np.array(
             [
@@ -810,11 +810,11 @@ class TestFromPoints:
         assert np.array_equal(raster.values, expected)
 
     def test_fixed_res(_, points, crs):
-        raster = Raster.from_points(points, resolution=2)
+        raster = Raster.from_points(points, resolution=20)
         assert raster.dtype == bool
         assert raster.crs == crs
         assert raster.nodata == False
-        assert raster.transform.affine == Transform(2, -2, 1, 6).affine
+        assert raster.transform.affine == Transform(20, -20, 10, 60).affine
 
         expected = np.array(
             [
@@ -826,11 +826,11 @@ class TestFromPoints:
         assert np.array_equal(raster.values, expected)
 
     def test_mixed_res(_, points, crs):
-        raster = Raster.from_points(points, resolution=(2, 1))
+        raster = Raster.from_points(points, resolution=(20, 10))
         assert raster.dtype == bool
         assert raster.crs == crs
         assert raster.nodata == False
-        assert raster.transform.affine == Transform(2, -1, 1, 6).affine
+        assert raster.transform.affine == Transform(20, -10, 10, 60).affine
 
         expected = np.array(
             [
@@ -854,7 +854,7 @@ class TestFromPoints:
         assert raster.dtype == bool
         assert raster.crs == crs
         assert raster.nodata == False
-        assert raster.transform.affine == Transform(1, -1, 1, 6).affine
+        assert raster.transform.affine == Transform(10, -10, 10, 60).affine
 
         expected = np.array(
             [
@@ -872,7 +872,7 @@ class TestFromPoints:
         assert raster.dtype == float
         assert raster.crs == crs
         assert isnan(raster.nodata)
-        assert raster.transform.affine == Transform(1, -1, 1, 6).affine
+        assert raster.transform.affine == Transform(10, -10, 10, 60).affine
 
         expected = np.array(
             [
@@ -894,7 +894,7 @@ class TestFromPoints:
         assert raster.dtype == float
         assert raster.crs == crs
         assert isnan(raster.nodata)
-        assert raster.transform.affine == Transform(1, -1, 1, 6).affine
+        assert raster.transform.affine == Transform(10, -10, 10, 60).affine
 
         expected = np.array(
             [
@@ -913,12 +913,12 @@ class TestFromPoints:
         assert_contains(error, "fill")
 
     def test_windowed(_, points, crs):
-        bounds = BoundingBox(1, 0, 3, 3, crs)
+        bounds = BoundingBox(10, 0, 30, 30, crs)
         raster = Raster.from_points(points, bounds=bounds)
         assert raster.dtype == bool
         assert raster.crs == crs
         assert raster.nodata == False
-        assert raster.transform == Transform(1, -1, 1, 3, crs)
+        assert raster.transform == Transform(10, -10, 10, 30, crs)
 
         expected = np.array(
             [
@@ -940,7 +940,7 @@ class TestFromPolygons:
         assert raster.dtype == bool
         assert raster.nodata == False
         assert raster.crs == crs
-        assert raster.transform == Transform(1, -1, 2, 9, crs)
+        assert raster.transform == Transform(10, -10, 20, 90, crs)
 
         expected = np.array(
             [
@@ -969,7 +969,7 @@ class TestFromPolygons:
         assert raster.dtype == bool
         assert raster.nodata == False
         assert raster.crs == crs
-        assert raster.transform.affine == Affine(1, 0, 2, 0, -1, 9)
+        assert raster.transform.affine == Affine(10, 0, 20, 0, -10, 90)
 
         expected = np.array(
             [
@@ -985,21 +985,21 @@ class TestFromPolygons:
         assert np.array_equal(raster.values, expected)
 
     def test_fixed_res(_, polygons, crs):
-        raster = Raster.from_polygons(polygons, resolution=3)
+        raster = Raster.from_polygons(polygons, resolution=30)
         assert raster.dtype == bool
         assert raster.nodata == False
         assert raster.crs == crs
-        assert raster.transform.affine == Affine(3, 0, 2, 0, -3, 9)
+        assert raster.transform.affine == Affine(30, 0, 20, 0, -30, 90)
 
         expected = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]])
         assert np.array_equal(raster.values, expected)
 
     def test_mixed_res(_, polygons, crs):
-        raster = Raster.from_polygons(polygons, resolution=[3, 1])
+        raster = Raster.from_polygons(polygons, resolution=[30, 10])
         assert raster.dtype == bool
         assert raster.nodata == False
         assert raster.crs == crs
-        assert raster.transform.affine == Affine(3, 0, 2, 0, -1, 9)
+        assert raster.transform.affine == Affine(30, 0, 20, 0, -10, 90)
 
         expected = np.array(
             [
@@ -1015,12 +1015,12 @@ class TestFromPolygons:
         assert np.array_equal(raster.values, expected)
 
     def test_raster_res(_, polygons, crs, araster):
-        raster = Raster.from_array(araster, transform=Affine(3, 0, -9, 0, -1, -9))
+        raster = Raster.from_array(araster, transform=Affine(30, 0, -90, 0, -10, -90))
         raster = Raster.from_polygons(polygons, resolution=raster)
         assert raster.dtype == bool
         assert raster.nodata == False
         assert raster.crs == crs
-        assert raster.transform.affine == Affine(3, 0, 2, 0, -1, 9)
+        assert raster.transform.affine == Affine(30, 0, 20, 0, -10, 90)
 
         expected = np.array(
             [
@@ -1042,7 +1042,7 @@ class TestFromPolygons:
         assert raster.dtype == bool
         assert raster.nodata == False
         assert raster.crs == crs
-        assert raster.transform.affine == Affine(1, 0, 2, 0, -1, 9)
+        assert raster.transform.affine == Affine(10, 0, 20, 0, -10, 90)
 
         expected = np.array(
             [
@@ -1062,7 +1062,7 @@ class TestFromPolygons:
         assert raster.dtype == float
         assert isnan(raster.nodata)
         assert raster.crs == crs
-        assert raster.transform.affine == Affine(1, 0, 2, 0, -1, 9)
+        assert raster.transform.affine == Affine(10, 0, 20, 0, -10, 90)
 
         expected = np.array(
             [
@@ -1086,7 +1086,7 @@ class TestFromPolygons:
         assert raster.dtype == float
         assert isnan(raster.nodata)
         assert raster.crs == crs
-        assert raster.transform.affine == Affine(1, 0, 2, 0, -1, 9)
+        assert raster.transform.affine == Affine(10, 0, 20, 0, -10, 90)
 
         expected = np.array(
             [
@@ -1109,12 +1109,12 @@ class TestFromPolygons:
         assert_contains(error, "fill")
 
     def test_windowed(_, polygons, crs):
-        bounds = BoundingBox(5, 0, 7, 4, crs)
+        bounds = BoundingBox(50, 0, 70, 40, crs)
         raster = Raster.from_polygons(polygons, bounds=bounds)
         assert raster.dtype == bool
         assert raster.nodata == False
         assert raster.crs == crs
-        assert raster.transform == Transform(1, -1, 5, 4, crs)
+        assert raster.transform == Transform(10, -10, 50, 40, crs)
 
         print(raster.values)
         expected = np.array(
@@ -1413,42 +1413,6 @@ class TestValidate:
 #####
 # IO
 #####
-
-
-class TestRepr:
-    def test_all(_, araster, crs, transform):
-        araster = araster.astype("float32")
-        raster = Raster.from_array(
-            araster, nodata=5, crs=crs, transform=transform, name="test"
-        )
-        output = repr(raster)
-        expected = (
-            f"Raster:\n"
-            f"    Name: test\n"
-            f"    Shape: {araster.shape}\n"
-            f"    Dtype: float32\n"
-            f"    NoData: 5.0\n"
-            f'    CRS("{crs.name}")\n'
-            f"    {raster.transform}\n"
-            f"    {raster.bounds}\n"
-        )
-        assert output == expected
-
-    def test_none(_, araster):
-        araster = araster.astype("float32")
-        raster = Raster(araster, ensure_nodata=False)
-        output = repr(raster)
-        expected = (
-            "Raster:\n"
-            "    Name: raster\n"
-            f"    Shape: {araster.shape}\n"
-            "    Dtype: float32\n"
-            "    NoData: None\n"
-            "    CRS: None\n"
-            "    Transform: None\n"
-            "    BoundingBox: None\n"
-        )
-        assert output == expected
 
 
 class TestSave:
