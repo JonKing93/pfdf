@@ -444,7 +444,7 @@ def test_len(segments):
 
 
 def test_str(segments):
-    assert str(segments) == "A network of 6 stream segments."
+    assert str(segments) == "A set of 6 stream segments in 2 local drainage networks."
 
 
 def test_geo_interface(segments):
@@ -490,8 +490,8 @@ def test_geo_interface(segments):
 ##### Network
 
 
-def test_length(segments):
-    assert segments.length == 6
+def test_size(segments):
+    assert segments.size == 6
 
 
 def test_nlocal(segments):
@@ -1441,16 +1441,16 @@ class TestBasinSummary:
 #####
 
 
-class TestLengths:
-    def test(_, segments, linestrings):
+class TestLength:
+    def test_base_unit(_, segments, linestrings):
         expected = np.array([segment.length for segment in linestrings])
-        output = segments.lengths()
+        output = segments.length(base_unit=True)
         assert np.array_equal(output, expected)
 
-    def test_meters(_, segments, linestrings):
+    def test(_, segments, linestrings):
         expected = np.array([segment.length for segment in linestrings])
         expected = _crs.dy_to_meters(segments.crs, expected)
-        output = segments.lengths(meters=True)
+        output = segments.length()
         assert np.array_equal(output, expected)
 
 
@@ -1954,16 +1954,16 @@ class TestRemovable:
 
 class TestContinuous:
     def test_none(_, segments):
-        requested = np.zeros(segments.length, bool)
+        requested = np.zeros(segments.size, bool)
         expected = requested.copy()
         output = segments.continuous(indices=requested)
         assert np.array_equal(output, expected)
 
     def test_no_edges(_, segments):
-        requested = np.zeros(segments.length, bool)
+        requested = np.zeros(segments.size, bool)
         requested[4] = 1
         output = segments.continuous(indices=requested)
-        expected = np.zeros(segments.length, bool)
+        expected = np.zeros(segments.size, bool)
         assert np.array_equal(output, expected)
 
     def test_neither_up_nor_down(_, segments):

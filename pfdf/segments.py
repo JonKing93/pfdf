@@ -43,8 +43,6 @@ from pfdf.typing import (
     BooleanMatrix,
     FlowNumber,
     MatrixArray,
-    OutletIndices,
-    Outlets,
     Pathlike,
     PixelIndices,
     PropertyDict,
@@ -53,7 +51,6 @@ from pfdf.typing import (
     SegmentIndices,
     SegmentParents,
     SegmentValues,
-    TerminalValues,
     VectorArray,
     scalar,
     shape2d,
@@ -337,17 +334,17 @@ class Segments:
 
         # Calculate network. Assign IDs
         self._segments = watershed.network(self.flow, mask, max_length, base_unit=True)
-        self._ids = np.arange(self.length, dtype=int) + 1
+        self._ids = np.arange(self.size, dtype=int) + 1
 
         # Initialize attributes - indices, child, parents
         self._indices = []
-        self._child = np.full(self.length, -1, dtype=int)
-        self._parents = np.full((self.length, 2), -1, dtype=int)
+        self._child = np.full(self.size, -1, dtype=int)
+        self._parents = np.full((self.size, 2), -1, dtype=int)
 
         # Initialize variables used to determine connectivity and split points.
         # (A split point is where a long stream segment was split into 2 pieces)
-        starts = np.empty((self.length, 2), float)
-        outlets = np.empty((self.length, 2), float)
+        starts = np.empty((self.size, 2), float)
+        outlets = np.empty((self.size, 2), float)
         split = False
 
         # Get the spatial coordinates of each segment
@@ -390,7 +387,7 @@ class Segments:
             # Add extra columns if there are more parents than initially expected
             nextra = parents.size - self._parents.shape[1]
             if nextra > 0:
-                fill = np.full((self.length, nextra), -1, dtype=int)
+                fill = np.full((self.size, nextra), -1, dtype=int)
                 self._parents = np.concatenate((self._parents, fill), axis=1)
 
             # Record child-parent relationships
@@ -402,11 +399,11 @@ class Segments:
 
     def __len__(self) -> int:
         "The number of stream segments in a Segments object"
-        return len(self._indices)
+        return len(self._segments)
 
     def __str__(self) -> str:
         "String representation of the object"
-        return f"A network of {self.length} stream segments."
+        return f"A set of {self.size} stream segments in {self.nlocal} local drainage networks."
 
     @property
     def __geo_interface__(self) -> FeatureCollection:
@@ -420,9 +417,9 @@ class Segments:
     ##### Network
 
     @property
-    def length(self) -> int:
+    def size(self) -> int:
         "The number of stream segments in the network"
-        return len(self._segments)
+        return len(self)
 
     @property
     def nlocal(self) -> int:
@@ -518,7 +515,7 @@ class Segments:
         if terminal:
             return self.nlocal
         else:
-            return self.length
+            return self.size
 
     def _preallocate(self, terminal: bool = False) -> BasinValues:
         "Preallocates an array to hold summary values"
@@ -579,7 +576,7 @@ class Segments:
 
         # Select all indices if unspecified. Otherwise validate
         if ids is None:
-            return np.arange(self.length)
+            return np.arange(self.size)
 
         # Validate
         ids = validate.vector(ids, "ids", dtype=real)
@@ -1447,25 +1444,25 @@ class Segments:
     # Earth system variables
     #####
 
-    def lengths(self, meters: bool = False) -> SegmentValues:
+    def length(self, base_unit: bool = False) -> SegmentValues:
         """
-        lengths  Returns the lengths of the stream segments
+        Returns the length of each stream segments
         ----------
-        self.lengths()
-        self.lengths(meters=True)
+        self.length()
+        self.length(base_unit=True)
         Returns the lengths of the stream segments in the network. By default,
-        returns lengths in the default unit of the CRS. Set meters=True to return
-        lengths in meters instead.
+        returns lengths in meters. Set base_unit=True to return lengths in the
+        base unit of the CRS instead.
         ----------
         Inputs:
-            meters: True to return segment lengths in meters. False (default) to
-                return lengths in the default CRS unit.
+            base_unit: True to return segment lengths in the base unit of the CRS.
+                False (default) to return lengths in meters.
 
         Outputs:
             numpy 1D array: The lengths of the segments in the network
         """
         lengths = np.array([segment.length for segment in self._segments])
-        if meters:
+        if not base_unit:
             lengths = _crs.dy_to_meters(self.crs, lengths)
         return lengths
 
@@ -2027,16 +2024,14 @@ class Segments:
 
         # Default or validate logical indices
         if indices is None:
-            indices = np.zeros(self.length, bool)
+            indices = np.zeros(self.size, bool)
         else:
-            indices = validate.vector(
-                indices, "indices", dtype=real, length=self.length
-            )
+            indices = validate.vector(indices, "indices", dtype=real, length=self.size)
             indices = validate.boolean(indices, "indices")
 
         # Default or validate IDs.
         if ids is None:
-            ids = np.zeros(self.length, bool)
+            ids = np.zeros(self.size, bool)
         else:
             ids = validate.vector(ids, "ids", dtype=real)
             self._check_ids(ids, "ids")
@@ -2137,7 +2132,7 @@ class Segments:
 
         # Initialize segments actually being removed. Get working copies of
         # parent-child relationships.
-        remove = np.zeros(self.length, bool)
+        remove = np.zeros(self.size, bool)
         child = self._child.copy()
         parents = self._parents.copy()
 
@@ -2359,7 +2354,7 @@ class Segments:
 
         # Get the allowed lengths and the required final length
         length = self._nbasins(terminal)
-        allowed = [self.length]
+        allowed = [self.size]
         if terminal:
             allowed.append(self.nlocal)
 
