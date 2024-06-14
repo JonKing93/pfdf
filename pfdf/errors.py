@@ -28,7 +28,12 @@ Vector Features:
 
 Models:
     DurationsError          - When queried rainfall durations are not recognized
+
+Internal:
+    _handle_memory_error    - Detects and supplements memory errors
 """
+
+from typing import NoReturn
 
 #####
 # Numpy Arrays
@@ -137,3 +142,27 @@ class PointError(CoordinateError):
 
 class DurationsError(Exception):
     "When queried rainfall durations are not reported in Table 4 of Staley et al., 2017"
+
+
+#####
+# Memory Errors
+#####
+
+
+def _handle_memory_error(error: Exception, message: str) -> NoReturn:
+    "Detects and supplements memory errors"
+
+    # Detect whether this is a memory issue
+    ismemory = False
+    if isinstance(error, MemoryError):
+        ismemory = True
+    elif isinstance(error, ValueError):
+        for pattern in ["Maximum allowed dimension exceeded", "array is too big"]:
+            if pattern in error.args[0]:
+                ismemory = True
+
+    # Supplement memory issues, reraise anything else
+    if ismemory:
+        raise MemoryError(message) from error
+    else:
+        raise error from None

@@ -286,8 +286,10 @@ class FeatureFile:
         # Transform: Reproject as needed, then extract resolution
         if isinstance(resolution, Transform):
             crs = _crs.parse(crs, resolution.crs)
-            transform = resolution._format(crs, bounds)
-            resolution = transform.resolution()
+            if _crs.different(crs, resolution.crs):
+                y = bounds.reproject(resolution.crs).center_y
+                resolution = resolution.reproject(crs, y)
+            resolution = resolution.resolution()
 
         # Vector: Convert from meters as needed
         elif meters:
@@ -327,7 +329,7 @@ class FeatureFile:
         field: str | None,
         fill: float | None,
         resolution: tuple | Transform,
-        meters: bool,
+        base_unit: bool,
         window: BoundingBox | None,
     ) -> tuple[list, CRS, Transform, shape2d, type, float, float]:
 
@@ -339,6 +341,7 @@ class FeatureFile:
 
         # Validate settings
         dtype, nodata, fill = self.parse_field(field, fill)
+        meters = not base_unit
         crs = _crs.validate(self.crs)
         self.validate_meters(crs, resolution, meters)
 

@@ -28,7 +28,7 @@ from affine import Affine
 from rasterio.enums import Resampling
 
 from pfdf import raster
-from pfdf._utils import real
+from pfdf._utils import no_nones, real
 from pfdf._validate import core as validate
 from pfdf.errors import MissingCRSError, MissingTransformError, ShapeError
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
@@ -260,9 +260,23 @@ def spatial(crs_, transform_):
     return crs_, transform_
 
 
-def metadata(crs_, transform_, nodata_, casting, dtype=None):
-    "Validates CRS, Transform, and NoData"
+def metadata(crs_, transform_, bounds_, nodata_, casting, dtype=None):
+    "Validates CRS, Transform, Bounds, and NoData"
+
+    # Transform and bounds are mutually exclusive
+    if no_nones(transform_, bounds_):
+        raise ValueError(
+            'You cannot specify both "transform" and "bounds" metadata. The '
+            "two inputs are mutually exclusive."
+        )
+
+    # Validate projections and nodata
     crs_, transform_ = spatial(crs_, transform_)
+    if bounds_ is not None:
+        bounds_ = bounds(bounds_)
     if nodata_ is not None:
         nodata_ = nodata(nodata_, casting, dtype)
-    return crs_, transform_, nodata_
+
+    # Return CRS, projection class, and nodata
+    projection = transform_ or bounds_
+    return crs_, projection, nodata_

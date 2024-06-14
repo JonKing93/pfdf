@@ -15,7 +15,7 @@ import numpy as np
 import rasterio.transform
 from affine import Affine
 
-from pfdf.errors import MissingNoDataError
+from pfdf.errors import MissingNoDataError, _handle_memory_error
 from pfdf.projection import BoundingBox
 from pfdf.typing import MatrixArray, ScalarArray, VectorArray
 
@@ -23,7 +23,11 @@ limits = tuple[int, int]
 
 
 def values(
-    values: MatrixArray, bounds: BoundingBox, affine: Affine, nodata: ScalarArray
+    name: str,
+    values: MatrixArray,
+    bounds: BoundingBox,
+    affine: Affine,
+    nodata: ScalarArray,
 ) -> MatrixArray:
     "Returns the data array for a clipped raster"
 
@@ -35,7 +39,7 @@ def values(
     if rows[1] >= 0 and rows[0] <= height and cols[0] >= 0 and cols[1] <= width:
         return _interior(values, rows, cols)
     else:
-        return _exterior(values, rows, cols, nodata)
+        return _exterior(name, values, rows, cols, nodata)
 
 
 def _interior(values: MatrixArray, rows: limits, cols: limits) -> MatrixArray:
@@ -48,19 +52,34 @@ def _interior(values: MatrixArray, rows: limits, cols: limits) -> MatrixArray:
 
 
 def _exterior(
-    values: MatrixArray, rows: limits, cols: limits, nodata: ScalarArray | None
+    name: str,
+    values: MatrixArray,
+    rows: limits,
+    cols: limits,
+    nodata: ScalarArray | None,
 ) -> MatrixArray:
     """Clips a raster to an area at least partially outside its current bounds.
     Creates a new base array and requires a NoData value"""
 
     # Require a Nodata value
     if nodata is None:
-        raise MissingNoDataError("You must provide a NoData value to clip")
+        raise MissingNoDataError(
+            f"Cannot clip the {name} because it does not have a NoData value, and "
+            "the clipping bounds are outside the raster's current bounds. See the "
+            '"ensure_nodata" command to provide a NoData value for the raster.'
+        )
 
     # Preallocate a new base array
     nrows = rows[0] - rows[1]
     ncols = cols[1] - cols[0]
-    clipped = np.full((nrows, ncols), nodata, dtype=nodata.dtype)
+    try:
+        clipped = np.full((nrows, ncols), nodata, dtype=nodata.dtype)
+    except Exception as error:
+        message = (
+            f"Cannot clip the {name} because the clipped raster is too large for "
+            "memory. Try clipping to a smaller bounding box."
+        )
+        _handle_memory_error(error, message)
 
     # Get the complete set of indices for the final clipped array
     crows = np.arange(0, nrows)

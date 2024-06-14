@@ -120,6 +120,7 @@ class TestNewRaster:
 
 class TestGetOutlets:
     def test(_, segments):
+        print(segments.raster().values)
         ids, outlets = basins.get_outlets(segments)
         assert np.array_equal(ids, [1, 3, 7])
         assert outlets == [(3, 1), (1, 5), (5, 3)]
@@ -127,14 +128,16 @@ class TestGetOutlets:
 
 class TestCountOutlets:
     def test(_, segments):
-        outlets = segments.outlets(terminal=True)
+        ids = segments.ids[segments.isterminal()]
+        outlets = segments.outlets(ids)
         output = basins.count_outlets(segments, outlets)
         assert np.array_equal(output, [1, 1, 2])
 
 
 class TestFilterOutlets:
     def test(_, segments):
-        outlets = segments.outlets(terminal=True)
+        ids = segments.ids[segments.isterminal()]
+        outlets = segments.outlets(ids)
         ingroup = np.array([True, False, True])
 
         output = basins.filter_outlets(outlets, ingroup)

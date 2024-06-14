@@ -43,8 +43,6 @@ from pfdf.typing import (
     BooleanMatrix,
     FlowNumber,
     MatrixArray,
-    OutletIndices,
-    Outlets,
     Pathlike,
     PixelIndices,
     PropertyDict,
@@ -53,7 +51,6 @@ from pfdf.typing import (
     SegmentIndices,
     SegmentParents,
     SegmentValues,
-    TerminalValues,
     VectorArray,
     scalar,
     shape2d,
@@ -259,7 +256,7 @@ class Segments:
         flow: RasterInput,
         mask: RasterInput,
         max_length: scalar = inf,
-        meters: bool = False,
+        base_unit: bool = False,
     ) -> None:
         """
         __init__  Creates a new Segments object
@@ -281,13 +278,13 @@ class Segments:
         pixels below developed areas.
 
         Segments(..., max_length)
-        Segments(..., max_length, meters=True)
+        Segments(..., max_length, base_unit=True)
         Also specifies a maximum length for the segments in the network. Any segment
         longer than this length will be split into multiple pieces. The split pieces
         will all have the same length, which will be <= max_length. Note that the
         max_length must be at least as long as the diagonal of the raster pixels.
-        By default, this command interprets max_length in the base unit of the CRS.
-        Set meters=True to specify max_length in meters instead.
+        By default, this command interprets max_length in meters. Set base_unit=True
+        to specify max_length in the base unit of the affine Transform instead.
         ----------
         Inputs:
             flow: A TauDEM-style D8 flow direction raster
@@ -296,8 +293,8 @@ class Segments:
             max_length: A maximum allowed length for segments in the network. Units
                 should be the same as the units of the (affine) transform for the
                 flow raster.
-            meters: True to specify max_length in meters. False (default) to
-                specify max_length in the base unit of the CRS.
+            base_unit: True to interpret the maximum length as the base unit of the
+                affine Transform. False (default) to interpret max_length in meters.
 
         Outputs:
             Segments: A Segments object recording the stream segments in the network.
@@ -325,7 +322,7 @@ class Segments:
 
         # Max length cannot be shorter than a pixel diagonal
         max_length = validate.scalar(max_length, "max_length", dtype=real)
-        if meters:
+        if not base_unit:
             max_length = _crs.dy_from_meters(flow.crs, max_length)
         if max_length < flow.transform.pixel_diagonal():
             length_m = _crs.dy_to_meters(flow.crs, max_length)
@@ -336,18 +333,18 @@ class Segments:
             )
 
         # Calculate network. Assign IDs
-        self._segments = watershed.network(self.flow, mask, max_length)
-        self._ids = np.arange(self.length, dtype=int) + 1
+        self._segments = watershed.network(self.flow, mask, max_length, base_unit=True)
+        self._ids = np.arange(self.size, dtype=int) + 1
 
         # Initialize attributes - indices, child, parents
         self._indices = []
-        self._child = np.full(self.length, -1, dtype=int)
-        self._parents = np.full((self.length, 2), -1, dtype=int)
+        self._child = np.full(self.size, -1, dtype=int)
+        self._parents = np.full((self.size, 2), -1, dtype=int)
 
         # Initialize variables used to determine connectivity and split points.
         # (A split point is where a long stream segment was split into 2 pieces)
-        starts = np.empty((self.length, 2), float)
-        outlets = np.empty((self.length, 2), float)
+        starts = np.empty((self.size, 2), float)
+        outlets = np.empty((self.size, 2), float)
         split = False
 
         # Get the spatial coordinates of each segment
@@ -390,7 +387,7 @@ class Segments:
             # Add extra columns if there are more parents than initially expected
             nextra = parents.size - self._parents.shape[1]
             if nextra > 0:
-                fill = np.full((self.length, nextra), -1, dtype=int)
+                fill = np.full((self.size, nextra), -1, dtype=int)
                 self._parents = np.concatenate((self._parents, fill), axis=1)
 
             # Record child-parent relationships
@@ -402,11 +399,11 @@ class Segments:
 
     def __len__(self) -> int:
         "The number of stream segments in a Segments object"
-        return len(self._indices)
+        return len(self._segments)
 
     def __str__(self) -> str:
         "String representation of the object"
-        return f"A network of {self.length} stream segments."
+        return f"A set of {self.size} stream segments in {self.nlocal} local drainage networks."
 
     @property
     def __geo_interface__(self) -> FeatureCollection:
@@ -420,14 +417,14 @@ class Segments:
     ##### Network
 
     @property
-    def length(self) -> int:
+    def size(self) -> int:
         "The number of stream segments in the network"
-        return len(self._segments)
+        return len(self)
 
     @property
     def nlocal(self) -> int:
         "The number of local drainage networks"
-        ntermini = np.sum(self.isterminus)
+        ntermini = np.sum(self.isterminal())
         return int(ntermini)
 
     @property
@@ -453,19 +450,8 @@ class Segments:
         return self._ids.copy()
 
     @property
-    def parents(self) -> SegmentParents:
-        "The IDs of the upstream parents of each stream segment"
-        return self._indices_to_ids(self._parents)
-
-    @property
-    def child(self) -> SegmentValues:
-        "The ID of the downstream child of each stream segment"
-        return self._indices_to_ids(self._child)
-
-    @property
-    def isterminus(self) -> SegmentIndices:
-        "Whether each segment is a terminal segment"
-        return self._child == -1
+    def terminal_ids(self) -> VectorArray:
+        return self.ids[self.isterminal()]
 
     @property
     def indices(self) -> indices:
@@ -505,6 +491,13 @@ class Segments:
 
     def _indices_to_ids(self, indices: RealArray) -> RealArray:
         "Converts segment indices to (user-facing) IDs"
+
+        # If empty, just return directly
+        indices = np.array(indices, copy=False)
+        if indices.size == 0:
+            return indices
+
+        # Otherwise, convert to ids
         ids = np.zeros(indices.shape)
         valid = indices != -1
         ids[valid] = self._ids[indices[valid]]
@@ -513,7 +506,7 @@ class Segments:
     def _basin_npixels(self, terminal: bool) -> BasinValues:
         "Returns the number of pixels in catchment or terminal outlet basins"
         if terminal:
-            return self._npixels[self.isterminus]
+            return self._npixels[self.isterminal()]
         else:
             return self._npixels
 
@@ -522,7 +515,7 @@ class Segments:
         if terminal:
             return self.nlocal
         else:
-            return self.length
+            return self.size
 
     def _preallocate(self, terminal: bool = False) -> BasinValues:
         "Preallocates an array to hold summary values"
@@ -574,119 +567,347 @@ class Segments:
         id = validate.scalar(id, "id", dtype=real)
         id = id.reshape(1)
         self._check_ids(id, "id")
-        return int(np.argwhere(self._ids == id))
+        index = np.argwhere(self._ids == id)
+        return int(index[0, 0])
+
+    def _validate_ids(self, ids: Any) -> VectorArray:
+        """Checks that a set of segment IDs are valid and converts to linear
+        indices. If no IDs are provided, returns all indices in the network"""
+
+        # Select all indices if unspecified. Otherwise validate
+        if ids is None:
+            return np.arange(self.size)
+
+        # Validate
+        ids = validate.vector(ids, "ids", dtype=real)
+        self._check_ids(ids, "ids")
+
+        # Convert IDs to indices
+        indices = np.empty(ids.shape, int)
+        for k, id in enumerate(ids):
+            indices[k] = np.argwhere(id == self.ids)
+        return indices
 
     #####
     # Outlets
     #####
 
-    def _terminus(self, index: ScalarArray) -> ScalarArray:
-        "Returns the index of the queried segment's terminal segment"
-        while self._child[index] != -1:
-            index = self._child[index]
-        return index
-
-    def terminus(self, id: scalar) -> int:
+    def isterminal(self, ids: Optional[vector] = None) -> VectorArray:
         """
-        terminus  Returns the ID of a queried segment's terminal segment
+        Indicates whether segments are terminal segments
         ----------
-        self.terminus(id)
-        Returns the ID of the queried segment's terminal segment. The terminal
-        segment is the final segment in the queried segment's local drainage
-        network. The input should be the ID associated with the queried segment.
+        self.isterminal()
+        Determines whether each segment is a terminal segment or not. A segment
+        is terminal if it does not have a downstream child. (Note that there may
+        still be other segments downstream if the segment is in a nested drainage
+        network). Returns a boolean 1D numpy array with one element per segment
+        in the network. True elements indicate terminal segments, False elements
+        are segments that are not terminal.
+
+        self.isterminal(ids)
+        Determines whether the queried segments are terminal segments or not.
+        Returns a boolean 1D array with one element per queried segment.
         ----------
         Inputs:
-            id: The ID of the segment being queried
+            ids: The IDs of segments being queried. If not set, queries all segments
+                in the network.
 
         Outputs:
-            int: The ID of the queried segment's terminal segment
+            boolean 1D numpy array: Whether each segment is terminal.
         """
-        segment = self._validate_id(id)
-        terminus = self._terminus(segment)
-        return int(self._indices_to_ids(terminus))
 
-    def _termini(self) -> TerminalValues:
-        "Returns the indices of all terminal segments"
-        (indices,) = np.nonzero(self._child == -1)
-        return indices
+        indices = self._validate_ids(ids)
+        return self._child[indices] == -1
 
-    def termini(self) -> TerminalValues:
+    def termini(self, ids: Optional[vector] = None) -> VectorArray:
         """
-        termini  Returns the IDs of all terminal segments
+        Returns the IDs of terminal segments
         ----------
         self.termini()
-        Returns a numpy 1D array with the IDs of all terminal segments in the
-        network. A terminal segment is a segment at the bottom of its local
-        drainage network.
+        Determines the ID of the terminal segment for each stream segment in the
+        network. Returns a numpy 1D array with one element per stream segment.
+        Typically, many segments will drain to the same terminal segment, so this
+        array will usually contain many duplicate IDs.
+
+        If you instead want the IDs of all the terminal segments, use:
+            >>> self.terminal_ids
+
+        self.termini(ids)
+        Only returns terminal segment IDs for the queried segments. The output
+        array will have one element per queried segment.
         ----------
+        Inputs:
+            ids: The IDs of the queried segments. If not set, then queries every
+                segment in the network.
+
         Outputs:
-            numpy 1D array: The IDs of the terminal segments in the network
+            numpy 1D array: The ID of the terminal segment for each queried segment
         """
-        termini = self._termini()
+
+        # Walk downstream to locate the terminal index for each queried segment
+        indices = self._validate_ids(ids)
+        termini = []
+        for index in indices:
+            while self._child[index] != -1:
+                index = self._child[index]
+            termini.append(index)
+
+        # Return as a numpy array of IDs
+        termini = np.array(termini).reshape(-1)
         return self._indices_to_ids(termini)
 
-    def _outlet(self, index: int) -> OutletIndices:
-        "Returns the outlet indices for the queried stream segment index"
-        pixels = self._indices[index]
-        row = pixels[0][-1]
-        column = pixels[1][-1]
-        return row, column
-
-    def outlet(self, id, terminal: bool = False) -> OutletIndices:
+    def outlets(
+        self,
+        ids: Optional[vector] = None,
+        segment_outlets: bool = False,
+        as_array: bool = False,
+    ) -> list[tuple[int, int]] | MatrixArray:
         """
-        outlet  Return the indices of the queried segment's outlet pixel
+        Returns the row and column indices of outlet pixels
         ----------
-        self.outlet(id)
-        Returns the indices of the queried segment's outlet pixel in the stream
-        segment raster. The outlet pixel is the segment's most downstream pixel.
-        The first output is the row index, second output is the column index.
+        self.outlets()
+        Returns the row and column index of the terminal outlet pixel for each
+        segment in the network. Returns a list with one element per segment in
+        the network. Each element is a tuple of two integers. The first element
+        is the row index of the outlet pixel in the stream network raster, and
+        the second element is the column index.
 
-        self.outlet(id, terminal=True)
-        Returns the indices of the queried segment's terminal outlet pixel. The
-        terminal outlet is the final pixel in the segment's local drainage network.
+        self.outlets(ids)
+        Only returns outlet pixel indices for the queried segments. The output
+        list will have one element per queried segment.
+
+        self.outlets(..., segment_outlets=True)
+        Returns the indices of each segment's immediate outlet pixel, rather than
+        the indices of the terminal outlet pixels. Each segment outlet is the final
+        pixel in the stream segment itself. (Compare with a terminal outlet, which
+        is the final pour point in the segment's local drainage network).
+
+        self.outlets(..., as_array=True)
+        Returns the outlet pixel indices as a numpy array, rather than as a list.
+        The output array will have one row per queried stream segment, and two
+        columns. The first column is the row indices, and the second column is
+        the column indices.
+        ----------
+        Inputs:
+            ids: The IDs of the queried stream segments. If not set, queries all
+                segments in the network.
+            segment_outlets: True to return the indices of each stream segment's
+                outlet pixel. False (default) to return the indices of terminal
+                outlet pixels
+            as_array: True to return the pixel indices as an Nx2 numpy array.
+                False (default) to return indices as a list of 2-tuples.
+
+        Outputs:
+            list[tuple[int, int]] | numpy array: The outlet pixel indices of the
+                queried stream segments
+        """
+
+        # Get the indices of the appropriate segments
+        if not segment_outlets:
+            ids = self.termini(ids)
+        indices = self._validate_ids(ids)
+
+        # Extract outlet pixel indices
+        outlets = []
+        for index in indices:
+            pixels = self._indices[index]
+            row = pixels[0][-1]
+            column = pixels[1][-1]
+            outlets.append((row, column))
+
+        # Optionally convert to array
+        if as_array:
+            outlets = np.array(outlets).reshape(-1, 2)
+        return outlets
+
+    #####
+    # Local Networks
+    #####
+
+    def _get_parents(self, index: int) -> list[int]:
+        "Gets the indices of parent segments"
+        parents = self._parents[index, :]
+        return [index for index in parents if index != -1]
+
+    def parents(self, id: scalar) -> list[int] | None:
+        """
+        Returns the IDs of the queried segment's parent segments
+        ----------
+        self.parents(id)
+        Given a stream segment ID, returns the IDs of the segment's parents. If
+        the segment has parents, returns a list of IDs. If the segment does not
+        have parents, returns None.
+        ----------
+        Inputs:
+            id: The queried stream segment
+
+        Outputs:
+            list[int] | None: The IDs of the parent segments
+        """
+
+        index = self._validate_id(id)
+        parents = self._get_parents(index)
+        if len(parents) == 0:
+            return None
+        else:
+            parents = self._indices_to_ids(parents)
+            return parents.tolist()
+
+    def child(self, id: scalar) -> int | None:
+        """
+        Returns the ID of the queried segment's child segment
+        ----------
+        self.child(id)
+        Given a stream segment ID, returns the ID of the segment's child segment
+        as an int. If the segment does not have a child, returns None.
         ----------
         Inputs:
             id: The ID of the queried segment
-            terminal: True to return the indices of the terminal outlet pixel.
-                False (default) to return the indices of the outlet pixel.
 
         Outputs:
-            int: The row index of the outlet pixel
-            int: The column index of the outlet pixel
+            int | None: The ID of the segment's child
         """
-        segment = self._validate_id(id)
-        if terminal:
-            segment = self._terminus(segment)
-        return self._outlet(segment)
 
-    def outlets(self, terminal: bool = False) -> Outlets:
+        index = self._validate_id(id)
+        child = self._child[index]
+        if child == -1:
+            return None
+        else:
+            child = self._indices_to_ids(child)
+            return int(child)
+
+    def ancestors(self, id: scalar) -> VectorArray:
         """
-        outlets  Returns the row and column indices of all outlet or terminal outlet pixels
+        Returns the IDs of all upstream segments in a local drainage network
         ----------
-        self.outlets()
-        Returns a list of outlet pixel indices for the network. The output has one
-        element per stream segment. Each element is a tuple with the outlet indices
-        for the associated segment. The first element of the tuple is the row index,
-        and the second element is the column index.
-
-        self.outlets(terminal=True)
-        Returns the indices of all terminal outlet pixels in the network. Terminal
-        outlets are outlets at the bottom of their local drainage network. The
-        output list will have one element per terminal outlet.
+        self.ancestors(id)
+        For a queried stream segment ID, returns the IDs of all upstream segments
+        in the local drainage network. These are the IDs of the queried segment's
+        parents, the IDs of the parents parents, etc. If the queried segment does
+        not have any parent segments, returns an empty array.
         ----------
         Inputs:
-            terminal: True to return the indices of the terminal outlet pixels.
-                False (default) to return the indices of all output pixels.
+            id: The ID of a stream segment in the network
 
         Outputs:
-            list[tuple[int, int]]: A list of outlet pixel indices
+            numpy 1D array: The IDs of all segments upstream of the queried segment
+                within the local drainage network.
         """
 
-        if terminal:
-            segments = self._termini()
-        else:
-            segments = np.arange(self.length)
-        return [self._outlet(segment) for segment in segments]
+        # Validate ID and initial ancestors with immediate parents
+        segment = self._validate_id(id)
+        ancestors = self._get_parents(segment)
+
+        # Recursively add parents of parents
+        k = 0
+        while k < len(ancestors):
+            index = ancestors[k]
+            upstream = self._get_parents(index)
+            ancestors += upstream
+            k += 1
+
+        # Convert indices to IDs and return as array
+        ancestors = np.array(ancestors).reshape(-1)
+        return self._indices_to_ids(ancestors)
+
+    def descendents(self, id: scalar) -> VectorArray:
+        """
+        Returns the IDs of all downstream segments in a local drainage network
+        ----------
+        self.descendents(id)
+        For a queried stream segment, returns the IDs of all downstream segments
+        in the queried segment's local drainage network. This is the ID of any
+        child segment, the child of that child, etc. If the queried segment does
+        not have any descendents, then the returned array will be empty.
+        ----------
+        Inputs:
+            id: The ID of the queried stream segment
+
+        Outputs:
+            numpy 1D array: The IDs of all downstream segments in the local
+                drainage network.
+        """
+
+        # Validate ID and initialize descendent list
+        segment = self._validate_id(id)
+        descendents = []
+
+        # Recursively add children of children
+        child = self._child[segment]
+        while child != -1:
+            descendents.append(child)
+            segment = child
+            child = self._child[segment]
+
+        # Convert to IDs and return as array
+        descendents = np.array(descendents).reshape(-1)
+        return self._indices_to_ids(descendents)
+
+    def family(self, id: scalar) -> VectorArray:
+        """
+        Return the IDs of stream segments in a local drainage network
+        -----------
+        self.family(id)
+        Returns the IDs of all stream segments in the queried segment's local
+        drainage network. These are all segments in the local network that flow
+        into the queried segment's outlet, including the queried segment itself.
+        Note that the returned IDs may include segments that are neither ancestors
+        nor descendents of the queried segment, as the network may contain multiple
+        branches draining to the same outlet.
+        -----------
+        Inputs:
+            id: The ID of the queried stream segment
+
+        Outputs:
+            numpy 1D array: The IDs of all segments in the local drainage network.
+        """
+
+        # Locate segments in the local drainage network
+        self._validate_id(id)
+        terminus = self.termini(id)
+        upstream = self.ancestors(terminus)
+
+        # Group into family array
+        family = np.empty(upstream.size + 1, upstream.dtype)
+        family[0] = terminus
+        family[1:] = upstream
+        return family
+
+    def isnested(self, ids: Optional[vector] = None) -> SegmentIndices:
+        """
+        Determines which segments are in nested drainage basins
+        ----------
+        self.isnested()
+        Identifies segments in nested drainage basins. A nested drainage basin is
+        a local drainage network that flows into another local drainage network
+        further downstream. Nesting is an indication of flow discontinuity.
+        Returns a 1D boolean numpy array with one element per stream segment.
+        True elements indicate segments in nested networks. False elements are
+        segments not in a nested network.
+
+        self.isnested(ids)
+        Determines whether the queried segments are in nested drainage basins.
+        The output array will have one element per queried segment.
+        ----------
+        Inputs:
+            ids: The IDs of the segments being queried. If unset, queries all
+                segments in the network.
+
+        Outputs:
+            boolean 1D numpy array: Whether each segment is in a nested drainage
+                network
+        """
+
+        # Get the unique set of outlet IDs for the queried segments
+        termini = self.termini(ids)
+        outlet_ids = np.unique(termini)
+
+        # Get the basin IDs and identify nested outlets
+        outlets = self.outlets(outlet_ids, as_array=True)
+        basins = self._locate_basins()
+        basin_ids = basins[outlets[:, 0], outlets[:, 1]]
+        nested_outlets = outlet_ids[outlet_ids != basin_ids]
+        return np.isin(termini, nested_outlets)
 
     #####
     # Rasters
@@ -719,7 +940,8 @@ class Segments:
                 pixels that belong to the basin.
         """
 
-        row, column = self.outlet(id, terminal)
+        self._validate_id(id)
+        [[row, column]] = self.outlets(id, segment_outlets=not terminal)
         return watershed.catchment(self.flow, row, column, check_flow=False)
 
     def raster(self, basins=False) -> Raster:
@@ -753,12 +975,11 @@ class Segments:
         """
 
         if basins:
-            self.locate_basins()
-            raster = self._basins
+            raster = self._locate_basins()
         else:
             raster = self._segments_raster()
-        return Raster._from_array(
-            raster, nodata=0, crs=self.crs, transform=self.transform
+        return Raster.from_array(
+            raster, nodata=0, crs=self.crs, transform=self.transform, copy=False
         )
 
     def locate_basins(
@@ -806,6 +1027,11 @@ class Segments:
         if self._basins is None:
             self._basins = _basins.build(self, parallel, nprocess)
 
+    def _locate_basins(self):
+        "Returns basin raster array values"
+        self.locate_basins()
+        return self._basins
+
     def _segments_raster(self) -> MatrixArray:
         "Builds a stream segment raster array"
         raster = np.zeros(self._flow.shape, dtype="int32")
@@ -821,8 +1047,7 @@ class Segments:
         self,
         dem: RasterInput,
         neighborhood: scalar,
-        factor: scalar = 1,
-        meters: bool = False,
+        dem_per_m: Optional[scalar] = None,
     ) -> SegmentValues:
         """
         confinement  Returns the mean confinement angle of each stream segment
@@ -869,33 +1094,19 @@ class Segments:
         repeated for all pixels in the stream segment. The final value for the
         stream segment will be the mean of these values.
 
-        Important!
-        This syntax requires that the units of the DEM are the same as the units
-        of the CRS (which you can return using segments.crs_units property). Use
-        the following syntax if this is not the case.
-
-        self.confinement(dem, neighborhood, meters=True)
-        self.confinement(dem, neighborhood, factor)
-        self.confinement(dem, neighborhood, factor, meters=True)
-        If the raster CRS uses different units that the DEM data, then confinement
-        angle slopes will be calculated incorrectly. Use the "meters" and/or
-        "factor" inputs to correct for this. If the DEM is in meters, then setting
-        meters=True will implement the correction. If the DEM is not in meters,
-        then use the "factor" input to specify a conversion factor constant. By
-        default, the factor is interpreted as the number of DEM units per CRS unit.
-        Set meters=True to instead provide the factor as the number of DEM units
-        per meter.
+        self.confinement(..., dem_per_m)
+        By default, this routine assumes that the DEM units are meters. If this
+        is not the case, then use the "dem_per_m" to specify a conversion factor
+        between the unit systems. This factor is essential to accurately compute
+        confinement angle slopes, so neglecting it will result in incorrect
+        confinement angles.
         ----------
         Inputs:
             dem: A raster of digital elevation model (DEM) data. Should have
                 square pixels.
             neighborhood: The number of raster pixels to search for maximum heights.
                 Must be a positive integer.
-            factor: A conversion factor used to convert between DEM units and CRS
-                units. Either DEM units / CRS unit, or DEM units / meter.
-            meters: Set to True if the DEM units are meters, or if a conversion
-                factor is DEM units / meter. False (default) if the DEM units are
-                not meters AND the conversion factor is DEM units / CRS unit.
+            dem_per_m: A conversion factor for when the DEM uses units other than meters.
 
         Outputs:
             numpy 1D array: The mean confinement angle for each stream segment.
@@ -905,8 +1116,7 @@ class Segments:
         neighborhood = validate.scalar(neighborhood, "neighborhood", real)
         validate.positive(neighborhood, "neighborhood")
         validate.integers(neighborhood, "neighborhood")
-        factor = validate.scalar(factor, "factor", real)
-        validate.positive(factor, "factor")
+        dem_per_m = validate.conversion(dem_per_m, "dem_per_m")
         dem = self._validate(dem, "dem")
 
         # Preallocate. Initialize kernel
@@ -914,13 +1124,12 @@ class Segments:
         kernel = Kernel(neighborhood, *self.raster_shape)
 
         # Get the pixel length scaling factor
-        if meters:
-            crs_per_m = _crs.y_units_per_m(self.crs)
-            factor = factor / crs_per_m
-        scale = neighborhood * factor
+        scale = neighborhood
+        if dem_per_m is not None:
+            scale = scale * dem_per_m
 
-        # Determine flow lengths
-        width, height = self.transform.resolution()
+        # Determine flow lengths in the units of the DEM
+        width, height = self.transform.resolution(meters=True)
         lengths = {
             "horizontal": width * scale,
             "vertical": height * scale,
@@ -1037,16 +1246,20 @@ class Segments:
         # Return NaN if there's no data, or if everything is already NaN.
         # Otherwise, compute the statistic
         if (values.size == 0) or np.isnan(values).all():
-            return nan
+            return np.array(nan)
         else:
-            return statistic(values)
+            return statistic(values).reshape(1)[0]
 
     def _values_at_outlets(self, raster: Raster, terminal: bool = False) -> BasinValues:
         "Returns the values at segment outlets. Returns NoData values as NaN"
 
         identity = lambda input: input
         values = self._preallocate(terminal)
-        outlets = self.outlets(terminal)
+        if terminal:
+            ids = self.terminal_ids
+        else:
+            ids = self.ids
+        outlets = self.outlets(ids, segment_outlets=True)
         for k, outlet in enumerate(outlets):
             values[k] = self._summarize(identity, raster, indices=outlet)
         return values
@@ -1213,7 +1426,10 @@ class Segments:
         # Get statistic, preallocate, and locate catchment outlets
         statistic = _STATS[statistic][0]
         summary = self._preallocate(terminal=terminal)
-        outlets = self.outlets(terminal)
+        ids = self.ids
+        if terminal:
+            ids = ids[self.isterminal()]
+        outlets = self.outlets(ids, segment_outlets=True)
 
         # Iterate through catchment basins and compute summaries
         for k, outlet in enumerate(outlets):
@@ -1228,42 +1444,42 @@ class Segments:
     # Earth system variables
     #####
 
-    def lengths(self, meters: bool = False) -> SegmentValues:
+    def length(self, base_unit: bool = False) -> SegmentValues:
         """
-        lengths  Returns the lengths of the stream segments
+        Returns the length of each stream segments
         ----------
-        self.lengths()
-        self.lengths(meters=True)
+        self.length()
+        self.length(base_unit=True)
         Returns the lengths of the stream segments in the network. By default,
-        returns lengths in the default unit of the CRS. Set meters=True to return
-        lengths in meters instead.
+        returns lengths in meters. Set base_unit=True to return lengths in the
+        base unit of the CRS instead.
         ----------
         Inputs:
-            meters: True to return segment lengths in meters. False (default) to
-                return lengths in the default CRS unit.
+            base_unit: True to return segment lengths in the base unit of the CRS.
+                False (default) to return lengths in meters.
 
         Outputs:
             numpy 1D array: The lengths of the segments in the network
         """
         lengths = np.array([segment.length for segment in self._segments])
-        if meters:
+        if not base_unit:
             lengths = _crs.dy_to_meters(self.crs, lengths)
         return lengths
 
     def area(
         self,
         mask: Optional[RasterInput] = None,
-        kilometers: bool = False,
+        base_unit: bool = False,
         terminal: bool = False,
     ) -> BasinValues:
         """
-        area  Returns the areas of basins
+        area  Returns total catchment areas
         ----------
         self.area()
-        self.area(..., kilometers=True)
+        self.area(..., base_unit=True)
         Computes the total area of the catchment basin for each stream segment.
-        By default, the returned areas will be in the base unit of the CRS squared.
-        Set kilometers=True to return areas in kilometers instead.
+        By default, returns areas in kilometers^2. Set base_unit=True to instead
+        return areas in the base unit of the CRS squared.
 
         self.area(mask)
         Computes masked areas for the basins. True elements in the mask indicate
@@ -1276,8 +1492,8 @@ class Segments:
         Inputs:
             mask: A raster mask whose True elements indicate the pixels that should
                 be used to compute upslope areas.
-            kilometers: True to return catchment areas in square kilometers.
-                False (default) to return areas in the default unit of the CRS squared.
+            base_unit: True to return areas in the base unit of the CRS squared.
+                False (default) to return areas in square kilometers.
             terminal: True to only compute values for terminal outlet basins.
                 False (default) to compute values for all catchment basins.
 
@@ -1292,6 +1508,7 @@ class Segments:
             N = self._accumulation(mask=mask, terminal=terminal)
 
         # Convert to area
+        kilometers = not base_unit
         area = N * self.transform.pixel_area(meters=kilometers)
         if kilometers:
             area = area / 1e6
@@ -1322,18 +1539,18 @@ class Segments:
         return self.upslope_ratio(isburned, terminal)
 
     def burned_area(
-        self, isburned: RasterInput, kilometers: bool = False, terminal: bool = False
+        self, isburned: RasterInput, base_unit: bool = False, terminal: bool = False
     ) -> BasinValues:
         """
         burned_area  Returns the total burned area of basins
         ----------
         self.burned_area(isburned)
-        self.burned_area(..., kilometers=True)
+        self.burned_area(..., base_unit=True)
         Given a mask of burned pixel locations, returns the total burned area in
         the catchment of each stream segment. Returns a numpy 1D array with the
-        burned area for each segment. By default, areas are returned in the base
-        unit of the CRS, squared. Set kilometers=True to return areas in square
-        kilometers instead.
+        burned area for each segment. By default, areas are returned in square
+        kilometers. Set base_unit=True to instead return ares in the base unit
+        of the CRS squared.
 
         self.burned_area(..., terminal=True)
         Only computes areas for the terminal outlet basins.
@@ -1341,16 +1558,18 @@ class Segments:
         Inputs:
             isburned: A raster mask whose True elements indicate the locations of
                 burned pixels within the watershed
+            base_unit: True to return areas in the base unit of the CRS squared.
+                False (default) to return areas in square kilometers.
             terminal: True to only compute values for terminal outlet basins.
                 False (default) to compute values for all catchment basins.
 
         Outputs:
             numpy 1D array: The burned catchment area for the basins
         """
-        return self.area(isburned, kilometers, terminal)
+        return self.area(isburned, base_unit, terminal)
 
     def developed_area(
-        self, isdeveloped: RasterInput, kilometers: bool = False, terminal: bool = False
+        self, isdeveloped: RasterInput, base_unit: bool = False, terminal: bool = False
     ) -> BasinValues:
         """
         developed_area  Returns the total developed area of basins
@@ -1360,8 +1579,8 @@ class Segments:
         Given a mask of developed pixel locations, returns the total developed
         area in the catchment of each stream segment. Returns a numpy 1D array
         with the developed area for each segment. By default, returns areas in
-        the base unit of the CRS squared. Set kilometers=True to return areas in
-        square kilometers instead.
+        square kilometers. Set base_unit=True to instead return areas in the base
+        unit of the CRS squared.
 
         self.developed_area(..., terminal)
         Only computes areas for the terminal outlet basins.
@@ -1369,15 +1588,17 @@ class Segments:
         Inputs:
             isdeveloped: A raster mask whose True elements indicate the locations
                 of developed pixels within the watershed.
+            base_unit: True to return areas in the base unit of the CRS squared.
+                False (default) to return areas in square kilometers.
             terminal: True to only compute values for terminal outlet basins.
                 False (default) to compute values for all catchment basins.
 
         Outputs:
             numpy 1D array: The developed catchment area for each basin
         """
-        return self.area(isdeveloped, kilometers, terminal)
+        return self.area(isdeveloped, base_unit, terminal)
 
-    def in_mask(self, mask: RasterInput, terminal: bool = False) -> SegmentValues:
+    def in_mask(self, mask: RasterInput, terminal: bool = False) -> SegmentIndices:
         """
         Determines whether segments have pixels within a mask
         ----------
@@ -1402,12 +1623,12 @@ class Segments:
         validate.boolean(mask.values, "mask", ignore=mask.nodata)
         isin = self.summary("nanmax", mask) == 1
         if terminal:
-            isin = isin[self.isterminus]
+            isin = isin[self.isterminal()]
         return isin
 
     def in_perimeter(
         self, perimeter: RasterInput, terminal: bool = False
-    ) -> SegmentValues:
+    ) -> SegmentIndices:
         """
         Determines whether segments have pixels within a fire perimeter
         ----------
@@ -1701,7 +1922,7 @@ class Segments:
             method = "mean"
         slopes = self.summary(method, slopes)
         if terminal:
-            slopes = slopes[self.isterminus]
+            slopes = slopes[self.isterminal()]
         return slopes
 
     def relief(self, relief: RasterInput, terminal: bool = False) -> SegmentValues:
@@ -1726,32 +1947,34 @@ class Segments:
         relief = self._validate(relief, "relief")
         relief = self._values_at_outlets(relief)
         if terminal:
-            relief = relief[self.isterminus]
+            relief = relief[self.isterminal()]
         return relief
 
     def ruggedness(
-        self, relief: RasterInput, meters: bool = False, terminal: bool = False
+        self,
+        relief: RasterInput,
+        relief_per_m: Optional[scalar] = None,
+        terminal: bool = False,
     ) -> SegmentValues:
         """
         ruggedness  Returns the ruggedness of each stream segment catchment
         ----------
         self.ruggedness(relief)
-        self.ruggedness(relief, meters=True)
+        self.ruggedness(relief, relief_per_m)
         Returns the ruggedness of the catchment for each stream segment in the
         network. Ruggedness is defined as a stream segment's vertical relief,
-        divided by the square root of its catchment area. Returns ruggedness
-        values as a numpy 1D array with one element per stream segment. By default,
-        interprets the input relief values as the base unit of the CRS. Set
-        meters=True if the relief values are in meters instead.
+        divided by the square root of its catchment area. By default, relief
+        values should be in meters. If this is not the case, use the "relief_per_m"
+        option to provide a conversion factor between relief units and meters.
+        This ensures that ruggedness values are scaled correctly.
 
         self.ruggedness(..., terminal=True)
         Only returns values for the terminal segments.
         ----------
         Inputs:
             relief: A vertical relief raster for the watershed
-            meters: Set to True if the relief raster is in units of meters. If
-                False (default), the reliefs are interpreted in the base unit
-                of the CRS.
+            base_unit: True to interpret reliefs in the base unit of the CRS.
+                False (default) to interpret reliefs in meters instead.
             terminal: True to only return values for terminal segments.
                 False (default) to return values for all segments.
 
@@ -1759,17 +1982,12 @@ class Segments:
             numpy 1D array: The topographic ruggedness of each stream segment
         """
 
-        # Get the area in the appropriate units
-        area = self.area(kilometers=meters)
-        if meters:
-            area = area * 1e6
-
-        # Compute ruggedness
-        relief = self.relief(relief)
-        ruggedness = relief / np.sqrt(area)
-        if terminal:
-            ruggedness = ruggedness[self.isterminus]
-        return ruggedness
+        relief_per_m = validate.conversion(relief_per_m, "relief_per_m")
+        area = self.area(terminal=terminal) * 1e6
+        relief = self.relief(relief, terminal=terminal)
+        if relief_per_m is not None:
+            relief = relief / relief_per_m
+        return relief / np.sqrt(area)
 
     def upslope_ratio(self, mask: RasterInput, terminal: bool = False) -> BasinValues:
         """
@@ -1806,16 +2024,14 @@ class Segments:
 
         # Default or validate logical indices
         if indices is None:
-            indices = np.zeros(self.length, bool)
+            indices = np.zeros(self.size, bool)
         else:
-            indices = validate.vector(
-                indices, "indices", dtype=real, length=self.length
-            )
+            indices = validate.vector(indices, "indices", dtype=real, length=self.size)
             indices = validate.boolean(indices, "indices")
 
         # Default or validate IDs.
         if ids is None:
-            ids = np.zeros(self.length, bool)
+            ids = np.zeros(self.size, bool)
         else:
             ids = validate.vector(ids, "ids", dtype=real)
             self._check_ids(ids, "ids")
@@ -1841,15 +2057,82 @@ class Segments:
             edge = edge | (parents == -1).all(axis=1)
         return requested & edge
 
-    def _continuous_removal(
-        self, requested: SegmentIndices, upstream: bool, downstream: bool
+    def continuous(
+        self,
+        *,
+        ids: Optional[vector] = None,
+        indices: Optional[SegmentIndices] = None,
+        keep: bool = False,
+        upstream: bool = True,
+        downstream: bool = True,
     ) -> SegmentIndices:
-        """Locates stream segments that are both (1) requested for removal,
-        and (2) would not break flow continuity in the network"""
+        """
+        Indicates segments that can be removed while preserving flow continuity
+        ----------
+        self.continuous(ids)
+        self.continuous(indices)
+        Given a set of segments slated for removal from the network, returns the
+        indices of segments that can be removed while preserving flow continuity.
+        An segment slated for removal will be retained if it is between two
+        segments being retained. Equivalently, segments are only removed from the
+        upstream and downstream ends of their local drainage networks. Conceptually,
+        the algorithm first marches upstream, and removes segments until it reaches
+        a segment that was not indicated as input. The algorithm then marches
+        downstream, again removing segments until reaching a segment not indicated
+        as input.
+
+        Returns the indices of the segments that can be removed from the network.
+        This is a boolean numpy 1D array with one element per segment. True elements
+        indicate segments that were both (1) indicated as input, and (2) can be
+        removed without disrupting flow continuity.
+
+        self.continuous(..., keep=True)
+        Indicates that the input segments represent segments that should be retained
+        in the network, rather than being removed. The output array is still a
+        boolean 1D array with one element per segment. However, True elements
+        indicate segments that either (1) were indicated as input, or (2) should
+        be retained to preserve flow continuity.
+
+        In general, use keep=True when you intend to filter the network using the
+        "keep" command. Use the default keep=False when you intend to filter the
+        network using the "remove" comand.
+
+        self.continuous(..., upstream=False)
+        self.continuous(..., downstream=False)
+        Further customizes the flow continuity algorithm. When upstream=False,
+        the algorithm will not remove segments on the upstream end of a local
+        drainage network. When downstream=False, the algorithm will not remove
+        segments on the downstream end of a local drainage network.
+        ----------
+        Inputs:
+            ids: The IDs of segments that should be removed/retained in the network.
+            indices: A boolean numpy array with one element per stream segment.
+                If keep=False (default), True elements indicate segments slated
+                for removal from the network. If keep=True, True elements indicate
+                segments that should be retained in the network.
+            keep: True if the input segments should be retained in the network.
+                False (default) if the input segments are slated for removal.
+            upstream: Set to False to prevent segments from being removed from
+                the upstream ends of local drainage networks.
+            downstream: Set to False to prevent segments from being removed from
+                the downstream ends of local drainage networks.
+
+        Outputs:
+            boolean numpy 1D array: The indices of segments that can be
+                removed/retained in the network while preserving flow continuity.
+                If keep=False (default), True elements indicate segments that can
+                be removed. If keep=True, True elements indicate segments that
+                should be retained.
+        """
+
+        # Get the segments requested for removal
+        requested = self._validate_selection(ids, indices)
+        if keep:
+            requested = ~requested
 
         # Initialize segments actually being removed. Get working copies of
         # parent-child relationships.
-        remove = np.zeros(self.length, bool)
+        remove = np.zeros(self.size, bool)
         child = self._child.copy()
         parents = self._parents.copy()
 
@@ -1861,88 +2144,43 @@ class Segments:
             requested[removable] = False
             self._update_family(child, parents, removable)
             removable = self._removable(requested, child, parents, upstream, downstream)
-        return remove
+
+        # Return keep/remove indices as appropriate
+        if keep:
+            return ~remove
+        else:
+            return remove
 
     def remove(
-        self,
-        *,
-        ids: Optional[vector] = None,
-        indices: Optional[SegmentIndices] = None,
-        continuous: bool = True,
-        upstream: bool = True,
-        downstream: bool = True,
-    ) -> SegmentIndices:
+        self, *, ids: Optional[vector] = None, indices: Optional[SegmentIndices] = None
+    ) -> None:
         """
-        remove  Removes segments from the network while optionally preserving continuity
+        remove  Removes segments from the network
         ----------
         self.remove(*, ids)
         self.remove(*, indices)
-        Attempts to remove the indicated segments, but prioritizes the continuity
-        of the stream network. An indicated segment will not be removed if it is
-        between two segments being retained. Equivalently, segments are only removed
-        from the upstream and downstream ends of a local network. Conceptually,
-        this algorithm first marches upstream, and removes segments until it reaches
-        a segment that was not indicated as input. The algorithm then marches
-        downstream, and again removes segments until it reaches a segment that was
-        not indicated as input. As such, the total number of removed segments may
-        be less than the number of input segments. Note that if you remove terminal
-        segments after calling the "locate_basins" command, the saved basin
-        raster may be deleted.
+        Removes the indicated segments from the network. If using "ids", the
+        input should be a list or numpy 1D array whose elements are the IDs of
+        the segments that should be removed from the network. If using "indices"
+        the input should be a boolean numpy 1D array with one element per segment
+        in the network. True elements indicate the stream segments that should be
+        removed. False elements will be retained. If you provide both inputs,
+        segments indicated by either input are removed from the network.
 
-        If using "ids", the input should be a list or numpy 1D array whose elements
-        are the IDs of the segments that may potentially be removed from the network.
-        If using "indices" the input should be a boolean numpy 1D array with one
-        element per segment in the network. True elements indicate the stream segments
-        that may potentially be removed. False elements will always be retained.
-        If you provide both inputs, segments indicated by either input are potentially
-        removed from the network.
-
-        Returns the indices of the segments that were removed from the network as
-        a boolean numpy 1D array. The output indices will have one element per
-        segment in the original network. True elements indicate segments that were
-        removed. False elements are segments that were retained. These indices are
-        often useful for filtering values computed for the original network.
-
-        self.remove(*, ..., continuous=False)
-        Removes all indicated segments, regardless of the continuity of the
-        stream network.
-
-        self.remove(*, continuous=True, upstream=False)
-        self.remove(*, continuous=True, downstream=False)
-        Further customizes the removal of segments when prioritizing the continuity
-        of the stream network. When upstream=False, segments will not be removed
-        from the upstream end of a local network. Equivalently, a segment will not
-        be removed if it flows into a segment retained in the network. When
-        downstream=False, segments will not be removed from the downstream end
-        of a local network. So a segment will not be removed if a retained segment
-        flow into it. These options are ignored when continuous=False.
+        Note that removing terminal outlet segments will cause any previously located
+        basins to be deleted. As such we recommend calling the "locate_basins"
+        command after this command.
         ----------
         Inputs:
-            ids: A list or numpy 1D array listing the IDs of segments that may
+            ids: A list or numpy 1D array listing the IDs of segments that should
                 be removed from the network
             indices: A boolean numpy 1D array with one element per stream segment.
-                True elements indicate segments that may be removed from the
+                True elements indicate segments that should be removed from the
                 network.
-            continuous: If True (default), segments will only be removed if they
-                do not break the continuity of the stream network. If False, all
-                indicated segments are removed.
-            upstream: Set to False to prevent segments from being removed from the
-                upstream end of a local network. Ignored if continuous=False.
-            downstream: Set to False to prevent segments from being removed from
-                the downstream end of a local network. Ignored if continuous=False.
-
-        Outputs:
-            boolean numpy 1D array: The indices of the segments that were removed
-                from the network. Has one element per segment in the initial network.
-                True elements indicate removed segments.
         """
 
-        # Validate and determine the segments actually being removed
-        requested = self._validate_selection(ids, indices)
-        if continuous:
-            remove = self._continuous_removal(requested, upstream, downstream)
-        else:
-            remove = requested
+        # Validate. Get segments being kept / removed
+        remove = self._validate_selection(ids, indices)
         keep = ~remove
 
         # Compute new attributes
@@ -1961,91 +2199,38 @@ class Segments:
         self._parents = parents
         self._basins = basins
 
-        # Return the indices that were actually removed
-        return remove
-
     def keep(
         self,
         *,
         ids: Optional[vector] = None,
         indices: Optional[SegmentIndices] = None,
-        continuous: bool = True,
-        upstream: bool = True,
-        downstream: bool = True,
-    ) -> SegmentIndices:
+    ) -> None:
         """
         keep  Restricts the network to the indicated segments
         ----------
         self.keep(*, ids)
         self.keep(*, indices)
-        Attempts to restrict the network to the indicated segments, but prioritizes
-        the continuity of the stream network. A segment will be retained if it is
-        an indicated input, or if it falls between two segments being retained.
-        Equivalently, segments are only removed from the upstream and downstream
-        ends of a local network. Conceptually, this algorithm first marches upstream
-        and removes segments until it reaches a segment that was indicated as input.
-        The algorithm then marches downstream, and again removes segments until
-        reaching a segment that was indicated as input. As such, the total number
-        of retained segments may be greater than the number of input segments.
-        Note that if you remove terminal segments after calling the "locate_basins"
-        command, the saved basin raster may be deleted.
-
-        If using "ids", the input should be a list or numpy 1D array whose elements
-        are the IDs of the segments to definitely retain in the network. If using
+        Restricts the network to the indicated segments, discarding all other
+        segments. If using "ids", the input should be a list or numpy 1D array whose
+        elements are the IDs of the segments to retain in the network. If using
         "indices" the input should be a boolean numpy 1D array with one element
         per segment in the network. True elements indicate stream segments that
-        should definitely be retained. False elements may potentially be removed.
-        If you provide both inputs, segments indicated by either input are definitely
-        retained in the network.
+        should be retained. False elements will be removed. If you provide both
+        inputs, segments indicated by either input are retained in the network.
 
-        Returns the indices of the retained segments as a boolean 1D numpy array.
-        The output indices will have one element per segment in the original network.
-        True elements indicate segments that were retained. False elements are
-        segments that were remove. These indices are often useful for filtering values
-        computed from the original network.
-
-        self.keep(*, ..., continuous=False)
-        Only keeps the indicated segments, regardless of network continuity. All
-        segments not indicated by the "ids" or "indices" inputs will be removed.
-
-        self.keep(*, continuous=True, upstream=False)
-        self.keep(*, continuous=True, downstream=False)
-        Further customizes the removal of segments when prioritizing the continuity
-        of the stream network. When upstream=False, segments will not be removed
-        from the upstream end of a local network. Equivalently, a segment will not
-        be removed if it flows into a segment retained in the network. When
-        downstream=False, segments will not be removed from the downstream end
-        of a local network. So a segment will not be removed if a retained segment
-        flow into it. These options are ignored when continuous=False.
+        Note that discarding terminal outlet segments will cause any previously
+        located basins to be deleted. As such, we recommend calling "locate_basins"
+        after this command.
         ----------
         Inputs:
             ids: A list or numpy 1D array listing the IDs of segments that should
-                always be retained in the network
+                be retained in the network
             indices: A boolean numpy 1D array with one element per stream segment.
-                True elements indicate segments that should always be retained
-                in the network.
-            continuous: If True (default), segments will only be removed if they
-                do not break the continuity of the stream network. If False, all
-                non-indicated segments are removed.
-            upstream: Set to False to prevent segments from being removed from the
-                upstream end of a local network. Ignored if continuous=False.
-            downstream: Set to False to prevent segments from being removed from
-                the downstream end of a local network. Ignored if continuous=False.
-
-        Outputs:
-            boolean numpy 1D array: The indices of the segments that remained in
-                the network. Has one element per segment in the initial network.
-                True elements indicate retained segments.
+                True elements indicate segments that should be retained in the network.
         """
 
         keep = self._validate_selection(ids, indices)
-        removed = self.remove(
-            indices=~keep,
-            continuous=continuous,
-            upstream=upstream,
-            downstream=downstream,
-        )
-        return ~removed
+        self.remove(indices=~keep)
 
     def copy(self) -> Self:
         """
@@ -2072,54 +2257,6 @@ class Segments:
         copy._basins = None
         copy._basins = self._basins
         return copy
-
-    def prune(self) -> SegmentIndices:
-        """
-        Removes all segments in nested drainages
-        ----------
-        self.prune()
-        Removes all segments located in a nested drainage. A nested drainage is
-        a local drainage network that flows into another downstream network, but
-        does not directly connect to the downstream network. Removing the nested
-        networks can provide cleaner results when exporting segment outlets.
-
-        Returns the indices of the segments that were removed from the network as
-        a boolean numpy 1D array. The output indices will have one element per
-        segment in the original network. True elements indicate segments that were
-        removed. False elements are segments that were retained. These indices are
-        often useful for filtering values computed for the original network.
-        ----------
-        Outputs:
-            boolean 1D array: The indices of the segments removed from the network.
-                Has one element per segment in the initial network. True elements
-                indicate removed segments.
-        """
-
-        # Get the basin raster
-        self.locate_basins()
-        basins = self._basins
-
-        # Get the indices of nested outlets
-        terminal = self.isterminus
-        outlets = np.array(self.outlets(terminal=True))
-        ids = self.ids[terminal]
-        basins = basins[outlets[:, 0], outlets[:, 1]]
-        nested = basins != ids
-        nested = np.argwhere(terminal)[nested].reshape(-1).tolist()
-
-        # Locate indices of all segments in a nested network
-        k = 0
-        while k < len(nested):
-            index = nested[k]
-            parents = self._parents[index, :]
-            upstream = [index for index in parents if index != -1]
-            nested += upstream
-            k += 1
-
-        # Remove all nested segments
-        indices = np.zeros(self.length, bool)
-        indices[nested] = True
-        return self.remove(indices=indices, continuous=False)
 
     #####
     # Filtering Updates
@@ -2217,7 +2354,7 @@ class Segments:
 
         # Get the allowed lengths and the required final length
         length = self._nbasins(terminal)
-        allowed = [self.length]
+        allowed = [self.size]
         if terminal:
             allowed.append(self.nlocal)
 
@@ -2240,7 +2377,7 @@ class Segments:
 
             # Extract terminal properties as needed
             if vector.size != length:
-                vector = vector[self.isterminus]
+                vector = vector[self.isterminal()]
 
             # Convert boolean to int
             if vector.dtype == bool:
@@ -2281,8 +2418,7 @@ class Segments:
     def _basin_polygons(self):
         "Returns a generator of drainage basin (Polygon, ID value) tuples"
 
-        self.locate_basins()
-        basins = self._basins
+        basins = self._locate_basins()
         mask = basins.astype(bool)
         return rasterio.features.shapes(
             basins, mask, connectivity=8, transform=self.transform.affine
@@ -2302,13 +2438,13 @@ class Segments:
         # (Basin geometries are unordered, so need to track which property is which)
         if type == "basins":
             geometries = self._basin_polygons()
-            ids = self._ids[self.isterminus]
+            ids = self.terminal_ids
 
         # Everything else is derived from the shapely linestrings
         elif type == "outlets":
             geometries = [
                 segment
-                for keep, segment in zip(self.isterminus, self._segments)
+                for keep, segment in zip(self.isterminal(), self._segments)
                 if keep
             ]
         else:
@@ -2328,7 +2464,8 @@ class Segments:
             else:
                 id = geometry[1]
                 geometry = geometry[0]
-                g = int(np.argwhere(id == ids))
+                index = np.argwhere(id == ids)
+                g = int(index[0, 0])
 
             # Get the data properties for each feature as built-in types
             builtins = {"float": float, "int": int, "str": str}

@@ -115,3 +115,16 @@ class TestType:
         with pytest.raises(TypeError) as error:
             validate.type(5, "test", str, "str")
         assert_contains(error, "test must be a str")
+
+
+class TestConversion:
+    def test_none(_):
+        assert validate.conversion(None, "") is None
+
+    def test_valid(_):
+        assert validate.conversion(5, "") == 5
+
+    def test_invalid(_, assert_contains):
+        with pytest.raises(ValueError) as error:
+            validate.conversion(0, "dem_per_m")
+        assert_contains(error, "dem_per_m must be greater than 0")

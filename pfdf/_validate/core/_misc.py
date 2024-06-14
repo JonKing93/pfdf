@@ -13,6 +13,9 @@ Paths:
 from pathlib import Path
 from typing import Any, Sequence
 
+import pfdf._validate.core as validate
+from pfdf._utils import real
+
 
 def type(input: Any, name: str, type: type, type_name: str) -> None:
     """
@@ -62,6 +65,15 @@ def option(input: Any, name: str, allowed: Sequence[str]) -> str:
             f"{name} ({input}) is not a recognized option. Supported options are: {allowed}"
         )
     return input_lowered
+
+
+def conversion(input: Any, name: str):
+    "Validates a units-per-meter conversion factor"
+
+    if input is not None:
+        input = validate.scalar(input, name, real)
+        validate.positive(input, name)
+    return input
 
 
 #####

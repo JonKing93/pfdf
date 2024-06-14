@@ -305,8 +305,12 @@ class TestSpatial:
 
 class TestMetadata:
     def test_none(_):
-        assert validate.metadata(None, None, None, None, None) == (None, None, None)
+        assert validate.metadata(None, None, None, None, None, None) == (
+            None,
+            None,
+            None,
+        )
 
     def test(_):
-        output = validate.metadata(4326, (1, 2, 3, 4), 5, "safe", int)
+        output = validate.metadata(4326, (1, 2, 3, 4), None, 5, "safe", int)
         assert output == (CRS(4326), Transform(1, 2, 3, 4), 5)

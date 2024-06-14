@@ -1,41 +1,68 @@
-image: python:3.11
-
 stages:
   - build
   - test
   - deploy
 
-before_script:
-  - source env/bin/activate
+#####
+# Python Versions
+#####
+
+# Latest python release
+variables:
+  LATEST: '12'
+
+# Activates latest python build for non-parallel jobs
+.latest-python:
+  image: "python:3.$LATEST"
+  before_script:
+    - source venv-$LATEST/bin/activate
+
+# Run a job on multiple versions of python in parallel
+.multiple-python-versions:
+  parallel:
+    matrix:
+      - VERSION: ['11', '12']
+  image: "python:3.$VERSION"
+
+#####
+# Build
+#####
 
 build:
   stage: build
-  before_script:
-    - echo "Stops attempt to activate env before env is built..."
+  extends: .multiple-python-versions
   script:
     - pip install virtualenv
-    - virtualenv env
-    - source env/bin/activate
+    - virtualenv "venv-$VERSION"
+    - source "venv-$VERSION/bin/activate"
     - pip install poetry
     - poetry install --with dev --extras tutorials
   artifacts:
     expire_in: 1 hour
     paths:
-      - env
+      - "venv-$VERSION"
+
+#####
+# Test: Safety, Formatting, Tests
+#####
 
 safety:
   stage: test
+  extends: .latest-python
   script:
     - poetry run safety check
 
-lint:
+format:
   stage: test
+  extends: .latest-python
   script:
     - poetry run lint
 
 test:
   stage: test
+  extends: .multiple-python-versions
   script:
+    - source "venv-$VERSION/bin/activate"
     - poetry run tests
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
@@ -45,9 +72,14 @@ test:
         coverage_format: cobertura
         path: coverage.xml
 
+#####
+# Deploy: Packaging and sphinx docs
+#####
+
 pages:
   stage: deploy
   when: manual
+  extends: .latest-python
   script:
     - poetry run version
     - poetry run download_tutorials
@@ -58,12 +90,12 @@ pages:
     - public
 
 release:
+  stage: deploy
   rules:
     - if: $CI_COMMIT_TAG
-  stage: deploy
+  extends: .latest-python
   script:
     - poetry build
   artifacts:
     paths:
       - dist/
-    expire_in: 1 hour

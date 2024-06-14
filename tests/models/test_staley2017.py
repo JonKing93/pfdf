@@ -835,7 +835,7 @@ class TestM3:
 
     def test_terrain(_, segments, flow):
         output = s17.M3.terrain(segments, flow)
-        T = np.array([1, 7, 3, 5, 6, 7]) / np.sqrt(segments.area())
+        T = np.array([1, 7, 3, 5, 6, 7]) / np.sqrt(segments.area() * 1e6)
         assert np.array_equal(output, T)
 
     def test_fire(_, segments, mask2):
@@ -856,7 +856,7 @@ class TestM3:
 
     def test(_, segments, mask2, flow):
         output = s17.M3.variables(segments, mask2, flow, flow)
-        T = np.array([1, 7, 3, 5, 6, 7]) / np.sqrt(segments.area())
+        T = np.array([1, 7, 3, 5, 6, 7]) / np.sqrt(segments.area() * 1e6)
         F = [0, 1, 1, 1, 1, 4 / 11]
         S = [23 / 500, 7 / 100, 3 / 100, 5 / 100, 25 / 400, 62 / 1100]
         assert np.array_equal(output[0], T)
@@ -868,7 +868,7 @@ class TestM3:
         values[values == 0] = 7
         flow = Raster.from_array(values, nodata=7)
         output = s17.M3.variables(segments, mask2, flow, flow, omitnan=True)
-        T = np.array([1, nan, 3, 5, 6, nan]) / np.sqrt(segments.area())
+        T = np.array([1, nan, 3, 5, 6, nan]) / np.sqrt(segments.area() * 1e6)
         F = [0, 1, 1, 1, 1, 4 / 11]
         S = [0.01, nan, 0.03, 0.05, 0.055, 13 / 400]
         assert np.array_equal(output[0], T, equal_nan=True)
@@ -880,7 +880,7 @@ class TestM3:
         values[values == 0] = nan
         flow = Raster.from_array(values, nodata=7)
         output = s17.M3.variables(segments, mask2, flow, flow, omitnan=True)
-        T = np.array([1, nan, 3, 5, 6, nan]) / np.sqrt(segments.area())
+        T = np.array([1, nan, 3, 5, 6, nan]) / np.sqrt(segments.area() * 1e6)
         F = [0, 1, 1, 1, 1, 4 / 11]
         S = [0.01, nan, 0.03, 0.05, 0.055, 13 / 400]
         assert np.array_equal(output[0], T, equal_nan=True)

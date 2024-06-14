@@ -37,7 +37,7 @@ Internal:
 
 from abc import ABC, abstractmethod
 from math import nan
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -58,6 +58,7 @@ from pfdf.typing import (
     SegmentAccumulations,
     SegmentPvalues,
     Variables,
+    scalar,
 )
 from pfdf.utils import slope
 
@@ -772,8 +773,12 @@ class M2(Model):
         sine_thetas = sine_thetas.astype(float, copy=False)
         nodatas = NodataMask(slopes.values, slopes.nodata)
         nodatas.fill(sine_thetas, nan)
-        sine_thetas = Raster._from_array(
-            sine_thetas, crs=slopes.crs, transform=slopes.transform, nodata=nan
+        sine_thetas = Raster.from_array(
+            sine_thetas,
+            crs=slopes.crs,
+            transform=slopes.transform,
+            nodata=nan,
+            copy=False,
         )
 
         # Compute variable
@@ -974,9 +979,9 @@ class M3(Model):
     #####
 
     @staticmethod
-    def _terrain(segments: Segments, relief: Raster):
+    def _terrain(segments: Segments, relief: Raster, relief_per_m: scalar | None):
         "Computes the M3 terrain variable"
-        return segments.ruggedness(relief)
+        return segments.ruggedness(relief, relief_per_m)
 
     @staticmethod
     def _fire(segments: Segments, moderate_high: Raster):
@@ -993,22 +998,29 @@ class M3(Model):
     #####
 
     @staticmethod
-    def terrain(segments: Segments, relief: RasterInput):
+    def terrain(
+        segments: Segments, relief: RasterInput, relief_per_m: Optional[scalar] = None
+    ):
         """
         Computes the M3 terrain variable
         ----------
         M3.terrain(segments, relief)
-        Computes the M3 terrain variable.
+        M3.terrain(segments, relief, relief_per_m)
+        Computes the M3 terrain variable. By default, the relief values should be
+        in meters. Use the "relief_per_m" input to provide a conversion factor if
+        this is not the case.
         ----------
         Inputs:
             segments: A stream segment network
             relief: A vertical relief raster
+            relief_per_m: The number of relief units per meter if the relief values
+                are not already in meters.
 
         Outputs:
             numpy 1D array: The M3 terrain variable (T)
         """
         (relief,) = Model._validate(segments, [relief], ["relief"])
-        return M3._terrain(segments, relief)
+        return M3._terrain(segments, relief, relief_per_m)
 
     @staticmethod
     def fire(segments: Segments, moderate_high: RasterInput):
@@ -1059,6 +1071,7 @@ class M3(Model):
         relief: RasterInput,
         soil_thickness: RasterInput,
         omitnan: omitnan = False,
+        relief_per_m: Optional[scalar] = None,
     ) -> S17ModelVariables:
         """
         variables  Computes the T, F, and S variables for the M3 model
@@ -1085,6 +1098,10 @@ class M3(Model):
         The value of the key should be a boolean indicating whether to omit NaN
         and NoData values for the soil_thickness raster. Raises a ValueError if
         the dict includes other keys.
+
+        M3.variables(..., relief_per_m)
+        By default, the relief values should be in meters. If this is the not the
+        case, use the "relief_per_m" input to provide a conversion factor.
         ----------
         Inputs:
             segments: A Segments object defining a stream segment network
@@ -1095,6 +1112,8 @@ class M3(Model):
             soil_thickness: A soil thickness raster for the watershed
             omitnan: A boolean or dict indicating whether to ignore NaN and NoData
                 values in the soil_thickness raster
+            relief_per_m: A conversion factor between relief units and meters if
+                the relief values are not already in meters.
 
         Outputs:
             numpy 1D array: The terrain variable (T) for each stream segment
@@ -1109,9 +1128,10 @@ class M3(Model):
             ["moderate_high", "relief", "soil_thickness"],
         )
         omitnan = Model._validate_omitnan(omitnan, rasters=["soil_thickness"])
+        relief_per_m = validate.conversion(relief_per_m, "relief_per_m")
 
         # Get variables
-        T = M3._terrain(segments, relief)
+        T = M3._terrain(segments, relief, relief_per_m)
         F = M3._fire(segments, moderate_high)
         S = M3._soil(segments, soil_thickness, omitnan["soil_thickness"])
         return T, F, S
