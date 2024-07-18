@@ -22,7 +22,7 @@ Functions:
 
 import numpy as np
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import real
 from pfdf.errors import ShapeError
 from pfdf.typing import RealArray, VectorArray, vector
@@ -87,7 +87,7 @@ def from_accumulation(R: RealArray, durations: vector) -> RealArray:
     if len(R.shape) == 1:
         R = R.reshape(-1, 1)
 
-    # Durations should be a vector that is braodcastable along the second dimension
+    # Durations should be a vector that is broadcastable along the second dimension
     durations = validate.vector(durations, "durations", dtype=real)
     if durations.size not in [1, R.shape[1]]:
         raise ShapeError(

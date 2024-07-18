@@ -13,14 +13,8 @@ Functions:
     limits      - Trims limits to valid indices
 
 Modules:
-    align       - Functions to help align raster reprojections
-    basins      - Functions to help locate drainage basins
     classify    - Function for classifying arrays using thresholds
-    clip        - Functions to clip raster data arrays to new bounds
-    features    - Functions to help process vector features into rasters
-    kernel      - A class for computing irregular focal statistics
     nodata      - Utilities for working with NoData values
-    window      - Function to build rasterio Window objects
 """
 
 from typing import Any

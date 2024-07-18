@@ -1,5 +1,5 @@
 """
-typing  Type aliases for the post-wildfire debris-flow package
+Type aliases for the post-wildfire debris-flow package
 ----------
 The typing module contains various type aliases used throughout the package.
 Note that this module does not provide *every* type alias used within the package.
@@ -118,3 +118,8 @@ Volumes = tuple[Volume, Volume, Volume]
 
 # Projections
 Quadrant = Literal[1, 2, 3, 4]
+XY = Literal["x", "y"]
+Units = Literal["base", "meters", "metres", "kilometers", "kilometres", "feet", "miles"]
+BufferUnits = Literal[
+    "pixels", "base", "meters", "metres", "kilometers", "kilometres", "feet", "miles"
+]

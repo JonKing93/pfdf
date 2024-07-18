@@ -11,11 +11,11 @@ from typing import Any, Self
 import numpy as np
 from pyproj import CRS
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import real
 from pfdf.errors import CRSError, MissingCRSError
 from pfdf.projection import CRSInput, _crs
-from pfdf.typing import Quadrant, scalar
+from pfdf.typing import XY, Quadrant, Units, scalar
 
 
 class _Locator(ABC):
@@ -40,19 +40,33 @@ class _Locator(ABC):
     The distinction between the classes lies in how they encode spatial information.
     A Transform class focuses on pixels and pixel resolutions, whereas a BoundingBox
     provides the edges (and thereby center) of the raster array. As such, resolution
-    and edge functionality is left to the individual classes. Furthermore, reprojection
-    is more accurate when computed from BoundingBox edges, so only the BoundingBox
-    class will provide reprojection capabilities.
+    and edge functionality is left to the individual classes.
     ----------
-    Abstract/Class Properties:
+    PROPERTIES:
+
+    Class:
         _names          - The names of the 4 floats as they appear in the constructor
         _atts           - The names of the attributes to query for list conversion
-        orientation     - The cartesian quadrant of the object
+        _args           - The names of dict keyword args
+        _class          - The name of an object's class as a string
 
-    Properties:
+    CRS:
         crs             - The coordinate reference system
-        left            - The left coordinate
-        top             - The top coordinate
+        xunit           - X axis unit
+        yunit           - Y axis unit
+        units           - (X unit, Y unit) tuple
+
+    Units per meter:
+        x_units_per_m   - Abstract property for X axis conversion factor
+        y_units_per_m   - Y axis conversion factor
+        units_per_m     - Abstract property for (X conversion, Y conversion) tuple
+
+    Spatial:
+        left            - Left edge coordinate
+        top             - Top edge coordinate
+        orientation     - Abstract property for cartesian quadrant of the object
+
+    METHODS:
 
     Object Creation:
         __init__        - Initializes object from 4 floats and an optional CRS
@@ -64,9 +78,8 @@ class _Locator(ABC):
         __repr__    - String representation using class name, float values, and CRS name
         __eq__      - True if the other object is the same class and has matching floats/CRS
 
-    Misc utilities:
+    Orientation:
         _orientation    - Returns cartesian quadrant given inversion status
-        _length         - Returns a length in an axis unit or meters
 
     Class Conversion:
         _validate_N     - Checks that nrows or ncols is valid
@@ -75,6 +88,11 @@ class _Locator(ABC):
 
     Testing:
         isclose         - True if two objects have similar floats and the same CRS
+
+    Axis units:
+        _xlength        - Convert a length along the X axis to the requested units
+        _ylength        - Convert a length along the Y axis to the requested units
+        _length         - Convert a length along an axis to the requested units
     """
 
     #####
@@ -258,7 +276,7 @@ class _Locator(ABC):
         return isinstance(other, type(self)) and (self.tolist() == other.tolist())
 
     #####
-    # Misc
+    # Orientation
     #####
 
     @staticmethod
@@ -286,12 +304,14 @@ class _Locator(ABC):
             raise CRSError("The 'crs' input cannot be None")
         return _crs.validate(crs)
 
-    def _validate_conversion(self, meters: bool, name: str, direction: str = "to"):
-        if meters and self.crs is None:
+    def _validate_units(self, units: Any, name: str, direction: str = "to"):
+        units = validate.units(units)
+        if units != "base" and self.crs is None:
             raise MissingCRSError(
-                f"Cannot convert {name} {direction} meters because the {self._class} "
+                f"Cannot convert {name} {direction} {units} because the {self._class} "
                 "does not have a CRS."
             )
+        return units
 
     #####
     # Class conversion
@@ -388,3 +408,15 @@ class _Locator(ABC):
         selfs = self.tolist(crs=False)
         others = other.tolist(crs=False)
         return np.allclose(selfs, others, rtol=rtol, atol=atol)
+
+    #####
+    # Axis length units
+    #####
+
+    def _length(
+        self, axis: XY, length: float, name: str, units: Units, y: float | None = None
+    ) -> float:
+        units = self._validate_units(units, name)
+        if units != "base":
+            length = _crs.base_to_units(self.crs, axis, length, units, y)
+        return length

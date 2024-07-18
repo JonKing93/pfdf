@@ -1,5 +1,5 @@
 """
-severity  Functions that estimate and locate burn severity
+Functions that estimate and locate burn severity
 ----------
 The severity module is used to generate and work with rasters that record a
 BARC4-like soil burn severity. The BARC4 classification is as follows:
@@ -37,7 +37,7 @@ from typing import Any
 
 import numpy as np
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import aslist, real
 from pfdf._utils.classify import classify
 from pfdf.raster import Raster, RasterInput

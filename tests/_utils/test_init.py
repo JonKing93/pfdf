@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from pfdf._utils import all_nones, aslist, astuple, clean_dims, no_nones, real
+from pfdf._utils import all_nones, aslist, astuple, clean_dims, limits, no_nones, real
 
 #####
 # Misc
@@ -74,3 +74,11 @@ class TestNoNones:
 
     def test_mixed(_):
         assert no_nones(1, None, 2, None) == False
+
+
+class TestLimits:
+    def test(_):
+        assert limits(-2, 6, 10) == (0, 6)
+        assert limits(5, 15, 10) == (5, 10)
+        assert limits(5, 8, 10) == (5, 8)
+        assert limits(-2, 15, 10) == (0, 10)

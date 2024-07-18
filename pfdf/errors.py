@@ -1,16 +1,18 @@
 """
-errors  Classes that define custom exceptions
+Classes that define custom exceptions
 ----------
 Numpy Arrays:
     ArrayError              - Generic class for invalid numpy arrays
     EmptyArrayError         - When a numpy array has no elements
     DimensionError          - When a numpy array has invalid nonsingleton dimensions
-    ShapeError              - When a numpy axis has an invalid shape
+    ShapeError              - When a numpy axis has the wrong length
 
-Spatial Metadata:
+Metadata:
     CRSError                - When a coordinate reference system is invalid
     MissingCRSError         - When a required CRS is missing
     TransformError          - When an affine transformation is invalid
+    MissingTransformError   - When a required transform is missing
+    MissingNoDataError      - When a required NoData value is missing
 
 Rasters:
     RasterError             - Generic class for invalid raster metadata
@@ -21,19 +23,15 @@ Rasters:
 Vector Features:
     FeaturesError           - When vector features are not valid
     FeatureFileError        - When a vector feature file cannot be read
+    NoFeaturesError         - When there are no vector features to convert to a raster
     GeometryError           - When a feature geometry is not valid
-    CoordinatesError        - When a feature's coordinates are not valid
+    CoordinateError        - When a feature's coordinates are not valid
     PolygonError            - When a polygon's coordinates are not valid
     PointError              - When a point's coordinates are not valid
 
 Models:
     DurationsError          - When queried rainfall durations are not recognized
-
-Internal:
-    _handle_memory_error    - Detects and supplements memory errors
 """
-
-from typing import NoReturn
 
 #####
 # Numpy Arrays
@@ -65,7 +63,7 @@ class CRSError(Exception):
     "When a coordinate reference system is invalid"
 
 
-class MissingCRSError(Exception):
+class MissingCRSError(CRSError):
     "When a required CRS is missing"
 
 
@@ -73,7 +71,7 @@ class TransformError(Exception):
     "When an affine transformation is invalid"
 
 
-class MissingTransformError(Exception):
+class MissingTransformError(TransformError):
     "When a required transform is missing"
 
 
@@ -142,27 +140,3 @@ class PointError(CoordinateError):
 
 class DurationsError(Exception):
     "When queried rainfall durations are not reported in Table 4 of Staley et al., 2017"
-
-
-#####
-# Memory Errors
-#####
-
-
-def _handle_memory_error(error: Exception, message: str) -> NoReturn:
-    "Detects and supplements memory errors"
-
-    # Detect whether this is a memory issue
-    ismemory = False
-    if isinstance(error, MemoryError):
-        ismemory = True
-    elif isinstance(error, ValueError):
-        for pattern in ["Maximum allowed dimension exceeded", "array is too big"]:
-            if pattern in error.args[0]:
-                ismemory = True
-
-    # Supplement memory issues, reraise anything else
-    if ismemory:
-        raise MemoryError(message) from error
-    else:
-        raise error from None

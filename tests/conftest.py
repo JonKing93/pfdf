@@ -1,14 +1,14 @@
-from pathlib import Path
-
-import fiona
 import numpy as np
 import pytest
-import rasterio
 from affine import Affine
-from geojson import Feature, MultiPoint, MultiPolygon, Point, Polygon
-from pyproj import CRS
 
-from pfdf.projection import Transform
+from pfdf.projection import CRS, Transform
+from pfdf.raster import Raster
+from pfdf.segments import Segments
+
+#####
+# Misc
+#####
 
 
 def _assert_contains(error, *strings):
@@ -20,6 +20,17 @@ def _assert_contains(error, *strings):
 @pytest.fixture
 def assert_contains():
     return _assert_contains
+
+
+@pytest.fixture
+def araster():
+    "A numpy array raster"
+    return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4).astype(float)
+
+
+#####
+# Metadata
+#####
 
 
 @pytest.fixture
@@ -37,128 +48,48 @@ def transform(affine):
     return Transform.from_affine(affine)
 
 
-@pytest.fixture
-def araster():
-    "A numpy array raster"
-    return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4).astype(float)
+#####
+# Basic segments
+#####
 
 
 @pytest.fixture
-def points(tmp_path, crs):
-    points = [[10, 20], [33, 44], [50, 60]]
-    values = range(len(points))
-
-    records = [
-        Feature(
-            geometry=Point(coords), properties={"test": value, "invalid": "invalid"}
-        )
-        for coords, value in zip(points, values)
-    ]
-    file = Path(tmp_path) / "test.geojson"
-    save_features(file, records, crs)
-    return file
-
-
-@pytest.fixture
-def multipoints(tmp_path, crs):
-    points = [
-        [[10, 20], [30, 40], [55, 66]],
-        [[80, 90], [20, 70]],
-    ]
-    values = range(len(points))
-
-    records = [
-        Feature(
-            geometry=MultiPoint(coords),
-            properties={"test": value, "invalid": "invalid"},
-        )
-        for coords, value in zip(points, values)
-    ]
-    file = Path(tmp_path) / "test.geojson"
-    save_features(file, records, crs)
-    return file
+def flow(transform):
+    flow = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 7, 3, 3, 7, 3, 0],
+            [0, 7, 3, 3, 7, 3, 0],
+            [0, 1, 7, 3, 6, 5, 0],
+            [0, 5, 1, 7, 1, 1, 0],
+            [0, 5, 5, 7, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+        ]
+    )
+    return Raster.from_array(flow, nodata=0, transform=transform, crs=26911)
 
 
 @pytest.fixture
-def polygon_coords():
-    return [
-        (
-            [(20, 20), (20, 70), (60, 70), (60, 20), (20, 20)],
-            [(20, 20), (20, 40), (40, 40), (40, 20), (20, 20)],  # hole in upper-left
-        ),
-        ([(40, 60), (40, 90), (90, 90), (90, 60), (40, 60)],),
-    ]
+def mask():
+    return np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 1, 1, 0],
+            [0, 1, 0, 0, 1, 1, 0],
+            [0, 1, 1, 0, 1, 1, 0],
+            [0, 0, 1, 1, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+        ]
+    ).astype(bool)
 
 
 @pytest.fixture
-def polygons(polygon_coords, tmp_path, crs):
-    file = Path(tmp_path) / "test.geojson"
-    values = range(len(polygon_coords))
-    polygons = [
-        Feature(
-            geometry=Polygon(coords), properties={"test": value, "invalid": "invalid"}
-        )
-        for coords, value in zip(polygon_coords, values)
-    ]
-    save_features(file, polygons, crs)
-    return file
+def mask2(mask):
+    mask[:, 1:4] = False
+    return mask
 
 
 @pytest.fixture
-def multipolygons(tmp_path, crs):
-    coords = [
-        [  # Multipolygon A
-            [  # Polygon A1
-                [(20, 20), (20, 70), (60, 70), (60, 20), (20, 20)],
-                [(20, 20), (20, 40), (40, 40), (40, 20), (20, 20)],
-            ],
-            [[(40, 60), (40, 90), (90, 90), (90, 60), (40, 60)]],  # Polygon A2
-        ],
-        [[[(50, 30), (50, 40), (60, 40), (60, 30), (50, 30)]]],  # Multipolygon B
-    ]
-    values = range(len(coords))
-    multis = [
-        Feature(
-            geometry=MultiPolygon(coords),
-            properties={"test": value, "invalid": "invalid"},
-        )
-        for coords, value in zip(coords, values)
-    ]
-    file = Path(tmp_path) / "multitest.geojson"
-    save_features(file, multis, crs)
-    return file
-
-
-def save_features(path, features, crs):
-    schema = {
-        "geometry": features[0].geometry.type,
-        "properties": {"test": "int", "invalid": "str"},
-    }
-    with fiona.open(
-        path,
-        "w",
-        driver="GeoJSON",
-        schema=schema,
-        crs=crs,
-    ) as file:
-        file.writerecords(features)
-
-
-@pytest.fixture
-def fraster(tmp_path, araster, affine, crs):
-    "A file-based raster"
-    path = tmp_path / "raster.tif"
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=araster.shape[0],
-        width=araster.shape[1],
-        count=1,
-        dtype=araster.dtype,
-        nodata=-999,
-        transform=affine,
-        crs=crs,
-    ) as file:
-        file.write(araster, 1)
-    return path
+def segments(flow, mask):
+    return Segments(flow, mask)

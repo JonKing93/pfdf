@@ -12,11 +12,11 @@ import numpy as np
 import rasterio.warp
 from pyproj import CRS
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import real
 from pfdf.errors import MissingCRSError
 from pfdf.projection import CRSInput, _crs, _Locator, transform
-from pfdf.typing import Quadrant, scalar
+from pfdf.typing import Quadrant, Units, scalar
 
 # Type aliases
 limits = tuple[float, float]
@@ -86,6 +86,14 @@ class BoundingBox(_Locator):
         ys              - A (bottom, top) tuple
         bounds          - A (left, bottom, right, top) tuple
 
+    Center:
+        center          - The (X, Y) coordinate of the box's center
+        center_x        - The X coordinate of the box's center
+        center_y        - The Y coordinate of the box's center
+
+    Orientation:
+        orientation     - The Cartesian quadrant of the box's orientation
+
     CRS:
         crs             - Coordinate reference system (pyproj.CRS or None)
         units           - The units of the X and Y axes
@@ -96,14 +104,6 @@ class BoundingBox(_Locator):
         units_per_m     - The number of CRS units per meter along the X and Y axes
         x_units_per_m   - The number of CRS X units per meter
         y_units_per_m   - The number of CRS Y units per meter
-
-    Center:
-        center          - The (X, Y) coordinate of the box's center
-        center_x        - The X coordinate of the box's center
-        center_y        - The Y coordinate of the box's center
-
-    Orientation:
-        orientation     - The Cartesian quadrant of the box's orientation
 
     METHODS:
     Object Creation:
@@ -119,8 +119,8 @@ class BoundingBox(_Locator):
     Axis lengths:
         xdisp           - Right minus Left
         ydisp           - Top minus bottom
-        height          - Absolute value of xdisp
-        width           - Absolute value of ydisp
+        width           - Absolute value of xdisp
+        height          - Absolute value of ydisp
 
     Misc:
         orient          - Returns a copy of the box in the requested orientation
@@ -257,96 +257,95 @@ class BoundingBox(_Locator):
     # Box Lengths
     #####
 
-    def xdisp(self, meters: bool = False) -> float:
+    def xdisp(self, units: Units = "base") -> float:
         """
         Returns the change in X-coordinate (displacement) from left to right
         ----------
         self.xdisp()
-        Returns the X-coordinate displacement (right - left) in the base unit of
-        the X axis.
-
-        self.xdisp(meters=True)
-        Returns displacement in meters. Note that this option is only available
-        when the BoundingBox has a CRS.
+        self.xdisp(units)
+        Returns the X-coordinate displacement (right - left). By default, returns
+        xdisp in the base unit of the X axis. Use the "units" option to specify
+        the units instead. Note that this option is only available when the
+        BoundingBox has a CRS. Supported units include: "meters", "kilometers",
+        "feet", and "miles".
         ----------
         Inputs:
-            meters: True to return dx in meters. False (default) to return dx in
-                the base unit of the X-axis.
+            units: The units that xdisp should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
 
         Outputs:
             float: The change in X coordinate (right - left)
         """
-
-        self._validate_conversion(meters, "xdisp")
         xdisp = self.right - self.left
-        if meters:
-            xdisp = _crs.dx_to_meters(self.crs, xdisp, self.center_y)
-        return xdisp
+        return self._length("x", xdisp, "xdisp", units, self.center_y)
 
-    def ydisp(self, meters: bool = False) -> float:
+    def ydisp(self, units: Units = "base") -> float:
         """
         Returns the change in Y-coordinate (displacement) from bottom to top
         ----------
         self.ydisp()
-        Returns the Y-coordinate displacement (top - bottom) in the base unit of
-        the Y axis.
-
-        self.ydisp(meters=True)
-        Returns displacement in meters. Note that this option is only available
-        when the BoundingBox has a CRS.
+        self.ydisp(units)
+        Returns the Y-coordinate displacement (top - bottom). By default, returns
+        ydisp in the base units of the Y axis. Use the "units" option to specify
+        the units instead. Note that this option is only supported when the
+        BoundingBox has a CRS. Supported units include: "meters", "kilometers",
+        "feet", and "miles".
         ----------
         Inputs:
-            meters: True to return dy in meters. False (default) to return dy in
-                the base unit of the Y-axis.
+            units: The units that ydisp should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
 
         Outputs:
             float: The change in Y coordinate (right - left)
         """
-        self._validate_conversion(meters, "ydisp")
         ydisp = self.top - self.bottom
-        if meters:
-            ydisp = _crs.dy_to_meters(self.crs, ydisp)
-        return ydisp
+        return self._length("y", ydisp, "ydisp", units)
 
-    def width(self, meters: bool = False) -> float:
+    def width(self, units: Units = "base") -> float:
         """
         Returns the length of the BoundingBox along the X-axis
         ----------
         self.width()
-        Returns the length of the BoundingBox along the X-axis in the axis base unit.
-
-        self.width(meters=True)
-        Returns the width in meters. Note that this option is only available
-        when the BoundingBox has a CRS.
+        self.width(units)
+        Returns the length of the BoundingBox along the X-axis. By default, returns
+        the width in the CRS base unit. Use the "units" option to specify the
+        units instead. Note that this option is only supported when the BoundingBox
+        has a CRS. Supported units include: "meters", "kilometers", "feet", and
+        "miles".
         ----------
         Inputs:
-            meters: True to return width in meters. False (default) to return
-                width in the base unit of the X-axis.
+            units: The units that width should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
 
         Outputs:
             float: The length of the box along the X-axis
         """
-        return abs(self.xdisp(meters))
+        return abs(self.xdisp(units))
 
-    def height(self, meters: bool = False) -> float:
+    def height(self, units: Units = "base") -> float:
         """
         Returns the length of the BoundingBox along the Y-axis
         ----------
         self.height()
-        Returns the length of the BoundingBox along the Y-axis in the axis base unit.
-
-        self.height(meters=True)
-        Returns the height in meters. Note that this option is only available
-        when the BoundingBox has a CRS.
+        self.height(units)
+        Returns the length of the BoundingBox along the Y-axis. By default, returns
+        the height in the CRS base unit. Use the "units" option to specify the
+        units instead. Note that this option is only supported when the BoundingBox
+        has a CRS. Supported units include: "meters", "kilometers", "feet", and
+        "miles".
         ----------
         Inputs:
-            meters: True to return height in meters. False (default) to return
-                height in the base unit of the Y-axis.
+            units: The units that height should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
 
         Outputs:
             float: The length of the box along the Y-axis
         """
-        return abs(self.ydisp(meters))
+        return abs(self.ydisp(units))
 
     #####
     # Orientation
@@ -362,7 +361,7 @@ class BoundingBox(_Locator):
         ----------
         self.orient(quadrant)
         Returns a copy of the BoundingBox in the requested orientation. The input
-        should be either 1, 2, 3, or 4, and represent the quandrant of the Cartesian
+        should be either 1, 2, 3, or 4, and represent the quadrant of the Cartesian
         plane that would contain the box when the origin point is defined as the
         box's minimum X and minimum Y coordinate. As follows:
 
@@ -372,7 +371,7 @@ class BoundingBox(_Locator):
         4: left <= right, bottom >  top
         ----------
         Inputs:
-            quandrant: The orientation of the output BoundingBox
+            quadrant: The orientation of the output BoundingBox
 
         Outputs:
             BoundingBox: A copy of the BoundingBox in the requested orientation
@@ -415,7 +414,7 @@ class BoundingBox(_Locator):
     def buffer(
         self,
         distance: Optional[scalar] = None,
-        meters: bool = False,
+        units: Units = "base",
         *,
         left: Optional[scalar] = None,
         bottom: Optional[scalar] = None,
@@ -426,12 +425,13 @@ class BoundingBox(_Locator):
         Buffers the edges of a BoundingBox
         ----------
         self.buffer(distance)
-        self.buffer(distance, meters=True)
+        self.buffer(distance, units)
         Returns a copy of the box for which the edges have been buffered by the
-        indicated distance. Note that distances must be positive. By default,
-        distances should be in the default unit of the bounding box. Set
-        meters=True to provide buffering distances in meters instead. Note that
-        the meters option is only available when the box has a CRS.
+        indicated distance. Note that distance must be positive. By default,
+        distances are interpreted as the base unit of the bounding box. Use the
+        "units" option to specify the units of the input distance instead. Note
+        that this option is only available when the box has a CRS. Supported units
+        include: "meters", "kilometers", "feet", and "miles".
 
         self.buffer(..., *, left, bottom, right, top)
         Specifies buffers for specific edges of the box. Use the keyword options
@@ -442,8 +442,9 @@ class BoundingBox(_Locator):
         ----------
         Inputs:
             distance: The default buffering distance for the box edges
-            meters: True to provide buffer distances in meters. False (default)
-                to provide distances in the default units of the box.
+            units: The units of the input buffering distances. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
             left: The buffer for the left edge
             bottom: The buffer for the bottom edge
             right: The buffer for the right edge
@@ -454,10 +455,10 @@ class BoundingBox(_Locator):
         """
 
         # Validate buffers. Convert distances to axis units
-        self._validate_conversion(meters, "buffering distances", "from")
+        units = self._validate_units(units, "buffering distances", "from")
         buffers = validate.buffers(distance, left, bottom, right, top)
-        if meters:
-            buffers = _crs.buffers_from_meters(self, buffers)
+        if units != "base":
+            buffers = _crs.buffers_to_base(self, buffers, units)
 
         # Build the buffered box
         left, right = self._buffer_edges(
@@ -556,55 +557,60 @@ class BoundingBox(_Locator):
     # Transform Conversion
     #####
 
-    def _delta(self, N: Any, name: str, delta: Callable, meters: bool) -> float:
+    def _delta(self, N: Any, name: str, delta: Callable, units: Units) -> float:
         "Returns pixel spacing"
         N = self._validate_N(N, name)
-        return delta(meters) / N
+        return delta(units) / N
 
-    def dx(self, ncols: int, meters=False) -> float:
+    def dx(self, ncols: int, units: Units = "base") -> float:
         """
-        dx  Computes pixel spacing, given a number of raster columns
+        Computes pixel spacing, given a number of raster columns
         ----------
         self.dx(ncols)
-        self.dx(ncols, meters = True)
+        self.dx(ncols, units)
         Computes the pixel spacing required to fit an input number of columns into
         the BoundingBox. By default, returns spacing in the base unit of the CRS.
-        Set meters=True to return pixel spacing in meters instead.
+        Use the "units" option to specify the units instead. Note that this option
+        is only available when the BoundingBox has a CRS. Suppoted units include:
+        "meters", "kilometers", "feet", and "miles".
         ----------
         Inputs:
             ncols: The number of columns in a raster
-            meters: True to return dx in meters. False (default) to return dx in
-                the base unit of the CRS.
+            units: The units that dx should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
 
         Outputs:
             float: The computed pixel spacing
         """
+        return self._delta(ncols, "ncols", self.xdisp, units)
 
-        return self._delta(ncols, "ncols", self.xdisp, meters)
-
-    def dy(self, nrows: int, meters=False) -> float:
+    def dy(self, nrows: int, units: Units = "base") -> float:
         """
-        dy  Computes pixel spacing, given a number of raster rows
+        Computes pixel spacing, given a number of raster rows
         ----------
         self.dy(nrows)
-        self.dy(nrows, meters = True)
+        self.dy(nrows, units)
         Computes the pixel spacing required to fit an input number of rows into
         the BoundingBox. By default, returns spacing in the base unit of the CRS.
-        Set meters=True to return pixel spacing in meters instead.
+        Use the "units" option to specify the units instead. Note that this option
+        is only available when the BoundingBox has a CRS. Suppoted units include:
+        "meters", "kilometers", "feet", and "miles".
         ----------
         Inputs:
             nrows: The number of rows in a raster
-            meters: True to return dy in meters. False (default) to return dy in
-                the base unit of the CRS.
+            units: The units that dy should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
 
         Outputs:
             float: The computed pixel spacing
         """
-        return -self._delta(nrows, "nrows", self.ydisp, meters)
+        return -self._delta(nrows, "nrows", self.ydisp, units)
 
     def transform(self, nrows: int, ncols: int) -> "transform.Transform":
         """
-        transform  Returns a Transform object derived from the BoundingBox
+        Returns a Transform object derived from the BoundingBox
         ----------
         self.transform(nrows, ncols)
         Converts the BoundingBox to a Transform object, given a number of raster

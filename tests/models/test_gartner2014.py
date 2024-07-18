@@ -12,17 +12,6 @@ from pfdf.errors import ShapeError
 from pfdf.models import gartner2014 as g14
 
 #####
-# Testing Utilities
-#####
-
-
-def assert_contains(error, *strings):
-    message = error.value.args[0]
-    for string in strings:
-        assert string in message
-
-
-#####
 # Internal Tests
 #####
 
@@ -109,13 +98,13 @@ class TestValidateParameters:
         assert np.array_equal(parameters[2], [1, 2, 3, 4])
         assert nruns == 4
 
-    def test_invalid_type(_):
+    def test_invalid_type(_, assert_contains):
         parameters = {"aname": "invalid"}
         with pytest.raises(TypeError) as error:
             g14._validate_parameters(parameters)
         assert_contains(error, "aname")
 
-    def test_invalid_lengths(_):
+    def test_invalid_lengths(_, assert_contains):
         parameters = {"a": 1, "b": [1, 2, 3], "c": [1, 2, 3, 4]}
         with pytest.raises(ShapeError) as error:
             g14._validate_parameters(parameters)
@@ -152,14 +141,14 @@ class TestValidateVariables:
         expected = np.array([1, 2, 3, 4]).reshape(4, 1)
         assert np.array_equal(output[1], expected)
 
-    def test_invalid_ncols_N(_):
+    def test_invalid_ncols_N(_, assert_contains):
         a = np.arange(0, 10).reshape(2, 5)
         variables = {"aname": a}
         with pytest.raises(ShapeError) as error:
             g14._validate_variables(variables, nruns=4)
         assert_contains(error, "must have either 1 or 4 runs", "aname has 5")
 
-    def test_invalid_nrows(_):
+    def test_invalid_nrows(_, assert_contains):
         variables = {"aname": [1, 2, 3], "bname": [1, 2, 3, 4]}
         with pytest.raises(ShapeError) as error:
             g14._validate_variables(variables, nruns=1)
@@ -171,7 +160,7 @@ class TestValidateVariables:
         (output,) = g14._validate_variables(variables, nruns=5)
         assert np.array_equal(output, a)
 
-    def test_not_positive(_):
+    def test_not_positive(_, assert_contains):
         a = np.arange(0, 10).reshape(2, 5) + 1
         a[0, 0] = -2.2
         variables = {"aname": a}
@@ -338,7 +327,7 @@ class TestEmergency:
             assert output.shape == (3, 1)
             assert np.allclose(output, expected)
 
-    def test_invalid_nruns(_):
+    def test_invalid_nruns(_, assert_contains):
         # 2 runs
         B = [4.3, 4.4]
         Ci = [0.5, 0.6]
@@ -495,7 +484,7 @@ class TestLongterm:
             assert output.shape == (3, 1)
             assert np.allclose(output, expected)
 
-    def test_invalid_nruns(_):
+    def test_invalid_nruns(_, assert_contains):
         # 3 stream segments
         i60 = [3, 29, 72]
         Bt = [0.1, 1.5, 16]

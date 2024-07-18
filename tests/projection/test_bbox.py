@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from affine import Affine
 from pyproj import CRS
 
 from pfdf.errors import CRSError, MissingCRSError
@@ -325,16 +324,20 @@ class TestXdisp:
 
     def test_linear(_):
         a = BoundingBox(1, 2, -3, 4, 26911)
-        assert a.xdisp(meters=True) == -4
+        assert a.xdisp(units="meters") == -4
+
+    def test_units(_):
+        a = BoundingBox(1, 2, -3, 4, 26911)
+        assert a.xdisp(units="kilometers") == -0.004
 
     def test_angular(_):
         a = BoundingBox(1, 2, -3, 4, 4326)
-        assert a.xdisp(meters=True) == -444169.90426228574
+        assert a.xdisp(units="meters") == -444169.90426228574
 
     def test_invalid_meters(_, assert_contains):
         a = BoundingBox(1, 2, 3, 4)
         with pytest.raises(MissingCRSError) as error:
-            a.xdisp(meters=True)
+            a.xdisp(units="meters")
         assert_contains(
             error,
             "Cannot convert xdisp to meters because the BoundingBox does not have a CRS",
@@ -348,16 +351,20 @@ class TestYdisp:
 
     def test_linear(_):
         a = BoundingBox(1, 4, 3, 2, 26911)
-        assert a.ydisp(meters=True) == -2
+        assert a.ydisp(units="meters") == -2
+
+    def test_units(_):
+        a = BoundingBox(1, 4, 3, 2, 26911)
+        assert a.ydisp(units="kilometers") == -0.002
 
     def test_angular(_):
         a = BoundingBox(1, 4, 3, 2, 4326)
-        assert a.ydisp(meters=True) == -2 * 111194.92664455874
+        assert a.ydisp(units="meters") == -2 * 111194.92664455874
 
     def test_invalid_meters(_, assert_contains):
         a = BoundingBox(1, 2, 3, 4)
         with pytest.raises(MissingCRSError) as error:
-            a.ydisp(meters=True)
+            a.ydisp(units="meters")
         assert_contains(
             error,
             "Cannot convert ydisp to meters because the BoundingBox does not have a CRS",
@@ -371,7 +378,11 @@ class TestWidth:
 
     def test_meters(_):
         a = BoundingBox(1, 2, -3, 4, 4326)
-        assert a.width(meters=True) == 444169.90426228574
+        assert a.width(units="meters") == 444169.90426228574
+
+    def test_units(_):
+        a = BoundingBox(1, 2, -3, 4, 4326)
+        assert a.width(units="kilometers") == 444.16990426228574
 
 
 class TestHeight:
@@ -381,7 +392,12 @@ class TestHeight:
 
     def test_meters(_):
         a = BoundingBox(1, 4, 3, 2, 4326)
-        assert a.height(meters=True) == 2 * 111194.92664455874
+        assert a.height(units="meters") == 2 * 111194.92664455874
+
+    def test_units(_):
+        a = BoundingBox(1, 4, 3, 2, 4326)
+        output = a.height(units="kilometers")
+        assert np.allclose(output, 2 * 111.19492664455874)
 
 
 #####
@@ -459,7 +475,7 @@ class TestBuffer:
     def test_missing_crs(_, assert_contains):
         a = BoundingBox(1, 2, 3, 4)
         with pytest.raises(MissingCRSError) as error:
-            a.buffer(5, meters=True)
+            a.buffer(5, units="meters")
         assert_contains(
             error,
             "Cannot convert buffering distances from meters",
@@ -483,7 +499,18 @@ class TestBuffer:
 
     def test_meters(_):
         a = BoundingBox(1, 2, 3, 4, 4326)
-        output = a.buffer(5, meters=True)
+        output = a.buffer(5, units="meters")
+        assert output == BoundingBox(
+            left=0.9999549722106837,
+            bottom=1.999955033919704,
+            right=3.0000450277893163,
+            top=4.000044966080296,
+            crs="WGS 84",
+        )
+
+    def test_units(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        output = a.buffer(0.005, units="kilometers")
         assert output == BoundingBox(
             left=0.9999549722106837,
             bottom=1.999955033919704,
@@ -596,12 +623,12 @@ class TestTo4326:
 class TestDelta:
     def test_valid(_):
         a = BoundingBox(1, 2, 3, 4)
-        assert a._delta(5, "dx", a.xdisp, False) == 2 / 5
+        assert a._delta(5, "dx", a.xdisp, "base") == 2 / 5
 
     def test_invalid(_, assert_contains):
         a = BoundingBox(1, 2, 3, 4)
         with pytest.raises(ValueError) as error:
-            a._delta(2.2, "dx", a.xdisp, False)
+            a._delta(2.2, "dx", a.xdisp, "base")
         assert_contains(error, "dx", "integer")
 
 
@@ -610,11 +637,19 @@ class TestDx:
         a = BoundingBox(0, 10, 50, 100)
         assert a.dx(10) == 5
 
+    def test_units(_):
+        a = BoundingBox(0, 10, 50, 100, 26911)
+        assert a.dx(10, units="kilometers") == 0.005
+
 
 class TestDy:
     def test(_):
         a = BoundingBox(0, 10, 50, 100)
         assert a.dy(5) == -18
+
+    def test_units(_):
+        a = BoundingBox(0, 10, 50, 100, 26911)
+        assert a.dy(5, units="kilometers") == -0.018
 
 
 class TestTransform:

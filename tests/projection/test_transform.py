@@ -282,20 +282,24 @@ class TestDx:
 
     def test_linear(_):
         a = Transform(1, 2, 3, 4, 26911)
-        assert a.dx(meters=True) == 1
+        assert a.dx(units="meters") == 1
+
+    def test_unit_conversion(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.dx(units="kilometres") == 0.001
 
     def test_angular_default(_):
         a = Transform(1, 2, 3, 4, 4326)
-        assert a.dx(meters=True) == 111194.92664455874
+        assert a.dx(units="meters") == 111194.92664455874
 
     def test_angular_y(_):
         a = Transform(1, 2, 3, 4, 4326)
-        assert a.dx(meters=True, y=30) == 96297.32567761187
+        assert a.dx(units="meters", y=30) == 96297.32567761187
 
     def test_invalid_meters(_, assert_contains):
         a = Transform(1, 2, 3, 4)
         with pytest.raises(MissingCRSError) as error:
-            a.dx(meters=True)
+            a.dx(units="meters")
         assert_contains(
             error,
             "Cannot convert dx to meters because the Transform does not have a CRS",
@@ -304,7 +308,7 @@ class TestDx:
     def test_invalid_y(_, assert_contains):
         a = Transform(1, 2, 3, 4, 4326)
         with pytest.raises(TypeError) as error:
-            a.dx(meters=True, y="invalid")
+            a.dx(units="meters", y="invalid")
         assert_contains(error, "y")
 
 
@@ -313,14 +317,22 @@ class TestDy:
         a = Transform(1, 2, 3, 4)
         assert a.dy() == 2
 
-    def test_meters(_):
+    def test_linear(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.dy(units="meters") == 2
+
+    def test_unit_conversion(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        assert a.dy(units="kilometers") == 0.002
+
+    def test_angular(_):
         a = Transform(1, 2, 3, 4, 4326)
-        assert a.dy(meters=True) == 2 * 111194.92664455874
+        assert a.dy(units="meters") == 2 * 111194.92664455874
 
     def test_invalid_meters(_, assert_contains):
         a = Transform(1, 2, 3, 4)
         with pytest.raises(MissingCRSError) as error:
-            a.dy(meters=True)
+            a.dy(units="meters")
         assert_contains(
             error,
             "Cannot convert dy to meters because the Transform does not have a CRS",
@@ -334,15 +346,19 @@ class TestXres:
 
     def test_linear(_):
         a = Transform(-1, 2, 3, 4, 26911)
-        assert a.xres(meters=True) == 1
+        assert a.xres(units="meters") == 1
+
+    def test_units(_):
+        a = Transform(-1, 2, 3, 4, 26911)
+        assert a.xres(units="kilometers") == 0.001
 
     def test_angular_default(_):
         a = Transform(-1, 2, 3, 4, 4326)
-        assert a.xres(meters=True) == 111194.92664455874
+        assert a.xres(units="meters") == 111194.92664455874
 
     def test_angular_y(_):
         a = Transform(-1, 2, 3, 4, 4326)
-        assert a.xres(meters=True, y=30) == 96297.32567761187
+        assert a.xres(units="meters", y=30) == 96297.32567761187
 
 
 class TestYres:
@@ -352,7 +368,11 @@ class TestYres:
 
     def test_meters(_):
         a = Transform(1, -2, 3, 4, 4326)
-        assert a.yres(meters=True) == 2 * 111194.92664455874
+        assert a.yres(units="meters") == 2 * 111194.92664455874
+
+    def test_units(_):
+        a = Transform(1, -2, 3, 4, 4326)
+        assert a.yres(units="kilometers") == 2 * 111194.92664455874 / 1000
 
 
 class TestResolution:
@@ -362,15 +382,22 @@ class TestResolution:
 
     def test_linear(_):
         a = Transform(-1, 2, 3, 4, 26911)
-        assert a.resolution(meters=True) == (1, 2)
+        assert a.resolution(units="meters") == (1, 2)
+
+    def test_units(_):
+        a = Transform(-1, 2, 3, 4, 26911)
+        assert a.resolution(units="kilometers") == (0.001, 0.002)
 
     def test_angular_default(_):
         a = Transform(-1, 2, 3, 4, 4326)
-        assert a.resolution(meters=True) == (111194.92664455874, 2 * 111194.92664455874)
+        assert a.resolution(units="meters") == (
+            111194.92664455874,
+            2 * 111194.92664455874,
+        )
 
     def test_angular_y(_):
         a = Transform(-1, 2, 3, 4, 4326)
-        assert a.resolution(meters=True, y=30) == (
+        assert a.resolution(units="meters", y=30) == (
             96297.32567761187,
             2 * 111194.92664455874,
         )
@@ -383,16 +410,20 @@ class TestPixelArea:
 
     def test_linear(_):
         a = Transform(10, -5, 3, 4, 26911)
-        assert a.pixel_area(meters=True) == 50
+        assert a.pixel_area(units="meters") == 50
+
+    def test_units(_):
+        a = Transform(10, -5, 3, 4, 26911)
+        assert a.pixel_area(units="kilometers") == 0.00005
 
     def test_angular_default(_):
         a = Transform(-1, 2, 3, 4, 4326)
-        assert a.pixel_area(meters=True) == 2 * 111194.92664455874**2
+        assert a.pixel_area(units="meters") == 2 * 111194.92664455874**2
 
     def test_angular_y(_):
         a = Transform(-1, 2, 3, 4, 4326)
         assert (
-            a.pixel_area(meters=True, y=30)
+            a.pixel_area(units="meters", y=30)
             == 96297.32567761187 * 2 * 111194.92664455874
         )
 
@@ -404,8 +435,14 @@ class TestPixelDiagonal:
 
     def test_meters(_):
         a = Transform(1, 1, 0, 0, 4326)
-        output = a.pixel_diagonal(meters=True)
+        output = a.pixel_diagonal(units="meters")
         expected = sqrt(2 * 111194.92664455874**2)
+        assert output == expected
+
+    def test_units(_):
+        a = Transform(1, 1, 0, 0, 4326)
+        output = a.pixel_diagonal(units="kilometers")
+        expected = sqrt(2 * 111194.92664455874**2) / 1000
         assert output == expected
 
 
@@ -533,19 +570,28 @@ class TestValidateReprojection:
         assert_contains(error, "The 'crs' input cannot be None")
 
 
-class TestValidateConversion:
+class TestValidateUnits:
     def test_valid(_):
         a = Transform(1, 2, 3, 4, 4326)
-        a._validate_conversion(True, "")
+        assert a._validate_units("meters", "") == "meters"
 
-    def test_neither(_):
+    def test_invalid_units(_, assert_contains):
+        a = Transform(1, 2, 3, 4, 4326)
+        with pytest.raises(ValueError) as error:
+            a._validate_units("inches", "test")
+        assert_contains(
+            error,
+            "units (inches) is not a recognized option. Supported options are: base, meters, metres, kilometers, kilometres, feet, miles",
+        )
+
+    def test_base_no_crs(_):
         a = Transform(1, 2, 3, 4)
-        a._validate_conversion(False, "")
+        assert a._validate_units("base", "") == "base"
 
-    def test_invalid(_, assert_contains):
+    def test_invalid_no_crs(_, assert_contains):
         a = Transform(1, 2, 3, 4)
         with pytest.raises(MissingCRSError) as error:
-            a._validate_conversion(True, "test")
+            a._validate_units("meters", "test")
         assert_contains(
             error,
             "Cannot convert test to meters because the Transform does not have a CRS",

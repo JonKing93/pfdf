@@ -1,4 +1,5 @@
 from collections import namedtuple
+from math import nan
 
 import numpy as np
 import pytest
@@ -168,28 +169,20 @@ class TestValidateAxis:
 #####
 
 
-class TestDyToMeters:
-    def test_linear(_):
+class TestBaseToUnits:
+    @pytest.mark.parametrize("y", (None, nan))
+    @pytest.mark.parametrize("axis", ("x", "y"))
+    def test_linear(_, axis, y):
         crs = CRS(26911)
-        assert _crs.dy_to_meters(crs, 1) == 1
-        assert _crs.dy_to_meters(crs, -1) == -1
+        assert _crs.base_to_units(crs, axis, 1, "meters", y) == 1
+        assert _crs.base_to_units(crs, axis, -1, "kilometers", y) == -0.001
 
-    def test_angular(_):
+    def test_angular_x_default(_):
         crs = CRS(4326)
-        assert _crs.dy_to_meters(crs, 1) == 111194.92664455874
-        assert _crs.dy_to_meters(crs, -1) == -111194.92664455874
-
-
-class TestDxToMeters:
-    def test_linear(_):
-        crs = CRS(26911)
-        assert _crs.dx_to_meters(crs, 1, None) == 1
-        assert _crs.dx_to_meters(crs, -1, None) == -1
-
-    def test_angular_default(_):
-        crs = CRS(4326)
-        assert _crs.dx_to_meters(crs, 1, None) == 111194.92664455874
-        assert _crs.dx_to_meters(crs, -1, None) == -111194.92664455874
+        output = _crs.base_to_units(crs, "x", 1, "meters", None)
+        assert np.allclose(output, 111194.92664455874)
+        output = _crs.base_to_units(crs, "x", -1, "kilometres", None)
+        assert np.allclose(output, -111.19492664455874)
 
     @pytest.mark.parametrize(
         "lat, dx",
@@ -202,36 +195,39 @@ class TestDxToMeters:
             (90, 0),
         ),
     )
-    def test_angular_haversine(_, lat, dx):
+    def test_angular_x_haversine(_, lat, dx):
         crs = CRS(4326)
         for sign in [1, -1]:
             for latsign in [1, -1]:
-                output = _crs.dx_to_meters(crs, sign, latsign * lat)
+                output = _crs.base_to_units(crs, "x", sign, "meters", latsign * lat)
                 assert np.allclose(output, sign * dx)
 
-
-class TestDyFromMeters:
-    def test_linear(_):
-        crs = CRS(26911)
-        assert _crs.dy_from_meters(crs, 1) == 1
-        assert _crs.dy_from_meters(crs, -1) == -1
-
-    def test_angular(_):
+    def test_angular_y(_):
         crs = CRS(4326)
-        assert _crs.dy_from_meters(crs, 111194.92664455874) == 1
-        assert _crs.dy_from_meters(crs, -111194.92664455874) == -1
+        assert _crs.base_to_units(crs, "y", 1, "meters") == 111194.92664455874
+        output = _crs.base_to_units(crs, "y", -1, "kilometers")
+        assert np.allclose(output, -111.19492664455874)
 
-
-class TestDxFromMeters:
-    def test_linear(_):
-        crs = CRS(26911)
-        assert _crs.dx_from_meters(crs, 1, None) == 1
-        assert _crs.dx_from_meters(crs, -1, None) == -1
-
-    def test_angular_default(_):
+    def test_angular_yy(_):
         crs = CRS(4326)
-        assert _crs.dx_from_meters(crs, 111194.92664455874, None) == 1
-        assert _crs.dx_from_meters(crs, -111194.92664455874, None) == -1
+        assert _crs.base_to_units(crs, "y", 1, "meters", nan) == 111194.92664455874
+        output = _crs.base_to_units(crs, "y", -1, "kilometers", nan)
+        assert np.allclose(output, -111.19492664455874)
+
+
+class TestUnitsToBase:
+    @pytest.mark.parametrize("y", (None, nan))
+    @pytest.mark.parametrize("axis", ("x", "y"))
+    def test_linear(_, axis, y):
+        crs = CRS(26911)
+        assert _crs.units_to_base(crs, axis, 1, "meters", y) == 1
+        assert _crs.units_to_base(crs, axis, -1, "kilometers", y) == -1000
+
+    def test_angular_x_default(_):
+        crs = CRS(4326)
+        assert _crs.units_to_base(crs, "x", 111194.92664455874, "meters", None) == 1
+        output = _crs.units_to_base(crs, "x", -111194.92664455874, "kilometers", None)
+        assert np.allclose(output, -1000)
 
     @pytest.mark.parametrize(
         "lat, dx",
@@ -242,27 +238,41 @@ class TestDxFromMeters:
             (60, 55596.934071140866),
         ),
     )
-    def test_angular_haversine(_, lat, dx):
+    def test_angular_x_haversine(_, lat, dx):
         crs = CRS(4326)
         for sign in [1, -1]:
             for latsign in [1, -1]:
-                output = _crs.dx_from_meters(crs, sign * dx, latsign * lat)
+                output = _crs.units_to_base(
+                    crs, "x", sign * dx, "meters", latsign * lat
+                )
                 print(output)
                 assert np.allclose(output, sign, atol=1e-4)
 
+    def test_angular_y(_):
+        crs = CRS(4326)
+        assert _crs.units_to_base(crs, "y", 111194.92664455874, "meters") == 1
+        output = _crs.units_to_base(crs, "y", -111194.92664455874, "kilometers")
+        assert np.allclose(output, -1000)
 
-class TestBuffersFromMeters:
+    def test_angular_yy(_):
+        crs = CRS(4326)
+        assert _crs.units_to_base(crs, "y", 111194.92664455874, "meters", nan) == 1
+        output = _crs.units_to_base(crs, "y", -111194.92664455874, "kilometers", nan)
+        assert np.allclose(output, -1000)
+
+
+class TestBuffersToBase:
     def test(_):
         obj = BoundingBox(0, 0, 0, 0, 4326)
         edges = ["left", "bottom", "right", "top"]
         b = 111194.92664455874
         buffers = {name: b for name in edges}
-        output = _crs.buffers_from_meters(obj, buffers)
+        output = _crs.buffers_to_base(obj, buffers, "meters")
         assert output == {name: 1 for name in edges}
 
 
 #####
-# Unit Info
+# Unit Name
 #####
 
 

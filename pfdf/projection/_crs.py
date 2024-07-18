@@ -4,35 +4,43 @@ Utility class for working with pyproj.CRS objects
 This module holds utility functions for working with pyproj.CRS objects, which
 are used for all internal representations of CRSs. In particular, this module
 provides the utilties needed to implement the Transform and BoundingBox classes. 
-Note that the "name" and "validate" functions permit a CRS that is None, but all
+Note that the "name" and "validate" functions permit a CRS that is None, but most
 other functions should be guarded by a "if crs is not None" statement.
 ----------
 Constants:
     EARTH_RADIUS_M  - Radius of the earth in meters
+    LINEAR          - Supported linear units
+    ANGULAR         - Supported angular units
+
+Units:
+    _supported_units    - Returns a dict of category units with non-zero conversion factors
+    islinear        - True if unit is a supported linear unit
+    isangular       - True if unit is a supported angular unit
+    issupported     - True if unit is supported for unit conversions
 
 Axis / low level:
+    name            - Either the CRS name or "None", as appropriate
     isx             - True if an axis is an X axis
     isy             - True if an axis is a Y axis
-    axis            - Returns the indicated axis
-    name            - Either the CRS name or "None", as appropriate
+    get_axis        - Returns the requested axis
 
 Validation:
     validate        - Checks input represents a CRS or None
     _validate_axis  - Checks an axis exists and has supported units
 
 Unit Conversion:
-    dx_to_meters    - Converts a length along the x-axis from axis units to meters
-    dy_to_meters    - Converts a length along the y-axis from axis units to meters
-    dx_from_meters  - Converts a length along the x-axis from meters to axis units
-    dy_from_meters  - Converts a length along the y-axis from meters to axis units
-    buffers_from_meters - Converts buffering distances from meters to axis units
+    base_to_units   - Converts a length from axis base units to other units
+    units_to_base   - Converts a length from units to axis base units
+    buffers_to_base - Converts buffering distances to axis base units
+    
+Unit Names:
+    _unit           - Returns the unit name for an axis
+    xunit           - Returns the unit name for the X axis
+    yunit           - Returns the unit name for the Y axis
+    units           - Returns the unit names for the X and Y axes
 
-Unit Info:
-    unit_info       - Returns info or None if CRS is None
-    unit            - Returns the unit along an axis
-    xunit           - Returns the X axis unit
-    yunit           - Returns the Y axis unit
-    units           - Returns the (X, Y) units
+Units per meter:
+    _units_per_m    - Returns the number of axis units per meter
     x_units_per_m   - Returns the number of X axis units per meter
     y_units_per_m   - Returns the number of Y axis units per meter
     units_per_m     - Returns the number of (X, Y) axis units per meter
@@ -40,12 +48,12 @@ Unit Info:
 Misc:
     reproject       - Reprojects X and Y coordinates to a different projection
     utm_zone        - Returns the best UTM CRS for an input X,Y coordinate
-    different       - True if two values are not equal and neither is None
+    different       - True if two CRSs are not equal and neither is None
     parse           - Parses and validates a CRS from a base object and metadata class
 """
 
 from math import asin, atan2, cos, sin, sqrt
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import numpy as np
 import pyproj.exceptions
@@ -56,7 +64,8 @@ from pyproj.database import Unit, get_units_map, query_utm_crs_info
 
 from pfdf._utils import no_nones
 from pfdf.errors import CRSError
-from pfdf.typing import scalar, vector
+from pfdf.typing import XY, Units, scalar, vector
+from pfdf.utils.units import convert
 
 EARTH_RADIUS_M = 6371000
 
@@ -188,123 +197,134 @@ def _validate_axis(crs: CRS, axname: Literal["x", "y"]) -> None:
 #####
 
 
-def dy_to_meters(crs: CRS, dy: float) -> float:
-    "Converts a distance along the Y axis from axis units to meters"
+def base_to_units(
+    crs: CRS,
+    axname: XY,
+    length: float,
+    units: Units,
+    y: float | None = None,
+    array: bool = False,
+) -> float:
+    "Converts from axis base units to other units"
 
-    yaxis = get_axis(crs, "y")
-    dy = dy * yaxis.unit_conversion_factor
-    if isangular(yaxis.unit_name):
-        dy = dy * EARTH_RADIUS_M
-    return dy
+    # Convert axis unit to standard unit (meters or radians)
+    axis = get_axis(crs, axname)
+    length = length * axis.unit_conversion_factor
 
-
-def dx_to_meters(crs: CRS, dx: float, y: float | None) -> float:
-    """Converts a distance along the X axis from axis units to meters.
-    If y is not specified, measures dx along the equator. Both dx and
-    y should be in axis units"""
-
-    # Get x axis. Convert dx to meters (linear) or radians (angular)
-    xaxis = get_axis(crs, "x")
-    dx = dx * xaxis.unit_conversion_factor
-
-    # Convert angular units to meters, using haversine when possible
-    if isangular(xaxis.unit_name):
-        if y is not None:
+    # Convert radians to meters, using haversine when possible
+    if isangular(axis.unit_name):
+        if (axname == "x") and (y is not None):
             yaxis = get_axis(crs, "y")
             y = y * yaxis.unit_conversion_factor
-            a = cos(y) ** 2 * sin(dx / 2) ** 2
+            a = cos(y) ** 2 * sin(length / 2) ** 2
             a = min(a, 1)
-            dx = np.sign(dx) * 2 * atan2(sqrt(a), sqrt(1 - a))
-        dx = dx * EARTH_RADIUS_M
-    return dx
+            length = np.sign(length) * 2 * atan2(sqrt(a), sqrt(1 - a))
+        length = length * EARTH_RADIUS_M
+
+    # Convert from meters to requested unit. Return as float if appropriate
+    length = convert(length, "meters", units)
+    if not array:
+        length = float(length)
+    return length
 
 
-def dx_from_meters(crs: CRS, dx: float, y: float | None) -> float:
-    "Converts a length along the x-axis from meters to axis units"
+def units_to_base(
+    crs: CRS,
+    axname: XY,
+    length: float,
+    units: Units,
+    y: float | None = None,
+    array: bool = False,
+) -> float:
+    "Converts from units to axis base units"
 
-    # Get axis. If angular CRS, first convert meters to radians
-    xaxis = get_axis(crs, "x")
-    if isangular(xaxis.unit_name):
-        dx = dx / EARTH_RADIUS_M
+    # Convert length to meters. Convert to float as needed
+    axis = get_axis(crs, axname)
+    length = convert(length, units, "meters")
+    if not array:
+        length = float(length)
 
-        # If possible, use inverse haversine for distance
-        if y is not None:
+    # If angular, convert to radians. Use haversine when possible
+    if isangular(axis.unit_name):
+        length = length / EARTH_RADIUS_M
+        if (axname == "x") and (y is not None):
             yaxis = get_axis(crs, "y")
             lat = y * yaxis.unit_conversion_factor
-            cosd = cos(dx)
+            cosd = cos(length)
             sinlat = sin(lat)
             y = asin(cosd * sinlat)
-            dx = atan2(sin(dx) * cos(lat), cosd - sinlat * sin(y))
+            length = atan2(sin(length) * cos(lat), cosd - sinlat * sin(y))
 
-    # Convert to axis units
-    return dx / xaxis.unit_conversion_factor
-
-
-def dy_from_meters(crs: CRS, dy: float) -> float:
-    "Converts a length along the Y axis from meters to axis coordinates"
-
-    yaxis = get_axis(crs, "y")
-    if isangular(yaxis.unit_name):
-        dy = dy / EARTH_RADIUS_M
-    return dy / yaxis.unit_conversion_factor
+    # Convert from standard unit (meters or degrees) to axis unit
+    return length / axis.unit_conversion_factor
 
 
-def buffers_from_meters(obj, buffers):
-    "Converts a dict of edge buffers from meters to axis units"
+def buffers_to_base(obj, buffers: dict[str, float], units: Units) -> dict[str, float]:
+    "Converts a dict of edge buffers from units to axis base units"
     _, y = obj.center
-    left = dx_from_meters(obj.crs, buffers["left"], y)
-    right = dx_from_meters(obj.crs, buffers["right"], y)
-    top = dy_from_meters(obj.crs, buffers["top"])
-    bottom = dy_from_meters(obj.crs, buffers["bottom"])
-    return {"left": left, "bottom": bottom, "right": right, "top": top}
+    output = {}
+    for edge in buffers:
+        axis = "x" if edge in ["left", "right"] else "y"
+        output[edge] = units_to_base(obj.crs, axis, buffers[edge], units, y)
+    return output
 
 
 #####
-# Unit Info
+# Unit name
 #####
 
 
-def unit_info(crs: CRS | None, info: Callable, *args: Any) -> Any | None:
-    "Returns unit information or None if CRS is None"
+def _unit(crs: CRS | None, axis: axis) -> str | None:
+    "Returns the name of a CRS axis unit"
     if crs is None:
         return None
     else:
-        return info(crs, *args)
-
-
-def unit(crs: CRS, axis: axis) -> str:
-    "Returns an axis unit"
-    axis = get_axis(crs, axis)
-    return axis.unit_name
+        axis = get_axis(crs, axis)
+        return axis.unit_name
 
 
 def xunit(crs: CRS | None) -> str | None:
-    "Returns the X axis unit"
-    return unit_info(crs, unit, "x")
+    "Returns the name of the X axis unit"
+    return _unit(crs, "x")
 
 
 def yunit(crs: CRS | None) -> str | None:
-    "Returns the Y axis unit"
-    return unit_info(crs, unit, "y")
+    "Returns the name of the Y axis unit"
+    return _unit(crs, "y")
 
 
-def units(crs: CRS | None) -> tuple[str, str] | None:
-    "Returns the X and Y axis units"
+def units(crs: CRS | None) -> tuple[str, str] | tuple[None, None]:
+    "Returns the names of the X and Y axis units"
     return xunit(crs), yunit(crs)
 
 
-def x_units_per_m(crs: CRS | None, y: float | None) -> float | None:
+#####
+# Units per meter
+#####
+
+
+def _units_per_m(crs: CRS | None, axis: XY, y: float | None = None) -> float | None:
+    "Determines the number of axis units per meter"
+    if crs is None:
+        return None
+    else:
+        return units_to_base(crs, axis, 1, "meters", y)
+
+
+def x_units_per_m(crs: CRS | None, y: float | None = None) -> float | None:
     "Returns the number of X axis units per meter"
-    return unit_info(crs, dx_from_meters, 1, y)
+    return _units_per_m(crs, "x", y)
 
 
 def y_units_per_m(crs: CRS | None) -> float | None:
     "Returns the number of Y axis units per meter"
-    return unit_info(crs, dy_from_meters, 1)
+    return _units_per_m(crs, "y")
 
 
-def units_per_m(crs: CRS | None, y: float | None) -> tuple[float, float] | None:
-    "Returns the number of CRS units per meter along the X and Y axes"
+def units_per_m(
+    crs: CRS | None, y: float | None = None
+) -> tuple[float, float] | tuple[None, None]:
+    "Returns the number of units per meter for the X and Y axes"
     x = x_units_per_m(crs, y)
     y = y_units_per_m(crs)
     return x, y
@@ -318,6 +338,7 @@ def units_per_m(crs: CRS | None, y: float | None) -> tuple[float, float] | None:
 def reproject(
     from_crs: CRS, to_crs: CRS, xs: vector, ys: vector
 ) -> tuple[vector, vector]:
+    "Converts X and Y coordinates from one CRS to another"
     transformer = Transformer.from_crs(from_crs, to_crs, always_xy=True)
     return transformer.transform(xs, ys)
 

@@ -1,5 +1,5 @@
 """
-slope  Functions that convert slopes to different units
+Functions that convert slopes to different units
 ----------
 This module contains functions that convert between slope gradients (rise/run),
 and other common slope measurements: slope percent (slope * 100), slope angle
