@@ -51,6 +51,9 @@ from pfdf.typing import (
 
 # Type aliases
 indices = list[PixelIndices]
+IDs = vector
+Selection = SegmentIndices | IDs
+SelectionType = Literal["indices", "ids"]
 Statistic = Literal[
     "outlet",
     "min",
@@ -1915,142 +1918,126 @@ class Segments:
         requested: SegmentIndices,
         child: SegmentValues,
         parents: SegmentParents,
-        upstream: bool,
-        downstream: bool,
+        keep_upstream: bool,
+        keep_downstream: bool,
     ) -> SegmentIndices:
         "Returns the indices of requested segments on the edges of their local networks"
 
         edge = False
-        if downstream:
+        if not keep_downstream:
             edge = edge | (child == -1)
-        if upstream:
+        if not keep_upstream:
             edge = edge | (parents == -1).all(axis=1)
         return requested & edge
 
     def continuous(
         self,
+        selected: Selection,
+        type: SelectionType = "indices",
         *,
-        ids: Optional[vector] = None,
-        indices: Optional[SegmentIndices] = None,
-        keep: bool = False,
-        upstream: bool = True,
-        downstream: bool = True,
+        remove: bool = False,
+        keep_upstream: bool = False,
+        keep_downstream: bool = False,
     ) -> SegmentIndices:
         """
         Indicates segments that can be filtered while preserving flow continuity
         ----------
-        self.continuous(ids)
-        self.continuous(indices)
-        Given a set of segments slated for removal from the network, returns the
-        indices of segments that can be removed while preserving flow continuity.
-        A segment slated for removal will be retained if it is between two
-        segments being retained. Equivalently, segments are only removed from the
-        upstream and downstream ends of their local drainage networks. Conceptually,
-        the algorithm first marches upstream, and removes segments until it reaches
-        a segment that was not indicated as input. The algorithm then marches
-        downstream, again removing segments until reaching a segment not indicated
-        as input.
+        self.continuous(selected)
+        self.continuous(..., *, remove=True)
+        self.continuous(..., type="ids")
+        Given a selection of segments that will be filtered using the "keep" or
+        "remove" commands, returns the boolean indices of segments that can be
+        filtered while preserving flow continuity. By default, assumes that the
+        selected segments are for use with the "keep" command. Set remove=True
+        to indicate that selected segments are for use with the "remove" command
+        instead.
 
-        Returns the indices of the segments that can be removed from the network.
-        This is a boolean numpy 1D array with one element per segment. True elements
-        indicate segments that were both (1) indicated as input, and (2) can be
-        removed without disrupting flow continuity.
+        By default, expects the selected segments to be a boolean numpy 1D array
+        with one element per segment in the network. True/False elements should
+        indicate segments for the keep/remove commands, as appropriate. Set
+        type="ids" to select segments using segment IDs instead. In this case,
+        the selected segments should be a list or numpy 1D array whose elements
+        are the IDs of the segments selected for filtering.
 
-        self.continuous(..., keep=True)
-        Indicates that the input segments represent segments that should be retained
-        in the network, rather than being removed. The output array is still a
-        boolean 1D array with one element per segment. However, True elements
-        indicate segments that either (1) were indicated as input, or (2) should
-        be retained to preserve flow continuity.
-
-        In general, use keep=True when you intend to filter the network using the
-        "keep" command. Use the default keep=False when you intend to filter the
-        network using the "remove" command.
-
-        self.continuous(..., upstream=False)
-        self.continuous(..., downstream=False)
-        Further customizes the flow continuity algorithm. When upstream=False,
-        the algorithm will not remove segments on the upstream end of a local
-        drainage network. When downstream=False, the algorithm will not remove
-        segments on the downstream end of a local drainage network.
+        self.continuous(..., *, keep_upstream=True)
+        self.continuous(..., *, keep_downstream=True)
+        Further customizes the flow continuity algorithm. Set keep_upstream=True
+        to always retain segments on the upstream end of a local drainage network.
+        Set keep_downstream=True to always retain segments on the downstream end
+        of a local drainage network.
         ----------
         Inputs:
-            ids: The IDs of segments that should be removed/retained in the network.
-            indices: A boolean numpy array with one element per stream segment.
-                If keep=False (default), True elements indicate segments slated
-                for removal from the network. If keep=True, True elements indicate
-                segments that should be retained in the network.
-            keep: True if the input segments should be retained in the network.
-                False (default) if the input segments are slated for removal.
-            upstream: Set to False to prevent segments from being removed from
-                the upstream ends of local drainage networks.
-            downstream: Set to False to prevent segments from being removed from
-                the downstream ends of local drainage networks.
+            selected: The segments being selected for filtering
+            type: "indices" (default) to select segments using a boolean vector.
+                "ids" to select segments using segments IDs
+            keep_upstream: True to always retain segments on the upstream end of
+                a local drainage network. False (default) to treat as usual.
+            keep_downstream: True to always retain segments on the downstream end
+                of a local drainage network. False (default) to treat as usual.
 
         Outputs:
-            boolean numpy 1D array: The indices of segments that can be
-                removed/retained in the network while preserving flow continuity.
-                If keep=False (default), True elements indicate segments that can
-                be removed. If keep=True, True elements indicate segments that
-                should be retained.
+            boolean 1D numpy array: The boolean indices of segments that can be
+                filtered while preserving flow continuity. If remove=False (default),
+                then True elements indicate segments that should be retained in
+                the network. If remove=True, then True elements indicate segments
+                that should be removed from the network.
         """
 
         # Get the segments requested for removal
-        requested = validate.selection(self, ids, indices)
-        if keep:
-            requested = ~requested
+        requested_remove = validate.selection(self, selected, type)
+        if not remove:
+            requested_remove = ~requested_remove
 
         # Initialize segments actually being removed. Get working copies of
         # parent-child relationships.
-        remove = np.zeros(self.size, bool)
+        final_remove = np.zeros(self.size, bool)
         child = self._child.copy()
         parents = self._parents.copy()
 
         # Iteratively select requested segments on the edges of their local networks.
         # Update child-parent segments and repeat for new edge segments
-        removable = self._removable(requested, child, parents, upstream, downstream)
+        removable = self._removable(
+            requested_remove, child, parents, keep_upstream, keep_downstream
+        )
         while np.any(removable):
-            remove[removable] = True
-            requested[removable] = False
+            final_remove[removable] = True
+            requested_remove[removable] = False
             self._update_family(child, parents, removable)
-            removable = self._removable(requested, child, parents, upstream, downstream)
+            removable = self._removable(
+                requested_remove, child, parents, keep_upstream, keep_downstream
+            )
 
         # Return keep/remove indices as appropriate
-        if keep:
-            return ~remove
+        if remove:
+            return final_remove
         else:
-            return remove
+            return ~final_remove
 
-    def remove(
-        self, *, ids: Optional[vector] = None, indices: Optional[SegmentIndices] = None
-    ) -> None:
+    def remove(self, selected: Selection, type: SelectionType = "indices") -> None:
         """
-        Removes segments from the network
-        ----------
-        self.remove(*, ids)
-        self.remove(*, indices)
-        Removes the indicated segments from the network. If using "ids", the
-        input should be a list or numpy 1D array whose elements are the IDs of
-        the segments that should be removed from the network. If using "indices"
-        the input should be a boolean numpy 1D array with one element per segment
-        in the network. True elements indicate the stream segments that should be
-        removed. False elements will be retained. If you provide both inputs,
-        segments indicated by either input are removed from the network.
+        self.remove(selected)
+        self.remove(selected, type="ids")
+        Removes the indicated segments from the network. By default, expects a
+        boolean numpy 1D array with one element per segment in the network. True
+        elements indicate segments that should be removed, and False elements
+        are segments that should be retained.
+
+        Set type="ids" to select segments using IDs, rather than a boolean vector.
+        In this case, the input should be a list or numpy 1D array whose elements
+        are the IDs of the segments that should be removed from the network.
 
         Note that removing terminal outlet segments can cause any previously located
         basins to be deleted. As such we recommend calling the "locate_basins"
         command after this command.
         ----------
         Inputs:
-            ids: A list or numpy 1D array listing the IDs of segments that should
-                be removed from the network
-            indices: A boolean numpy 1D array with one element per stream segment.
-                True elements indicate segments that should be removed from the
-                network.
+            selected: The segments that should be removed from the network
+            type: "indices" (default) to select segments using a boolean vector.
+                "ids" to select segments using segments IDs
         """
 
         # Validate. Get segments being kept / removed
-        remove = validate.selection(self, ids, indices)
+        remove = validate.selection(self, selected, type)
         keep = ~remove
 
         # Compute new attributes
@@ -2069,38 +2056,33 @@ class Segments:
         self._parents = parents
         self._basins = basins
 
-    def keep(
-        self,
-        *,
-        ids: Optional[vector] = None,
-        indices: Optional[SegmentIndices] = None,
-    ) -> None:
+    def keep(self, selected: Selection, type: SelectionType = "indices") -> None:
         """
         Restricts the network to the indicated segments
         ----------
-        self.keep(*, ids)
-        self.keep(*, indices)
+        self.keep(selected)
+        self.keep(selected, type="ids")
         Restricts the network to the indicated segments, discarding all other
-        segments. If using "ids", the input should be a list or numpy 1D array whose
-        elements are the IDs of the segments to retain in the network. If using
-        "indices" the input should be a boolean numpy 1D array with one element
-        per segment in the network. True elements indicate stream segments that
-        should be retained. False elements will be removed. If you provide both
-        inputs, segments indicated by either input are retained in the network.
+        segments. By default, expects a boolean numpy 1D array with one element
+        per segment in the network. True elements indicate segments that should
+        be retained, and False elements are segments that should be discarded.
 
-        Note that discarding terminal outlet segments can cause any previously
-        located basins to be deleted. As such, we recommend calling "locate_basins"
-        after this command.
+        Set type="ids" to select segments using IDs, rather than a boolean vector.
+        In this case, the input should be a list or numpy 1D array whose elements
+        are the IDs of the segments that should be retained in the network.
+
+        Note that removing terminal outlet segments can cause any previously located
+        basins to be deleted. As such we recommend calling the "locate_basins"
+        command after this command.
         ----------
         Inputs:
-            ids: A list or numpy 1D array listing the IDs of segments that should
-                be retained in the network
-            indices: A boolean numpy 1D array with one element per stream segment.
-                True elements indicate segments that should be retained in the network.
+            selected: The segments that should be retained in the network
+            type: "indices" (default) to select segments using a boolean vector.
+                "ids" to select segments using segments IDs
         """
 
-        keep = validate.selection(self, ids, indices)
-        self.remove(indices=~keep)
+        keep = validate.selection(self, selected, type)
+        self.remove(~keep)
 
     def copy(self) -> Self:
         """

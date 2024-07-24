@@ -39,13 +39,13 @@ class TestId:
         assert_contains(error, "id (value=9)")
 
 
-class TestValidateIds:
+class TestIds:
     def test_none(_, segments):
         output = _selection.ids(segments, None)
         assert np.array_equal(output, [0, 1, 2, 3, 4, 5])
 
     def test_valid(_, segments):
-        segments.remove(ids=3)
+        segments.remove(3, "ids")
         print(segments.ids)
         output = _selection.ids(segments, [5, 1, 2, 5, 4])
         assert np.array_equal(output, [3, 0, 1, 3, 2])
@@ -61,57 +61,63 @@ class TestValidateIds:
         assert_contains(error, "ids[0] (value=22)")
 
 
-class TestValidateSelection:
+class TestSelection:
     def test_valid_ids(_, segments):
         ids = [2, 4, 5]
         expected = np.array([0, 1, 0, 1, 1, 0], dtype=bool)
-        output = _selection.selection(segments, ids, None)
+        output = _selection.selection(segments, ids, "ids")
         assert np.array_equal(output, expected)
 
     def test_valid_indices(_, segments):
         indices = np.ones(6).astype(bool)
-        output = _selection.selection(segments, None, indices)
+        output = _selection.selection(segments, indices, "indices")
         assert np.array_equal(output, indices)
-
-    def test_both(_, segments):
-        ids = [2, 4, 5]
-        indices = np.zeros(6, bool)
-        indices[[0, 1]] = True
-        output = _selection.selection(segments, ids, indices)
-        expected = np.array([1, 1, 0, 1, 1, 0], dtype=bool)
-        assert np.array_equal(output, expected)
-
-    def test_neither(_, segments):
-        output = _selection.selection(segments, None, None)
-        expected = np.zeros(6, bool)
-        assert np.array_equal(output, expected)
 
     def test_duplicate_ids(_, segments):
         ids = [1, 1, 1, 1, 1]
-        output = _selection.selection(segments, ids, None)
+        output = _selection.selection(segments, ids, "ids")
         expected = np.zeros(6, bool)
         expected[0] = 1
         assert np.array_equal(output, expected)
 
     def test_booleanish_indices(_, segments):
         indices = np.ones(6, dtype=float)
-        output = _selection.selection(segments, None, indices)
+        output = _selection.selection(segments, indices, "indices")
         assert np.array_equal(output, indices.astype(bool))
 
     def test_not_boolean_indices(_, segments, assert_contains):
-        indices = np.arange(6)
+        ids = np.arange(6)
         with pytest.raises(ValueError) as error:
-            _selection.selection(segments, None, indices)
-        assert_contains(error, "indices", "0 or 1")
+            _selection.selection(segments, ids, "indices")
+        assert_contains(
+            error,
+            "The data elements of selected segment indices must be 0 or 1, ",
+            "but element [2] (value=2) is not.",
+        )
 
     def test_indices_wrong_length(_, segments, assert_contains):
         indices = np.ones(10)
         with pytest.raises(ShapeError) as error:
-            _selection.selection(segments, None, indices)
-        assert_contains(error, "indices", "6")
+            _selection.selection(segments, indices, "indices")
+        assert_contains(
+            error,
+            "selected segment indices must have 6 element(s), but it has 10 element(s) instead.",
+        )
 
     def test_invalid_ids(_, segments, assert_contains):
         ids = [1, 2, 7]
         with pytest.raises(ValueError) as error:
-            _selection.selection(segments, ids, None)
-        assert_contains(error, "ids[2] (value=7)")
+            _selection.selection(segments, ids, "ids")
+        assert_contains(
+            error,
+            "selected segment ids (value=7) is not the ID of a segment in the network",
+        )
+
+    def test_invalid_type(_, segments, assert_contains):
+        indices = np.ones(6)
+        with pytest.raises(ValueError) as error:
+            _selection.selection(segments, indices, "invalid")
+        assert_contains(
+            error,
+            "type (invalid) is not a recognized option. Supported options are: indices, ids",
+        )

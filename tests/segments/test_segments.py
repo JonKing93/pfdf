@@ -210,7 +210,7 @@ def test_str(segments):
 
 
 def test_geo_interface(segments):
-    segments.keep(ids=[2, 4, 5])
+    segments.keep([2, 4, 5], "ids")
     output = segments.__geo_interface__
     assert isinstance(output, geojson.FeatureCollection)
     expected = {
@@ -1454,32 +1454,48 @@ class TestRemovable:
     )
     requested = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0]).astype(bool)
 
-    def test_both(self):
+    def test_keep_neither(self):
         output = Segments._removable(
-            self.requested, self.child, self.parents, upstream=True, downstream=True
+            self.requested,
+            self.child,
+            self.parents,
+            keep_upstream=False,
+            keep_downstream=False,
         )
         expected = np.array([0, 0, 1, 0, 1, 0, 1, 0, 1, 0], bool)
         print(output)
         print(expected)
         assert np.array_equal(output, expected)
 
-    def test_up(self):
+    def test_keep_down(self):
         output = Segments._removable(
-            self.requested, self.child, self.parents, upstream=True, downstream=False
+            self.requested,
+            self.child,
+            self.parents,
+            keep_upstream=False,
+            keep_downstream=True,
         )
         expected = np.array([0, 0, 1, 0, 1, 0, 0, 0, 0, 0], bool)
         assert np.array_equal(output, expected)
 
-    def test_down(self):
+    def test_keep_up(self):
         output = Segments._removable(
-            self.requested, self.child, self.parents, upstream=False, downstream=True
+            self.requested,
+            self.child,
+            self.parents,
+            keep_upstream=True,
+            keep_downstream=False,
         )
         expected = np.array([0, 0, 0, 0, 1, 0, 1, 0, 1, 0], bool)
         assert np.array_equal(output, expected)
 
-    def test_neither(self):
+    def test_keep_both(self):
         output = Segments._removable(
-            self.requested, self.child, self.parents, upstream=False, downstream=False
+            self.requested,
+            self.child,
+            self.parents,
+            keep_upstream=True,
+            keep_downstream=True,
         )
         expected = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bool)
         assert np.array_equal(output, expected)
@@ -1489,39 +1505,39 @@ class TestContinuous:
     def test_none(_, segments):
         requested = np.zeros(segments.size, bool)
         expected = requested.copy()
-        output = segments.continuous(indices=requested)
+        output = segments.continuous(requested, remove=True)
         assert np.array_equal(output, expected)
 
     def test_no_edges(_, segments):
         requested = np.zeros(segments.size, bool)
         requested[4] = 1
-        output = segments.continuous(indices=requested)
+        output = segments.continuous(requested, remove=True)
         expected = np.zeros(segments.size, bool)
         assert np.array_equal(output, expected)
 
     def test_neither_up_nor_down(_, segments):
         requested = np.array([1, 0, 1, 0, 0, 1], bool)
         output = segments.continuous(
-            indices=requested, upstream=False, downstream=False
+            requested, remove=True, keep_upstream=True, keep_downstream=True
         )
         expected = np.array([0, 0, 0, 0, 0, 0], bool)
         assert np.array_equal(output, expected)
 
     def test_no_up(_, segments):
         requested = np.array([0, 1, 1, 0, 0, 1], bool)
-        output = segments.continuous(indices=requested, upstream=False)
+        output = segments.continuous(requested, remove=True, keep_upstream=True)
         expected = np.array([0, 0, 1, 0, 0, 1], bool)
         assert np.array_equal(output, expected)
 
     def test_no_down(_, segments):
         requested = np.array([0, 1, 1, 0, 0, 1], bool)
-        output = segments.continuous(indices=requested, downstream=False)
+        output = segments.continuous(requested, remove=True, keep_downstream=True)
         expected = np.array([0, 1, 1, 0, 0, 0])
         assert np.array_equal(output, expected)
 
     def test_both_up_and_down(_, segments):
         requested = np.array([0, 1, 1, 0, 0, 1], bool)
-        output = segments.continuous(indices=requested)
+        output = segments.continuous(requested, remove=True)
         expected = np.array([0, 1, 1, 0, 0, 1])
         assert np.array_equal(output, expected)
 
@@ -1535,37 +1551,30 @@ class TestContinuous:
     def test_nested_downstream(_, segments, requested, expected):
         requested = np.array(requested, bool)
         expected = np.array(expected, bool)
-        output = segments.continuous(indices=requested, upstream=False)
+        output = segments.continuous(requested, remove=True, keep_upstream=True)
         assert np.array_equal(output, expected)
 
     def test_nested_upstream(_, segments):
         requested = np.array([0, 1, 0, 1, 1, 1], bool)
         expected = np.array([0, 1, 0, 1, 1, 0], bool)
-        output = segments.continuous(indices=requested, downstream=False)
+        output = segments.continuous(requested, remove=True, keep_downstream=True)
         assert np.array_equal(output, expected)
 
     def test_indices(_, segments):
         requested = np.array([0, 1, 1, 0, 0, 1], bool)
-        output = segments.continuous(indices=requested)
+        output = segments.continuous(requested, remove=True)
         expected = np.array([0, 1, 1, 0, 0, 1])
         assert np.array_equal(output, expected)
 
     def test_ids(_, segments):
         ids = [2, 6, 3]
-        output = segments.continuous(ids=ids)
-        expected = np.array([0, 1, 1, 0, 0, 1])
-        assert np.array_equal(output, expected)
-
-    def test_mixed(_, segments):
-        requested = np.array([0, 1, 0, 0, 0, 1], bool)
-        ids = 3
-        output = segments.continuous(ids=ids, indices=requested)
+        output = segments.continuous(ids, type="ids", remove=True)
         expected = np.array([0, 1, 1, 0, 0, 1])
         assert np.array_equal(output, expected)
 
     def test_keep(_, segments):
         requested = ~np.array([0, 1, 1, 0, 0, 1], bool)
-        output = segments.continuous(indices=requested, keep=True, upstream=False)
+        output = segments.continuous(requested, keep_upstream=True)
         expected = ~np.array([0, 0, 1, 0, 0, 1], bool)
         assert np.array_equal(output, expected)
 
@@ -1575,7 +1584,7 @@ class TestRemove:
         _, bsegments, bflow, linestrings, indices, bpixels, child, parents, basins
     ):
         bsegments.locate_basins()
-        bsegments.remove()
+        bsegments.remove(np.zeros(6))
         assert bsegments._flow == bflow
         assert bsegments._segments == linestrings
         assert bsegments._indices == indices
@@ -1595,7 +1604,7 @@ class TestRemove:
         parents245,
     ):
         bsegments.locate_basins()
-        bsegments.remove(ids=[1, 3, 6])
+        bsegments.remove([1, 3, 6], "ids")
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -1616,29 +1625,7 @@ class TestRemove:
     ):
         bsegments.locate_basins()
         indices = np.array([1, 0, 1, 0, 0, 1], bool)
-        bsegments.remove(indices=indices)
-        assert bsegments.flow == bflow
-        assert bsegments.segments == linestrings245
-        assert bsegments.indices == indices245
-        assert np.array_equal(bsegments.npixels, bpixels245)
-        assert np.array_equal(bsegments._child, child245)
-        assert np.array_equal(bsegments._parents, parents245)
-        assert bsegments._basins is None
-
-    def test_mixed(
-        _,
-        bsegments,
-        bflow,
-        linestrings245,
-        indices245,
-        bpixels245,
-        child245,
-        parents245,
-    ):
-        indices = np.array([1, 0, 1, 0, 0, 0], bool)
-        ids = [3, 6]
-        bsegments.locate_basins()
-        bsegments.remove(ids=ids, indices=indices)
+        bsegments.remove(indices)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -1649,7 +1636,7 @@ class TestRemove:
 
     def test_all(_, bsegments, bflow):
         bsegments.locate_basins()
-        bsegments.remove(ids=[1, 2, 3, 4, 5, 6])
+        bsegments.remove([1, 2, 3, 4, 5, 6], "ids")
         assert bsegments.flow == bflow
         assert bsegments.segments == []
         assert bsegments.indices == []
@@ -1664,7 +1651,7 @@ class TestKeep:
         _, bsegments, bflow, linestrings, indices, bpixels, child, parents, basins
     ):
         bsegments.locate_basins()
-        bsegments.keep(ids=[1, 2, 3, 4, 5, 6])
+        bsegments.keep([1, 2, 3, 4, 5, 6], "ids")
         assert bsegments._flow == bflow
         assert bsegments._segments == linestrings
         assert bsegments._indices == indices
@@ -1684,7 +1671,7 @@ class TestKeep:
         parents245,
     ):
         bsegments.locate_basins()
-        bsegments.keep(ids=[2, 4, 5])
+        bsegments.keep([2, 4, 5], "ids")
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -1704,30 +1691,8 @@ class TestKeep:
         parents245,
     ):
         bsegments.locate_basins()
-        indices = np.array([0, 1, 0, 1, 1, 0], bool)
-        bsegments.keep(indices=indices)
-        assert bsegments.flow == bflow
-        assert bsegments.segments == linestrings245
-        assert bsegments.indices == indices245
-        assert np.array_equal(bsegments.npixels, bpixels245)
-        assert np.array_equal(bsegments._child, child245)
-        assert np.array_equal(bsegments._parents, parents245)
-        assert bsegments._basins is None
-
-    def test_mixed(
-        _,
-        bsegments,
-        bflow,
-        linestrings245,
-        indices245,
-        bpixels245,
-        child245,
-        parents245,
-    ):
-        bsegments.locate_basins()
-        indices = np.array([0, 1, 0, 1, 0, 0], bool)
-        ids = [4, 5]
-        bsegments.keep(ids=ids, indices=indices)
+        keep = np.array([0, 1, 0, 1, 1, 0], bool)
+        bsegments.keep(keep)
         assert bsegments.flow == bflow
         assert bsegments.segments == linestrings245
         assert bsegments.indices == indices245
@@ -1738,7 +1703,7 @@ class TestKeep:
 
     def test_none(_, bsegments, bflow):
         bsegments.locate_basins()
-        bsegments.keep()
+        bsegments.keep(np.zeros(6))
         assert bsegments.flow == bflow
         assert bsegments.segments == []
         assert bsegments.indices == []
@@ -1800,7 +1765,7 @@ class TestBasinPolygons:
 
 class TestGeojson:
     def test_segments(_, segments):
-        segments.keep(ids=[2, 4, 5])
+        segments.keep([2, 4, 5], "ids")
         output = segments.geojson()
         assert isinstance(output, geojson.FeatureCollection)
         expected = {
@@ -1939,7 +1904,7 @@ class TestGeojson:
         assert output == expected
 
     def test_with_properties(_, segments):
-        segments.keep(ids=[2, 4, 5])
+        segments.keep([2, 4, 5], "ids")
         properties = {
             "slope": [1, 2, 3],
             "length": [1.1, 2.2, 3.3],
@@ -1999,7 +1964,7 @@ class TestSave:
 
     def test_segments(self, segments, tmp_path):
         path = Path(tmp_path) / "output.geojson"
-        segments.keep(ids=[2, 4, 5])
+        segments.keep([2, 4, 5], "ids")
         assert not path.is_file()
         segments.save(path)
         assert path.is_file()
@@ -2038,7 +2003,7 @@ class TestSave:
 
     def test_empty(self, segments, tmp_path):
         path = Path(tmp_path) / "output.geojson"
-        segments.keep()
+        segments.keep(np.zeros(segments.size))
         assert not path.is_file()
         segments.save(path)
         assert path.is_file()
@@ -2179,7 +2144,7 @@ class TestSave:
     def test_with_properties(self, segments, tmp_path):
         path = Path(tmp_path) / "output.geojson"
 
-        segments.keep(ids=[2, 4, 5])
+        segments.keep([2, 4, 5], "ids")
         properties = {
             "slope": [1, 2, 3],
             "length": [1.1, 2.2, 3.3],
@@ -2240,7 +2205,7 @@ class TestSave:
             file.write("some other file")
         assert path.is_file()
 
-        segments.keep(ids=[2, 4, 5])
+        segments.keep([2, 4, 5], "ids")
         segments.save(path, overwrite=True)
         assert path.is_file()
 
