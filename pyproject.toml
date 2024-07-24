@@ -27,7 +27,7 @@ packages = [
 [tool.poetry.dependencies]
 # Core dependencies
 python = ">=3.11, <3.13"
-numpy = "*"
+numpy = "<2"
 nptyping = "*"
 pysheds = "0.3.5"
 numba = "*"
