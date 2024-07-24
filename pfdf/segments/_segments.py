@@ -1970,7 +1970,7 @@ class Segments:
             selected: The segments being selected for filtering
             type: "indices" (default) to select segments using a boolean vector.
                 "ids" to select segments using segments IDs
-            remove: True to indicated that segments are selected for removal.
+            remove: True to indicate that segments are selected for removal.
                 False (default) to indicate that selected segments should be kept.
             keep_upstream: True to always retain segments on the upstream end of
                 a local drainage network. False (default) to treat as usual.
@@ -2017,6 +2017,8 @@ class Segments:
 
     def remove(self, selected: Selection, type: SelectionType = "indices") -> None:
         """
+        Remove segments from the network
+        ----------
         self.remove(selected)
         self.remove(selected, type="ids")
         Removes the indicated segments from the network. By default, expects a
