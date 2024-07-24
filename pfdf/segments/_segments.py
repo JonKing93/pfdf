@@ -1970,6 +1970,8 @@ class Segments:
             selected: The segments being selected for filtering
             type: "indices" (default) to select segments using a boolean vector.
                 "ids" to select segments using segments IDs
+            remove: True to indicated that segments are selected for removal.
+                False (default) to indicate that selected segments should be kept.
             keep_upstream: True to always retain segments on the upstream end of
                 a local drainage network. False (default) to treat as usual.
             keep_downstream: True to always retain segments on the downstream end
