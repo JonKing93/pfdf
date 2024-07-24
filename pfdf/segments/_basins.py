@@ -42,22 +42,20 @@ Raster builders:
     chunk_raster       - Builds the raster for a set of ordered basins sequentially
 
 Utilities:
-    validate_nprocess  - Validates the number of parallel processes
     get_outlets        - Returns the IDs and locations of terminal outlets
     count_outlets      - Counts the number of terminal outlets flowing into each basin
     initializer        - Initializes a parallel Process with flow directions
     update_raster      - Updates the final basin raster using the rasters from a group
 """
 
-from multiprocessing import Pool, cpu_count
-from typing import Any, Optional
+from multiprocessing import Pool
+from typing import Optional
 
 import numpy as np
 from pysheds.grid import Grid
 
-import pfdf._validate as validate
+import pfdf.segments._validate as validate
 from pfdf import watershed
-from pfdf._utils import real
 from pfdf.raster import Raster
 from pfdf.typing import MatrixArray, Outlets, VectorArray, scalar, shape2d
 
@@ -71,7 +69,7 @@ def build(segments, parallel: bool, nprocess: scalar | None) -> MatrixArray:
 
     # Get the number of processes
     if parallel:
-        nprocess = validate_nprocess(nprocess)
+        nprocess = validate.nprocess(nprocess)
 
     # Run sequentially or in parallel
     if not parallel or nprocess == 1:
@@ -167,18 +165,6 @@ def chunk_raster(
 #####
 # Utilities
 #####
-
-
-def validate_nprocess(nprocess: Any) -> int:
-    "Validates the number of parallel processes"
-
-    if nprocess is None:
-        return max(1, cpu_count() - 1)
-    else:
-        nprocess = validate.scalar(nprocess, "nprocess", dtype=real)
-        validate.positive(nprocess, "nprocess")
-        validate.integers(nprocess, "nprocess")
-        return int(nprocess)
 
 
 def new_raster(shape: shape2d, dtype: type = "int32") -> MatrixArray:

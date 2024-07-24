@@ -87,6 +87,10 @@ PixelIndices = NDArray[Shape["Pixels"], Integer]
 PixelIndices = tuple[PixelIndices, PixelIndices]
 PropertyDict = dict[str, SegmentValues]
 
+# Segment Export
+FeatureType = Literal["segments", "segment outlets", "outlets", "basins"]
+PropertySchema = dict[str, str]
+
 # Confinement Angles
 FlowNumber = Literal[1, 2, 3, 4, 5, 6, 7, 8]
 slopes = NDArray[Shape["1 pixel, 2 rotations"], Floating]

@@ -47,6 +47,7 @@ from pfdf._utils.nodata import NodataMask
 from pfdf.errors import DurationsError, ShapeError
 from pfdf.raster import Raster, RasterInput
 from pfdf.segments import Segments
+from pfdf.segments._validate import raster as validate_raster
 from pfdf.typing import (
     Accumulations,
     BooleanMatrix,
@@ -483,7 +484,7 @@ class Model(ABC):
 
         validate.type(segments, "segments", Segments, "pfdf.segments.Segments object")
         for r, raster, name in zip(range(len(rasters)), rasters, names):
-            rasters[r] = segments._validate(raster, name)
+            rasters[r] = validate_raster(segments, raster, name)
         return rasters
 
     @staticmethod

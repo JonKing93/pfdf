@@ -27,29 +27,6 @@ def mask():
 #####
 
 
-class TestValidateNprocess:
-    def test_none(_):
-        assert _basins.validate_nprocess(None) == max(1, cpu_count() - 1)
-
-    def test_valid(_):
-        assert _basins.validate_nprocess(12) == 12
-
-    def test_invalid(_, assert_contains):
-        with pytest.raises(TypeError) as error:
-            _basins.validate_nprocess("invalid")
-        assert_contains(error, "nprocess")
-
-    def test_negative(_, assert_contains):
-        with pytest.raises(ValueError) as error:
-            _basins.validate_nprocess(-3)
-        assert_contains(error, "nprocess", "must be greater than 0")
-
-    def test_float(_, assert_contains):
-        with pytest.raises(ValueError) as error:
-            _basins.validate_nprocess(2.2)
-        assert_contains(error, "nprocess", "must be integer")
-
-
 class TestNewRaster:
     def test_default(_):
         output = _basins.new_raster((10, 12))

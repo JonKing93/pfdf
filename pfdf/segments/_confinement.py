@@ -20,7 +20,7 @@ from math import nan, sqrt
 
 import numpy as np
 
-from pfdf import _validate as validate
+import pfdf.segments._validate as validate
 from pfdf._utils import limits, nodata, real
 from pfdf.raster import Raster
 from pfdf.typing import FlowNumber, ScalarArray, scalar, slopes
@@ -37,7 +37,7 @@ def angles(segments, dem, neighborhood, dem_per_m):
     validate.positive(neighborhood, "neighborhood")
     validate.integers(neighborhood, "neighborhood")
     dem_per_m = validate.conversion(dem_per_m, "dem_per_m")
-    dem = segments._validate(dem, "dem")
+    dem = validate.raster(segments, dem, "dem")
 
     # Preallocate. Initialize kernel
     theta = segments._preallocate()

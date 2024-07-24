@@ -10,7 +10,7 @@ Classes:
 """
 
 from math import inf, nan
-from typing import Any, Callable, Literal, Optional, Self
+from typing import Callable, Literal, Optional, Self
 
 import fiona
 import geojson
@@ -20,21 +20,23 @@ import shapely
 from geojson import Feature, FeatureCollection
 from rasterio.transform import rowcol
 
-import pfdf._validate as validate
+import pfdf.segments._validate as validate
 from pfdf import watershed
 from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
-from pfdf.errors import MissingCRSError, MissingTransformError, ShapeError
+from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.raster import Raster, RasterInput
 from pfdf.segments import _basins, _confinement
 from pfdf.typing import (
     BasinValues,
     BooleanMatrix,
+    FeatureType,
     MatrixArray,
     Pathlike,
     PixelIndices,
     PropertyDict,
+    PropertySchema,
     RealArray,
     ScalarArray,
     SegmentIndices,
@@ -67,8 +69,6 @@ Statistic = Literal[
     "nanvar",
 ]
 StatFunction = Callable[[np.ndarray], ScalarArray]
-FeatureType = Literal["segments", "segment outlets", "outlets", "basins"]
-PropertySchema = dict[str, str]
 
 # Supported statistics -- name: (function, description)
 _STATS = {
@@ -201,12 +201,6 @@ class Segments:
         _preallocate            - Initializes an array to hold summary values
         _accumulation           - Computes flow accumulation values
 
-    Validation:
-        _validate               - Checks that an input raster has metadata matching the flow raster
-        _check_ids              - Checks that IDs are in the network
-        _validate_id            - Checks that a segment ID is valid
-        _validate_ids           - Checks that a vector of IDs is valid
-
     Local Networks:
         _get_parents            - Returns indices of valid parent segments
 
@@ -225,7 +219,6 @@ class Segments:
         _catchment_summary      - Computes summaries by iterating over basin catchments
 
     Filtering:
-        _validate_selection     - Validates indices/IDs used to select segments for filtering
         _removable              - Locates requested segments on the edges of their local flow networks
 
     Filtering Updates:
@@ -236,8 +229,6 @@ class Segments:
         _update_basins          - Resets _basins if terminal basin outlets were removed
 
     Export:
-        _validate_properties    - Checks that a GeoJSON properties dict is valid
-        _validate_export        - Checks export properties and type
         _basin_polygons         - Returns a generator of (Polygon, value) geometries
         _geojson                - Builds a geojson.FeatureCollection and schema
     """
@@ -556,53 +547,6 @@ class Segments:
         return self._values_at_outlets(accumulation, terminal=terminal)
 
     #####
-    # Generic Validation
-    #####
-
-    def _validate(self, raster: Any, name: str) -> Raster:
-        "Checks that an input raster has metadata matching the flow raster"
-        return self.flow.validate(raster, name)
-
-    def _check_ids(self, ids: VectorArray, name: str) -> None:
-        "Checks that segment IDs are in the network"
-
-        validate.integers(ids, name)
-        for i, id in enumerate(ids):
-            if id not in self._ids:
-                if name == "ids":
-                    name = f"{name}[{i}]"
-                raise ValueError(
-                    f"{name} (value={id}) is not the ID of a segment in the network. "
-                    "See the '.ids' property for a list of current segment IDs."
-                )
-
-    def _validate_id(self, id: Any) -> int:
-        "Checks that a segment ID is valid and returns index"
-        id = validate.scalar(id, "id", dtype=real)
-        id = id.reshape(1)
-        self._check_ids(id, "id")
-        index = np.argwhere(self._ids == id)
-        return int(index[0, 0])
-
-    def _validate_ids(self, ids: Any) -> VectorArray:
-        """Checks that a set of segment IDs are valid and converts to linear
-        indices. If no IDs are provided, returns all indices in the network"""
-
-        # Select all indices if unspecified. Otherwise validate
-        if ids is None:
-            return np.arange(self.size)
-
-        # Validate
-        ids = validate.vector(ids, "ids", dtype=real)
-        self._check_ids(ids, "ids")
-
-        # Convert IDs to indices
-        indices = np.empty(ids.shape, int)
-        for k, id in enumerate(ids):
-            indices[k] = np.argwhere(id == self.ids)
-        return indices
-
-    #####
     # Outlets
     #####
 
@@ -630,7 +574,7 @@ class Segments:
             boolean 1D numpy array: Whether each segment is terminal.
         """
 
-        indices = self._validate_ids(ids)
+        indices = validate.ids(self, ids)
         return self._child[indices] == -1
 
     def termini(self, ids: Optional[vector] = None) -> VectorArray:
@@ -659,7 +603,7 @@ class Segments:
         """
 
         # Walk downstream to locate the terminal index for each queried segment
-        indices = self._validate_ids(ids)
+        indices = validate.ids(self, ids)
         termini = []
         for index in indices:
             while self._child[index] != -1:
@@ -720,7 +664,7 @@ class Segments:
         # Get the indices of the appropriate segments
         if not segment_outlets:
             ids = self.termini(ids)
-        indices = self._validate_ids(ids)
+        indices = validate.ids(self, ids)
 
         # Extract outlet pixel indices
         outlets = []
@@ -760,7 +704,7 @@ class Segments:
             list[int] | None: The IDs of the parent segments
         """
 
-        index = self._validate_id(id)
+        index = validate.id(self, id)
         parents = self._get_parents(index)
         if len(parents) == 0:
             return None
@@ -783,7 +727,7 @@ class Segments:
             int | None: The ID of the segment's child
         """
 
-        index = self._validate_id(id)
+        index = validate.id(self, id)
         child = self._child[index]
         if child == -1:
             return None
@@ -810,7 +754,7 @@ class Segments:
         """
 
         # Validate ID and initial ancestors with immediate parents
-        segment = self._validate_id(id)
+        segment = validate.id(self, id)
         ancestors = self._get_parents(segment)
 
         # Recursively add parents of parents
@@ -844,7 +788,7 @@ class Segments:
         """
 
         # Validate ID and initialize descendent list
-        segment = self._validate_id(id)
+        segment = validate.id(self, id)
         descendents = []
 
         # Recursively add children of children
@@ -878,7 +822,7 @@ class Segments:
         """
 
         # Locate segments in the local drainage network
-        self._validate_id(id)
+        validate.id(self, id)
         terminus = self.termini(id)
         upstream = self.ancestors(terminus)
 
@@ -955,7 +899,7 @@ class Segments:
                 pixels that belong to the basin.
         """
 
-        self._validate_id(id)
+        validate.id(self, id)
         [[row, column]] = self.outlets(id, segment_outlets=not terminal)
         return watershed.catchment(self.flow, row, column, check_flow=False)
 
@@ -1151,7 +1095,7 @@ class Segments:
 
         # Validate
         statistic = validate.option(statistic, "statistic", allowed=_STATS.keys())
-        values = self._validate(values, "values raster")
+        values = validate.raster(self, values, "values raster")
 
         # Either get outlet values...
         if statistic == "outlet":
@@ -1222,9 +1166,9 @@ class Segments:
 
         # Validate
         statistic = validate.option(statistic, "statistic", allowed=_STATS.keys())
-        values = self._validate(values, "values raster")
+        values = validate.raster(self, values, "values raster")
         if mask is not None:
-            mask = self._validate(mask, "mask")
+            mask = validate.raster(self, mask, "mask")
             mask = validate.boolean(mask.values, mask.name, ignore=mask.nodata)
 
         # Outlet values
@@ -1532,7 +1476,7 @@ class Segments:
                 within the mask.
         """
 
-        mask = self._validate(mask, "nmask")
+        mask = validate.raster(self, mask, "mask")
         validate.boolean(mask.values, "mask", ignore=mask.nodata)
         isin = self.summary("nanmax", mask) == 1
         if terminal:
@@ -1610,7 +1554,7 @@ class Segments:
         """
 
         # Validate
-        kf_factor = self._validate(kf_factor, "kf_factor")
+        kf_factor = validate.raster(self, kf_factor, "kf_factor")
         validate.positive(kf_factor.values, "kf_factor", ignore=[kf_factor.nodata, nan])
 
         # Summarize
@@ -1760,7 +1704,7 @@ class Segments:
         """
 
         # Validate
-        soil_thickness = self._validate(soil_thickness, "soil_thickness")
+        soil_thickness = validate.raster(self, soil_thickness, "soil_thickness")
         validate.positive(
             soil_thickness.values, "soil_thickness", ignore=[soil_thickness.nodata, nan]
         )
@@ -1821,7 +1765,7 @@ class Segments:
         """
 
         # Validate
-        sine_thetas = self._validate(sine_thetas, "sine_thetas")
+        sine_thetas = validate.raster(self, sine_thetas, "sine_thetas")
         validate.inrange(
             sine_thetas.values,
             sine_thetas.name,
@@ -1891,7 +1835,7 @@ class Segments:
             numpy 1D array: The vertical relief for each segment
         """
 
-        relief = self._validate(relief, "relief")
+        relief = validate.raster(self, relief, "relief")
         relief = self._values_at_outlets(relief)
         if terminal:
             relief = relief[self.isterminal()]
@@ -1965,27 +1909,6 @@ class Segments:
     #####
     # Filtering
     #####
-
-    def _validate_selection(self, ids: Any, indices: Any) -> SegmentIndices:
-        "Validates IDs and/or logical indices and returns them as logical indices"
-
-        # Default or validate logical indices
-        if indices is None:
-            indices = np.zeros(self.size, bool)
-        else:
-            indices = validate.vector(indices, "indices", dtype=real, length=self.size)
-            indices = validate.boolean(indices, "indices")
-
-        # Default or validate IDs.
-        if ids is None:
-            ids = np.zeros(self.size, bool)
-        else:
-            ids = validate.vector(ids, "ids", dtype=real)
-            self._check_ids(ids, "ids")
-
-            # Convert IDs to logical indices. Return union of IDs and indices
-            ids = np.isin(self._ids, ids)
-        return ids | indices
 
     @staticmethod
     def _removable(
@@ -2073,7 +1996,7 @@ class Segments:
         """
 
         # Get the segments requested for removal
-        requested = self._validate_selection(ids, indices)
+        requested = validate.selection(self, ids, indices)
         if keep:
             requested = ~requested
 
@@ -2127,7 +2050,7 @@ class Segments:
         """
 
         # Validate. Get segments being kept / removed
-        remove = self._validate_selection(ids, indices)
+        remove = validate.selection(self, ids, indices)
         keep = ~remove
 
         # Compute new attributes
@@ -2176,7 +2099,7 @@ class Segments:
                 True elements indicate segments that should be retained in the network.
         """
 
-        keep = self._validate_selection(ids, indices)
+        keep = validate.selection(self, ids, indices)
         self.remove(indices=~keep)
 
     def copy(self) -> Self:
@@ -2285,83 +2208,6 @@ class Segments:
     # Export
     #####
 
-    def _validate_properties(
-        self,
-        properties: Any,
-        terminal: bool,
-    ) -> tuple[PropertyDict, PropertySchema]:
-        "Validates a GeoJSON property dict for export"
-
-        # Initialize the final property dict and schema. Properties are optional,
-        # so justuse an empty dict if there are none
-        final = {}
-        schema = {}
-        if properties is None:
-            properties = {}
-
-        # Get the allowed lengths and the required final length
-        length = self._nbasins(terminal)
-        allowed = [self.size]
-        if terminal:
-            allowed.append(self.nlocal)
-
-        # Require a dict with string keys
-        dtypes = real + [str]
-        validate.type(properties, "properties", dict, "dict")
-        for k, key in enumerate(properties.keys()):
-            validate.type(key, f"properties key {k}", str, "string")
-
-            # Values must be numpy 1D arrays with either one element per segment,
-            # or one element per exported feature
-            name = f"properties['{key}']"
-            vector = validate.vector(properties[key], name, dtype=dtypes)
-            if vector.size not in allowed:
-                allowed = " or ".join([str(length) for length in allowed])
-                raise ShapeError(
-                    f"{name} must have {allowed} elements, but it has "
-                    f"{vector.size} elements instead."
-                )
-
-            # Extract terminal properties as needed
-            if vector.size != length:
-                vector = vector[self.isterminal()]
-
-            # Convert boolean to int
-            if vector.dtype == bool:
-                vector = vector.astype("int")
-                schema[key] = "int"
-
-            # If a string, parse the width from the vector dtype
-            elif vector.dtype.char == "U":
-                dtype = str(vector.dtype)
-                k = dtype.find("U")
-                width = int(dtype[k + 1 :])
-                schema[key] = f"str:{width}"
-
-            # Convert int and float precisions to built-in
-            elif np.issubdtype(vector.dtype, np.integer):
-                vector = vector.astype(int, copy=False)
-                schema[key] = "int"
-            elif np.issubdtype(vector.dtype, np.floating):
-                vector = vector.astype(float, copy=False)
-                schema[key] = "float"
-
-            # Record the final vector and return with the schema
-            final[key] = vector
-        return final, schema
-
-    def _validate_export(
-        self, properties: Any, type: Any
-    ) -> tuple[FeatureType, PropertyDict, PropertySchema]:
-        "Validates export type and properties"
-
-        type = validate.option(
-            type, "type", allowed=["segments", "segment outlets", "outlets", "basins"]
-        )
-        terminal = "segment" not in type
-        properties, schema = self._validate_properties(properties, terminal)
-        return type, properties, schema
-
     def _basin_polygons(self):
         "Returns a generator of drainage basin (Polygon, ID value) tuples"
 
@@ -2379,7 +2225,7 @@ class Segments:
         "Builds geojson.FeatureCollection and property schema"
 
         # Validate
-        type, properties, schema = self._validate_export(properties, type)
+        type, properties, schema = validate.export(self, properties, type)
 
         # Basins are derived from rasterio shapes. Also track basin IDs.
         # (Basin geometries are unordered, so need to track which property is which)
