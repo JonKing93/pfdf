@@ -224,7 +224,7 @@ def base_to_units(
     # Convert from meters to requested unit. Return as float if appropriate
     length = convert(length, "meters", units)
     if not array:
-        length = float(length)
+        length = float(length[0])
     return length
 
 
@@ -242,7 +242,7 @@ def units_to_base(
     axis = get_axis(crs, axname)
     length = convert(length, units, "meters")
     if not array:
-        length = float(length)
+        length = float(length[0])
 
     # If angular, convert to radians. Use haversine when possible
     if isangular(axis.unit_name):

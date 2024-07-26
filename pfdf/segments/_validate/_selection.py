@@ -55,7 +55,7 @@ def ids(segments, ids: Any) -> VectorArray:
     # Convert IDs to indices
     indices = np.empty(ids.shape, int)
     for k, id in enumerate(ids):
-        indices[k] = np.argwhere(id == segments.ids)
+        indices[k] = np.argwhere(id == segments.ids)[0, 0]
     return indices
 
 

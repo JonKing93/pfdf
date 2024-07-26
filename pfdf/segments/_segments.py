@@ -831,7 +831,7 @@ class Segments:
 
         # Group into family array
         family = np.empty(upstream.size + 1, upstream.dtype)
-        family[0] = terminus
+        family[0] = terminus[0]
         family[1:] = upstream
         return family
 
