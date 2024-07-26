@@ -6,4 +6,5 @@ Modules:
     intensity   - Functions to convert between rainfall accumulations and intensities
     nodata      - Functions for working with NoData values and masks
     slope       - Functions to convert slopes between different units
+    units       - Functions to convert distances between different units
 """
