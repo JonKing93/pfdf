@@ -1764,6 +1764,31 @@ class TestBasinPolygons:
 
 
 class TestGeojson:
+    def test_crs_segments(_, segments):
+        segments.keep([2, 4, 5], "ids")
+        output0 = segments.geojson()
+        output1 = segments.geojson(crs=5070)
+        print(output0)
+        print("-----")
+        print(output1)
+        assert False
+
+    def test_crs_outlets(_, segments):
+        output0 = segments.geojson(type="outlets")
+        output1 = segments.geojson(type="outlets", crs=5070)
+        print(output0)
+        print("----------")
+        print(output1)
+        assert False
+
+    def test_crs_basins(_, segments):
+        output0 = segments.geojson(type="basins")
+        output1 = segments.geojson(type="basins", crs=5070)
+        print(output0)
+        print("----------")
+        print(output1)
+        assert False
+
     def test_segments(_, segments):
         segments.keep([2, 4, 5], "ids")
         output = segments.geojson()

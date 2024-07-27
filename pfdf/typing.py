@@ -58,7 +58,7 @@ PixelIndices = tuple[PixelIndices, PixelIndices]
 PropertyDict = dict[str, SegmentValues]
 
 # Segment Export
-FeatureType = Literal["segments", "segment outlets", "outlets", "basins"]
+ExportType = Literal["segments", "segment outlets", "outlets", "basins"]
 PropertySchema = dict[str, str]
 
 # Confinement Angles

@@ -27,11 +27,11 @@ from pfdf._utils.nodata import NodataMask
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.raster import Raster, RasterInput
-from pfdf.segments import _basins, _confinement
+from pfdf.segments import _basins, _confinement, _geojson
 from pfdf.typing import (
     BasinValues,
     BooleanMatrix,
-    FeatureType,
+    ExportType,
     MatrixArray,
     Pathlike,
     PixelIndices,
@@ -230,10 +230,6 @@ class Segments:
         _update_indices         - Updates connectivity indices in-place after removing segments
         _update_connectivity    - Computes updated _child and _parents after segments are removed
         _update_basins          - Resets _basins if terminal basin outlets were removed
-
-    Export:
-        _basin_polygons         - Returns a generator of (Polygon, value) geometries
-        _geojson                - Builds a geojson.FeatureCollection and schema
     """
 
     #####
@@ -2194,77 +2190,12 @@ class Segments:
     # Export
     #####
 
-    def _basin_polygons(self):
-        "Returns a generator of drainage basin (Polygon, ID value) tuples"
-
-        basins = self._locate_basins()
-        mask = basins.astype(bool)
-        return rasterio.features.shapes(
-            basins, mask, connectivity=8, transform=self.transform.affine
-        )
-
-    def _geojson(
-        self,
-        properties: PropertyDict | None,
-        type: FeatureType,
-    ) -> tuple[FeatureCollection, PropertySchema]:
-        "Builds geojson.FeatureCollection and property schema"
-
-        # Validate
-        type, properties, schema = validate.export(self, properties, type)
-
-        # Basins are derived from rasterio shapes. Also track basin IDs.
-        # (Basin geometries are unordered, so need to track which property is which)
-        if type == "basins":
-            geometries = self._basin_polygons()
-            ids = self.terminal_ids
-
-        # Everything else is derived from the shapely linestrings
-        elif type == "outlets":
-            geometries = [
-                segment
-                for keep, segment in zip(self.isterminal(), self._segments)
-                if keep
-            ]
-        else:
-            geometries = self._segments
-
-        # Build each feature and group them into a FeatureCollection. Start by
-        # getting a geojson-like geometry for each feature
-        features = []
-        for g, geometry in enumerate(geometries):
-            if "outlets" in type:
-                outlet = geometry.coords[-1]
-                geometry = geojson.Point(outlet)
-            elif type == "segments":
-                geometry = geojson.LineString(geometry.coords)
-
-            # For basins, get the property index in addition to the geometry
-            else:
-                id = geometry[1]
-                geometry = geometry[0]
-                index = np.argwhere(id == ids)
-                g = int(index[0, 0])
-
-            # Get the data properties for each feature as built-in types
-            builtins = {"float": float, "int": int, "str": str}
-            data = {}
-            for field, vector in properties.items():
-                value = vector[g]
-                dtype = schema[field].split(":")[0]
-                convert = builtins[dtype]
-                data[field] = convert(value)
-
-            # Build feature and add to collection
-            feature = Feature(geometry=geometry, properties=data)
-            features.append(feature)
-        return FeatureCollection(features), schema
-
     def geojson(
         self,
         properties: Optional[PropertyDict] = None,
         *,
-        type: FeatureType = "segments",
+        type: ExportType = "segments",
+        crs: Optional[CRS] = None,
     ) -> FeatureCollection:
         """
         geosjon  Exports the network to a geojson.FeatureCollection object
@@ -2306,6 +2237,11 @@ class Segments:
         array may have either (1) one element per segment in the network, or (2)
         one outlet per terminal segment in the network. If using one element per
         segment, extracts the values for the terminal segments prior to GeoJSON export.
+
+        self.geojson(..., *, crs=crs)
+        Specifies the CRS of the output geometries. By default, returns geometries
+        in the CRS of the flow direction raster used to derive the network. Use
+        this option to return geometries in a different CRS instead.
         ----------
         Inputs:
             properties: A dict whose keys are the (string) names of the property
@@ -2315,19 +2251,20 @@ class Segments:
                 network (basins and outlets only).
             type: A string indicating the type of feature to export. Options are
                 "segments", "basins", "outlets", or "segment outlets"
+            crs: The CRS of the output geometries
 
         Outputs:
             geojson.FeatureCollection: The collection of stream network features
         """
-
-        return self._geojson(properties, type)[0]
+        return _geojson.features(self, type, properties, crs)[0]
 
     def save(
         self,
         path: Pathlike,
         properties: Optional[PropertyDict] = None,
         *,
-        type: FeatureType = "segments",
+        type: ExportType = "segments",
+        crs: Optional[CRS] = None,
         driver: Optional[str] = None,
         overwrite: bool = False,
     ) -> None:
@@ -2384,6 +2321,11 @@ class Segments:
         one outlet per terminal segment in the network. If using one element per
         segment, extracts the values for the terminal segments prior to saving.
 
+        self.geojson(..., *, crs=crs)
+        Specifies the CRS of the output file. By default, uses the CRS of the flow
+        direction raster used to derive the network. Use this option to export
+        results in a different CRS instead.
+
         save(..., *, driver)
         Specifies the file format driver to used to write the vector feature file.
         Uses this format regardless of the file extension. You can call:
@@ -2407,6 +2349,7 @@ class Segments:
                 network (basins and outlets only).
             type: A string indicating the type of feature to export. Options are
                 "segments", "basins", "outlets", or "segment outlets"
+            crs: The CRS of the output file
             overwrite: True to allow replacement of existing files. False (default)
                 to prevent overwriting.
             driver: The name of the file-format driver to use when writing the
@@ -2415,7 +2358,7 @@ class Segments:
 
         # Validate and get features as geojson
         validate.output_path(path, overwrite)
-        collection, property_schema = self._geojson(properties, type)
+        collection, property_schema = _geojson.features(self, type, properties, crs)
 
         # Build the schema
         geometries = {

@@ -13,7 +13,7 @@ import numpy as np
 import pfdf._validate as validate
 from pfdf._utils import real
 from pfdf.errors import ShapeError
-from pfdf.typing import FeatureType, PropertyDict, PropertySchema
+from pfdf.typing import ExportType, PropertyDict, PropertySchema
 
 
 def _properties(
@@ -84,7 +84,7 @@ def _properties(
 
 def export(
     segments, properties: Any, type: Any
-) -> tuple[FeatureType, PropertyDict, PropertySchema]:
+) -> tuple[ExportType, PropertyDict, PropertySchema]:
     "Validates export type and properties"
 
     type = validate.option(
