@@ -25,12 +25,13 @@ from pfdf._utils.nodata import NodataMask
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.raster import Raster, RasterInput
-from pfdf.segments import _basins, _confinement, _geojson
+from pfdf.segments import _basins, _confinement, _geojson, _update
 from pfdf.typing import (
     BasinValues,
     BooleanMatrix,
     ExportType,
     MatrixArray,
+    NetworkIndices,
     Pathlike,
     PixelIndices,
     PropertyDict,
@@ -47,7 +48,6 @@ from pfdf.typing import (
 )
 
 # Type aliases
-indices = list[PixelIndices]
 IDs = vector
 Selection = SegmentIndices | IDs
 SelectionType = Literal["indices", "ids"]
@@ -216,13 +216,6 @@ class Segments:
 
     Filtering:
         _removable              - Locates requested segments on the edges of their local flow networks
-
-    Filtering Updates:
-        _update_segments        - Computes updated _segments and _indices after segments are removed
-        _update_family          - Updates child-parent arrays in-place after removing segments
-        _update_indices         - Updates connectivity indices in-place after removing segments
-        _update_connectivity    - Computes updated _child and _parents after segments are removed
-        _update_basins          - Resets _basins if terminal basin outlets were removed
     """
 
     #####
@@ -282,7 +275,7 @@ class Segments:
         self._flow: Raster = None
         self._segments: list[shapely.LineString] = None
         self._ids: SegmentValues = None
-        self._indices: indices = None
+        self._indices: NetworkIndices = None
         self._npixels: SegmentValues = None
         self._child: SegmentValues = None
         self._parents: SegmentParents = None
@@ -451,7 +444,7 @@ class Segments:
         return self.ids[self.isterminal()]
 
     @property
-    def indices(self) -> indices:
+    def indices(self) -> NetworkIndices:
         "The row and column indices of the stream raster pixels for each segment"
         return self._indices.copy()
 
@@ -1993,7 +1986,7 @@ class Segments:
         while np.any(removable):
             final_remove[removable] = True
             requested_remove[removable] = False
-            self._update_family(child, parents, removable)
+            _update.family(child, parents, removable)
             removable = self._removable(
                 requested_remove, child, parents, keep_upstream, keep_downstream
             )
@@ -2034,11 +2027,11 @@ class Segments:
         keep = ~remove
 
         # Compute new attributes
-        segments, indices = self._update_segments(remove)
+        segments, indices = _update.segments(self, remove)
         ids = self.ids[keep]
         npixels = self.npixels[keep]
-        child, parents = self._update_connectivity(remove)
-        basins = self._update_basins(remove)
+        child, parents = _update.connectivity(self, remove)
+        basins = _update.basins(self, remove)
 
         # Update object
         self._segments = segments
@@ -2102,82 +2095,6 @@ class Segments:
         copy._basins = None
         copy._basins = self._basins
         return copy
-
-    #####
-    # Filtering Updates
-    #####
-
-    def _update_segments(
-        self, remove: SegmentIndices
-    ) -> tuple[list[shapely.LineString], indices]:
-        "Computes updated linestrings and pixel indices after segments are removed"
-
-        # Initialize new attributes
-        segments = self.segments
-        indices = self.indices
-
-        # Delete items from lists
-        (removed,) = np.nonzero(remove)
-        for k in reversed(removed):
-            del segments[k]
-            del indices[k]
-        return segments, indices
-
-    @staticmethod
-    def _update_family(
-        child: SegmentValues, parents: SegmentParents, remove: SegmentIndices
-    ) -> None:
-        "Updates child-parent relationships in-place after segments are removed"
-
-        indices = np.nonzero(remove)
-        removed = np.isin(child, indices)
-        child[removed] = -1
-        removed = np.isin(parents, indices)
-        parents[removed] = -1
-
-    @staticmethod
-    def _update_indices(family: RealArray, nremoved: VectorArray) -> None:
-        "Updates connectivity indices in-place after segments are removed"
-
-        adjust = family != -1
-        indices = family[adjust]
-        family[adjust] = indices - nremoved[indices]
-
-    def _update_connectivity(
-        self, remove: SegmentIndices
-    ) -> tuple[SegmentValues, SegmentParents]:
-        "Computes updated child and parents after segments are removed"
-
-        # Initialize new attributes
-        child = self._child.copy()
-        parents = self._parents.copy()
-
-        # Limit arrays to retained segments
-        keep = ~remove
-        child = child[keep]
-        parents = parents[keep]
-
-        # Update connectivity relationships and reindex as necessary
-        self._update_family(child, parents, remove)
-        nremoved = np.cumsum(remove)
-        self._update_indices(child, nremoved)
-        self._update_indices(parents, nremoved)
-        return child, parents
-
-    def _update_basins(self, remove: SegmentIndices) -> MatrixArray | None:
-        "Resets basins if any terminal basin outlets were removed"
-
-        # If there aren't any basins, just leave them as None
-        if self._basins is None:
-            return None
-
-        # Get the ids of the removed segments. Reset if any of the removed IDs
-        # are in the raster. Otherwise, retain the old raster
-        ids = self.ids[remove]
-        if np.any(np.isin(ids, self._basins)):
-            return None
-        else:
-            return self._basins
 
     #####
     # Export

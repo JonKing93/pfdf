@@ -19,9 +19,10 @@ Class:
 Internal:
     _geojson        - Subpackage to export Segments to geojson
     _validate       - Subpackage to validate inputs for Segments routines
-    _segments       - Module implementing the Segments class
     _basins         - Module to locate basins sequentially or in parallel
     _confinement    - Module to compute confinement angles
+    _segments       - Module implementing the Segments class
+    _update         - Module to update attributes after filtering
 """
 
 from pfdf.segments._segments import Segments

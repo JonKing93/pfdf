@@ -14,6 +14,7 @@ Internal:
     _clip       - Functions used to clip raster arrays
     _features   - Functions to process vector feature files
     _merror     - Functions used to supplement memory-related errors
+    _parse      - Functions that parse spatial metadata options
     _raster     - Module implementing the Raster class
     _window     - Functions used to build rasterio windowing objects
 """

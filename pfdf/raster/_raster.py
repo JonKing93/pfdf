@@ -27,7 +27,7 @@ from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
 
 import pfdf.raster._validate as validate
-from pfdf._utils import all_nones, no_nones, nodata, real
+from pfdf._utils import all_nones, nodata, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import (
     MissingCRSError,
@@ -38,7 +38,7 @@ from pfdf.errors import (
     RasterTransformError,
 )
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
-from pfdf.raster import _align, _clip, _features, _merror, _window
+from pfdf.raster import _align, _clip, _features, _merror, _parse, _window
 from pfdf.typing import (
     BooleanArray,
     BufferUnits,
@@ -165,11 +165,6 @@ class Raster:
 
     Vector Features:
         _from_features      - Creates Raster from a feature array, clipping bounds as needed
-
-    Metadata Parsing:
-        _parse_projection   - Parse CRS and Transform from Raster and projection input
-        _parse_template     - Parse CRS and Transform from template and keyword options
-        _parse_src_dst      - Parses source and destination values
     """
 
     # User input type hints
@@ -307,7 +302,7 @@ class Raster:
 
         # Validate and set. Reproject as needed.
         transform = validate.transform(transform)
-        crs, transform = self._parse_projection(self.crs, transform, self.shape)
+        crs, transform = _parse.projection(self.crs, transform, self.shape)
         self._finalize(crs=crs, transform=transform)
 
     def _pixel(self, method: str, units: str, needs_y: bool = True):
@@ -466,7 +461,7 @@ class Raster:
 
         # Validate and convert to transform. Reproject as needed.
         bounds = validate.bounds(bounds)
-        crs, transform = self._parse_projection(self.crs, bounds, self.shape)
+        crs, transform = _parse.projection(self.crs, bounds, self.shape)
         self._finalize(crs=crs, transform=transform)
 
     def _bound(self, name):
@@ -1122,10 +1117,8 @@ class Raster:
         values = np.array(array, copy=copy)
 
         # Parse CRS and transform
-        crs, projection = Raster._parse_template(
-            spatial, "spatial template", crs, projection
-        )
-        crs, transform = Raster._parse_projection(crs, projection, values.shape)
+        crs, projection = _parse.template(spatial, "spatial template", crs, projection)
+        crs, transform = _parse.projection(crs, projection, values.shape)
 
         # Build the Raster object. Optionally ensure nodata
         raster = Raster._create(name, values, crs, transform, nodata, casting, isbool)
@@ -1564,69 +1557,10 @@ class Raster:
         # Parse CRS and transform
         if crs is None:
             crs = self.crs
-        crs, transform = self._parse_projection(crs, projection, self.shape)
+        crs, transform = _parse.projection(crs, projection, self.shape)
 
         # Update the raster's metadata
         self._finalize(crs=crs, transform=transform, nodata=nodata, casting=casting)
-
-    #####
-    # Metadata Parsing
-    #####
-
-    @staticmethod
-    def _parse_projection(
-        crs: CRS | None, projection: Transform | BoundingBox | None, shape
-    ) -> tuple[CRS | None, Transform | None]:
-        "Parses CRS and transform from raster properties and a projection input"
-
-        # Just exit if the projection is None
-        if projection is None:
-            return crs, None
-
-        # Otherwise, detect projection type
-        elif isinstance(projection, BoundingBox):
-            bounds = projection
-            transform = bounds.transform(*shape)
-        else:
-            bounds = None
-            transform = projection
-
-        # Inherit CRS if None was provided
-        if crs is None:
-            crs = transform.crs
-
-        # Reproject the transform as needed
-        elif _crs.different(crs, transform.crs):
-            if bounds is None:
-                bounds = transform.bounds(*shape)
-            y = bounds.center_y
-            transform = transform.reproject(crs, y)
-        return crs, transform
-
-    @staticmethod
-    def _parse_template(template, name, crs, transform):
-        """Parses CRS and transfrom from a template raster and keyword options.
-        Prioritizes keywords, but uses template metadata as backup if available"""
-
-        if template is not None:
-            validate.type(template, name, Raster, "Raster object")
-            if crs is None:
-                crs = template.crs
-            if transform is None:
-                transform = template.transform
-        return crs, transform
-
-    @staticmethod
-    def _parse_src_dst(source, dest, default):
-        "Parses source and destination values"
-        if no_nones(source, dest):
-            return source, dest
-        elif all_nones(source, dest):
-            return default, default
-        elif source is None and dest is not None:
-            return dest, dest
-        else:
-            return source, source
 
     #####
     # Comparisons
@@ -2303,11 +2237,9 @@ class Raster:
 
         # Parse CRS and validate transform
         crs, transform = validate.spatial(crs, transform)
-        crs, transform = self._parse_template(
-            template, "template raster", crs, transform
-        )
-        src_crs, crs = self._parse_src_dst(self.crs, crs, default=CRS(4326))
-        src_transform, transform = self._parse_src_dst(
+        crs, transform = _parse.template(template, "template raster", crs, transform)
+        src_crs, crs = _parse.src_dst(self.crs, crs, default=CRS(4326))
+        src_transform, transform = _parse.src_dst(
             self.transform, transform, default=Transform(1, 1, 0, 0)
         )
 

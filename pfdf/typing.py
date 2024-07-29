@@ -53,13 +53,15 @@ OutletIndices = tuple[int, int]
 Outlets = list[OutletIndices]
 SegmentIndices = ndarray  # Boolean indices
 SegmentParents = ndarray  # nSegments x nParents
-PixelIndices = ndarray
-PixelIndices = tuple[PixelIndices, PixelIndices]
-PropertyDict = dict[str, SegmentValues]
+
+# Linestring indices
+PixelIndices = tuple[ndarray, ndarray]  # Row and column indices
+NetworkIndices = list[tuple[ndarray, ndarray]]
 
 # Segment Export
 ExportType = Literal["segments", "segment outlets", "outlets", "basins"]
 PropertySchema = dict[str, str]
+PropertyDict = dict[str, SegmentValues]
 
 # Confinement Angles
 FlowNumber = Literal[1, 2, 3, 4, 5, 6, 7, 8]
