@@ -5,19 +5,9 @@ import fiona
 import geojson
 import numpy as np
 import pytest
-import rasterio.features
 from shapely import LineString
 
-from pfdf.errors import (
-    DimensionError,
-    MissingCRSError,
-    MissingTransformError,
-    RasterCRSError,
-    RasterShapeError,
-    RasterTransformError,
-    ShapeError,
-)
-from pfdf.projection import CRS, Transform, _crs
+from pfdf.errors import DimensionError, MissingCRSError, MissingTransformError
 from pfdf.raster import Raster
 from pfdf.segments import Segments
 
@@ -1753,140 +1743,10 @@ class TestCopy:
 #####
 
 
-class TestBasinPolygons:
-    def test(_, bsegments, basins):
-        mask = basins.astype(bool)
-        expected = rasterio.features.shapes(
-            basins, mask, connectivity=8, transform=bsegments.transform.affine
-        )
-        output = bsegments._basin_polygons()
-        assert list(output) == list(expected)
-
-
 class TestGeojson:
-    def test_crs_segments(_, segments):
-        segments.keep([2, 4, 5], "ids")
-        output0 = segments.geojson()
-        output1 = segments.geojson(crs=5070)
-        print(output0)
-        print("-----")
-        print(output1)
-        assert False
-
-    def test_crs_outlets(_, segments):
-        output0 = segments.geojson(type="outlets")
-        output1 = segments.geojson(type="outlets", crs=5070)
-        print(output0)
-        print("----------")
-        print(output1)
-        assert False
-
-    def test_crs_basins(_, segments):
-        output0 = segments.geojson(type="basins")
-        output1 = segments.geojson(type="basins", crs=5070)
-        print(output0)
-        print("----------")
-        print(output1)
-        assert False
-
-    def test_segments(_, segments):
-        segments.keep([2, 4, 5], "ids")
-        output = segments.geojson()
-        assert isinstance(output, geojson.FeatureCollection)
-        expected = {
-            "features": [
-                {
-                    "geometry": {
-                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {
-                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
-                        "type": "LineString",
-                    },
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-        assert output == expected
-
-    def test_terminal_outlets(_, segments):
-        output = segments.geojson(type="outlets")
-        expected = {
-            "features": [
-                {
-                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-        assert isinstance(output, geojson.FeatureCollection)
-        assert output == expected
-
-    def test_segment_outlets(_, segments):
-        output = segments.geojson(type="segment outlets")
-        expected = {
-            "features": [
-                {
-                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-                {
-                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
-                    "properties": {},
-                    "type": "Feature",
-                },
-            ],
-            "type": "FeatureCollection",
-        }
-        assert isinstance(output, geojson.FeatureCollection)
-        assert output == expected
-
-    def test_basins(_, bsegments):
-        output = bsegments.geojson(type="basins")
-        expected = {
+    def test_basins(_, segments, properties):
+        json = segments.geojson("basins", properties)
+        assert json == {
             "features": [
                 {
                     "geometry": {
@@ -1895,7 +1755,12 @@ class TestGeojson:
                         ],
                         "type": "Polygon",
                     },
-                    "properties": {},
+                    "properties": {
+                        "afloat": 2.2,
+                        "anint": 2,
+                        "astr": "string",
+                        "id": 3,
+                    },
                     "type": "Feature",
                 },
                 {
@@ -1908,43 +1773,69 @@ class TestGeojson:
                                 [2.0, 5.0],
                                 [3.0, 5.0],
                                 [3.0, 6.0],
-                                [5.0, 6.0],
-                                [5.0, 4.0],
+                                [4.0, 6.0],
+                                [4.0, 4.0],
                                 [6.0, 4.0],
                                 [6.0, 3.0],
                                 [5.0, 3.0],
                                 [5.0, 1.0],
+                                [4.0, 1.0],
+                                [4.0, 4.0],
+                                [3.0, 4.0],
+                                [3.0, 3.0],
+                                [2.0, 3.0],
+                                [2.0, 1.0],
                                 [1.0, 1.0],
                             ]
                         ],
                         "type": "Polygon",
                     },
-                    "properties": {},
+                    "properties": {"afloat": 5.2, "anint": 5, "astr": "one", "id": 6},
                     "type": "Feature",
                 },
             ],
             "type": "FeatureCollection",
         }
-        assert isinstance(output, geojson.FeatureCollection)
-        assert output == expected
+        assert isinstance(json, geojson.FeatureCollection)
 
-    def test_with_properties(_, segments):
-        segments.keep([2, 4, 5], "ids")
-        properties = {
-            "slope": [1, 2, 3],
-            "length": [1.1, 2.2, 3.3],
-            "astring": ["Low", "Moderate", "High"],
-        }
-        output = segments.geojson(properties)
-        assert isinstance(output, geojson.FeatureCollection)
-        expected = {
+    def test_segments(_, segments, properties):
+        json = segments.geojson("segments", properties)
+        assert json == {
             "features": [
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [1.5, 1.5],
+                            [1.5, 2.5],
+                            [1.5, 3.5],
+                            [2.5, 3.5],
+                            [2.5, 4.5],
+                            [3.5, 4.5],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 0.2, "anint": 0, "astr": "a", "id": 1},
+                    "type": "Feature",
+                },
                 {
                     "geometry": {
                         "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
-                    "properties": {"length": 1.1, "slope": 1, "astring": "Low"},
+                    "properties": {"afloat": 1.2, "anint": 1, "astr": "test", "id": 2},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[5.5, 2.5], [5.5, 1.5], [5.5, 0.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {
+                        "afloat": 2.2,
+                        "anint": 2,
+                        "astr": "string",
+                        "id": 3,
+                    },
                     "type": "Feature",
                 },
                 {
@@ -1952,7 +1843,7 @@ class TestGeojson:
                         "coordinates": [[5.5, 3.5], [4.5, 3.5]],
                         "type": "LineString",
                     },
-                    "properties": {"length": 2.2, "slope": 2, "astring": "Moderate"},
+                    "properties": {"afloat": 3.2, "anint": 3, "astr": "and", "id": 4},
                     "type": "Feature",
                 },
                 {
@@ -1960,13 +1851,353 @@ class TestGeojson:
                         "coordinates": [[4.5, 3.5], [3.5, 4.5]],
                         "type": "LineString",
                     },
-                    "properties": {"length": 3.3, "slope": 3, "astring": "High"},
+                    "properties": {
+                        "afloat": 4.2,
+                        "anint": 4,
+                        "astr": "another",
+                        "id": 5,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[3.5, 4.5], [3.5, 5.5], [3.5, 6.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 5.2, "anint": 5, "astr": "one", "id": 6},
                     "type": "Feature",
                 },
             ],
             "type": "FeatureCollection",
         }
-        assert output == expected
+        assert isinstance(json, geojson.FeatureCollection)
+
+    def test_outlets(_, segments, properties):
+        json = segments.geojson("outlets", properties)
+        assert json == {
+            "features": [
+                {
+                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
+                    "properties": {
+                        "afloat": 2.2,
+                        "anint": 2,
+                        "astr": "string",
+                        "id": 3,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
+                    "properties": {"afloat": 5.2, "anint": 5, "astr": "one", "id": 6},
+                    "type": "Feature",
+                },
+            ],
+            "type": "FeatureCollection",
+        }
+        assert isinstance(json, geojson.FeatureCollection)
+
+    def test_segment_outlets(_, segments, properties):
+        json = segments.geojson("segment outlets", properties)
+        assert json == {
+            "features": [
+                {
+                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
+                    "properties": {"afloat": 0.2, "anint": 0, "astr": "a", "id": 1},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
+                    "properties": {"afloat": 1.2, "anint": 1, "astr": "test", "id": 2},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
+                    "properties": {
+                        "afloat": 2.2,
+                        "anint": 2,
+                        "astr": "string",
+                        "id": 3,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {"coordinates": [4.5, 3.5], "type": "Point"},
+                    "properties": {"afloat": 3.2, "anint": 3, "astr": "and", "id": 4},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {"coordinates": [3.5, 4.5], "type": "Point"},
+                    "properties": {
+                        "afloat": 4.2,
+                        "anint": 4,
+                        "astr": "another",
+                        "id": 5,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
+                    "properties": {"afloat": 5.2, "anint": 5, "astr": "one", "id": 6},
+                    "type": "Feature",
+                },
+            ],
+            "type": "FeatureCollection",
+        }
+        assert isinstance(json, geojson.FeatureCollection)
+
+    def test_no_crs(_, segments, properties):
+        json = segments.geojson("segments", properties)
+        assert json == {
+            "features": [
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [1.5, 1.5],
+                            [1.5, 2.5],
+                            [1.5, 3.5],
+                            [2.5, 3.5],
+                            [2.5, 4.5],
+                            [3.5, 4.5],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 0.2, "anint": 0, "astr": "a", "id": 1},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 1.2, "anint": 1, "astr": "test", "id": 2},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[5.5, 2.5], [5.5, 1.5], [5.5, 0.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {
+                        "afloat": 2.2,
+                        "anint": 2,
+                        "astr": "string",
+                        "id": 3,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 3.2, "anint": 3, "astr": "and", "id": 4},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {
+                        "afloat": 4.2,
+                        "anint": 4,
+                        "astr": "another",
+                        "id": 5,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[3.5, 4.5], [3.5, 5.5], [3.5, 6.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 5.2, "anint": 5, "astr": "one", "id": 6},
+                    "type": "Feature",
+                },
+            ],
+            "type": "FeatureCollection",
+        }
+        assert isinstance(json, geojson.FeatureCollection)
+
+    def test_new_crs(_, segments, properties):
+        json = segments.geojson("segments", properties, crs=26910)
+        assert json == {
+            "features": [
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [668186.098233, 1.495892],
+                            [668186.098233, 2.493153],
+                            [668186.098233, 3.490414],
+                            [668187.095494, 3.490415],
+                            [668187.095494, 4.487676],
+                            [668188.092755, 4.487676],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 0.2, "anint": 0, "astr": "a", "id": 1},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [668189.090017, 1.495892],
+                            [668189.090017, 2.493153],
+                            [668189.090017, 3.490415],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 1.2, "anint": 1, "astr": "test", "id": 2},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [668190.087278, 2.493153],
+                            [668190.087278, 1.495892],
+                            [668190.087278, 0.498631],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {
+                        "afloat": 2.2,
+                        "anint": 2,
+                        "astr": "string",
+                        "id": 3,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [668190.087278, 3.490415],
+                            [668189.090017, 3.490415],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 3.2, "anint": 3, "astr": "and", "id": 4},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [668189.090017, 3.490415],
+                            [668188.092755, 4.487676],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {
+                        "afloat": 4.2,
+                        "anint": 4,
+                        "astr": "another",
+                        "id": 5,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [668188.092755, 4.487676],
+                            [668188.092755, 5.484937],
+                            [668188.092755, 6.482198],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {"afloat": 5.2, "anint": 5, "astr": "one", "id": 6},
+                    "type": "Feature",
+                },
+            ],
+            "type": "FeatureCollection",
+        }
+        assert isinstance(json, geojson.FeatureCollection)
+
+    def test_no_properties(_, segments):
+        json = segments.geojson()
+        assert json == {
+            "features": [
+                {
+                    "geometry": {
+                        "coordinates": [
+                            [1.5, 1.5],
+                            [1.5, 2.5],
+                            [1.5, 3.5],
+                            [2.5, 3.5],
+                            [2.5, 4.5],
+                            [3.5, 4.5],
+                        ],
+                        "type": "LineString",
+                    },
+                    "properties": {},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[4.5, 1.5], [4.5, 2.5], [4.5, 3.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[5.5, 2.5], [5.5, 1.5], [5.5, 0.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[5.5, 3.5], [4.5, 3.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[4.5, 3.5], [3.5, 4.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {},
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {
+                        "coordinates": [[3.5, 4.5], [3.5, 5.5], [3.5, 6.5]],
+                        "type": "LineString",
+                    },
+                    "properties": {},
+                    "type": "Feature",
+                },
+            ],
+            "type": "FeatureCollection",
+        }
+        assert isinstance(json, geojson.FeatureCollection)
+
+    def test_terminal_properties(_, segments, terminal_props):
+        json = segments.geojson("outlets", terminal_props)
+        assert json == {
+            "features": [
+                {
+                    "geometry": {"coordinates": [5.5, 0.5], "type": "Point"},
+                    "properties": {
+                        "afloat": 2.2,
+                        "anint": 2,
+                        "astr": "string",
+                        "id": 3,
+                    },
+                    "type": "Feature",
+                },
+                {
+                    "geometry": {"coordinates": [3.5, 6.5], "type": "Point"},
+                    "properties": {"afloat": 5.2, "anint": 5, "astr": "one", "id": 6},
+                    "type": "Feature",
+                },
+            ],
+            "type": "FeatureCollection",
+        }
+        assert isinstance(json, geojson.FeatureCollection)
 
     def test_bad_properties(_, segments, assert_contains):
         with pytest.raises(TypeError) as error:
@@ -2177,7 +2408,7 @@ class TestSave:
         }
         assert not path.is_file()
 
-        segments.save(path, properties)
+        segments.save(path, "segments", properties)
         assert path.is_file()
 
         output = self.read(path)
@@ -2221,7 +2452,7 @@ class TestSave:
     def test_bad_type(_, segments, tmp_path, assert_contains):
         path = Path(tmp_path) / "output.geojson"
         with pytest.raises(ValueError) as error:
-            segments.geojson(path, type="invalid")
+            segments.save(path, type="invalid")
         assert_contains(error, "type", "segments", "basins")
 
     def test_overwrite(self, tmp_path, segments):

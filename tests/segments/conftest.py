@@ -256,3 +256,46 @@ def values(flow):
     values = flow.values.copy()
     values[values == 3] = 0
     return Raster.from_array(values, nodata=0)
+
+
+#####
+# Export
+#####
+
+
+@pytest.fixture
+def properties(segments):
+    strs = ["a", "test", "string", "and", "another", "one"]
+    return {
+        "id": segments.ids,
+        "afloat": np.arange(6, dtype=float) + 0.2,
+        "anint": np.arange(6, dtype=int),
+        "astr": np.array(strs),
+    }
+
+
+@pytest.fixture
+def terminal_props(properties):
+    keep = np.isin(properties["id"], [3, 6])
+    for field, vector in properties.items():
+        properties[field] = vector[keep]
+    return properties
+
+
+@pytest.fixture
+def propcon(segments):
+    strs = ["a", "test", "string", "and", "another", "one"]
+    return {
+        "id": (segments.ids, int),
+        "afloat": (np.arange(6, dtype=float) + 0.2, float),
+        "anint": (np.arange(6, dtype=int), int),
+        "astr": (np.array(strs), str),
+    }
+
+
+@pytest.fixture
+def terminal_propcon(propcon):
+    keep = np.isin(propcon["id"][0], [3, 6])
+    for field, (vector, convert) in propcon.items():
+        propcon[field] = (vector[keep], convert)
+    return propcon

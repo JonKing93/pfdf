@@ -84,7 +84,7 @@ def _from_shapely(
 
 def features(
     segments, type: Any, properties: Any, crs: Any
-) -> tuple[FeatureCollection, PropertySchema]:
+) -> tuple[FeatureCollection, PropertySchema, CRS]:
     "Returns a GeoJSON feature collection for export"
 
     # Validate. Get final CRS
@@ -105,4 +105,4 @@ def features(
         features = _basins(segments, properties, crs)
     else:
         features = _from_shapely(segments, type, properties, crs)
-    return FeatureCollection(features), schema
+    return FeatureCollection(features), schema, crs

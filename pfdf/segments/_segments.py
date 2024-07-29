@@ -13,11 +13,9 @@ from math import inf, nan
 from typing import Callable, Literal, Optional, Self
 
 import fiona
-import geojson
 import numpy as np
-import rasterio.features
 import shapely
-from geojson import Feature, FeatureCollection
+from geojson import FeatureCollection
 from rasterio.transform import rowcol
 
 import pfdf.segments._validate as validate
@@ -36,7 +34,6 @@ from pfdf.typing import (
     Pathlike,
     PixelIndices,
     PropertyDict,
-    PropertySchema,
     RealArray,
     ScalarArray,
     SegmentIndices,
@@ -210,10 +207,6 @@ class Segments:
     Rasters:
         _segments_raster        - Builds a stream segment raster array
         _locate_basins          - Returns the basin raster's data array
-
-    Confinement Angles:
-        _segment_confinement    - Computes the confinement angle for a stream segment
-        _pixel_slopes           - Computes confinement slopes for a pixel
 
     Summaries:
         _summarize              - Computes a summary statistic
@@ -2192,21 +2185,21 @@ class Segments:
 
     def geojson(
         self,
+        type: ExportType = "segments",
         properties: Optional[PropertyDict] = None,
         *,
-        type: ExportType = "segments",
         crs: Optional[CRS] = None,
     ) -> FeatureCollection:
         """
         geosjon  Exports the network to a geojson.FeatureCollection object
         ----------
         self.geojson()
-        self.geojson(..., *, type='segments')
+        self.geojson(type='segments')
         Exports the network to a geojson.FeatureCollection object. The individual
         Features have LineString geometries whose coordinates proceed from upstream
         to downstream. Will have one feature per stream segment.
 
-        self.geojson(..., *, type='basins')
+        self.geojson(type='basins')
         Exports terminal outlet basins as a collection of Polygon features. The
         number of features will be <= the number of local drainage networks.
         (The number of features will be < the number of local networks if there
@@ -2218,14 +2211,14 @@ class Segments:
         "locate_basins" command includes options to parallelize this process,
         which may improve runtime.
 
-        self.geojson(..., *, type='outlets')
-        self.geojson(..., *, type='segment outlets')
+        self.geojson(type='outlets')
+        self.geojson(type='segment outlets')
         Exports outlet points as a collection of Point features. If type="outlets",
         exports the terminal outlet points, which will have one feature per local
         drainage network. If type="segment outlets", exports the complete set of
         outlet points, which will have one feature per segment in the network.
 
-        self.geojson(properties, ...)
+        self.geojson(..., properties)
         Specifies data properties for the GeoJSON features. The "properties" input
         should be a dict. Each key should be a string and will be interpreted as
         the name of the associated property field. Each value should be a numpy
@@ -2238,19 +2231,19 @@ class Segments:
         one outlet per terminal segment in the network. If using one element per
         segment, extracts the values for the terminal segments prior to GeoJSON export.
 
-        self.geojson(..., *, crs=crs)
+        self.geojson(..., *, crs)
         Specifies the CRS of the output geometries. By default, returns geometries
         in the CRS of the flow direction raster used to derive the network. Use
         this option to return geometries in a different CRS instead.
         ----------
         Inputs:
+            type: A string indicating the type of feature to export. Options are
+                "segments", "basins", "outlets", or "segment outlets"
             properties: A dict whose keys are the (string) names of the property
                 fields. Each value should be a numpy 1D array with a boolean,
                 integer, floating, or string dtype. Each array may have one element
                 per segment (any type of export), or one element per local drainage
                 network (basins and outlets only).
-            type: A string indicating the type of feature to export. Options are
-                "segments", "basins", "outlets", or "segment outlets"
             crs: The CRS of the output geometries
 
         Outputs:
@@ -2261,9 +2254,9 @@ class Segments:
     def save(
         self,
         path: Pathlike,
+        type: ExportType = "segments",
         properties: Optional[PropertyDict] = None,
         *,
-        type: ExportType = "segments",
         crs: Optional[CRS] = None,
         driver: Optional[str] = None,
         overwrite: bool = False,
@@ -2272,7 +2265,7 @@ class Segments:
         save  Saves the network to a vector feature file
         ----------
         save(path)
-        save(path, *, type='segments')
+        save(path, type='segments')
         save(..., *, overwrite=True)
         Saves the network to the indicated path. Each segment is saved as a vector
         feature with a LineString geometry whose coordinates proceed from upstream
@@ -2289,7 +2282,7 @@ class Segments:
         to return a summary of supported file format drivers, and their associated
         extensions.
 
-        self.save(..., *, type='basins')
+        self.save(path, type='basins', ...)
         Saves the terminal outlet basins as a collection of Polygon features.
         The number of features will be <= the number of local drainage networks.
         (The number of features will be < the number of local networks if there
@@ -2301,14 +2294,14 @@ class Segments:
         "locate_basins" command includes options to parallelize this process,
         which may improve runtime.
 
-        self.save(..., *, type='outlets')
-        self.save(..., *, type='segment outlets')
+        self.save(path, type='outlets', ...)
+        self.save(path, type='segment outlets', ...)
         Saves outlet points as a collection of Point features. If type="outlets",
         saves the terminal outlet points, which will have one feature per local
         drainage network. If type="segment outlets", saves the complete set of
         outlet points, which will have one feature per segment in the network.
 
-        self.save(path, properties, ...)
+        self.save(..., properties)
         Specifies data properties for the saved features. The "properties" input
         should be a dict. Each key should be a string and will be interpreted as
         the name of the associated property field. Each value should be a numpy
@@ -2342,13 +2335,13 @@ class Segments:
         ----------
         Inputs:
             path: The path to the output file
+            type: A string indicating the type of feature to export. Options are
+                "segments", "basins", "outlets", or "segment outlets"
             properties: A dict whose keys are the (string) names of the property
                 fields. Each value should be a numpy 1D array with a boolean,
                 integer, floating, or string dtype. Each array may have one element
                 per segment (any type of export), or one element per local drainage
                 network (basins and outlets only).
-            type: A string indicating the type of feature to export. Options are
-                "segments", "basins", "outlets", or "segment outlets"
             crs: The CRS of the output file
             overwrite: True to allow replacement of existing files. False (default)
                 to prevent overwriting.
@@ -2357,10 +2350,12 @@ class Segments:
         """
 
         # Validate and get features as geojson
-        validate.output_path(path, overwrite)
-        collection, property_schema = _geojson.features(self, type, properties, crs)
+        path = validate.output_path(path, overwrite)
+        collection, property_schema, crs = _geojson.features(
+            self, type, properties, crs
+        )
 
-        # Build the schema
+        # Build the file schema
         geometries = {
             "segments": "LineString",
             "basins": "Polygon",
@@ -2374,5 +2369,5 @@ class Segments:
 
         # Write file
         records = collection["features"]
-        with fiona.open(path, "w", driver=driver, crs=self.crs, schema=schema) as file:
+        with fiona.open(path, "w", driver=driver, crs=crs, schema=schema) as file:
             file.writerecords(records)

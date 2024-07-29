@@ -17,6 +17,8 @@ Class:
     Segments        - Builds and manages a stream segment network
 
 Internal:
+    _geojson        - Subpackage to export Segments to geojson
+    _validate       - Subpackage to validate inputs for Segments routines
     _segments       - Module implementing the Segments class
     _basins         - Module to locate basins sequentially or in parallel
     _confinement    - Module to compute confinement angles
