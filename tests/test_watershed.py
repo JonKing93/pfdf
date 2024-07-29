@@ -624,6 +624,20 @@ class TestAccumulation:
         )
         self.check(acc, expected)
 
+    def test_times(self):
+        acc = watershed.accumulation(self.flow, times=2.2)
+        expected = (
+            np.array(
+                [
+                    [1, 3, 4, nan],
+                    [2, 2, 1, 1],
+                    [3, 1, 2, nan],
+                ]
+            )
+            * 2.2
+        )
+        self.check(acc, expected)
+
     def test_weighted(self):
         acc = watershed.accumulation(self.flow, self.weights)
         expected = np.array(

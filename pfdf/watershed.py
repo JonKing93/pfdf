@@ -313,6 +313,7 @@ def accumulation(
     weights: Optional[RasterInput] = None,
     mask: Optional[RasterInput] = None,
     *,
+    times: Optional[scalar] = None,
     omitnan: bool = False,
     check_flow: bool = True,
 ) -> Raster:
@@ -349,6 +350,11 @@ def accumulation(
     1. Note that the mask raster must have the same shape, transform, and crs as
     the flow raster.
 
+    accumulation(..., *, times)
+    Returns accumulation multiplied by the indicated scalar value. This option is
+    often used with pixel area in order to return accumulation in specific units,
+    rather than pixel counts.
+
     accumulation(..., *, check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
     necessary for flow directions directly output by the "watershed.flow" function,
@@ -363,6 +369,7 @@ def accumulation(
             False (default) propagates these values as NaN to all downstream pixels.
         mask: A raster whose True elements indicate pixels that should be included
             in the accumulation.
+        times: A multiplicative constant applied to the computed accumulation.
         check_flow: True (default) to validate the flow directions raster.
             False to disable validation checks.
 
@@ -371,6 +378,8 @@ def accumulation(
     """
 
     # Validate
+    if times is not None:
+        times = validate.scalar(times, "times", dtype=real)
     flow = Raster(flow, "flow directions")
     if weights is not None:
         weights = flow.validate(weights, "weights")
@@ -420,6 +429,10 @@ def accumulation(
     # Compute accumulation
     grid = Grid.from_raster(flow)
     accumulation = grid.accumulation(flow, weights, nodata_out=nan, **_FLOW_OPTIONS)
+
+    # Apply multiplicative factor if provided
+    if times is not None and times != 1:
+        accumulation = accumulation * times
     return Raster.from_array(accumulation, nodata=nan, **metadata, copy=False)
 
 
