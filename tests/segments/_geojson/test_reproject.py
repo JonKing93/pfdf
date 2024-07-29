@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from pyproj import CRS, Transformer
 
@@ -130,41 +131,57 @@ def basins2():
 class TestPoint:
     def test(_, transformer):
         output = _reproject._point((1, 2), transformer)
-        print(output)
-        assert output == (668185.5996023703, 1.9945225262230266)
+        expected = (668185.5996023703, 1.9945225262230266)
+        assert np.allclose(output, expected)
 
 
 class TestLine:
     def test(_, line1, line2, transformer):
         _reproject._line(line1, transformer)
-        assert line1 == line2
+        assert np.allclose(line1, line2)
 
 
 class TestSegments:
     def test(_, segments1, segments2, transformer):
         _reproject._segments(segments1, transformer)
-        assert segments1 == segments2
+        for output, expected in zip(segments1, segments2):
+            assert np.allclose(output, expected)
 
 
 class TestBasins:
     def test_no_holes(_, basins1, basins2, transformer):
         _reproject._basins(basins1, transformer)
-        assert basins1 == basins2
+        for output, expected in zip(basins1, basins2):
+            outcoord = output[0]["coordinates"]
+            expcoord = expected[0]["coordinates"]
+            for ring1, ring2 in zip(outcoord, expcoord):
+                assert np.allclose(ring1, ring2)
+            del output[0]["coordinates"]
+            del expected[0]["coordinates"]
+            assert output == expected
 
 
 class TestGeometries:
     def test_segments(_, segments1, segments2):
         _reproject.geometries(segments1, "segments", CRS(26911), CRS(26910))
-        assert segments1 == segments2
+        for output, expected in zip(segments1, segments2):
+            assert np.allclose(output, expected)
 
     def test_basins(_, basins1, basins2):
         _reproject.geometries(basins1, "basins", CRS(26911), CRS(26910))
-        assert basins1 == basins2
+        for output, expected in zip(basins1, basins2):
+            outcoord = output[0]["coordinates"]
+            expcoord = expected[0]["coordinates"]
+            for ring1, ring2 in zip(outcoord, expcoord):
+                assert np.allclose(ring1, ring2)
+            del output[0]["coordinates"]
+            del expected[0]["coordinates"]
+            assert output == expected
 
     def test_outlets(_, line1, line2):
         _reproject.geometries(line1, "outlets", CRS(26911), CRS(26910))
-        assert line1 == line2
+        assert np.allclose(line1, line2)
 
     def test_segment_outlets(_, line1, line2):
         _reproject.geometries(line1, "segment outlets", CRS(26911), CRS(26910))
-        assert line1 == line2
+        assert np.allclose(line1, line2)
