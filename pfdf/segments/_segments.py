@@ -2161,7 +2161,8 @@ class Segments:
                 integer, floating, or string dtype. Each array may have one element
                 per segment (any type of export), or one element per local drainage
                 network (basins and outlets only).
-            crs: The CRS of the output geometries
+            crs: The CRS of the output geometries. Defaults to the CRS of the
+                flow-direction raster used to derive the network.
 
         Outputs:
             geojson.FeatureCollection: The collection of stream network features
@@ -2179,11 +2180,11 @@ class Segments:
         overwrite: bool = False,
     ) -> None:
         """
-        save  Saves the network to a vector feature file
+        Saves the network to a vector feature file
         ----------
-        save(path)
-        save(path, type='segments')
-        save(..., *, overwrite=True)
+        self.save(path)
+        self.save(path, type='segments')
+        self.save(..., *, overwrite=True)
         Saves the network to the indicated path. Each segment is saved as a vector
         feature with a LineString geometry whose coordinates proceed from upstream
         to downstream. The vector features will not have any data properties. In
@@ -2231,7 +2232,7 @@ class Segments:
         one outlet per terminal segment in the network. If using one element per
         segment, extracts the values for the terminal segments prior to saving.
 
-        self.geojson(..., *, crs=crs)
+        self.geojson(..., *, crs)
         Specifies the CRS of the output file. By default, uses the CRS of the flow
         direction raster used to derive the network. Use this option to export
         results in a different CRS instead.
@@ -2259,7 +2260,8 @@ class Segments:
                 integer, floating, or string dtype. Each array may have one element
                 per segment (any type of export), or one element per local drainage
                 network (basins and outlets only).
-            crs: The CRS of the output file
+            crs: The CRS of the output file. Defaults to the CRS of the flow-direction
+                raster used to derive the network.
             overwrite: True to allow replacement of existing files. False (default)
                 to prevent overwriting.
             driver: The name of the file-format driver to use when writing the

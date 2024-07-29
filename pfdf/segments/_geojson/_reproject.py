@@ -52,7 +52,7 @@ def geometries(
     "Reprojects feature geometries in-place"
 
     if from_crs != to_crs:
-        transform = Transformer.from_crs(from_crs, to_crs)
+        transform = Transformer.from_crs(from_crs, to_crs, always_xy=True)
         if type == "basins":
             _basins(geometries, transform)
         elif type == "segments":
