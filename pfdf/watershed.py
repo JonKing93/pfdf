@@ -352,8 +352,8 @@ def accumulation(
 
     accumulation(..., *, times)
     Returns accumulation multiplied by the indicated scalar value. This option is
-    often used with pixel area in order to return accumulation in specific units,
-    rather than pixel counts.
+    often set to the area of a raster pixel in order to return accumulation in
+    specific units, rather than pixel counts.
 
     accumulation(..., *, check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
