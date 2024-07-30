@@ -785,7 +785,7 @@ class TestFromPoints:
         assert_contains(
             error,
             "requested array is too large",
-            'Try increasing the "resolution" input',
+            'Try changing the "resolution" input',
         )
 
     def test_multipoints(_, multipoints, crs):
@@ -978,7 +978,7 @@ class TestFromPolygons:
         assert_contains(
             error,
             "requested array is too large",
-            'Try increasing the "resolution" input',
+            'Try changing the "resolution" input',
         )
 
     def test_multipolygons(_, multipolygons, crs):

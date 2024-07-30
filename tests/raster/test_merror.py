@@ -11,7 +11,7 @@ class TestFeatures:
         assert_contains(
             error,
             "Cannot create the polygon raster because the requested array is too large for your computer's memory.",
-            'Try increasing the "resolution" input to a coarser resolution, or use the "bounds" option to load a smaller subset of polygon data',
+            'Try changing the "resolution" input to a coarser resolution, or use the "bounds" option to load a smaller subset of polygon data',
         )
 
     def test_other(_, assert_contains):

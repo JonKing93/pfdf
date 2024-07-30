@@ -20,7 +20,7 @@ def features(error: Exception, geometry: str) -> NoReturn:
     "Handles memory errors caused by converting features to rasters"
     message = (
         f"Cannot create the {geometry} raster because the requested array is "
-        f"too large for your computer's memory. Try increasing the "
+        f"too large for your computer's memory. Try changing the "
         f'"resolution" input to a coarser resolution, or use the "bounds" '
         f"option to load a smaller subset of {geometry} data."
     )
@@ -38,6 +38,7 @@ def supplement(error: Exception, message: str) -> NoReturn:
         for pattern in ["Maximum allowed dimension exceeded", "array is too big"]:
             if pattern in error.args[0]:
                 ismemory = True
+                break
 
     # Supplement memory issues, reraise anything else
     if ismemory:
