@@ -11,7 +11,7 @@ from shapely import LineString
 from pfdf import watershed
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import Transform
-from pfdf.raster import PyshedsRaster, Raster
+from pfdf.raster._raster import PyshedsRaster, Raster
 
 #####
 # Testing fixtures
@@ -624,6 +624,20 @@ class TestAccumulation:
         )
         self.check(acc, expected)
 
+    def test_times(self):
+        acc = watershed.accumulation(self.flow, times=2.2)
+        expected = (
+            np.array(
+                [
+                    [1, 3, 4, nan],
+                    [2, 2, 1, 1],
+                    [3, 1, 2, nan],
+                ]
+            )
+            * 2.2
+        )
+        self.check(acc, expected)
+
     def test_weighted(self):
         acc = watershed.accumulation(self.flow, self.weights)
         expected = np.array(
@@ -822,7 +836,7 @@ class TestNetwork:
         flow = Raster.from_array(flow, nodata=0)
         mask = np.ones(flow.shape, bool)
 
-        output = watershed.network(flow, mask, max_length=2, base_unit=True)
+        output = watershed.network(flow, mask, max_length=2, units="base")
         expected = [
             LineString([[1.5, 1.5], [2.5, 1.5], [3.5, 1.5]]),
             LineString([[3.5, 1.5], [4.5, 1.5], [5.5, 1.5]]),

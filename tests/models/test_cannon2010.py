@@ -8,35 +8,28 @@ import pytest
 from pfdf.errors import DimensionError
 from pfdf.models import cannon2010 as c10
 
-
-def assert_contains(error, *strings):
-    message = error.value.args[0]
-    for string in strings:
-        assert string in message
-
-
 #####
 # Validation tests
 #####
 
 
-class TestValidateProbabilities:
+class TestValidateLikelihoods:
     def test_valid(_):
         p = [0, 0.25, np.nan, 0.7, 1]
-        output = c10._validate_probabilities(p)
+        output = c10._validate_likelihoods(p)
         assert np.array_equal(output, np.array(p), equal_nan=True)
 
-    def test_invalid(_):
+    def test_invalid(_, assert_contains):
         with pytest.raises(TypeError) as error:
-            c10._validate_probabilities("invalid")
-        assert_contains(error, "probabilities")
+            c10._validate_likelihoods("invalid")
+        assert_contains(error, "likelihoods")
 
     @pytest.mark.parametrize("bad", (-1, 2))
-    def test_invalid_range(_, bad):
+    def test_invalid_range(_, bad, assert_contains):
         p = np.array([0.2, bad, 0.6])
         with pytest.raises(ValueError) as error:
-            c10._validate_probabilities(p)
-        assert_contains(error, "probabilities")
+            c10._validate_likelihoods(p)
+        assert_contains(error, "likelihoods")
 
 
 class TestValidateVolumes:
@@ -45,12 +38,12 @@ class TestValidateVolumes:
         output = c10._validate_volumes(v)
         assert np.array_equal(output, np.array(v), equal_nan=True)
 
-    def test_invalid(_):
+    def test_invalid(_, assert_contains):
         with pytest.raises(TypeError) as error:
             c10._validate_volumes("invalid")
         assert_contains(error, "volumes")
 
-    def test_negative(_):
+    def test_negative(_, assert_contains):
         v = [-5, 10, 100]
         with pytest.raises(ValueError) as error:
             c10._validate_volumes(v)
@@ -73,31 +66,31 @@ class TestThresholds:
         output = c10._validate_thresholds(t, "", integers=True)
         assert np.array_equal(output, np.array(t))
 
-    def test_nan(_):
+    def test_nan(_, assert_contains):
         t = [0.2, np.nan, 0.7]
         with pytest.raises(ValueError) as error:
             c10._validate_thresholds(t, "test name")
         assert_contains(error, "test name")
 
-    def test_not_vector(_):
+    def test_not_vector(_, assert_contains):
         t = np.arange(10).reshape(2, 5)
         with pytest.raises(DimensionError) as error:
             c10._validate_thresholds(t, "test name")
         assert_contains(error, "test name")
 
-    def test_out_of_range(_):
+    def test_out_of_range(_, assert_contains):
         t = [0.1, 0.2, 3]
         with pytest.raises(ValueError) as error:
             c10._validate_thresholds(t, "test name", range=[0, 1])
         assert_contains(error, "test name")
 
-    def test_not_sorted(_):
+    def test_not_sorted(_, assert_contains):
         t = [0.2, 0.1, 0.3]
         with pytest.raises(ValueError) as error:
             c10._validate_thresholds(t, "test name")
         assert_contains(error, "test name", "sorted")
 
-    def test_not_integers(_):
+    def test_not_integers(_, assert_contains):
         t = [0.1, 0.2, 0.3]
         with pytest.raises(ValueError) as error:
             c10._validate_thresholds(t, "test name", integers=True)
@@ -281,11 +274,11 @@ class TestHazard:
         output = c10.hazard(p, v)
         assert np.array_equal(output, expected)
 
-    def test_invalid_broadcast(_):
+    def test_invalid_broadcast(_, assert_contains):
         p = np.arange(0, 1.1, 0.1).reshape(-1)
         v = np.array(
             [10e0, 10e1, 10e2, 20e2, 10e3, 20e3, 10e4, 20e4, 10e5, 20e5]
         ).reshape(-1)
         with pytest.raises(ValueError) as error:
             c10.hazard(p, v)
-        assert_contains(error, "probabilities", "volumes", "broadcast")
+        assert_contains(error, "likelihoods", "volumes", "broadcast")

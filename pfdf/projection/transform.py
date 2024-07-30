@@ -10,11 +10,11 @@ from typing import Any, Optional, Self
 
 from affine import Affine
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import real
 from pfdf.errors import TransformError
 from pfdf.projection import CRSInput, _crs, _Locator, bbox
-from pfdf.typing import scalar
+from pfdf.typing import Units, scalar
 
 
 class Transform(_Locator):
@@ -232,24 +232,28 @@ class Transform(_Locator):
             validate.finite(y, "y")
             return y
 
-    def dx(self, meters: bool = False, y: Optional[float] = None) -> float:
+    def dx(self, units: Units = "base", y: Optional[float] = None) -> float:
         """
         Return the change in X coordinate when moving one pixel right
         ----------
         self.dx()
-        Returns the change in X coordinate when moving one pixel right.
+        Returns the change in X coordinate when moving one pixel right. By default,
+        returns dx in the base unit of the CRS.
 
-        self.dx(meters=True)
-        self.dx(meters=True, y)
-        Returns dx in meters. This option is only available when the Transform
-        has a CRS. If the Transform uses a geographic (angular) coordinate system,
-        converts dx to meters as if dx were measured along the equator. Use the
-        "y" input to specify a different latitude for meters conversion. Note that
-        y should be in the base units of the CRS.
+        self.dx(units)
+        self.dx(units, y)
+        Returns dx in the specified units. Options other than "base" are only
+        available when the Transform has a CRS. Supported units include "meters",
+        "kilometers", "feet", and "miles". If the Transform uses a geographic
+        (angular) coordinate system, converts dx to the specified units as if dx
+        were measured along the equator. Use the "y" input to specify a different
+        latitude for unit conversion. Note that y should be in the base units
+        of the CRS.
         ----------
         Inputs:
-            meters: True to return dx in meters. False (default) to return dx in
-                the default unit of the Transform
+            units: The units that dx should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
             y: An optional y coordinate (in the units of the CRS) indicating the
                 latitude at which dx is being assessed. Ignored if the CRS is not
                 geographic (angular). Defaults to the equator
@@ -257,61 +261,51 @@ class Transform(_Locator):
         Outputs:
             float: The dx for the transform
         """
-
-        # Validate y and meters conversion
-        self._validate_conversion(meters, "dx")
         y = self._validate_y(y)
+        return self._length("x", self._dx, "dx", units, y)
 
-        # Compute dx, converting to meters as appropriate
-        dx = self._dx
-        if meters:
-            dx = _crs.dx_to_meters(self.crs, dx, y)
-        return dx
-
-    def dy(self, meters: bool = False) -> float:
+    def dy(self, units: Units = "base") -> float:
         """
         Return the change in Y coordinate when moving one pixel down
         ----------
         self.dy()
-        self.dy(meters=True)
+        self.dy(units)
         Returns the change in Y coordinate when moving one pixel down. By default,
-        return the distance in the default unit of the transform. Set meters=True
-        to return the distance in meters instead. Note that the meters option is
-        only available when the Transform has a CRS.
+        return the distance in the base unit of the transform. Use the "units"
+        option to return the distance in specific units instead. This option is
+        only available when the Transform has a CRS. Supported units include
+        "meters", "kilometers", "feet", and "miles".
         ----------
         Inputs:
-            meters: True to return dy in meters. False (default) to return dy in
-                the default unit of the Transform
+            units: The units that dy should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
 
         Outputs:
             float: The dy for the transform
         """
+        return self._length("y", self._dy, "dy", units)
 
-        self._validate_conversion(meters, "dy")
-        dy = self._dy
-        if meters:
-            dy = _crs.dy_to_meters(self.crs, dy)
-        return dy
-
-    def xres(self, meters: bool = False, y: Optional[float] = None) -> float:
+    def xres(self, units: Units = "base", y: Optional[float] = None) -> float:
         """
         Return pixel resolution along the X axis
         ----------
         self.xres()
         Returns the pixel resolution along the X axis (the absolute value of dx)
-        in the units of the CRS.
+        in the base units of the CRS.
 
-        self.xres(meters=True)
-        self.xres(meters=True, y)
-        Returns xres in meters. This option is only available when the Transform
-        has a CRS. If the Transform uses a geographic (angular) coordinate system,
-        converts xres to meters as if xres were measured along the equator. Use the
-        "y" input to specify a different latitude for meters conversion. Note that
+        self.xres(units)
+        self.xres(units, y)
+        Returns xres in the specified units. This option is only available when
+        the Transform has a CRS. If the Transform uses a geographic (angular) coordinate
+        system, converts units as if xres were measured along the equator. Use the
+        "y" input to specify a different latitude for unit conversion. Note that
         y should be in the base units of the CRS.
         ----------
         Inputs:
-            meters: True to return xres in meters. False (default) to return
-                xres in the default unit of the Transform
+            units: The units that xres should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
             y: An optional y coordinate (in the units of the CRS) indicating the
                 latitude at which xres is being assessed. Ignored if the CRS is not
                 geographic (angular). Deafults to the equator
@@ -319,30 +313,32 @@ class Transform(_Locator):
         Outputs:
             float: The X resolution for the Transform
         """
-        return abs(self.dx(meters, y))
+        return abs(self.dx(units, y))
 
-    def yres(self, meters: bool = False) -> float:
+    def yres(self, units: Units = "base") -> float:
         """
         Return pixel resolution along the Y axis
         ----------
         self.yres()
-        self.yres(meters=True)
+        self.yres(units)
         Returns the pixel resolution along the Y axis. This is the absolute value
-        of dy. By default, returns resolution in the default unit of the Transform.
-        Set meters=True to return the distance in meters instead. Note that the
-        meters option is only available when the Transform has a CRS.
+        of dy. By default, returns resolution in the base unit of the Transform.
+        Use the "units" option to return yres in the specified units instead.
+        This option is only available when the Transform has a CRS. Supported
+        units include: "meters", "kilometers", "feet", and "miles".
         ----------
         Inputs:
-            meters: True to return resolution in meters. False (default) to
-                return resolution the default unit of the Transform
+            units: The units that yres should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
 
         Outputs:
             float: The Y resolution for the Transform
         """
-        return abs(self.dy(meters))
+        return abs(self.dy(units))
 
     def resolution(
-        self, meters: bool = False, y: Optional[float] = None
+        self, units: Units = "base", y: Optional[float] = None
     ) -> tuple[float, float]:
         """
         Return pixel resolution
@@ -351,17 +347,19 @@ class Transform(_Locator):
         Returns the pixel resolution for the Transform. This is an (X res, Y res)
         tuple in the units of the Transform CRS.
 
-        self.resolution(meters=True)
-        self.resolution(meters=True, y)
-        Returns resolution in meters. This option is only available when the Transform
-        has a CRS. If the Transform uses a geographic (angular) coordinate system,
-        converts resolution to meters as if xres were measured along the equator.
-        Use the "y" input to specify a different latitude for meters conversion.
-        Note that y should be in the base units of the CRS.
+        self.resolution(units)
+        self.resolution(units, y)
+        Returns resolution in the specified units. This option is only available
+        when the Transform has a CRS. If the Transform uses a geographic (angular)
+        coordinate system, converts resolution to the indicated units as if xres
+        were measured along the equator. Use the "y" input to specify a different
+        latitude for unit conversion. Note that y should be in the base units of
+        the CRS.
         ----------
         Inputs:
-            meters: True to return resolution in meters. False (default) to
-                return resolution the default unit of the Transform
+            units: The units that resolution should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
             y: An optional y coordinate (in the units of the CRS) indicating the
                 latitude at which xres is being assessed. Ignored if the CRS is not
                 geographic (angular). Defaults to the equator
@@ -369,30 +367,32 @@ class Transform(_Locator):
         Outputs:
             float, float: The (X, Y) resolution for the Transform
         """
-        return self.xres(meters, y), self.yres(meters)
+        return self.xres(units, y), self.yres(units)
 
     #####
     # Pixel geometries
     #####
 
-    def pixel_area(self, meters: bool = False, y: Optional[float] = None) -> float:
+    def pixel_area(self, units: Units = "base", y: Optional[float] = None) -> float:
         """
         Returns the area of a pixel for the Transform
         ----------
         self.pixel_area()
         Returns the area of a pixel for the Transform in the units of the CRS squared.
 
-        self.pixel_area(meters=True)
-        self.pixel_area(meters=True, y)
-        Returns area in meters squared. This option is only available when the Transform
-        has a CRS. If the Transform uses a geographic (angular) coordinate system,
-        converts area to meters as if x-resolution were measured along the equator.
-        Use the "y" input to specify a different latitude for meters conversion.
-        Note that y should be in the base units of the CRS.
+        self.pixel_area(units)
+        self.pixel_area(units, y)
+        Returns area in the specified units squared. This option is only available
+        when the Transform has a CRS. If the Transform uses a geographic (angular)
+        coordinate system, converts area to the indicated units as if x-resolution
+        were measured along the equator. Use the "y" input to specify a different
+        latitude for unit conversion. Note that y should be in the base units of
+        the CRS.
         ----------
         Inputs:
-            meters: True to return area in meters^2. False (default) to
-                return resolution the default unit of the Transform squared
+            units: The (squared) units that pixel_area should be returned in. Options
+                include: "base" (default; CRS base units), "meters", "kilometers",
+                "feet", and "miles"
             y: An optional y coordinate (in the units of the CRS) indicating the
                 latitude at which xres is being assessed. Ignored if the CRS is not
                 geographic (angular). Defaults to the equator
@@ -400,27 +400,29 @@ class Transform(_Locator):
         Outputs:
             float: The area of a pixel in the Transform
         """
-        xres, yres = self.resolution(meters, y)
+        xres, yres = self.resolution(units, y)
         return xres * yres
 
-    def pixel_diagonal(self, meters: bool = False, y: Optional[float] = None) -> float:
+    def pixel_diagonal(self, units: Units = "base", y: Optional[float] = None) -> float:
         """
         Returns the area of a pixel for the Transform
         ----------
         self.pixel_diagonal()
         Returns the length of a pixel diagonal for the Transform in the CRS units.
 
-        self.pixel_diagonal(meters=True)
-        self.pixel_diagonal(meters=True, y)
-        Returns length in meters. This option is only available when the Transform
-        has a CRS. If the Transform uses a geographic (angular) coordinate system,
-        converts length to meters as if x-resolution were measured along the equator.
-        Use the "y" input to specify a different latitude for meters conversion.
-        Note that y should be in the base units of the CRS.
+        self.pixel_diagonal(units)
+        self.pixel_diagonal(units, y)
+        Returns length in the specified units. This option is only available when
+        the Transform has a CRS. If the Transform uses a geographic (angular)
+        coordinate system, converts length to the indicated units as if x-resolution
+        were measured along the equator. Use the "y" input to specify a different
+        latitude for unit conversion. Note that y should be in the base units of
+        the CRS.
         ----------
         Inputs:
-            meters: True to return length in meters. False (default) to
-                return resolution the default unit of the Transform
+            units: The units that the length should be returned in. Options include:
+                "base" (default; CRS base units), "meters", "kilometers", "feet",
+                and "miles"
             y: An optional y coordinate (in the units of the CRS) indicating the
                 latitude at which xres is being assessed. Ignored if the CRS is not
                 geographic (angular). Defaults to the equator
@@ -428,7 +430,7 @@ class Transform(_Locator):
         Outputs:
             float: The length of a pixel diagonal in the Transform
         """
-        xres, yres = self.resolution(meters, y)
+        xres, yres = self.resolution(units, y)
         return sqrt(xres**2 + yres**2)
 
     #####
@@ -470,7 +472,7 @@ class Transform(_Locator):
             float | None: The number of Y axis units per meter.
         """
 
-        # Converting from property to function for consistency with x_per_m
+        # Converting from property to function for consistency with x_units_per_m
         return super(Transform, self).y_units_per_m
 
     def units_per_m(

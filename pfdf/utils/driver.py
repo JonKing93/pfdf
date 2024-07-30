@@ -1,5 +1,5 @@
 """
-driver  Utilities for working with file format drivers
+Utilities for working with file format drivers
 ----------
 The driver module contains various functions with information about file-format
 drivers for saving raster and vector-feature files. The pfdf package uses rasterio
@@ -34,7 +34,7 @@ from typing import Literal, Optional
 
 from pandas import DataFrame
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf.typing import Pathlike
 
 # Type aliases

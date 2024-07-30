@@ -1,5 +1,5 @@
 """
-Holds classes used to implement raster projections and spatial metadata
+Classes used to implement raster projections and spatial metadata
 ----------
 Classes:
     CRS         - Coordinate reference system (currently pyproj.CRS)

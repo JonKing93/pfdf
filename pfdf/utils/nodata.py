@@ -14,12 +14,12 @@ import numpy as np
 from numpy import floating, issubdtype, signedinteger, unsignedinteger
 
 import pfdf._utils.nodata as _nodata
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import real
 from pfdf.typing import BooleanArray, RealArray, scalar
 
 
-def default(dtype: type):
+def default(dtype: type) -> float | int | bool | None:
     """
     Returns the default NoData value for a numpy dtype
     ----------

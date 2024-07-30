@@ -7,12 +7,6 @@ import pytest
 from pfdf._utils import nodata
 from pfdf._utils.nodata import NodataMask
 
-
-@pytest.fixture
-def araster():
-    return np.array([1, 2, 3, 4, 5, 6, 7, 8]).reshape(2, 4).astype(float)
-
-
 #####
 # Functions
 #####

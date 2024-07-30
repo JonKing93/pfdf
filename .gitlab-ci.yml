@@ -3,6 +3,10 @@ stages:
   - test
   - deploy
 
+default:
+  tags:
+    - build   
+
 #####
 # Python Versions
 #####

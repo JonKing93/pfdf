@@ -27,7 +27,7 @@ import numpy as np
 from numpy import exp, log, nan, sqrt
 from scipy.stats import norm
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import clean_dims, real
 from pfdf.errors import ShapeError
 from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volume, Volumes
@@ -142,8 +142,8 @@ def emergency(
         Ci: The coefficient of the i15 rainfall intensity term
         Cb: The coefficient of the Bmh burned area term
         Cr: The coefficient of the R watershed relief term
-        CI: The confidence interval to calculate
-        RSE: The residual standard error
+        CI: The confidence interval to calculate. Should be on the interval from 0 to 1.
+        RSE: The residual standard error of the model. Used to compute confidence intervals
         keepdims: True to always return a 2D numpy array. If False (default),
             returns a 1D array when there is a single parameter run.
 
@@ -202,8 +202,8 @@ def longterm(
 
     and uses residual standard error (RSE = 1.25) to estimate the bounds of the
     95% confidence interval:
-        Vmin = exp(lnV - 1.96 * 1.04)
-        Vmax = exp(lnV + 1.96 * 1.04)
+        Vmin = exp(lnV - 1.96 * 1.25)
+        Vmax = exp(lnV + 1.96 * 1.25)
     Note that the volume confidence interval is estimated using a normal distribution,
     hence the 1.96 percentile multiplier for a 95% interval.
 
@@ -282,8 +282,8 @@ def longterm(
         Ct: The coefficient of the T elapsed time term
         Ca: The coefficient of the A total area term
         Cr: The coefficient of the R watershed relief term
-        CI: The confidence interval to compute
-        RSE: The residual standard error
+        CI: The confidence interval to calculate. Should be on the interval from 0 to 1.
+        RSE: The residual standard error of the model. Used to compute confidence intervals
         keepdims: True to always return a 2D numpy array. If False (default),
             returns a 1D array when there is a single parameter run.
 

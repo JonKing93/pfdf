@@ -2,67 +2,11 @@ from math import nan
 
 import numpy as np
 import pytest
-from affine import Affine
 
 from pfdf.errors import DimensionError, DurationsError, RasterShapeError, ShapeError
 from pfdf.models import staley2017 as s17
 from pfdf.raster import Raster
-from pfdf.segments import Segments
 from pfdf.utils import slope
-
-#####
-# Testing Utilities
-#####
-
-
-def assert_contains(error, *strings):
-    message = error.value.args[0]
-    for string in strings:
-        assert string in message
-
-
-@pytest.fixture
-def flow():
-    flow = np.array(
-        [
-            [0, 0, 0, 0, 0, 0, 0],
-            [0, 7, 3, 3, 7, 3, 0],
-            [0, 7, 3, 3, 7, 3, 0],
-            [0, 1, 7, 3, 6, 5, 0],
-            [0, 5, 1, 7, 1, 1, 0],
-            [0, 5, 5, 7, 1, 1, 0],
-            [0, 0, 0, 0, 0, 0, 0],
-        ]
-    )
-    return Raster.from_array(
-        flow, nodata=0, transform=Affine(1, 0, 0, 0, 1, 0), crs=26911
-    )
-
-
-@pytest.fixture
-def mask():
-    return np.array(
-        [
-            [0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 1, 1, 0],
-            [0, 1, 0, 0, 1, 1, 0],
-            [0, 1, 1, 0, 1, 1, 0],
-            [0, 0, 1, 1, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0],
-        ]
-    ).astype(bool)
-
-
-@pytest.fixture
-def segments(flow, mask):
-    return Segments(flow, mask)
-
-
-@pytest.fixture
-def mask2(mask):
-    mask[:, 1:4] = False
-    return mask
 
 
 @pytest.fixture
@@ -139,7 +83,7 @@ class TestValidate:
         assert np.array_equal(F, variables)
         assert np.array_equal(S, variables)
 
-    def test_invalid_vector(_):
+    def test_invalid_vector(_, assert_contains):
         PR = np.ones((4, 4))
         B = np.ones(6)
         Ct = np.ones(6)
@@ -154,7 +98,7 @@ class TestValidate:
             s17._validate(PR, "PR", B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "PR")
 
-    def test_invalid_matrix(_):
+    def test_invalid_matrix(_, assert_contains):
         PR = np.ones(4)
         B = np.ones(6)
         Ct = np.ones(6)
@@ -169,7 +113,7 @@ class TestValidate:
             s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "T")
 
-    def test_different_nruns(_):
+    def test_different_nruns(_, assert_contains):
         PR = np.ones(4)
         B = np.ones(6)
         Ct = np.ones(7)
@@ -183,7 +127,7 @@ class TestValidate:
             s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "B has 6", "Ct has 7")
 
-    def test_different_nsegments(_):
+    def test_different_nsegments(_, assert_contains):
         PR = np.ones(4)
         B = np.ones(6)
         Ct = np.ones(6)
@@ -198,7 +142,7 @@ class TestValidate:
             s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "T has 7", "F has 6")
 
-    def test_bad_ncols(_):
+    def test_bad_ncols(_, assert_contains):
         PR = np.ones(4)
         B = np.ones(6)
         Ct = np.ones(6)
@@ -229,7 +173,7 @@ class TestValidate:
 
 
 class TestAccumulation:
-    def test_invalid_parameters(_):
+    def test_invalid_parameters(_, assert_contains):
         p = 0.5
         B = np.ones(6)
         Ct = np.ones(7)
@@ -243,7 +187,7 @@ class TestAccumulation:
             s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
         assert_contains(error, "B has 6", "Ct has 7")
 
-    def test_invalid_p(_):
+    def test_invalid_p(_, assert_contains):
         p = 2
         B = np.ones(6)
         Ct = np.ones(6)
@@ -372,7 +316,7 @@ class TestAccumulation:
 
 
 class TestLikelihood:
-    def test_invalid_parameters(_):
+    def test_invalid_parameters(_, assert_contains):
         R = 0.5
         B = np.ones(6)
         Ct = np.ones(7)
@@ -386,7 +330,7 @@ class TestLikelihood:
             s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         assert_contains(error, "B has 6", "Ct has 7")
 
-    def test_invalid_R(_):
+    def test_invalid_R(_, assert_contains):
         R = -2
         B = np.ones(6)
         Ct = np.ones(6)
@@ -573,12 +517,12 @@ class TestParameters:
 
 
 class TestModelValidate:
-    def test_invalid_segments(_):
+    def test_invalid_segments(_, assert_contains):
         with pytest.raises(TypeError) as error:
             s17.Model._validate(5, [], [])
         assert_contains(error, "segments", "pfdf.segments.Segments")
 
-    def test_invalid_raster(_, segments, flow):
+    def test_invalid_raster(_, segments, flow, assert_contains):
         a = np.arange(10).reshape(2, 5)
         with pytest.raises(RasterShapeError) as error:
             s17.Model._validate(segments, [flow, a], ["flow", "test raster"])
@@ -606,18 +550,18 @@ class TestValidateOmitnan:
         output = s17.Model._validate_omitnan(input, rasters=["a", "b", "c"])
         assert output == {"a": True, "b": False, "c": False}
 
-    def test_other(_):
+    def test_other(_, assert_contains):
         with pytest.raises(TypeError) as error:
             s17.Model._validate_omitnan("invalid", rasters=["a"])
         assert_contains(error, "omitnan must either be a boolean or a dict")
 
-    def test_extra_key(_):
+    def test_extra_key(_, assert_contains):
         input = {"a": True, "b": False}
         with pytest.raises(ValueError) as error:
             s17.Model._validate_omitnan(input, rasters=["a"])
         assert_contains(error, "unrecognized key")
 
-    def test_invalid_value(_):
+    def test_invalid_value(_, assert_contains):
         input = {"a": "invalid"}
         with pytest.raises(TypeError) as error:
             s17.Model._validate_omitnan(input, rasters=["a"])
@@ -625,7 +569,7 @@ class TestValidateOmitnan:
 
 
 class TestTerrainMask:
-    def test_not_boolean(_, mask2, slopes):
+    def test_not_boolean(_, mask2, slopes, assert_contains):
         mask = mask2.astype(int)
         mask[0, 0] = 2
         mask = Raster(mask, "mask")
@@ -702,7 +646,7 @@ class TestM1:
         S = [1, nan, 3, 5, 5.5, 13 / 4]
         assert np.array_equal(output, S, equal_nan=True)
 
-    def test_invalid(_, flow):
+    def test_invalid(_, flow, assert_contains):
         with pytest.raises(TypeError) as error:
             s17.M1.variables(5, flow, flow, flow, flow)
         assert_contains(error, "segments")
@@ -742,7 +686,7 @@ class TestM1:
 
 
 class TestM2:
-    def test_invalid(_, flow):
+    def test_invalid(_, flow, assert_contains):
         with pytest.raises(TypeError) as error:
             s17.M2.variables(5, flow, flow, flow, flow)
         assert_contains(error, "segments")
@@ -828,7 +772,7 @@ class TestM2:
 
 
 class TestM3:
-    def test_invalid(_, flow):
+    def test_invalid(_, flow, assert_contains):
         with pytest.raises(TypeError) as error:
             s17.M3.variables(5, flow, flow, flow)
         assert_contains(error, "segments")
@@ -889,7 +833,7 @@ class TestM3:
 
 
 class TestM4:
-    def test_invalid(_, flow):
+    def test_invalid(_, flow, assert_contains):
         with pytest.raises(TypeError) as error:
             s17.M4.variables(5, flow, flow, flow, flow)
         assert_contains(error, "segments")

@@ -1,10 +1,10 @@
 """
-cannon2010  Implements a combined hazard (probability + volume) assessment model
+cannon2010  Implements a combined hazard (likelihood + volume) assessment model
 ----------
 This module implements the combined relative hazard classification model presented
 in Cannon et al., 2010 (see citation below). This model determines a relative
-hazard class for a debris flow by considering both the probability and potential
-sediment volume of the debris flow. In brief, the model classifies both probability
+hazard class for a debris flow by considering both the likelihood and potential
+sediment volume of the debris flow. In brief, the model classifies both likelihood
 and volume hazards and assigns a score to each class. These two scores are then 
 added together, and the combined score is used to determine a final hazard 
 classification.
@@ -18,12 +18,12 @@ https://doi.org/10.1130/B26459.1
 ----------
 User Functions:
     hazard  - Determines the combined relative hazard classes for a set of debris flows
-    pscore  - Returns the classification score for debris flow probabilities
+    pscore  - Returns the classification score for debris flow likelihoods
     vscore  - Returns the classification score for debris flow sediment volumes
     hscore  - Returns the combined hazard class given combined hazard scores
 
 Internal validaters:
-    _validate_probabilities - Checks that input probabilities are valid
+    _validate_likelihoods   - Checks that input likelihoods are valid
     _validate_thresholds    - Checks that input class thresholds are valid
     _validate_volumes       - Checks that input sediment volumes are valid
 """
@@ -32,7 +32,7 @@ from typing import Any, Tuple
 
 import numpy as np
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import real
 from pfdf._utils.classify import classify
 from pfdf.typing import RealArray, VectorArray, scalar, vector
@@ -43,7 +43,7 @@ from pfdf.typing import RealArray, VectorArray, scalar, vector
 
 
 def hazard(
-    probabilities: RealArray,
+    likelihoods: RealArray,
     volumes: RealArray,
     *,
     p_thresholds: vector = [0.25, 0.5, 0.75],
@@ -53,15 +53,15 @@ def hazard(
     """
     hazard  Computes the combined relative hazard scores for a set of debris flows
     ----------
-    hazard(probabilities, volumes)
+    hazard(likelihoods, volumes)
     Computes combined relative hazard classes, given a set of debris flow
-    probabilities and potential sediment volumes (meters^3). The shapes of the
-    probability and volume arrays must be broadcastable.
+    likelihoods and potential sediment volumes (meters^3). The shapes of the
+    likelihood and volume arrays must be broadcastable.
 
     hazard(..., *, p_thresholds)
     hazard(..., *, v_thresholds)
     hazard(..., *, h_thresholds)
-    Specify custom thresholds for the (p)robability, (v)olume, and (h)azard
+    Specify custom thresholds for the likelihood (p), (v)olume, and (h)azard
     classification scores. Each set of thresholds must be a set of N positive values
     in an increasing order. Note that N defines the number of breakpoints, so
     the number of classifications will be N+1. Elements of p_thresholds must be
@@ -73,13 +73,13 @@ def hazard(
     units, but any units are permitted.
     ----------
     Inputs:
-        probabilities: An array of debris flow probabilities. Values should be
+        likelihoods: An array of debris flow likelihoods. Values should be
             on the interval from 0 to 1.
         volumes: An array of debris flow volumes. If not specifying v_thresholds,
             then units should be meters^3. Otherwise, units should be the same as
             v_thresholds. The shape of this array must be broadcastable with the
-            probabilities array.
-        p_thresholds: Custom thresholds for the probability scores. Elements must
+            likelihoods array.
+        p_thresholds: Custom thresholds for the likelihood scores. Elements must
             be on the interval 0 to 1, in ascending order.
         v_thresholds: Custom thresholds for the volume scores. Elements must be
             positive values, in ascending order.
@@ -89,7 +89,7 @@ def hazard(
     Outputs:
         numpy array: The combined relative hazard classifications for the debris
             flows. The shape of this array is the shape obtained by broadcasting
-            the probability scores with the volume scores.
+            the likelihood scores with the volume scores.
     """
 
     # Validate thresholds
@@ -98,9 +98,9 @@ def hazard(
     Th = _validate_thresholds(h_thresholds, "h_thresholds", integers=True)
 
     # Validate arrays
-    p = _validate_probabilities(probabilities)
+    p = _validate_likelihoods(likelihoods)
     v = _validate_volumes(volumes)
-    validate.broadcastable(p.shape, "probabilities", v.shape, "volumes")
+    validate.broadcastable(p.shape, "likelihoods", v.shape, "volumes")
 
     # Compute combined hazard score and classify
     pscore = classify(p, Tp)
@@ -109,15 +109,13 @@ def hazard(
     return classify(combined, Th)
 
 
-def pscore(
-    probabilities: RealArray, thresholds: vector = [0.25, 0.5, 0.75]
-) -> RealArray:
+def pscore(likelihoods: RealArray, thresholds: vector = [0.25, 0.5, 0.75]) -> RealArray:
     """
-    pscore  Scores a set of debris flow probabilities
+    Scores a set of debris flow likelihoods
     ----------
-    pscore(probabilities)
-    Returns the classification scores for a set of debris flow probabilities. (Note
-    that probabilities should be on the interval from 0 to 1). Scores are assigned as
+    pscore(likelihoods)
+    Returns the classification scores for a set of debris flow likelihoods. (Note
+    that likelihoods should be on the interval from 0 to 1). Scores are assigned as
     follows:
 
         Probability | Score
@@ -128,8 +126,8 @@ def pscore(
         (0.75, 1]   |   4
         NaN         |   NaN
 
-    pscore(probabilities, thresholds)
-    Specifies the thresholds used to score the probabilities. Each element in
+    pscore(likelihoods, thresholds)
+    Specifies the thresholds used to score the likelihoods. Each element in
     thresholds is the dividing point between two scores. The "thresholds"
     input should be a vector of N increasing values on the interval from 0 to 1,
     such that thresholds = [T1, T2, ..., Tn]. Scores are then assigned as follows:
@@ -147,18 +145,18 @@ def pscore(
     groups will be N+1.
     ----------
     Inputs:
-        probabilities: An array of debris flow probabilities. Values should be on
+        likelihoods: An array of debris flow likelihoods. Values should be on
             the interval from 0 to 1. NaN values are allowed and are given a
             score of NaN.
-        thresholds: The probability thresholds to use for scoring. Must be a vector
+        thresholds: The likelihood thresholds to use for scoring. Must be a vector
             of increasing values on the interval from 0 to 1.
 
     Outputs:
-        numpy array (float): The scores for the debris-flow probabilities
+        numpy array (float): The scores for the debris-flow likelihoods
     """
 
     T = _validate_thresholds(thresholds, "thresholds", range=[0, 1])
-    p = _validate_probabilities(probabilities)
+    p = _validate_likelihoods(likelihoods)
     return classify(p, T)
 
 
@@ -220,7 +218,7 @@ def hscore(combined: RealArray, thresholds: vector = [3, 6]):
      hscore  Computes a combined hazard assessment score
      ----------
      hscore(combined)
-     Classifies debris-flow hazard using the combined probability and volume
+     Classifies debris-flow hazard using the combined likelihood and volume
      classification score (i.e. combined = pscore + vscore). Hazards are then
      classified as follows:
 
@@ -252,7 +250,7 @@ def hscore(combined: RealArray, thresholds: vector = [3, 6]):
     ----------
     Inputs:
         combined: The combined relative hazard scores. This is the sum of the
-            classification scores for probability and volume. NaN values are allowed
+            classification scores for likelihood and volume. NaN values are allowed
             and will receive a hazard class of NaN.
         thresholds: The thresholds to use to determine hazard classes. Should be
             a vector of N positive integers in ascending order.
@@ -273,9 +271,9 @@ def hscore(combined: RealArray, thresholds: vector = [3, 6]):
 #####
 
 
-def _validate_probabilities(p: Any) -> RealArray:
-    "Checks that input debris flow probabilities are valid"
-    name = "probabilities"
+def _validate_likelihoods(p: Any) -> RealArray:
+    "Checks that input debris flow likelihoods are valid"
+    name = "likelihoods"
     p = validate.array(p, name, dtype=real)
     validate.inrange(p, name, min=0, max=1, ignore=np.nan)
     return p

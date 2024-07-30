@@ -27,8 +27,7 @@ packages = [
 [tool.poetry.dependencies]
 # Core dependencies
 python = ">=3.11, <3.13"
-numpy = "*"
-nptyping = "*"
+numpy = "<2"
 pysheds = "0.3.5"
 numba = "*"
 rasterio = "*"
@@ -72,7 +71,6 @@ docs_pipeline = "scripts.pipeline:docs_pipeline"
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    "ignore::DeprecationWarning:nptyping.typing_",
     "ignore::DeprecationWarning:pysheds.sgrid",
     "ignore::DeprecationWarning:pysheds.sview",
     "ignore::DeprecationWarning:numba.core.typing.context",

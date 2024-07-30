@@ -41,12 +41,13 @@ from typing import Any, Optional
 
 import numpy as np
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import clean_dims, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import DurationsError, ShapeError
 from pfdf.raster import Raster, RasterInput
 from pfdf.segments import Segments
+from pfdf.segments._validate import raster as validate_raster
 from pfdf.typing import (
     Accumulations,
     BooleanMatrix,
@@ -149,7 +150,8 @@ def accumulation(
 
     accumulation(..., *, screen = False)
     Disables the screening of negative accumulations. When screening is disabled,
-    negative accumulations are retained in the output.
+    negative accumulations are retained in the output, instead of being replaced
+    by nan.
     ----------
     Inputs:
         p: The probabilities for which to solve the model
@@ -201,9 +203,9 @@ def likelihood(
     keepdims: bool = False,
 ) -> SegmentPvalues:
     """
-    likelihood  Computes debris-flow likelihood for specified rainfall accumulations
+    Computes debris-flow likelihood for specified rainfall accumulations
     ----------
-    probability(R, B, Ct, T, Cf, F, Cs, S)
+    likelihood(R, B, Ct, T, Cf, F, Cs, S)
     Solves the debris-flow likelihoods for the specified rainfall accumulations.
     This function is agnostic to the actual model being run, and thus can
     implement all 4 of the models presented in the paper (as well as any other
@@ -236,7 +238,7 @@ def likelihood(
     is 6 mm/duration. R should be a 1D array listing all the accumulations that should
     be solved for.
 
-    This function solves the debris-flow probabilities for all stream segments,
+    This function solves the debris-flow likelihoods for all stream segments,
     parameter runs, and rainfall accumulations provided. Note that rainfall
     accumulations should be relative to the rainfall durations associated with
     each set of parameters. For example, if using parameters for 15-minute and
@@ -482,7 +484,7 @@ class Model(ABC):
 
         validate.type(segments, "segments", Segments, "pfdf.segments.Segments object")
         for r, raster, name in zip(range(len(rasters)), rasters, names):
-            rasters[r] = segments._validate(raster, name)
+            rasters[r] = validate_raster(segments, raster, name)
         return rasters
 
     @staticmethod
@@ -1006,9 +1008,9 @@ class M3(Model):
         ----------
         M3.terrain(segments, relief)
         M3.terrain(segments, relief, relief_per_m)
-        Computes the M3 terrain variable. By default, the relief values should be
-        in meters. Use the "relief_per_m" input to provide a conversion factor if
-        this is not the case.
+        Computes the M3 terrain variable. By default, the relief values are interpreted
+        as meters. If this is not the case, use the "relief_per_m" input to provide
+        a conversion factor (number of relief units per meter).
         ----------
         Inputs:
             segments: A stream segment network
@@ -1070,13 +1072,14 @@ class M3(Model):
         moderate_high: RasterInput,
         relief: RasterInput,
         soil_thickness: RasterInput,
-        omitnan: omitnan = False,
         relief_per_m: Optional[scalar] = None,
+        omitnan: omitnan = False,
     ) -> S17ModelVariables:
         """
         variables  Computes the T, F, and S variables for the M3 model
         ----------
         M3.variables(segments, moderate_high, relief, soil_thickness)
+        M3.variables(..., relief_per_m)
         Computes the (T)errain, (F)ire, and (S)oil variables from the M3 model
         for each stream segment in a network. T is the topographic ruggedness of
         each segment. This is defined as a segment's vertical relief, divided by
@@ -1084,6 +1087,10 @@ class M3(Model):
         area burned at moderate or high severity. S is mean catchment soil thickness
         divided by 100. Returns these outputs as numpy 1D arrays with one element
         per stream segment.
+
+        By default, the relief dataset is interpreted in units of meters. If this
+        is not the case, use the "relief_per_m" input to specify a conversion
+        factor (number of relief units per meter).
 
         M3.variables(..., omitnan)
         Specifies how to treat NaN and NoData values in the soil_thickness
@@ -1098,10 +1105,6 @@ class M3(Model):
         The value of the key should be a boolean indicating whether to omit NaN
         and NoData values for the soil_thickness raster. Raises a ValueError if
         the dict includes other keys.
-
-        M3.variables(..., relief_per_m)
-        By default, the relief values should be in meters. If this is the not the
-        case, use the "relief_per_m" input to provide a conversion factor.
         ----------
         Inputs:
             segments: A Segments object defining a stream segment network
@@ -1110,10 +1113,9 @@ class M3(Model):
                 high severity. False pixels are not burned at these levels.
             relief: A vertical relief raster for the watershed
             soil_thickness: A soil thickness raster for the watershed
+            relief_per_m: A conversion factor between relief units and meters
             omitnan: A boolean or dict indicating whether to ignore NaN and NoData
                 values in the soil_thickness raster
-            relief_per_m: A conversion factor between relief units and meters if
-                the relief values are not already in meters.
 
         Outputs:
             numpy 1D array: The terrain variable (T) for each stream segment

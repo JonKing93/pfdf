@@ -1,5 +1,5 @@
 """
-watershed  Functions that implement raster watershed analyses
+Functions that implement raster watershed analyses
 ----------
 The watershed module provides functions that implement watershed analyses using
 rasters derived from a digital elevation model (DEM) raster. Note that the 
@@ -13,14 +13,15 @@ slopes, relief, and accumulation. This module also contains the "catchment" and
 "network" functions, but most users will not need these, as they are implemented
 internally by the Segments class.
 
+GEOREFERENCING:
+The "slopes" function requires the input DEM to have both a CRS and affine Transform.
+Most workflows will require flow slopes, so we recommend using a properly
+georeferenced DEM whenever possible.
+
 NODATA VALUES:
 This module relies on the pysheds library, which will assign a default NoData 
 value of 0 to any raster that does not have a NoData value. This can cause
 unexpected results when a DEM has valid 0 values and does not have a NoData value.
-This most commonly occurs when using raw numpy arrays as DEM inputs, as these
-arrays do not have associated NoData values. If you want to use a numpy array as
-an input DEM, and the array contains valid 0 values - consider using the
-Raster.from_array method to tag the array with a placeholder NoData value.
 
 FLOW DIRECTION SCHEME:
 All functions in this module produce/expect D8 flow directions that conform to
@@ -59,13 +60,13 @@ from pysheds.sview import Raster as PyshedsRaster
 from shapely import LineString
 from shapely.ops import substring
 
-import pfdf._validate.core as validate
+import pfdf._validate as validate
 from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import _crs
 from pfdf.raster import Raster, RasterInput
-from pfdf.typing import scalar
+from pfdf.typing import Units, scalar
 
 # Flow direction options - D8 and TauDEM style directions
 _FLOW_OPTIONS = {"routing": "d8", "dirmap": (3, 2, 1, 8, 7, 6, 5, 4)}
@@ -185,19 +186,19 @@ def slopes(
     slopes  Computes D8 flow slopes for a watershed
     ----------
     slopes(dem, flow)
+    slopes(dem, flow, dem_per_m)
     Returns D8 flow slopes for a watershed. Computes these slopes using a DEM
-    raster, and TauDEM-style D8 flow directions. Note that the DEM should be a
-    raw DEM - it does not need to resolve pits and flats. The returned slopes will
-    be unitless gradients. The rise is determined using the DEM, and the run is
-    determined from the CRS and transform. If the CRS base unit is not meters,
-    converts the run to meters before returning slopes. Note that the DEM is
-    raster is required to have both a CRS and transform.
+    raster, and TauDEM-style D8 flow directions. The DEM must have both a CRS and
+    an affine Transform. Note that the DEM may be a raw DEM - it does not need to
+    resolve pits and flats, although you may wish to use a resolved DEM for
+    consistency across your analysis.  The returned slopes will be unitless
+    gradients. The rise is determined using the DEM, and the run is determined
+    from the CRS and transform. If the CRS base unit is not meters, converts the
+    run to meters before computing slope gradients.
 
-    slopes(..., dem_per_m)
-    By default, this routine assumes that the DEM units are in meters. When this
-    is not the case, use the "dem_per_m" option to specify a conversion factor.
-    This will ensure that the returned slopes are unitless gradients. Neglecting
-    this factor will return slopes in (DEM units) / meter instead.
+    By default, this routine assumes that the DEM is in units of meters. If this
+    is not the case, use the "dem_per_m" to specify a conversion factor (number
+    of DEM units per meter).
 
     slopes(..., check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
@@ -209,7 +210,7 @@ def slopes(
     Inputs:
         dem: A digital elevation model raster
         flow: A raster with TauDEM-style D8 flow directions
-        dem_per_m: A conversion factor for when the DEM uses units other than meters.
+        dem_per_m: A conversion factor from DEM units to meters
         check_flow: True (default) to validate the flow directions raster.
             False to disable validation checks.
 
@@ -255,7 +256,7 @@ def relief(
     check_flow: bool = True,
 ) -> Raster:
     """
-    relief  Computes vertical relief to the highest ridge cell
+    Computes vertical relief to the highest ridge cell
     ----------
     relief(dem, flow)
     Computes the vertical relief for each watershed pixel. Here, vertical relief
@@ -312,6 +313,7 @@ def accumulation(
     weights: Optional[RasterInput] = None,
     mask: Optional[RasterInput] = None,
     *,
+    times: Optional[scalar] = None,
     omitnan: bool = False,
     check_flow: bool = True,
 ) -> Raster:
@@ -348,6 +350,11 @@ def accumulation(
     1. Note that the mask raster must have the same shape, transform, and crs as
     the flow raster.
 
+    accumulation(..., *, times)
+    Returns accumulation multiplied by the indicated scalar value. This option is
+    often set to the area of a raster pixel in order to return accumulation in
+    specific units, rather than pixel counts.
+
     accumulation(..., *, check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
     necessary for flow directions directly output by the "watershed.flow" function,
@@ -362,6 +369,7 @@ def accumulation(
             False (default) propagates these values as NaN to all downstream pixels.
         mask: A raster whose True elements indicate pixels that should be included
             in the accumulation.
+        times: A multiplicative constant applied to the computed accumulation.
         check_flow: True (default) to validate the flow directions raster.
             False to disable validation checks.
 
@@ -370,6 +378,8 @@ def accumulation(
     """
 
     # Validate
+    if times is not None:
+        times = validate.scalar(times, "times", dtype=real)
     flow = Raster(flow, "flow directions")
     if weights is not None:
         weights = flow.validate(weights, "weights")
@@ -419,6 +429,10 @@ def accumulation(
     # Compute accumulation
     grid = Grid.from_raster(flow)
     accumulation = grid.accumulation(flow, weights, nodata_out=nan, **_FLOW_OPTIONS)
+
+    # Apply multiplicative factor if provided
+    if times is not None and times != 1:
+        accumulation = accumulation * times
     return Raster.from_array(accumulation, nodata=nan, **metadata, copy=False)
 
 
@@ -478,7 +492,7 @@ def network(
     flow: RasterInput,
     mask: RasterInput,
     max_length: Optional[scalar] = None,
-    base_unit: bool = False,
+    units: Units = "meters",
     check_flow: bool = True,
 ) -> list[LineString]:
     """
@@ -498,14 +512,15 @@ def network(
     pixels below developed areas.
 
     network(..., max_length)
-    network(..., max_length, base_unit=True)
+    network(..., max_length, units)
     Also specifies a maximum length for the segments in the network. Any segment
     longer than this length will be split into multiple pieces. The split pieces
     will all have the same length, which will be <= max_length. By default, the
-    command interprets the units of max_length as meters. Set base_unit=True to
-    provide a maximum length in the base unit of the affine Transform instead.
-    Note that the default meters interpretaion is only available when the flow
-    raster has a CRS. The base_unit option relaxes this requirement.
+    command interprets the units of max_length as meters. Use the "units" option
+    to specify max_length in different units instead. Unit options include:
+    "base" (CRS/Transform base unit), "meters" (default), "kilometers", "feet",
+    and "miles". Note that the meters/kilometers/feet/miles options all require
+    the flow raster to have a CRS. The units="base" option relaxes this requirement.
 
     network(..., check_flow=False)
     Disables validation checking of the flow directions raster. Validation is not
@@ -519,8 +534,9 @@ def network(
         mask: A raster whose True values indicate the pixels that may potentially
             belong to a stream segment.
         max_length: A maximum allowed length for segments in the network.
-        base_unit: True to interpret the maximum length as the base unit of the
-            affine Transform. False (default) to interpret max_length in meters.
+        units: Indicates the units of the max_length input. Options include:
+            "base" (CRS/Transform base unit), "meters" (default), "kilometers",
+            "feet", and "meters.
         check_flow: True (default) to validate the flow directions raster.
             False to disable validation checks.
 
@@ -536,12 +552,17 @@ def network(
     if max_length is not None:
         max_length = validate.scalar(max_length, "max_length", dtype=real)
         validate.positive(max_length, "max_length")
-        meters = not base_unit
-        if meters and flow.crs is None:
-            raise MissingCRSError(
-                "Cannot convert max_length from meters because the flow raster does not "
-                "have a CRS."
-            )
+        units = validate.units(units)
+
+        # Get max_length in base axis units. Require a CRS for unit conversion
+        if units != "base":
+            if flow.crs is None:
+                raise MissingCRSError(
+                    f"Cannot convert max_length from {units} because the flow raster "
+                    "does not have a CRS."
+                )
+            else:
+                max_length = _crs.units_to_base(flow.crs, "y", max_length, units)
 
     # Validate mask and flow values
     mask = flow.validate(mask, "mask")
@@ -561,8 +582,6 @@ def network(
 
     # Optionally enforce a max length
     if max_length is not None:
-        if meters:
-            max_length = _crs.dy_from_meters(flow.crs, max_length)
         segments = _split_segments(segments, max_length)
     return segments
 
