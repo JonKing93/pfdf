@@ -7,27 +7,39 @@ pfdf.watershed module
 
     Functions that implement raster watershed analyses
 
-    =================================================  ===========
-    Function                                           Description
-    =================================================  ===========
-    :ref:`condition <pfdf.watershed.condition>`        Conditions a DEM by filling pits and depressions, and resolving flats
-    :ref:`flow <pfdf.watershed.flow>`                  Computes D8 flow directions from a conditioned DEM
-    :ref:`slopes <pfdf.watershed.slopes>`              Computes D8 flow slopes
-    :ref:`relief <pfdf.watershed.relief>`              Computes vertical relief to the nearest ridge cell
-    :ref:`accumulation <pfdf.watershed.accumulation>`  Computes basic, weighted, or masked flow accumulation
-    :ref:`catchment <pfdf.watershed.catchment>`        Returns the catchment mask for a watershed pixel
-    :ref:`network <pfdf.watershed.network>`            Returns the stream segments as a list of shapely.LineString objects
-    =================================================  ===========
+    .. list-table::
+        :header-rows: 1
 
-    .. note:: 
+        * - Function
+          - Description
+        * - :ref:`condition <pfdf.watershed.condition>`
+          - Conditions a DEM by filling pits and depressions, and resolving flats
+        * - :ref:`flow <pfdf.watershed.flow>`
+          - Computes D8 flow directions from a conditioned DEM
+        * - :ref:`slopes <pfdf.watershed.slopes>`
+          - Computes D8 flow slopes
+        * - :ref:`relief <pfdf.watershed.relief>` 
+          - Computes vertical relief to the nearest ridge cell
+        * - :ref:`accumulation <pfdf.watershed.accumulation>`
+          - Computes basic, weighted, or masked flow accumulation
+        * - :ref:`catchment <pfdf.watershed.catchment>`
+          - Returns the catchment mask for a watershed pixel
+        * - :ref:`network <pfdf.watershed.network>`
+          - Returns the stream segments as a list of shapely.LineString objects
 
-        The functions in this module are for raster-wide analyses. Please see the :ref:`Segments class <pfdf.segments.Segments>` if you instead want to compute values for individual stream segments and basins.
+
+    .. admonition:: Georeferencing
+
+        The :ref:`slopes function <pfdf.watershed.slopes>` requires the input DEM to have both a CRS and affine Transform. Most workflows will require flow slopes, so we recommend using a properly georeferenced DEM whenever possible.
+
 
     .. tip:: 
 
         Most users will not need the :ref:`catchment <pfdf.watershed.catchment>` or :ref:`network <pfdf.watershed.network>` functions, as these are implemented internally by the :ref:`Segments class <pfdf.segments.Segments>`.
 
-    .. warning:: The functions in this module rely on the pysheds library, which assigns a default NoData of 0 to any raster lacking a NoData value. This can cause unexpected results when a raster has valid 0 values and lacks NoData. Consider using a placeholder NoData when this is the case.
+    .. warning:: 
+        
+        The functions in this module rely on the pysheds library, which assigns a default NoData of 0 to any raster lacking a NoData value. This can cause unexpected results when a raster has valid 0 values and lacks NoData. Consider using a placeholder NoData when this is the case.
 
 
     Workflow
@@ -113,7 +125,7 @@ pfdf.watershed module
 
 .. _pfdf.watershed.slopes:
 
-.. py:function:: slopes(dem, flow, check_flow = True)
+.. py:function:: slopes(dem, flow, dem_per_m=1, check_flow = True)
     :module: pfdf.watershed
 
     Computes D8 flow slopes for a watershed
@@ -123,8 +135,11 @@ pfdf.watershed module
         ::
 
             slopes(dem, flow)
+            slopes(dem, flow, dem_per_m)
 
-        Returns D8 flow slopes for a watershed. Computes these slopes using a DEM raster, and TauDEM-style D8 flow directions. 
+        Returns D8 flow slopes for a watershed. Computes these slopes using a DEM raster, and TauDEM-style D8 flow directions. The DEM must have both a CRS and an affine Transform. Note that the DEM may be a raw DEM - it does not need to resolve pits and flats, although you may wish to use a resolved DEM for consistency across your analysis.  The returned slopes will be unitless gradients. The rise is determined using the DEM, and the run is determined from the CRS and transform. If the CRS base unit is not meters, converts the run to meters before computing slope gradients.
+
+        By default, this routine assumes that the DEM is in units of meters. If this is not the case, use the "dem_per_m" to specify a conversion factor (number of DEM units per meter).
         
 
 
@@ -140,6 +155,7 @@ pfdf.watershed module
 
     :Inputs: * **dem** (*Raster-like*) -- A digital elevation model raster
              * **flow** (*Raster-like*) -- A raster with TauDEM-style D8 flow directions
+             * **dem_per_m** (*scalar*) -- A conversion factor from DEM units to meters
              * **check_flow** (*bool*) -- True (default) to validate the flow directions raster. False to disable validation checks.
 
     :Outputs: *Raster* -- The computed D8 flow slopes for the watershed
@@ -182,7 +198,7 @@ pfdf.watershed module
 
 .. _pfdf.watershed.accumulation:
 
-.. py:function:: accumulation(flow, weights = None, mask = None, *, omitnan = False, check_flow = True)
+.. py:function:: accumulation(flow, weights = None, mask = None, *, times = None, omitnan = False, check_flow = True)
     :module: pfdf.watershed
 
     Computes basic, weighted, or masked flow accumulation
@@ -216,6 +232,14 @@ pfdf.watershed module
 
         Computes a masked accumulation. In this syntax, only the True elements of the mask are included in accumulations. All False elements are given a weight of 0. NoData elements in the mask are interpreted as False. The accumulation for each pixel is thus the sum over all catchment pixels included in the mask.  If weights are not specified, then all included pixels are given a weight of 1. Note that the mask raster must have the same shape, transform, and crs as the flow raster.
 
+    .. dropdown:: Multiplicative Factor
+
+        ::
+
+            accumulation(..., *, times)
+
+        Returns accumulation multiplied by the indicated scalar value. This option is often set to the area of a raster pixel in order to return accumulation in specific units, rather than pixel counts.
+
     .. dropdown:: Disable flow validation
 
         ::
@@ -229,6 +253,7 @@ pfdf.watershed module
     :Inputs: * **flow** (*Raster-like*) -- A D8 flow direction raster in the TauDEM style
              * **weights** (*Raster-like*) -- A raster indicating the value of each pixel
              * **mask** (*Raster-like*) -- A raster whose True elements indicate pixels that should be included in the accumulation.
+             * **times** (*scalar*) -- A multiplicative constant applied to the computed accumulation.
              * **omitnan** (*bool*) --  True to ignore NaN and NoData values in the weights raster. False (default) propagates these values as NaN to all downstream pixels.
              * **check_flow** (*bool*) -- True (default) to validate the flow directions raster. False to disable validation checks.
 
@@ -271,7 +296,7 @@ pfdf.watershed module
 
 .. _pfdf.watershed.network:
 
-.. py:function:: network(flow, mask, max_length = None, check_flow = True)
+.. py:function:: network(flow, mask, max_length = None, units = "meters", check_flow = True)
     :module: pfdf.watershed
 
     Returns a list of stream segment LineStrings
@@ -284,16 +309,16 @@ pfdf.watershed module
 
         Calculates a stream segment network and returns the segments as a list of ``shapely.LineString``'' objects. These stream segments approximate the river beds in a drainage basin - they are not the full catchment basin.
 
-        The stream segment network is determined using a :ref:`TauDEM-style <taudem-style>` D8 flow direction raster and a raster mask. The mask is used to indicate the pixels under consideration as stream segments. True pixels may possibly be assigned to a stream segment, False pixels will never be assigned to a stream segment. The mask typically screens out pixels with low flow accumulations, and may include
-        other screenings - for example, to remove pixels in large bodies of water, or pixels below developed areas.
+        The stream segment network is determined using a :ref:`TauDEM-style <taudem-style>` D8 flow direction raster and a raster mask. The mask is used to indicate the pixels under consideration as stream segments. True pixels may possibly be assigned to a stream segment, False pixels will never be assigned to a stream segment. The mask typically screens out pixels with low flow accumulations, and may include other screenings - for example, to remove pixels in large bodies of water, or pixels below developed areas.
 
     .. dropdown:: Maximum length
         
         ::
             
             network(..., max_length)
+            network(..., max_length, units)
 
-        Also specifies a maximum length for the segments in the network. Any segment longer than this length will be split into multiple pieces. The split pieces will all have the same length, which will be <= max_length. The units of max_length should be the base units of the coordinate reference system associated with the flow raster. In practice, this is often units of meters.
+        Also specifies a maximum length for the segments in the network. Any segment longer than this length will be split into multiple pieces. The split pieces will all have the same length, which will be <= max_length. By default, the command interprets the units of max_length as meters. Use the ``units`` option to specify max_length in different units instead. Unit options include: "base" (CRS/Transform base unit), "meters" (default), "kilometers", "feet", and "miles". Note that the meters/kilometers/feet/miles options all require the flow raster to have a CRS. The ``units="base"`` option relaxes this requirement.
 
     .. dropdown:: Disable flow validation
         
@@ -308,6 +333,7 @@ pfdf.watershed module
     :Inputs: * **flow** (*Raster-like*) -- A TauDEM-style D8 flow direction raster
              * **mask** (*Raster-like*) -- A raster whose True values indicate the pixels that may potentially belong to a stream segment.
              * **max_length** (*scalar*) -- A maximum allowed length for segments in the network. Units should be the same as the base units of the flow raster CRS
+             * **units** (*str*) -- Indicates the units of the max_length input. Options include: "base" (CRS/Transform base unit), "meters" (default), "kilometers", "feet", and "meters".
              * **check_flow** (*bool*) -- True (default) to validate the flow directions raster. False to disable validation checks.
 
     :Outputs: *list[shapely.LineString]* -- The stream segments in the network, represented by ``shapely.LineString`` objects. The coordinates of each LineString proceed from upstream to downstream. Coordinates are relative to the flow raster CRS (rather than raster pixel indices).

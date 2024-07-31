@@ -5,7 +5,7 @@ These tutorials provide in-depth examples of common use cases. We recommend read
 
 .. admonition:: Download
 
-  You can download the datasets and scripts used in these tutorials here: :doc:`Download Files <download>`.
+  You can download the datasets and scripts used in these tutorials here: :doc:`Download Datasets <download>`.
 
 ----
 
@@ -17,6 +17,9 @@ These tutorials provide in-depth examples of common use cases. We recommend read
 
 :doc:`Hazard Assessment <assessment>`
     Implement a standard hazard assessment.
+
+:doc:`Spatial Projections <projections>`
+    Inspect and manipulate spatial projection metadata.
 
 :doc:`Parallel Basins <parallel>`
     Locate outlet basins using multiple CPUs.
@@ -33,5 +36,6 @@ These tutorials provide in-depth examples of common use cases. We recommend read
     Rasters <rasters>
     Preprocessing <preprocess>
     Hazard Assessment <assessment>
+    Spatial Projections <projections>
     Parallel Basins <parallel>
     Parameter Sweep <sweep>

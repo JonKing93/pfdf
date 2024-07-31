@@ -5,15 +5,17 @@ This tutorial demonstrates how to locate terminal outlet basins using multiple C
 
 .. admonition:: Download
 
-  You can download the datasets and script used in this tutorial here: :doc:`Download Files <download>`. This tutorial follows the ``parallel`` script.
+    The following list provides download links for the tutorial resources:
 
+    * :doc:`Tutorial Datasets <download>`
+    * :download:`Python Script <scripts/parallel.py>`
 
 
 Python Script
 -------------
 To locate basins using multiple CPUs, the assessment must be run as a Python script from the command line. It cannot be run in an interactive session. For example, the following script implements a simplified hazard assessment with parallelized basins:
 
-.. include:: download/code/parallel.py
+.. include:: scripts/parallel.py
     :code:
     :start-line: 0
 

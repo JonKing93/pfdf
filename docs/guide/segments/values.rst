@@ -35,6 +35,8 @@ The *Segments* class includes methods to calculate commonly used physical variab
       - Whether each segment has pixels in a fire perimeter
     * - :ref:`kf_factor <pfdf.segments.Segments.kf_factor>`
       - Mean catchment KF-factor
+    * - :ref:`length <pfdf.segments.Segments.length>`
+      - The length of each segment along its stream bed
     * - :ref:`scaled_dnbr <pfdf.segments.Segments.scaled_dnbr>`
       - Mean catchment dNBR / 1000
     * - :ref:`scaled_thickness <pfdf.segments.Segments.scaled_thickness>`
@@ -46,9 +48,9 @@ The *Segments* class includes methods to calculate commonly used physical variab
     * - :ref:`relief <pfdf.segments.Segments.relief>`
       - Vertical relief to the highest ridge cell
     * - :ref:`ruggedness <pfdf.segments.Segments.ruggedness>`
-      - Topographic ruggedness = relief / sqrt(area)
+      - Relief / sqrt(area)
     * - :ref:`upslope_ratio <pfdf.segments.Segments.upslope_ratio>`
-      - The proportion fo catchment area that meets a criterion
+      - The proportion of catchment area that meets a criterion
 
 All of these methods return a 1D numpy array with one element per segment. Most require a raster as input, and some require additional inputs::
 
@@ -57,14 +59,8 @@ All of these methods return a 1D numpy array with one element per segment. Most 
     >>> scaled_dnbr = segments.scaled_dnbr(dnbr)
     >>> confinement = segments.confinement(dem, neighborhood)
 
-.. _terminal-option:
-
-You can also configure the summaries to only return values for terminal basins, by setting the ``terminal`` option to True::
-
-    # Only returns values for terminal basins
-    >>> area = segments.area(terminal=True)
-    >>> burn_ratio = segments.burn_ratio(isburned, terminal=True)
-    >>> scaled_dnbr = segments.scaled_dnbr(dnbr, terminal=True)
+Ignoring Pixels
++++++++++++++++
 
 Many methods have an optional ``omitnan`` option. Set this value to True to ignore raster pixels equal to NaN. For example::
 
@@ -79,6 +75,29 @@ In some cases, the omitnan option may not be sufficient. In this case, all catch
     # Will ignore False elements when computing summaries
     >>> scaled_dnbr = segments.scaled_dnbr(dnbr, mask)
     >>> kf_factor = segments.kf_factor(kf, mask)
+
+
+Additional Options
+++++++++++++++++++
+
+The :ref:`area <pfdf.segments.Segments.area>`, :ref:`burned_area <pfdf.segments.Segments.burned_area>`, and :ref:`developed_area <pfdf.segments.Segments.developed_area>` methods all return areas in kilometers^2 by default. Analogously, the :ref:`length method <pfdf.segments.Segments.length>` uses meters by default. You can use the ``units`` option to return values in other units instead::
+
+    # Return values in other units
+    >>> self.area(units="miles")  # Square miles
+    >>> self.area(units="meters") # Meters^2
+    >>> self.length(units="kilometers")
+
+
+.. _terminal-option:
+
+Separately, you can also configure any catchment summary to only return values for terminal basins by setting the ``terminal`` option to True::
+
+    # Only returns values for terminal basins
+    >>> area = segments.area(terminal=True)
+    >>> burn_ratio = segments.burn_ratio(isburned, terminal=True)
+    >>> scaled_dnbr = segments.scaled_dnbr(dnbr, terminal=True)
+
+
 
 
 Generic Summaries
@@ -163,8 +182,6 @@ You can also use various methods to visualize the pixels being used in different
 3. Computing values over the pixels in each terminal outlet basins, and 
 4. Returning the values at the outlet or terminal outlet pixels.
 
-For case 1, recall that stream segment pixels can be returned using the :ref:`indices <segment-indices>` property, and visualized using the :ref:`raster method <stream-raster>` method. For case 2, a stream segment catchment basin consists of all pixels that flow into the segment's outlet pixel, and this can be visualized using the :ref:`basin_mask method <basin-mask>`. For case 3, recall that you can return the IDs of the terminal segments using the :ref:`termini method <outlets>`. You can also visualize terminal outlet basins using the :ref:`basin_mask method <basin-mask>` with terminal IDs. Finally for case 4, note that the :ref:`outlet property <outlets>` and :ref:`outlets method <outlets>` return the indices of stream segment outlet pixels.
-
-
+For case 1, recall that stream segment pixels can be returned using the :ref:`indices <segment-indices>` property, and visualized using the :ref:`raster method <stream-raster>` method. For case 2, a stream segment catchment basin consists of all pixels that flow into the segment's outlet pixel, and this can be visualized using the :ref:`basin_mask method <basin-mask>`. For case 3, recall that you can return the IDs of the terminal segments using the :ref:`terminal_ids property <pfdf.segments.Segments.terminal_ids>`. You can also visualize terminal outlet basins using the :ref:`basin_mask method <basin-mask>` with terminal IDs. Finally for case 4, note that the :ref:`outlets method <outlets>` returns the indices of stream segment outlet pixels.
 
 

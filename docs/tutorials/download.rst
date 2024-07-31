@@ -1,32 +1,16 @@
 Download Tutorial Resources
 ===========================
 
-You can use the following link to download the datasets and scripts for the tutorials: `Download Resources <https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data/tutorial-resources.zip?ref_type=heads&inline=false>`_
+The Python script(s) for each tutorial can be downloaded at the top of each tutorial's page. Use the following link to download the datasets:  `Download Datasets <https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data/tutorial-resources.zip?ref_type=heads&inline=false>`_
+
+.. note::
+
+    You will need to unzip the downloaded archive before running the tutorials.
 
 
 Contents
 --------
-The downloaded archive contains two folders: ``data`` and ``code``. The ``data`` folder holds the GIS datasets used to implement the tutorials. You can find a summary of these dataset files here: :ref:`Tutorial Datasets <tutorial-datasets>`. The ``code`` folder holds the scripts used to implement the tutorials, as follows:
-
-=================  =========
-Tutorial           Script(s)
-=================  =========
-Rasters            ``rasters.py``
-Preprocessing      ``preprocess.py``
-Hazard Assessment  ``assessment.py`` and ``export.py``
-Parallel Basins    ``parallel.py``
-Parameter Sweep    ``sweep.py``
-=================  =========
-
-The ``code`` folder also contains several files used to reproduce tutorial figures:
-
-=======================  ===========
-File                     Description
-=======================  ===========
-``preprocess_plots.py``  Reproduces the figures for the preprocessing tutorial
-``assessment_plots.py``  Reproduces the figures for the hazard assessment tutorial
-``plot.py``              Holds the plotting code
-=======================  ===========
+The downloaded archive contains a variety of GeoTiff and GeoJSON datasets used throughout the tutorials. You can find a summary of most of these datasets here: :ref:`Tutorial Datasets <tutorial-datasets>`. The archive also includes the ``mask.tif`` file, which provides an example of a boolean-like dataset for the Raster tutorial.
 
 
 Running Tutorial Scripts
@@ -34,9 +18,9 @@ Running Tutorial Scripts
 
 .. highlight:: none
 
-All tutorial scripts are intended to be run from the ``data`` folder. For example, using something like::
+All tutorial scripts are intended to be run from downloaded (and unzipped) data folder. For example, if you want to run the preprocessing tutorial, you could place the ``preprocess.py`` script in an adjacent ``code`` folder, and then run the tutorial using something like::
 
-    $ cd path/to/download/data
+    $ cd path/to/data
     $ python ../code/preprocess.py
 
 .. important:: 

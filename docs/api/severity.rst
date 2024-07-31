@@ -7,13 +7,18 @@ pfdf.severity module
 
     Functions that estimate and locate burn severity
 
-    ====================================================   ===========
-    Function                                               Description
-    ====================================================   ===========
-    :ref:`classification <pfdf.severity.classification>`   Returns a dict with the BARC4 classification scheme
-    :ref:`mask <pfdf.severity.mask>`                       Returns a mask of the specified burn severities
-    :ref:`estimate <pfdf.severity.estimate>`               Estimates a BARC4-like burn severity raster
-    ====================================================   ===========
+    .. list-table::
+        :header-rows: 1
+
+        * - Function
+          - Description
+        * - :ref:`classification <pfdf.severity.classification>`
+          - Returns a dict with the BARC4 classification scheme
+        * - :ref:`mask <pfdf.severity.mask>`
+          - Returns a mask of the specified burn severities
+        * - :ref:`estimate <pfdf.severity.estimate>`
+          - Estimates a BARC4-like burn severity raster
+
 
     The severity module is used to generate and work with rasters that record `BARC4-like <https://burnseverity.cr.usgs.gov/baer/faqs>`_ burn severity. The BARC4 classification is as follows:
 

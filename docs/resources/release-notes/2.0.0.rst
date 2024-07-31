@@ -1,0 +1,619 @@
+pfdf 2.0.0 Release Notes
+========================
+
+This release substantially improves support for working with datasets in a mix of coordinate reference systems (CRSs), including both projected and geographic CRS. The release also introduces several new classes for working with spatial metadata, adds confidence intervals to the :doc:`Gartner 2014 volume model </guide/models/g14>`, enhances support for different unit systems, and improves the user experience when filtering segments.
+
+.. important::
+
+    This release breaks backwards compatibility. The :ref:`migration guide <2.0.0-migration>` describes fixes to common problems, and the :ref:`API section <2.0.0-api-changes>` provides a complete list of API changes.
+
+----
+
+.. _2.0.0-summary:
+
+Overview
+--------
+This section provides an overview of the major changes to the library. :ref:`See below <2.0.0-change-list>` for a complete list of changes.
+
+Spatial Projections
++++++++++++++++++++
+Previously, the library was fairly limited when working with datasets in a mix of CRSs. Most raster preprocessing functions required options to use the same CRS and/or affine transform as the raster, necessitating manual conversion between various options. Furthermore, the ``reproject`` command could only determine a new affine transform when the new CRS used the same base units as the original CRS. When this was not the case, users needed to calculate the new transform manually (for example: when converting between a projected and geographic CRS).
+
+This release significantly improves the ability to work with mixed CRSs. The release introduces the ``Transform`` and ``BoundingBox`` classes, which can be used to report and manipulate spatial metadata across any CRS supported by the `pyproj library <https://pyproj4.github.io/pyproj/stable/index.html>`_. Preprocessing commands can now accept options in any CRS, and will reproject the values to the raster CRS automatically. Finally, the ``reproject`` command now automatically determines the new affine Transform regardless of CRS base units.
+
+
+Slope Gradients
++++++++++++++++
+
+Previously, functions that calculate slopes (namely ``watershed.slopes`` and ``Segments.confinement``) computed values in units of (DEM units) / (CRS base units). When the two unit systems were not the same, users were required to manually convert these slopes to unitless slope gradients. This extra step typically occured when working in a geographic CRS. 
+
+This release improves these functions by automatically converting calculated slopes to unitless gradients. This is accomplished by converting CRS base units to the DEM units. By default, the DEM is assumed to be in meters, but the new ``dem_per_m`` options allow users to specify a conversion factor when this is not the case.
+
+
+Unit Options
+++++++++++++
+
+Previously, all functions that returned a length or area (such as pixel area, segment length, catchment basin area, etc) returned values in the base unit of the CRS. Similarly, commands that took a length as input (such as the ``max_length`` option used to initialize a *Segments* object) were interpreted in the base units of the CRS. This meant that units were variable depending on the CRS being used, and values for geographic CRSs typically needed to be converted from degrees to more common units like meters.
+
+This release improves this situation by providing explicit unit options for such commands. Currently supported units include: ``meters``, ``kilometers``, ``feet``, and ``miles``. Users can also set ``units="base"`` to restore the use of CRS base units. Most commands now use meters by default, with the exception of the *Segments* methods ``area``, ``burned_area``, and ``developed_area``, which use kilometers^2 by default.
+
+Flow-Continuous Filtering
++++++++++++++++++++++++++
+
+Previously, flow-continuous filtering was implemented by the ``keep`` and ``remove`` commands, which returned a boolean vector indicating the segments that were actually filtered. However, this meant that it was impossible to run the flow-continuity algorithm without actually filtering the network.
+
+This release improves this workflow by separating the flow-continuity algorithm into the ``continuous`` function. This function returns the boolean vector of filterable segments, but does not actually filter the network. This also simplifies the ``keep`` and ``remove`` commands: these commands now only act on the indicated segments, and do not return output.
+
+Local Drainage Networks
++++++++++++++++++++++++
+
+Previously, *Segments* objects only reported segment connectivity using ``child`` and ``parent`` property arrays. This meant that there was no quick way to determine the segments in a local network. Likewise, it was difficult to determine whether a segment was in a nested network or not. (Nested networks are typically removed to prevent "hanging" outlet points when exporting a network).
+
+This release adds a number of functions to help work with local networks. The ``Segments.isnested`` function indicates the segments that are in nested networks, and users can examine local network connectivity using the ``child``, ``parents``, ``ancestors``, ``descendents``, and ``family`` commands.
+
+Exporting Segments
+++++++++++++++++++
+
+Previously, users could not include string properties when exporting segments. Furthermore, the segments could only be exported in the CRS of the flow-direction raster used to derive the network. Finally, needed to filter property dicts to terminal values when exporting basins and outlets.
+
+This release provides several quality of life improvements to address these issues. Users can now export string properties, select the desired CRS of the exported segments, and do not need to filter property dicts for basins and outlets.
+
+
+Rainfall Intensities
+++++++++++++++++++++
+Different pfdf routines expect rainfall values as either accumulations (total mm) or intensities (mm/hour). You can use the new ``utils.intensity`` module to convert between these different systems. The ``to_accumulation`` command converts an array of rainfall intensities to accumulations, and the ``from_accumulation`` command converts the outputs of the ``s17.accumulation`` command to rainfall intensities.
+
+
+
+G14 Confidence Intervals
+++++++++++++++++++++++++
+
+Formerly, the functions in the ``models.g14`` module only returned the central estimates for potential sediment volumes. This release adds confidence interval calculations to the functions. Both function now return the central estimate, lower bound of the confidence interval, and upper bound of the confidence interval. By default, the functions use a 95% confidence interval calculated using the residual standard error (RSE) reported in the associated paper. However, both functions now include ``CI`` and ``RSE`` options to specify other intervals and RSE values, respectively.
+
+
+
+----
+
+.. _2.0.0-change-list:
+
+Change List
+-----------
+This section provides a complete list of updates for the new release. 
+
+Spatial Projections
++++++++++++++++++++
+
+* The library now uses `pyproj.CRS objects <https://pyproj4.github.io/pyproj/stable/examples.html>`_ to manage CRSs. This replaces the former use of ``rasterio.CRS`` objects.
+* Added the ``projection.Transform`` class, which records and manipulates affine transforms for raster datasets
+* Added the ``projection.BoundingBox`` class, which records and manipulates bounding boxes for raster datasets
+
+Raster Class
+++++++++++++
+
+**CRS**
+
+* ``crs`` now returns a ``pyproj.CRS`` object, rather than ``rasterio.crs``
+* Added the ``crs_units`` property, which returns the base units for the CRS
+* Added the ``crs_units_per_m`` property, which returns the number of CRS base units per meter
+* Added the ``utm_zone`` property, which returns the CRS of the UTM zone containing the raster's center point.
+* CRS inputs now accept any CRS-like input, including: string, EPSG int, dict, ``pyproj.CRS``, and *Raster* object
+
+**Transform**
+
+* The ``transform`` property now returns a ``projection.Transform`` object, rather than ``affine.Affine``
+* Added the ``affine`` property, which returns the transform as an ``affine.Affine`` object
+* Removed the ``pixel_height`` and ``pixel_width`` property. These can now be accessed via the ``resolution`` method.
+* Converted pixel properties ``dx``, ``dy``, ``resolution``, ``pixel_area``, and ``pixel_diagonal`` to methods.
+* Pixel methods now return values in meters by default. Use the ``units`` option to specify other units instead.
+* Pixel methods now return ``None`` if there isn't a Transform, rather than nan.
+* Transform inputs now accept any Transform-like input including: list, dict, tuple, ``affine.Affine``, ``projection.Transform``, and ``Raster``
+
+**BoundingBox**
+
+* The ``bounds`` property now returns a ``projection.BoundingBox`` object, rather than named tuple.
+* Added the ``center``, ``center_x``, and ``center_y`` properties, which return the coordinates of the raster's center
+* Added the ``orientation`` property, which returns the Cartesian quadrant of the raster's orientation.
+* Renamed ``window`` option to ``bounds`` in ``from_file`` and ``from_rasterio``
+* Added a ``bounds`` option to ``from_points`` and ``from_polygons``
+* Added a ``bounds`` option to ``from_array``, which sets the BoundingBox and Transform. Cannot be used with the ``transform`` option.
+* The ``clip`` command now accepts BoundingBox-like inputs, not just a template Raster.
+* All ``bounds`` inputs now accept any BoundingBox-like input, including: list, tuple, dict, ``BoundingBox``, and ``Raster``
+
+**Default Metadata**
+
+* Added the ``ensure_nodata`` method, which sets a NoData value if the raster does not have one.
+* By default, all factories will set a default NoData value if the raster does not already have a NoData. Use the ``ensure_nodata`` option to disable this behavior.
+* Added ``default_nodata`` and ``casting`` options to ``__init__``, ``from_file``, and ``from_rasterio``. These allow a user to specify the default NoData value for when an input file does not have a NoData value.
+
+**Metadata Setters**
+
+* You can now set the NoData value using the ``nodata`` property if NoData is None. The value must be safely castable to the dtype of the raster.
+* The ``transform`` setter now reprojects the input Transform if its CRS differs from the raster CRS
+* The ``tranform`` setter will also set the CRS if the Transform has a CRS and the raster CRS is None
+* The ``transform`` setter will now set the BoundingBox.
+* Added a ``bounds`` setter, which will also set the Transform.
+* Added the ``override`` method to directly replace existing metadata values
+
+**Vector Features**
+
+These changes apply to both the ``from_points`` and ``from_polygons`` commands
+
+* Now uses a 10 meter resolution by default.
+* The ``resolution`` input may now be a scalar, vector, *Transform*, Transform-like input, or *Raster*
+* Added the ``units`` option to specify resolution units when ``resolution`` does not have a CRS
+* Renamed the ``fill`` option to ``nodata`` and added a ``casting`` option
+* Added a ``bounds`` option. When specified, only features that intersect the bounds are converted to a *Raster*
+* Now returns an ``int`` dtype when building from an ``int`` property field.
+
+**Preprocessing Metadata**
+
+* Removed NoData options from ``set_range``, ``buffer``, ``clip``, and ``reproject``
+* ``clip`` now requires the raster to have a Transform
+* ``reproject`` now requires at least one of the source raster and template to have a Transform
+* ``reproject``, ``buffer``, ``clip`` (to exterior bounds), and ``set_range`` (with ``fill=True``) now require the raster to have a NoData value
+
+**Misc**
+
+* Added the ``__repr__`` method, which returns a string summarizing the raster
+* Added the ``copy`` option to ``from_array``, which allows developers to build a Raster from an array without copying.
+* Added the ``exclusive`` option to ``set_range``, which allows you indicate that the bounds are not included in the valid range.
+* In ``buffer``, replaced the ``pixels`` option with ``units``. This allows the user to specify buffers in a variety of units, including pixels.
+
+
+Watershed Module
+++++++++++++++++
+
+**Accumulation**
+
+* Added the ``times`` option to ``accumulation``. This multiplies accumulations by a scalar value. Suggested use is for outputting accumulation in area, rather than pixel counts.
+
+
+**Flow Slopes**
+
+* The ``slopes`` function now requires to DEM to have both a CRS and Transform
+* The ``slopes`` function now auto-converts computed slopes to slope gradients, regardless of the CRS base units. Formerly, slopes were returned in (DEM units) / (CRS base units), which often required conversion when working with geographic CRSs.
+* Added the ``dem_per_m`` option to ``slopes``, which provides a conversion factor for when the DEM dataset units are not meters.
+
+**Maximum Length**
+
+* The ``network`` command now assumes ``max_length`` is in meters by default. (Formerly assumed CRS base units)
+* Added a ``units`` option to ``network``, which allows you to specify the unit of ``max_length``
+
+
+Segments Class
+++++++++++++++
+
+**Misc**
+
+* ``__init__`` now requires the flow raster to have a CRS
+* Renamed the ``length`` property to ``size``
+* Converted the ``lengths`` property to a method named ``length``.
+
+**Units**
+
+* The ``max_length`` in ``__init__`` is now interpreted as meters by default. Use the ``units`` option to use other units.
+* ``area`` now returns areas in kilometers^2 by default. Use the ``units`` option to return values in other units
+* ``burned_area`` now returns areas in kilometers^2 by default. Use the ``units`` option to return values in other units
+* ``developed_area`` now returns areas in kilometers^2 by default. Use the ``units`` option to return values in other units
+* The ``length`` method now returns lengths in meters by default. Use the ``units`` option to return values in other units
+
+**Unit Conversion**
+
+* Renamed the ``factor`` option in the ``confinement`` method to ``dem_per_m``
+* Confinement now calculated using unitless slope gradients, regardless of CRS base units
+* Added the ``relief_per_m`` option to the ``ruggedness`` method, for when relief units are not in meters
+
+**Spatial Metadata**
+
+* The ``transform`` property now returns a ``projection.Transform`` object, rather than ``affine.Affine``
+* Added the ``bounds`` property, which returns the ``projection.BoundingBox`` for the stream raster
+* Removed the ``resolution`` and ``pixel_area`` properties. These are now accessed via the transform.
+* The ``crs`` property now returns a ``pyproj.CRS`` object, rather than ``rasterio.CRS``
+* Added the ``crs_units`` property
+
+**Filtering**
+
+* Added the ``continuous`` method, which implements the flow-continuity algorithm
+* Removed flow-continuity options from ``remove`` and ``keep``
+* Redid the args and arg order for ``remove`` and ``keep``.
+
+    * Merged the ``ids`` and ``indices`` kwargs into the ``selected`` arg
+    * Added the ``type`` option to select between ID and boolean index inputs
+
+**Local Networks**
+
+* Converted the ``child`` property to a method. The method queries a single ID.
+* Converted the ``parents`` property to a method. The method queries a single ID.
+* Added the ``ancestors`` method, which returns the IDs of upstream segments in a local network.
+* Added the ``descendents`` method, which returns the IDs of downstream segments in a local network.
+* Added the ``family`` method, which returns the IDs of all segments in a local network.
+* Added the ``isnested`` method, which indicates which segments are in nested drainage networks.
+
+**Outlets**
+
+* Added the ``terminal_ids`` method, which returns the IDs of terminal segments
+* Merged the ``terminus`` method into the ``termini`` method. This method can now query specific IDs using the ``ids`` option.
+* Merged the ``outlet`` method into the ``outlets`` method. This method can now query specific IDs using the ``ids`` option.
+* Converted the ``isterminus`` property to the ``isterminal`` method. The method can query specific IDs using the ``ids`` option.
+
+**Export**
+
+These changes affect both the ``geojson`` and ``save`` methods
+
+* Added the ``crs`` option to specify the CRS of the output geometries
+* Property dicts for basins and outlets now support one element per segment, in addition to one element per terminal segment.
+* Property dicts can now include string properties
+* Int and boolean properties will now be ``int`` in the exported features, rather than ``float``
+* Changed arg order. Converted ``type`` from kwarg to arg, and ``type`` now precedes ``properties``
+
+
+S17 Model
++++++++++
+
+* Renamed the ``probability`` function to ``likelihood``
+* Added a ``relief_per_m`` option to ``M3.terrain`` and ``M3.variables``. This specifies a conversion factor for when the relief dataset units are not meters.
+* The ``accumulation`` function now replaces negative accumulations with nan by default. Use the new ``screen`` option to disable this behavior.
+
+
+G14 Model
++++++++++
+
+* Both functions now return V, Vmin, and Vmax instead of just V
+
+    * V: Volume estimate
+    * Vmin: Lower bound of the confidence interval
+    * Vmax: Upper bound of the confidence intervals
+
+* Added a ``CI`` option to both functions, which specifies the desired confidence interval
+* Added a ``RSE`` option to both functions, which specifies the residual standard error for the confidence interval calculation
+
+
+Utility Modules
++++++++++++++++
+
+* Added the ``utils.intensity`` module, which converts between rainfall accumulations and intensities
+* Added the ``utils.units`` module, which converts between different distance units
+* Added the ``utils.nodata`` module, which reports default NoData values for various dtypes. Can also build NoData masks for an array .
+
+
+Errors
+++++++
+
+**New**
+
+* ``MissingCRSError``: Raised when a routine cannot run because an object lacks a CRS, 
+* ``MissingTransformError``: Raised when a routine cannot run because a Raster lacks a Transform, 
+* ``MissingNoDataError``: Raised when a routine cannot run because a Raster lacks a NoData value
+* ``NoFeaturesError``: Raised when there are no vector features to convert to a Raster object
+
+**Renamed**
+
+* Renamed ``CrsError`` to ``CRSError``
+* Renamed ``RasterCrsError`` to ``RasterCRSError``
+
+----
+
+
+.. _2.0.0-migration:
+
+Migration Guide
+---------------
+This release breaks backwards compatibility with pfdf versions 1.X. As such, previously written code will likely break when upgraded to version 2.0.0. This section describes fixes for common problems. See also the :ref:`API break list <2.0.0-api-changes>` for a complete list of API breaking changes.
+
+
+Filtering
++++++++++
+
+Change::
+
+    # Filtering via keep
+    >>> keep = segments.keep(indices=keep)
+
+    # Filtering via remove
+    >>> remove = segments.remove(indices=remove)
+
+    # Removing specific IDs
+    >>> remove = segments.remove(ids=remove, continuous=False)
+
+to::
+
+    # Via keep
+    >>> keep = segments.continuous(keep)
+    >>> segments.keep(keep)
+
+    # Via remove
+    >>> remove = segments.continuous(remove, remove=True)
+    >>> segments.remove(remove)
+
+    # Specific IDs
+    >>> segments.remove(remove, type='ids')
+
+
+Debris-flow Likelihood
+++++++++++++++++++++++
+
+Change::
+
+    >>> s17.probability(...)
+
+to::
+
+    >>> s17.likelihood(...)
+
+
+Volume
+++++++
+
+Change::
+
+    >>> V = g14.emergency(...)
+    >>> V = g14.longterm(...)
+
+to::
+
+    >>> V, Vmin, Vmax = g14.emergency(...)
+    >>> V, Vmin, Vmax = g14.longterm(...)
+
+
+Export
+++++++
+
+Change::
+
+    >>> segments.save(path, properties, type="segments")
+    >>> segments.save(path, properties, type="basins")
+    >>> segments.save(path, properties, type="outlets")
+
+to::
+
+    >>> segments.save(path, "segments", properties)
+    >>> segments.save(path, "basins", properties)
+    >>> segments.save(path, "outlets", properties)
+
+
+Number of Segments
+++++++++++++++++++
+
+Change::
+
+    >>> segments.length
+
+to::
+
+    >>> segments.size
+
+
+Windowed Loading
+++++++++++++++++
+
+Change::
+
+    >>> raster.from_file(..., window=bounds)
+    >>> raster.from_rasterio(..., window=bounds)
+
+to::
+
+    >>> raster.from_rasterio(..., bounds=bounds)
+
+
+Pixel Properties
+++++++++++++++++
+
+Change::
+
+    >>> raster.dx
+    >>> raster.dy
+    >>> raster.resolution
+    >>> raster.pixel_area
+    >>> raster.pixel_diagonal
+
+to::
+
+    >>> raster.dx()
+    >>> raster.dy()
+    >>> raster.resolution()
+    >>> raster.pixel_area()
+    >>> raster.pixel_diagonal()
+
+
+Segment lengths
++++++++++++++++
+
+Change::
+
+    >>> segments.lengths  # plural
+
+to::
+
+    >>> segments.length()  # singular
+
+
+affine.Affine Objects
++++++++++++++++++++++
+
+Change::
+
+    >>> raster.transform
+
+to::
+
+    >>> raster.affine
+
+
+Segments Pixels
++++++++++++++++
+
+Change::
+
+    >>> segments.resolution()
+    >>> segments.pixel_area()
+
+to::
+
+    >>> segments.flow.resolution()
+    >>> segments.flow.pixel_area()
+
+
+Confinement angle unit conversion
++++++++++++++++++++++++++++++++++
+
+Change::
+
+    >>> segments.confinement(..., factor=3)
+
+to::
+
+    >>> segments.confinement(..., dem_per_m=3)
+
+
+Pixel Buffers
++++++++++++++
+
+Change::
+
+    >>> raster.buffer(..., pixels=True)
+
+to::
+
+    >>> raster.buffer(..., units="pixels")
+
+
+----
+
+.. _2.0.0-api-changes:
+
+API Breaking Changes
+--------------------
+This section provides a complete list of API-breaking changes. See also the :ref:`migration guide <2.0.0-migration>` for fixes to common problems.
+
+
+Raster Class
+++++++++++++
+
+**CRS**
+
+* ``crs`` now returns a ``pyproj.CRS`` object, rather than ``rasterio.crs``
+
+**Transform**
+
+* The ``transform`` property now returns a ``projection.Transform`` object, rather than ``affine.Affine``
+* Removed the ``pixel_height`` and ``pixel_width`` property. These can now be accessed via the ``resolution`` method.
+* Converted pixel properties ``dx``, ``dy``, ``resolution``, ``pixel_area``, and ``pixel_diagonal`` to methods.
+* Pixel methods now return values in meters by default. Use the ``units`` option to specify other units instead.
+* Pixel methods now return ``None`` if there isn't a Transform, rather than nan.
+
+**BoundingBox**
+
+* The ``bounds`` property now returns a ``projection.BoundingBox`` object, rather than named tuple.
+* Renamed ``window`` option to ``bounds`` in ``from_file`` and ``from_rasterio``
+
+**Default Metadata**
+
+* By default, all factories will set a default NoData value if the raster does not already have a NoData. Use the ``ensure_nodata`` option to disable this behavior.
+
+**Vector Features**
+
+These changes apply to both the ``from_points`` and ``from_polygons`` commands
+
+* Now uses a 10 meter resolution by default.
+* Renamed the ``fill`` option to ``nodata`` and added a ``casting`` option
+
+**Preprocessing Metadata**
+
+* Removed NoData options from ``set_range``, ``buffer``, ``clip``, and ``reproject``
+* ``clip`` now requires the raster to have a Transform
+* ``reproject`` now requires at least one of the source raster and template to have a Transform
+* ``reproject``, ``buffer``, ``clip`` (to exterior bounds), and ``set_range`` (with ``fill=True``) now require the raster to have a NoData value
+
+**Misc**
+
+* Added the ``__repr__`` method, which returns a string summarizing the raster
+* In ``buffer``, replaced the ``pixels`` option with ``units``. This allows the user to specify buffers in a variety of units, including pixels.
+
+
+Watershed Module
+++++++++++++++++
+
+**Flow Slopes**
+
+* The ``slopes`` function now requires to DEM to have both a CRS and Transform
+
+**Maximum Length**
+
+* The ``network`` command now assumes ``max_length`` is in meters by default. (Formerly assumed CRS base units)
+
+
+Segments Class
+++++++++++++++
+
+**Misc**
+
+* ``__init__`` now requires the flow raster to have a CRS
+* Renamed the ``length`` property to ``size``
+* Converted the ``lengths`` property to a method named ``length``.
+
+**Units**
+
+* The ``max_length`` in ``__init__`` is now interpreted as meters by default. Use the ``units`` option to use other units.
+* ``area`` now returns areas in kilometers^2 by default. Use the ``units`` option to return values in other units
+* ``burned_area`` now returns areas in kilometers^2 by default. Use the ``units`` option to return values in other units
+* ``developed_area`` now returns areas in kilometers^2 by default. Use the ``units`` option to return values in other units
+* The ``length`` method now returns lengths in meters by default. Use the ``units`` option to return values in other units
+
+**Unit Conversion**
+
+* Renamed the ``factor`` option in the ``confinement`` method to ``dem_per_m``
+
+**Spatial Metadata**
+
+* The ``transform`` property now returns a ``projection.Transform`` object, rather than ``affine.Affine``
+* Removed the ``resolution`` and ``pixel_area`` properties. These are now accessed via the transform.
+* The ``crs`` property now returns a ``pyproj.CRS`` object, rather than ``rasterio.CRS``
+
+**Filtering**
+
+* Removed flow-continuity options from ``remove`` and ``keep``
+* Redid the args and arg order for ``remove`` and ``keep``.
+
+    * Merged the ``ids`` and ``indices`` kwargs into the ``selected`` arg
+    * Added the ``type`` option to select between ID and boolean index inputs
+
+**Local Networks**
+
+* Converted the ``child`` property to a method. The method queries a single ID.
+* Converted the ``parents`` property to a method. The method queries a single ID.
+
+**Outlets**
+
+* Merged the ``terminus`` method into the ``termini`` method. This method can now query specific IDs using the ``ids`` option.
+* Merged the ``outlet`` method into the ``outlets`` method. This method can now query specific IDs using the ``ids`` option.
+* Converted the ``isterminus`` property to the ``isterminal`` method. The method can query specific IDs using the ``ids`` option.
+
+**Export**
+
+These changes affect both the ``geojson`` and ``save`` methods
+
+* Changed arg order. Converted ``type`` from kwarg to arg, and ``type`` now precedes ``properties``
+
+
+S17 Model
++++++++++
+
+* Renamed the ``probability`` function to ``likelihood``
+
+
+G14 Model
++++++++++
+
+* Both functions now return V, Vmin, and Vmax instead of just V
+
+    * V: Volume estimate
+    * Vmin: Lower bound of the confidence interval
+    * Vmax: Upper bound of the confidence intervals
+
+
+Errors
+++++++
+
+* Renamed ``CrsError`` to ``CRSError``
+* Renamed ``RasterCrsError`` to ``RasterCRSError``

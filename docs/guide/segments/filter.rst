@@ -1,107 +1,121 @@
 Filtering
 =========
-It's often useful to reduce a stream segment network to a subset of its segments. Typically, this is to select model-worthy segments from an initial network. The *Segments* class includes 3 methods to help filter networks: :ref:`remove`, :ref:`keep`, and :ref:`copy`.
+It's often useful to reduce a stream segment network to a subset of its segments. Typically, this is to select model-worthy segments from an initial network. The *Segments* class includes 4 methods to help filter networks: :ref:`remove <pfdf.segments.Segments.remove>`, :ref:`keep <pfdf.segments.Segments.keep>`, :ref:`continuous <pfdf.segments.Segments.continuous>`, and :ref:`copy <pfdf.segments.Segments.copy>`.
 
 
 .. _remove:
 
 remove
 ------
-The :ref:`remove <pfdf.segments.Segments.remove>` method will attempt to remove indicated segments from the network. You can indicate segments using either segment IDs, or a logical array with one element per segment in the network. For example::
-    
-    # Indicate segments using integer IDs
-    >>> segments.remove(ids=[1,4,17,200])
+The :ref:`remove <pfdf.segments.Segments.remove>` method will remove the selected segments from the network. By default, the command expects a boolean vector with one element per segment in the network, but you can also use the ``type`` option to select segments using IDs instead. For example::
 
     # Indicate segments using boolean indexing
     >>> areas = segments.area()
-    >>> too_small = areas < 100
-    >>> segments.remove(indices=too_small)
+    >>> too_small = areas < 0.25
+    >>> segments.remove(too_small)
+    >>> segments.size
+    954
     
-
-.. _flow-continuity:
-
-In its default configuration, the command will prioritize flow continuity over removing segments. Thus, the command may still retain some of the indicated segments in the network. Specifically, an indicated segment will not be removed if it's between two segments being retained. For example, consider the following network:
-
-
-.. figure:: /images/guide/initial-network.svg
-  :alt: A stream segment network shows several segments marked for removal: segments 1 and 2 are at the top of the network, segment 4 is in the middle of the network, and segments 7 and 9 are at the bottom of the network.
-
-  An example stream segment network.
+    # Indicate segments using integer IDs
+    >>> segments.size
+    1000
+    >>> segments.remove([1,4,17,200], type="ids")
+    >>> segments.size
+    996
 
 
-In this example, the red segments (1, 2, 4, 7, 9) have been marked for removal. However, calling::
-
-    >>> segments.remove(ids=[1,2,4,7,9])
-
-would result in the following network:
-
-.. figure:: /images/guide/remove-flow.svg
-  :alt: The segments at the top of the network (1 and 2) were removed, as were the segments at the bottom (7 and 9). However, segment 4 (in the middle of the network) was not removed.
-
-  Removal that preserves flow continuity
-
-
-::
-
-  >>> segments.ids
-  array([3, 4, 5, 6, 8])
-
-where the grey (dotted) segments have been removed, and the blue (solid) segments were retained. Note that segment 4 was not removed, even though it was included in the call to ``remove``. This segment was retained because it is bracketed by segments 3 and 6, which were retained. Removing segment 4 would thus break flow continuity, and so the segment was not removed.
-
-Since :ref:`remove <pfdf.segments.Segments.remove>` does not necessarily remove all indicated segments, the method returns a 1D boolean array indicating the segments that were actually removed. The array will have one element per segment in the unfiltered network, and True elements indicate removal. For example, we could use::
-
-    # The segments before filtering
-    >>> initial_ids = segments.ids
-    >>> initial_ids
-    array([1, 2, 3, 4, 5, 6, 7, 8, 9])
-
-    # Filter and examine removed/remaining segments
-    >>> removed = segments.remove(ids=[1,2,4,7,9])
-    >>> initial_ids[removed]
-    array([1, 2, 7, 9])
-    >>> initial_ids[~removed]
-    array([3, 4, 5, 6, 8])
-
-to see which segments were retained and removed.
-
-If you don't want to preserve flow-continuity, you can disable this behavior by setting the ``continuous`` option to False. For example::
-
-    # Filter without preserving flow-continuity
-    >>> removed = segments.remove(ids=[1,2,4,7,9], continuous=False)
-
-would instead result in the following network:
-
-.. figure:: /images/guide/remove-noflow.svg
-  :alt: All of the marked segments were removed, including segment 4 in the middle of the network.
-
-  Removal that ignores flow continuity
-
-
-:: 
-
-  >>> ids[removed]
-  array([1, 2, 4, 7, 9])
-  >>> ids[~removed]
-  array([3, 5, 6, 8])
-
-in which all indicated segments, including segment 4, have been removed.
 
 
 .. _keep:
 
 keep
 ----
-The :ref:`keep <pfdf.segments.Segments.keep>` method is essentially the inverse of :ref:`remove`. This method will keep the indicated segments, and will attempt to discard all others. As with ``remove``, the command will prioritize flow continuity, so returns a 1D boolean array indicated the actions of the operation. However, True elements in this array indicated segments that were retained, rather than removed. You can also disable the preservation of flow-continuity setting ``continuous`` to False. Returning to the previous example::
+The :ref:`keep <pfdf.segments.Segments.keep>` method is essentially the inverse of :ref:`remove`. This method will keep the indicated segments, and will discard all others. For example::
 
-    # Would not remove segment 4
-    >>> kept = segments.keep(ids=[3, 5, 6, 8])
-    >>> ids[kept]
-    array([3, 4, 5, 6, 8])
+    # Indicate segments using boolean indexing
+    >>> areas = segments.area()
+    [20, 250, 400, 19]
+    >>> large_enough = areas > 100
+    >>> segments.keep(large_enough)
+    >>> segments.size
+    2
 
-    # Would break continuity and remove segment 4
-    >>> kept = segments.keep(ids=[3, 5, 6, 8], continuous=False)
-    >>> ids[kept]
-    array([3, 5, 6, 8])
+    # Indicate segments using integer IDs
+    >>> segments.size
+    1000
+    >>> segments.keep([1,4,17,200], type="ids")
+    >>> segments.size
+    4
+
+
+
+.. _flow-continuity:
+
+Flow Continuity
+---------------
+
+It's often useful to filter a network in a way that preserves flow continuity. When preserving flow continuity, segments are not removed from the network when they are between two segments being retained. This ensures that the connectivity of segments in the network is not disrupted.
+
+For example, consider the following network:
+
+.. figure:: /images/guide/initial-network.svg
+  :alt: A stream segment network shows several segments marked for removal: segments 1 and 2 are at the top of the network, segment 4 is in the middle of the network, and segments 7 and 9 are at the bottom of the network.
+
+  An example stream segment network.
+
+In this example, the red segments (1, 2, 4, 7, 9) have been marked for removal. However, since segment 3 flows into segment 6 via segment 4, removing segment 4 would result in a flow discontinuity. As such, it may be preferable to retain segment 4 in the network, and only discard segments 1, 2, 7, and 9. The filtered network would resemble the following:
+
+.. figure:: /images/guide/remove-flow.svg
+  :alt: The segments at the top of the network (1 and 2) were removed, as were the segments at the bottom (7 and 9). However, segment 4 (in the middle of the network) was not removed.
+
+  Removal that preserves flow continuity
+
+You can implement flow continuous filtering using the :ref:`continuous <pfdf.segments.Segments.continuous>` method. Given a set of segments selected for filtering, the command returns the indices of segments that can be filtered without altering flow continuity. By default, the command assumes you are filtering using the :ref:`keep command <keep>`, but you can set ``remove=True`` to indicate filtering using the :ref:`remove command <remove>` instead. As with the filtering commands, you can indicate selected segments using a boolean vector (default), or using segment IDs (with the ``type="ids" option)``. For example::
+
+    # Filtering with "keep" and segment IDs
+    >>> segments.size
+    9
+    >>> keep = segments.continuous([3, 5, 6, 8], type="ids")
+    >>> segments.ids[keep]
+    [3, 4, 5, 6, 8]
+
+    # Filtering with "remove" and segment indices
+    >>> segments.size
+    9
+    >>> remove = np.isin(segments.ids, [1,2,4,7,9])
+    >>> remove = segments.continuous(remove, remove=True)
+    >>> segments.ids[remove]
+    [1,2,7,9]
+
+You can then call the :ref:`keep <keep>` or :ref:`remove <remove>` on the output indices to implement flow-continuous filtering::
+
+    # Filtering with "keep"
+    >>> keep = segments.continuous(keep)
+    >>> segments.keep(keep)
+
+    # Filtering with "remove"
+    >>> remove = segments.continuous(remove, remove=True)
+    >>> segments.remove(remove)
+
+
+
+
+.. _nested:
+
+Nested Basins
+-------------
+
+It is sometimes desirable to remove nested drainages from the stream segment network. A nested drainage network is a local drainage network upstream of another local drainage network, and is indicative of a flow discontinuity. Nested networks are often removed to provide cleaner :doc:`export <export>` of basin outlet points, as a nested network will result in a "hanging" outlet point in the middle of a larger drainage basin. You can locate nested segments using the :ref:`isnested command <pfdf.segments.Segments.isnested>`::
+
+    >>> nested = segments.isnested()
+
+And remove them using the usual :ref:`remove command <remove>`::
+
+    >>> segments.remove(indices=nested)
+
+.. tip::
+
+    It is most common to remove nested drainages *after* exporting segments, but *before* basins and outlets. This is to preserve the nested segments in the overall hazard assessment, but to remove the possibility of "hanging" outlet points.
 
 
 .. _copy:
@@ -121,9 +135,9 @@ The :ref:`keep` and :ref:`remove` methods permanently alter a *Segments* object,
   >>> acopy.remove(indices=test2)
 
 
-
 Filtering Effects
 -----------------
 
 When segments are removed, they are permanently deleted from the *Segments* object. Any new statistical summaries or physical variables will only be calculated for the remaining segments. Similarly, object properties won't contain values for the deleted segments, and the outputs of the :doc:`raster <rasters>` method will only include the remaining segments. Note that a stream segment's ID is not affected by segment removal. Although an ID may be removed from the network, the individual IDs are constant, so are not renumbered when the network becomes smaller.
 
+Finally, note that removing a terminal segment will delete any previously saved basins raster. As such, we recommend only calling the :ref:`locate_basins method <pfdf.segments.Segments.locate_basins>` *after* filtering.

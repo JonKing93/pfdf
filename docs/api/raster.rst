@@ -1,5 +1,5 @@
-pfdf.raster module
-==================
+pfdf.raster subpackage
+======================
 
 .. _pfdf.raster:
 
@@ -15,95 +15,179 @@ pfdf.raster module
 
     .. dropdown:: Properties
 
-        ==============  ===========
-        Property        Description
-        ==============  ===========
-        ..
-        **Data**
-        ---------------------------
-        name            An optional name to identify the raster
-        values          The data values associated with a raster
-        dtype           The dtype of the raster array
-        nodata          The NoData value associated with the raster
-        nodata_mask     The NoData mask for the raster
-        data_mask       The valid data mask for the raster
-        ..
-        **Shape**
-        ---------------------------
-        shape           The shape of the raster array
-        size            The size (number of elements) in the raster array
-        height          The number of rows in the raster array
-        width           The number of columns in the raster array
-        ..
-        **Spatial**
-        ---------------------------
-        crs             The coordinate reference system associated with the raster
-        transform       The Affine transformation used to map raster pixels to spatial coordinates
-        dx              The change in x-axis spatial position when incrementing one column
-        dy              The change in y-axis spatial position when incrementing one row
-        bounds          A BoundingBox with the spatial coordinates of the raster's edges
-        left            The spatial coordinate of the raster's left edge
-        right           The spatial coordinate of the raster's right edge
-        top             The spatial coordinate of the raster's upper edge
-        bottom          The spatial coordinate of the raster's lower edge
-        ..
-        **Pixels**
-        ---------------------------
-        pixel_width     The spacing of raster pixels along the X axis in the units of the transform
-        pixel_height    The spacing of raster pixels along the Y axis in the units of the transform
-        resolution      The spacing of raster pixels along the X and Y axes in the units of the transform
-        pixel_area      The area of a raster pixel in the units of the transform squared
-        pixel_diagonal  The length of the diagonal of a raster pixel in the units of the transform
-        ==============  ===========
+        .. list-table::
+            :header-rows: 1
+
+            * - Property
+              - Description
+            * - 
+              - 
+            * - **Data Values**
+              - 
+            * - name            
+              - An optional name to identify the raster
+            * - values          
+              - The data values associated with a raster
+            * - dtype           
+              - The dtype of the raster
+            * - nodata
+              - The NoData value associated with the raster
+            * - nodata_mask
+              - The NoData mask for the raster
+            * - data_mask       
+              - The valid data mask for the raster
+            * - 
+              - 
+            * - **Shape**
+              - 
+            * - shape           
+              - The shape of the raster array
+            * - size            
+              - The size (number of elements) in the raster array
+            * - height          
+              - The number of rows in the raster array
+            * - width           
+              - The number of columns in the raster array
+            * - 
+              - 
+            * - **CRS**
+              - 
+            * - crs
+              - The coordinate reference system associated with the raster
+            * - crs_units
+              - The units of the CRS X and Y axes
+            * - crs_units_per_m
+              - The number of CRS units per meter along the X and Y axes
+            * - utm_zone 
+              - The UTM zone CRS that contains the raster's center point
+            * - 
+              - 
+            * - **Transform**
+              - 
+            * - transform
+              - A *Transform* object for the raster
+            * - affine
+              - The ``affine.Affine`` object for the raster's transform
+            * - 
+              - 
+            * - **Bounding Box**
+              - 
+            * - bounds        
+              - A *BoundingBox* object for the raster
+            * - left          
+              - The spatial coordinate of the raster's left edge
+            * - bottom        
+              - The spatial coordinate of the raster's bottom edge
+            * - right         
+              - The spatial coordinate of the raster's right edge
+            * - top           
+              - The spatial coordinate of the raster's top edge
+            * - center        
+              - The (X, Y) coordinate of the raster's center
+            * - center_x      
+              - The X coordinate of the center
+            * - center_y      
+              - The Y coordinate of the center
+            * - orientation   
+              - The Cartesian quadrant of the bounding box
 
 
     .. dropdown:: Methods
 
-        =======================================================  ===========
-        Method                                                   Description
-        =======================================================  ===========
-        ..
-        **Object Creation**
-        --------------------------------------------------------------------
-        :ref:`__init__ <pfdf.raster.Raster.__init__>`            Returns a raster object for a supported raster input
-        :ref:`from_file <pfdf.raster.Raster.from_file>`          Creates a Raster from a file-based dataset
-        :ref:`from_array <pfdf.raster.Raster.from_array>`        Creates a Raster object from a numpy array
-        :ref:`from_rasterio <pfdf.raster.Raster.from_rasterio>`  Creates a Raster from a rasterio.DatasetReader object
-        :ref:`from_pysheds <pfdf.raster.Raster.from_pysheds>`    Creates a Raster from a pysheds.sview.Raster object
-        ..
-        **From Features**
-        --------------------------------------------------------------------
-        :ref:`from_points <pfdf.raster.Raster.from_points>`      Creates a Raster from point / multi-point features
-        :ref:`from_polygons <pfdf.raster.Raster.from_polygons>`  Creates a Raster from polygon / multi-polygon features
-        ..
-        **Comparisons**
-        --------------------------------------------------------------------
-        :ref:`__eq__ <pfdf.raster.Raster.__eq__>`                True if the second object is a Raster with the same values, nodata, transform, and crs
-        :ref:`validate <pfdf.raster.Raster.validate>`            Checks that a second raster has a compatible shape, transform, and crs
-        ..
-        **IO**
-        --------------------------------------------------------------------
-        :ref:`save <pfdf.raster.Raster.save>`                    Saves a raster dataset to file
-        :ref:`copy <pfdf.raster.Raster.copy>`                    Creates a copy of the current Raster
-        :ref:`as_pysheds <pfdf.raster.Raster.as_pysheds>`        Returns a Raster as a pysheds.sview.Raster object
-        ..
-        **Preprocessing**
-        --------------------------------------------------------------------
-        :ref:`fill <pfdf.raster.Raster.fill>`                    Fills a raster's NoData pixels with the indicated data value
-        :ref:`find <pfdf.raster.Raster.find>`                    Returns a boolean raster indicating pixels that match specified values
-        :ref:`set_range <pfdf.raster.Raster.set_range>`          Forces a raster's data pixels to fall within the indicated range
-        :ref:`buffer <pfdf.raster.Raster.buffer>`                Buffers the edges of a raster by specified distances
-        :ref:`reproject <pfdf.raster.Raster.reproject>`          Reprojects a raster to match a specified CRS, resolution, and grid alignment
-        :ref:`clip <pfdf.raster.Raster.clip>`                    Clips a raster to the specified bounds
-        =======================================================  ===========
+        .. list-table::
+            :header-rows: 1
+
+            * - Method
+              - Description
+            * - 
+              - 
+            * - **Object Creation**
+              -
+            * - :ref:`__init__ <pfdf.raster.Raster.__init__>`
+              - Returns a raster object for a supported raster input
+            * - :ref:`from_file <pfdf.raster.Raster.from_file>`    
+              - Creates a Raster from a file-based dataset
+            * - :ref:`from_rasterio <pfdf.raster.Raster.from_rasterio>`
+              - Creates a Raster from a rasterio.DatasetReader object
+            * - :ref:`from_array <pfdf.raster.Raster.from_array>`  
+              - Creates a Raster object from a numpy array
+            * - :ref:`from_pysheds <pfdf.raster.Raster.from_pysheds>`
+              - Creates a Raster from a pysheds.sview.Raster object
+            * - 
+              - 
+            * - **From Vector Features**
+              -
+            * - :ref:`from_points <pfdf.raster.Raster.from_points>`
+              - Creates a Raster from point / multi-point features
+            * - :ref:`from_polygons <pfdf.raster.Raster.from_polygons>`
+              - Creates a Raster from polygon / multi-polygon features
+            * - 
+              - 
+            * - **IO**
+              -
+            * - :ref:`__repr__ <pfdf.raster.Raster.__repr__>`
+              - Returns a string summarizing the Raster
+            * - :ref:`save <pfdf.raster.Raster.save>`
+              - Saves a raster dataset to file
+            * - :ref:`copy <pfdf.raster.Raster.copy>`
+              - Creates a copy of the current Raster
+            * - :ref:`as_pysheds <pfdf.raster.Raster.as_pysheds>`
+              - Returns a Raster as a pysheds.sview.Raster object
+            * - 
+              - 
+            * - **Preprocessing**
+              -
+            * - :ref:`fill <pfdf.raster.Raster.fill>`
+              - Fills a raster's NoData pixels with the indicated data value
+            * - :ref:`find <pfdf.raster.Raster.find>`
+              - Returns a boolean raster indicating pixels that match specified values
+            * - :ref:`set_range <pfdf.raster.Raster.set_range>`
+              - Forces a raster's data pixels to fall within the indicated range
+            * - :ref:`buffer <pfdf.raster.Raster.buffer>`
+              - Buffers the edges of a raster by specified distances
+            * - :ref:`reproject <pfdf.raster.Raster.reproject>`
+              - Reprojects a raster to match a specified CRS, resolution, and grid alignment
+            * - :ref:`clip <pfdf.raster.Raster.clip>`
+              - Clips a raster to the specified bounds
+            * - 
+              - 
+            * - **Pixel Geometries**
+              -
+            * - :ref:`dx <pfdf.raster.Raster.dx>`      
+              - Change in X-axis coordinate when moving one pixel right
+            * - :ref:`dy <pfdf.raster.Raster.dy>`        
+              - Change in Y-axis coordinate when moving one pixel down
+            * - :ref:`resolution <pfdf.raster.Raster.resolution>` 
+              - Returns the resolution of the raster pixels
+            * - :ref:`pixel_area <pfdf.raster.Raster.pixel_area>`
+              - Returns the area of one pixel
+            * - :ref:`pixel_diagonal <pfdf.raster.Raster.pixel_diagonal>`
+              - Returns the length of a pixel diagonal
+            * - 
+              - 
+            * - **Comparisons**
+              -
+            * - :ref:`__eq__ <pfdf.raster.Raster.__eq__>`     
+              - True if the second object is a Raster with the same values, nodata, transform, and crs
+            * - :ref:`validate <pfdf.raster.Raster.validate>`
+              - Checks that a second raster has a compatible shape, transform, and crs
+            * - 
+              - 
+            * - **Metadata Setters**
+              -
+            * - :ref:`ensure_nodata <pfdf.raster.Raster.ensure_nodata>`
+              - Sets a NoData value if the Raster does not already have one
+            * - :ref:`override <pfdf.raster.Raster.override>`    
+              - Overrides metadata fields with new values
+
 
 ----
 
 Properties
 ----------
 
-Data
-++++
+Data Values
++++++++++++
 
 .. py:property:: Raster.name
     
@@ -123,9 +207,13 @@ Data
 
     The NoData value for the raster
 
+.. _pfdf.raster.Raster.nodata_mask:
+
 .. py:property:: Raster.nodata_mask
 
     The NoData mask for the raster. True elements are NoData pixels. All other pixels are False.
+
+.. _pfdf.raster.Raster.data_mask:
 
 .. py:property:: Raster.data_mask
 
@@ -155,78 +243,80 @@ Shape
     The number of columns in the data array
 
 
-Spatial
-+++++++
-
+CRS
++++
 
 .. py:property:: Raster.crs
-    
-    The coordinate reference system associated with the raster.
+  
+    The coordinate reference system associated with the raster
 
+.. py:property:: Raster.crs_units
+  
+    The units of the CRS X and Y axes
+
+.. py:property:: Raster.crs_units_per_m
+  
+    The number of CRS units per meter along the X and Y axes
+
+.. py:property:: Raster.utm_zone
+  
+    The UTM zone CRS that contains the raster's center point
+
+
+Transform
++++++++++
 
 .. py:property:: Raster.transform
-    
-    The Affine transformation used to map raster pixels to spatial coordinates.
+  
+    A :ref:`Transform <pfdf.projection.transform.Transform>` object for the raster
+
+.. py:property:: Raster.affine
+  
+    An `affine.Affine <https://pypi.org/project/affine/>`_ object for the raster's transform
 
 
-.. py:property:: Raster.dx
-    
-    The change in x-axis spatial position when incrementing one column, or NaN is there is no transform.
-
-
-.. py:property:: Raster.dy
-    
-    The change in y-axis spatial position when incrementing one row, or NaN is there is no transform.
-
+Bounding Box
+++++++++++++
 
 .. py:property:: Raster.bounds
-    
-    A ``rasterio.coords.BoundingBox`` with the spatial coordinates of the raster's edges. All coordinates will be NaN if there is no transform.
-
+  
+    A :ref:`BoundingBox <pfdf.projection.bbox.BoundingBox>` object for the raster
 
 .. py:property:: Raster.left
-    
-    The spatial coordinate of the raster's left edge, or NaN is there is no transform.
-
-
-.. py:property:: Raster.right
-    
-    The spatial coordinate of the raster's right edge, or NaN is there is no transform.
-
-
-.. py:property:: Raster.top
-    
-    The spatial coordinate of the raster's upper edge, or NaN is there is no transform.
-
+  
+    The spatial coordinate of the raster's left edge
 
 .. py:property:: Raster.bottom
-    
-    The spatial coordinate of the raster's lower edge, or NaN is there is no transform.
+  
+    The spatial coordinate of the raster's bottom edge
+
+.. py:property:: Raster.right
+  
+    The spatial coordinate of the raster's right edge
+
+.. py:property:: Raster.top
+  
+    The spatial coordinate of the raster's top edge
+
+.. py:property:: Raster.center
+  
+    The (X, Y) coordinate of the raster's center
+
+.. py:property:: Raster.center_x
+  
+    The X coordinate of the center
+
+.. py:property:: Raster.center_y
+  
+    The Y coordinate of the center
+
+.. py:property:: Raster.orientation
+  
+    The Cartesian quadrant of the bounding box
 
 
-Pixels
-++++++
 
-.. py:property:: Raster.pixel_width
-    
-    The (strictly positive) spacing of raster pixels along the X axis in the units of the transform. NaN if there is no transform.
-
-.. py:property:: Raster.pixel_height
-    
-    The (strictly positive) spacing of raster pixels along the Y axis in the units of the transform. NaN if there is no transform.
-
-.. py:property:: Raster.resolution
-    
-    The (strictly positive) spacing of raster pixels along the X and Y axes in the units of the transform. Both values are NaN if there is no transform.
-
-.. py:property:: Raster.pixel_area
-    
-    The area of a raster pixel in the units of the transform squared. NaN if there is no transform.
-
-.. py:property:: Raster.pixel_diagonal
-    
-    The length of the diagonal of a raster pixel in the units of the transform. NaN if there is no transform.
-
+----
 
 .. _api-raster-creation:
 
@@ -235,9 +325,9 @@ Object Creation
 
 .. _pfdf.raster.Raster.__init__:
 
-.. py:method:: Raster.__init__(self, raster = None, name = None, isbool = False)
-    
-    Creates a new *Raster* object
+.. py:method:: Raster.__init__(self, raster = None, name = None, isbool = False, ensure_nodata = True, default_nodata = None, casting = "safe")
+
+    Creates a new Raster object
 
     .. dropdown:: Create Raster
 
@@ -245,23 +335,23 @@ Object Creation
 
             Raster(raster)
 
-        Returns the input raster as a *Raster* object. Supports a variety of raster datasets including: the path to a file-based raster, numpy arrays, other ``pfdf.raster.Raster`` objects, and ``pysheds.sview.Raster`` objects. The input raster should refer to a 2D array with a boolean, integer, or floating dtype - raises Exceptions when this is not the case.
+        Returns the input raster as a *Raster* object. Supports a variety of raster datasets including: the path to a file-based raster, numpy arrays, other pfdf.raster.Raster objects, and pysheds.sview.Raster objects. The input raster should refer to a 2D array with a boolean, integer, or floating dtype - raises Exceptions when this is not the case.
 
-        .. note:: 
+        .. note::
 
-            This constructor will attempt to determine the type of input and initialize a raster using default option for that input type. However, the various factory methods provide additional options for creating *Raster* objects from specific formats. For example, :ref:`from_array <pfdf.raster.Raster.from_array>` includes options to add metadata values to an array, and :ref:`from_file <pfdf.raster.Raster.from_file>` allows you to specify the band and file format driver.
+            Note that this constructor will attempt to determine the type of input, and initialize a raster using default option for that input type. Alternatively, you can use the various factory methods to create various types of rasters with additional options. For example, the :ref:`from_array <pfdf.raster.Raster.from_array>` method allows you to create a raster from a numpy array while also including spatial metadata and NoData values. Separately, the :ref:`from_file <pfdf.raster.Raster.from_file>` method allows you to specify the band and file-format driver to use when reading a raster from file.
 
     .. dropdown:: Named Raster
 
-        :: 
+        ::
 
             Raster(raster, name)
 
-        Optionally specifies a name for the raster. This can be returned using the ``name`` property. Defaults to "raster" if unspecified.
+        Optionally specifies a name for the raster. This can be returned using the ``name`` property, and is used to identify the raster in error messages. Defaults to "raster" if unspecified.
 
     .. dropdown:: Boolean Raster
 
-        :: 
+        ::
 
             Raster(..., isbool=True)
 
@@ -273,92 +363,35 @@ Object Creation
 
             Raster()
 
-        Returns an empty raster object. The attributes of the raster are all set to None. This syntax is mostly intended for developers.
+        Returns an empty raster object. The attributes of the raster are all set to None. This syntax is typically not useful for users, and is instead intended for developers.
 
-    :Inputs: * **raster** (*Raster-like*) -- A supported raster dataset
-                * **name** (*str*) -- An optional name for the input raster. Defaults to 'raster'
-                * **isbool** (*bool*) -- True indicates that the raster represents a boolean array. False (default) leaves the raster as its original dtype.
-
-    :Outputs: *Raster* -- The *Raster* object for the dataset
-
-
-.. _pfdf.raster.Raster.from_array:
-
-.. py:method:: Raster.from_array(array, name = None, *, nodata = None, transform = None, crs = None, spatial = None, casting = "safe", isbool = False)
-    :staticmethod:
-
-    Creates a *Raster* from a numpy array, optionally including metadata
-
-    .. dropdown:: Create Raster
+    .. dropdown:: Default NoData
 
         ::
 
-            Raster.from_array(array, name)
+            Raster(..., *, default_nodata)
+            Raster(..., *, default_nodata, casting)
+            Raster(..., *, ensure_nodata=False)
 
-        Initializes a *Raster* object from a raw numpy array. The NoData value, transform, and crs for the returned object will all be None. The raster name can be returned using the ".name" property and is used to identify the raster in error messages. Defaults to 'raster' if unset. Note that the new *Raster* object holds a copy of the input array, so changes to the input array will not affect the *Raster*, and vice-versa.
+        Specifies additional options for NoData values. By default, if the raster file does not have a NoData value, then this routine will set a default NoData value based on the dtype of the raster. Set ``ensure_nodata=False`` to disable this behavior. Alternatively, you can use the ``default_nodata`` option to specify a different default NoData value. The default nodata value should be safely castable to the raster dtype, or use the ``casting`` option to specify other casting rules.
 
-    .. dropdown:: NoData
+    :Inputs:
+        * **raster** (*Raster-like*) -- A supported raster dataset
+        * **name** (*str*) -- A name for the input raster. Defaults to 'raster'
+        * **isbool** (*bool*) -- True indicates that the raster represents a boolean array. False (default) leaves the raster as its original dtype.
+        * **ensure_nodata** (*bool*) -- True (default) to assign a default NoData value based on the raster dtype if the file does not record a NoData value. False to leave missing NoData as None.
+        * **default_nodata** (*scalar*) -- The default NoData value to use if the raster file is missing one. Overrides any default determined from the raster's dtype.
+        * **casting** (*str*) -- The casting rule to use when converting the default NoData value to the raster's dtype.
 
-        ::
-
-            Raster.from_array(..., *, nodata)
-            Raster.from_array(..., *, nodata, casting)
-
-        Specifies a NoData value for the raster. The NoData value will be casted to the same dtype as the array. Raises a TypeError if the NoData value cannot be casted to this dtype. By default, requires safe casting. Use the casting option to change this behavior. Casting options are as follows:
-        
-        * 'no': The data type should not be cast at all
-        * 'equiv': Only byte-order changes are allowed
-        * 'safe': Only casts which can preserve values are allowed
-        * 'same_kind': Only safe casts or casts within a kind (like float64 to float32)
-        * 'unsafe': Any data conversions may be done
-
-    .. dropdown:: Spatial Template
-
-        ::
-
-            Raster.from_array(..., *, spatial)
-
-        Specifies a *Raster* object to use as a default spatial metadata template. By default, transform and crs properties from the template will be copied to the new raster. However, see below for a syntax to override this behavior.
-
-    .. dropdown:: Spatial Keywords
-
-        ::
-
-            Raster.from_array(..., *, transform)
-            Raster.from_array(..., *, crs)
-
-        Specifies the crs and/or transform that should be associated with the raster. If used in conjunction with the "spatial" option, then any keyword options will take precedence over the metadata in the spatial template.
-
-        The transform specifies the affine transformation used to map pixel indices to spatial points, and should be an ``affine.Affine`` object. Common ways to obtain such an object are using the ``transform`` property from rasterio and *Raster* objects, via the ``affine`` property of pysheds rasters, or via the Affine class itself.
-
-        The crs is the coordinate reference system used to locate spatial points. This input should a ``rasterio.crs.CRS object``, or convertible to such an object. CRS objects can be obtained using the ``crs`` property from rasterio or *Raster* objects, and see also the `rasterio documentation <https://rasterio.readthedocs.io/en/stable/api/rasterio.crs.html#rasterio.crs.CRS>`_ for building these objects from formats such as well-known text (WKT) and PROJ4 strings.
-
-    .. dropdown:: Boolean Raster
-
-        ::
-
-            Raster.from_array(..., *, isbool=True)
-
-        Indicates that the raster represents a boolean array, regardless of the dtype of the file data values. The newly created raster will have a bool dtype and values, and its NoData value will be set to False. When using this option, all data pixels in the original file must be equal to 0 or 1. NoData pixels in the file will be converted to False, regardless of their value.
-
-    :Inputs: * **array** (*ndarray*) -- A 2D numpy array whose data values represent a raster
-             * **name** (*str*) -- A name for the raster. Defaults to 'raster'
-             * **nodata** (*scalar*) -- A NoData value for the raster
-             * **casting** (*"no" | "equiv" | "safe" | "same_kind" | "unsafe"*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the *Raster*. 
-             * **spatial** (*Raster*) -- A *Raster* object to use as a default spatial metadata template for the new *Raster*.
-             * **transform** (*affine.Affine*) -- An affine transformation for the raster
-             * **crs** (*rasterio.crs.CRS*) -- A coordinate reference system for the raster
-             * **isbool** (*bool*) -- True to convert the raster to a boolean array, with nodata=False. False (default) to leave the raster as the original dtype.
-
-    :Outputs: *Raster* -- A raster object for the array-based raster dataset
+    :Outputs:
+        *Raster* -- The *Raster* object for the dataset
 
 
 .. _pfdf.raster.Raster.from_file:
 
-.. py:method:: Raster.from_file(path, name = None, *, driver = None, band = 1, isbool = False, window = None)
-    :staticmethod:
+.. py:method:: Raster.from_file(path, name = None, *, driver = None, band = 1, isbool = False, bounds = None, ensure_nodata = True, default_nodata = None, casting = "safe")
 
-    Builds a *Raster* object from a file-based dataset
+    Builds a Raster object from a file-based dataset
 
     .. dropdown:: Load from file
 
@@ -367,15 +400,27 @@ Object Creation
             Raster.from_file(path)
             Raster.from_file(path, name)
 
-        Builds a *Raster* from the indicated file. Raises a FileNotFoundError if the file cannot be located. Loads file data when building the object. By default, loads all data from band 1, but see below for additional options. The name input can be used to provide an optional name for the raster,defaults to "raster" if unset.
+        Builds a *Raster* from the indicated file. Raises a FileNotFoundError if the file cannot be located. Loads file data when building the object By default, loads all data from band 1, but see below for additional options. The name input can be used to provide an optional name for the raster, defaults to "raster" if unset. By default, if the file does not have a NoData value, then selects a default value based on the dtype. See below for other NoData options.
 
         Also, by default the method will attempt to use the file extension to detect the file format driver used to read data from the file. Raises an Exception if the driver cannot be determined, but see below for options to explicitly set the driver. You can also use::
 
             >>> pfdf.utils.driver.extensions('raster')
 
-        to return a summary of supported file format drivers, and their associated
-        extensions.
+        to return a summary of supported file format drivers, and their associated extensions.
+    
+    .. dropdown:: Windowed Reading
 
+        ::
+
+            Raster.from_file(..., *, bounds)
+
+        Only loads data from a bounded subset of the saved dataset. This option is useful when you only need a small portion of a very large raster, and limits the amount of data loaded into memory. You should also use this option whenever a saved raster is larger than your computer's RAM.
+
+        The "bounds" input indicates a rectangular portion of the saved dataset that should be loaded. If the window extends beyond the bounds of the dataset, then the dataset will be windowed to the relevant bound, but no further. The window may be a BoundingBox, Raster, or a list/tuple/dict convertible to a BoundingBox object.
+
+        .. note::
+          
+            When filling a window, this command will first read the entirety of one or more data chunks from the file. As such, the total memory usage will temporarily exceed the memory needed to hold just the window. If a raster doesn't use chunks (rare, but possible), then the entire raster will be read into memory before filling the window. In practice, it's important to chunk the data you use for applications.
 
     .. dropdown:: Specify Band
 
@@ -383,34 +428,25 @@ Object Creation
 
             Raster.from_file(..., *, band)
 
-        Specify the raster band to read. Raises an error if the band does not exist.
+        Specify the raster band to read. Raster bands use 1-indexing (and not the 0-indexing common to Python). Raises an error if the band does not exist.
 
-        .. note:: Raster bands use 1-indexing, rather than the 0-indexing common to Python.
-
-
-    .. dropdown:: Windowed Reading
+    .. dropdown:: Boolean Raster
 
         ::
 
-            Raster.from_file(..., *, window)
+            Raster.from_file(..., *, isbool=True)
 
-        Only loads data from a windowed subset of the saved dataset. This option is useful when you only need a small portion of a very large raster, and limits the amount of data loaded into memory. You should also use this option whenever a saved raster is larger than your computer's RAM.
+        Indicates that the raster represents a boolean array, regardless of the dtype of the file data values. The newly created raster will have a bool dtype and values, and its NoData value will be set to False. When using this option, all data pixels in the original file must be equal to 0 or 1. NoData pixels in the file will be converted to False, regardless of their value.
 
-        The ``window`` input indicates a rectangular portion of the saved dataset that should be loaded. If the window extends beyond the bounds of the dataset, then the dataset will be windowed to the relevant bound, but no further. The window may either be a *Raster* object, or a vector with 4 elements. If a raster, then this method will load the portion of the dataset that contains the bounds of the window raster.
+    .. dropdown:: Default NoData
 
-        If the window is a vector, then the elements should indicate, in order: 
-        
-        1. The index of the left-most column, 
-        2. The index of the upper-most row, 
-        3. Width (the number of columns), and 
-        4. Height (the number of rows) 
-        
-        All four elements must be positive integers. Width and height cannot be zero. 
+        ::
 
-        .. attention::
+            Raster.from_file(..., *, default_nodata)
+            Raster.from_file(..., *, default_nodata, casting)
+            Raster.from_file(..., *, ensure_nodata=False)
 
-            When filling a window, this command will first read the entirety of one or more data chunks from the file. As such, the total memory usage will temporarily exceed the memory needed to hold just the window. If a raster doesn't use chunks (rare, but possible), then the entire raster will be read into memory before filling the window. In practice, it's important to chunk the data you use for applications.
-
+        Specifies additional options for NoData values. By default, if the raster file does not have a NoData value, then this routine will set a default NoData value based on the dtype of the raster. Set ``ensure_nodata=False`` to disable this behavior. Alternatively, you can use the "default_nodata" option to specify a different default NoData value. The default nodata value should be safely castable to the raster dtype, or use the "casting" option to specify other casting rules.
 
     .. dropdown:: Specify File Format
 
@@ -426,28 +462,24 @@ Object Creation
 
         More generally, the pfdf package relies on rasterio (which in turn uses GDAL/OGR) to read raster files, and so additional drivers may work if their associated build requirements are met. A complete list of driver build requirements is available here: `Raster Drivers <https://gdal.org/drivers/raster/index.html>`_
 
+    :Inputs:
+        * **path** (*Path-like*) -- A path to a file-based raster dataset
+        * **name** (*str*) -- An optional name for the raster
+        * **band** (*int*) -- The raster band to read. Uses 1-indexing and defaults to 1
+        * **driver** (*str*) -- A file format to use to read the raster, regardless of extension
+        * **isbool** (*bool*) -- True to convert the raster to a boolean array, with nodata=False. False (default) to leave the raster as the original dtype.
+        * **bounds** (*Raster | BoundingBox | tuple | dict*) -- A *Raster* or *BoundingBox* indicating a subset of the saved raster that should be loaded.
+        * **ensure_nodata** (*bool*) -- True (default) to assign a default NoData value based on the raster dtype if the file does not record a NoData value. False to leave missing NoData as None.
+        * **default_nodata** (*scalar*) -- The default NoData value to use if the raster file is missing one. Overrides any default determined from the raster's dtype.
+        * **casting** (*str*) -- The casting rule to use when converting the default NoData value to the raster's dtype.
 
-    .. dropdown:: Boolean Raster
+    :Outputs:
+        Raster: A Raster object for the file-based dataset
 
-        ::
 
-            Raster.from_file(..., *, isbool=True)
-
-        Indicates that the raster represents a boolean array, regardless of the dtype of the file data values. The newly created raster will have a bool dtype and values, and its NoData value will be set to False. When using this option, all data pixels in the original file must be equal to 0 or 1. NoData pixels in the file will be converted to False, regardless of their value.
-    
-    :Inputs: * **path** (*Path | str*) -- A path to a file-based raster dataset
-            * **name** (*str*) -- An optional name for the raster
-            * **band** (*int*) -- The raster band to read. Uses 1-indexing and defaults to 1
-            * **driver** (*str*) -- A file format to use to read the raster, regardless of extension
-            * **isbool** (*bool*) -- True to convert the raster to a boolean array, with nodata=False. False (default) to leave the raster as the original dtype.
-
-    :Outputs: *Raster* -- A *Raster* object for the file-based dataset
-
-    
 .. _pfdf.raster.Raster.from_rasterio:
 
-.. py:method:: Raster.from_rasterio(reader, name = None, *, band = 1, isbool = False, window = None)
-    :staticmethod:
+.. py:method:: Raster.from_rasterio(reader, name = None, *, band = 1, isbool = False, bounds = None, ensure_nodata = True, default_nodata = None, casting = "safe")
 
     Builds a raster from a rasterio.DatasetReader
 
@@ -457,13 +489,22 @@ Object Creation
 
             Raster.from_rasterio(reader)
             Raster.from_rasterio(reader, name)
-            
-        Creates a new *Raster* object from a rasterio.DatasetReader object. Raises a
-        FileNotFoundError if the associated file no longer exists. Uses the file
-        format driver associated with the object to read the raster from file.
-        By default, loads the data from band 1. The name input specifies an optional
-        name for the new Raster object. Defaults to "raster" if unset.
 
+        Creates a new Raster object from a rasterio.DatasetReader object. Raises a FileNotFoundError if the associated file no longer exists. Uses the file format driver associated with the object to read the raster from file. By default, loads the data from band 1. The name input specifies an optional name for the new Raster object. Defaults to "raster" if unset.
+
+    .. dropdown:: Windowed Reading
+
+        ::
+        
+            Raster.from_rasterio(..., *, bounds)
+
+        Only loads data from a bounded subset of the saved dataset. This option is useful when you only need a small portion of a very large raster, and limits the amount of data loaded into memory. You should also use this option whenever a saved raster is larger than your computer's RAM.
+
+        The ``bounds`` input indicates a rectangular portion of the saved dataset that should be loaded. If the window extends beyond the bounds of the dataset, then the dataset will be windowed to the relevant bound, but no further. The window may be a BoundingBox, Raster, or a list/tuple/dict convertible to a BoundingBox object.
+
+        .. note::
+
+            When filling a window, this command will first read the entirety of one or more data chunks from the file. As such, the total memory usage will temporarily exceed the memory needed to hold just the window. If a raster doesn't use chunks (rare, but possible), then the entire raster will be read into memory before filling the window. In practice, it's important to chunk the data you use for applications.
 
     .. dropdown:: Specify Band
 
@@ -471,35 +512,7 @@ Object Creation
 
             Raster.from_rasterio(..., band)
 
-        Specifies the file band to read when loading the raster from file. Raises an
-        error if the band does not exist.
-
-        .. note:: Raster bands use 1-indexing, rather than the 0-indexing common to Python.
-
-
-    .. dropdown:: Windowed Reading
-
-        ::
-
-            Raster.from_rasterio(..., *, window)
-
-        Only loads data from a windowed subset of the saved dataset. This option is useful when you only need a small portion of a very large raster, and limits the amount of data loaded into memory. You should also use this option whenever a saved raster is larger than your computer's RAM.
-
-        The ``window`` input indicates a rectangular portion of the saved dataset that should be loaded. If the window extends beyond the bounds of the dataset, then the dataset will be windowed to the relevant bound, but no further. The window may either be a *Raster* object, or a vector with 4 elements. If a raster, then this method will load the portion of the dataset that contains the bounds of the window raster.
-
-        If the window is a vector, then the elements should indicate, in order: 
-        
-        1. The index of the left-most column, 
-        2. The index of the upper-most row, 
-        3. Width (the number of columns), and 
-        4. Height (the number of rows) 
-        
-        All four elements must be positive integers. Width and height cannot be zero. 
-
-        .. attention::
-
-            When filling a window, this command will first read the entirety of one or more data chunks from the file. As such, the total memory usage will temporarily exceed the memory needed to hold just the window. If a raster doesn't use chunks (rare, but possible), then the entire raster will be read into memory before filling the window. In practice, it's important to chunk the data you use for applications.
-
+        Specifies the file band to read when loading the raster from file. Raster bands use 1-indexing (and not the 0-indexing common to Python). Raises an error if the band does not exist.
 
     .. dropdown:: Boolean Raster
 
@@ -509,65 +522,170 @@ Object Creation
 
         Indicates that the raster represents a boolean array, regardless of the dtype of the file data values. The newly created raster will have a bool dtype and values, and its NoData value will be set to False. When using this option, all data pixels in the original file must be equal to 0 or 1. NoData pixels in the file will be converted to False, regardless of their value.
 
-    :Inputs: * **reader** (*rasterio.DatasetReader*) -- A rasterio.DatasetReader associated with a raster dataset
-             * **name** (*str*) -- An optional name for the raster. Defaults to "raster"
-             * **band** (*int*) -- The raster band to read. Uses 1-indexing and defaults to 1
-             * **isbool** (*bool*) -- True to convert the raster to a boolean array, with nodata=False. False (default) to leave the raster as the original dtype.
+    .. dropdown:: Default NoData
 
-    :Outputs: *Raster* -- The new *Raster* object
+        ::
+        
+            Raster.from_rasterio(..., *, default_nodata)
+            Raster.from_rasterio(..., *, default_nodata, casting)
+            Raster.from_rasterio(..., *, ensure_nodata=False)
+
+        Specifies additional options for NoData values. By default, if the raster file does not have a NoData value, then this routine will set a default NoData value based on the dtype of the raster. Set ``ensure_nodata=False`` to disable this behavior. Alternatively, you can use the "default_nodata" option to specify a different default NoData value. The default nodata value should be safely castable to the raster dtype, or use the "casting" option to specify other casting rules.
+
+    :Inputs:
+        * **reader** (*rasterio.DatasetReader*) -- A rasterio.DatasetReader associated with a raster dataset
+        * **name** (*str*) -- An optional name for the raster. Defaults to "raster"
+        * **band** (*int*) -- The raster band to read. Uses 1-indexing and defaults to 1
+        * **isbool** (*bool*) -- True to convert the raster to a boolean array, with nodata=False. False (default) to leave the raster as the original dtype.
+        * **bounds** (*Raster | BoundingBox | tuple | dict*) -- A *Raster* or *BoundingBox* indicating a subset of the saved raster that should be loaded.
+        * **ensure_nodata** (*bool*) -- True (default) to assign a default NoData value based on the raster dtype if the file does not record a NoData value. False to leave missing NoData as None.
+        * **default_nodata** (*scalar*) -- The default NoData value to use if the raster file is missing one. Overrides any default determined from the raster's dtype.
+        * **casting** (*str*) -- The casting rule to use when converting the default NoData value to the raster's dtype.
+
+    :Outputs:
+        *Raster* -- The new Raster object
 
 
 .. _pfdf.raster.Raster.from_pysheds:
 
 .. py:method:: Raster.from_pysheds(sraster, name = None, isbool = False)
-    :staticmethod:
 
-    Creates a *Raster* from a ``pysheds.sview.Raster`` object
+    Creates a Raster from a ``pysheds.sview.Raster`` object
 
     .. dropdown:: Create Raster
 
         ::
-
+        
             Raster.from_pysheds(sraster)
             Raster.from_pysheds(sraster, name)
 
-        Creates a new *Raster* object from a ``pysheds.sview.Raster`` object. Inherits the nodata values, CRS, and transform of the pysheds raster. Creates a copy of the input raster's data array, so changes to the pysheds raster will not affect the new *Raster* object, and vice versa. The name input specifies an optional name for the new *Raster*. Defaults to "raster" if unset.
+        Creates a new Raster object from a ``pysheds.sview.Raster`` object. Inherits the nodata values, CRS, and transform of the pysheds Raster. Creates a copy of the input raster's data array, so changes to the pysheds raster will not affect the new Raster object, and vice versa. The name input specifies an optional name for the new Raster. Defaults to "raster" if unset.
 
     .. dropdown:: Boolean Raster
 
         ::
-
+        
             Raster.from_pysheds(..., *, isbool=True)
 
         Indicates that the raster represents a boolean array, regardless of the dtype of the file data values. The newly created raster will have a bool dtype and values, and its NoData value will be set to False. When using this option, all data pixels in the original file must be equal to 0 or 1. NoData pixels in the file will be converted to False, regardless of their value.
 
-    :Inputs: * **sraster** (*pysheds.sview.Raster*) -- The ``pysheds.sview.Raster`` object used to create the new *Raster*
-             * **name** (*str*) -- An optional name for the raster. Defaults to "raster"
-             * **isbool** (*bool*) -- True to convert the raster to a boolean array, with nodata=False. False (default) to leave the raster as the original dtype.
+    :Inputs:
+        * **sraster** (*pysheds.sview.Raster*) -- The ``pysheds.sview.Raster`` object used to create the new Raster
+        * **name** (*str*) -- An optional name for the raster. Defaults to "raster"
+        * **isbool** (*bool*) -- True to convert the raster to a boolean array, with nodata=False. False (default) to leave the raster as the original dtype.
 
-    :Outputs: *Raster* -- The new *Raster* object
+    :Outputs:
+        *Raster* -- The new Raster object
 
+
+.. _pfdf.raster.Raster.from_array:
+
+.. py:method:: Raster.from_array(array, name = None, *, nodata = None, crs = None, transform = None, bounds = None, spatial = None, casting = "safe", isbool = False, ensure_nodata = True, copy = True)
+
+    Add raster metadata to a raw numpy array
+
+    .. dropdown:: Create Raster
+
+        ::
+        
+            Raster.from_array(array, name)
+
+        Initializes a Raster object from a raw numpy array. Infers a NoData value from the dtype of the array. The Transform and CRS will both be None. The raster name can be returned using the ``name`` property and is used to identify the raster in error messages. Defaults to 'raster' if unset. Note that the new Raster object holds a copy of the input array, so changes to the input array will not affect the Raster, and vice-versa.
+
+    .. dropdown:: NoData
+
+        ::
+        
+            Raster.from_array(..., *, nodata)
+            Raster.from_array(..., *, nodata, casting)
+
+        Specifies a NoData value for the raster. The NoData value will be set to the same dtype as the array. Raises a TypeError if the NoData value cannot be safely casted to this dtype. Use the casting option to change this behavior. Casting options are as follows:
+
+        * 'no': The data type should not be cast at all
+        * 'equiv': Only byte-order changes are allowed
+        * 'safe': Only casts which can preserve values are allowed
+        * 'same_kind': Only safe casts or casts within a kind (like float64 to float32)
+        * 'unsafe': Any data conversions may be done
+
+    .. dropdown:: Spatial Template
+
+        ::
+        
+            Raster.from_array(..., *, spatial)
+
+        Specifies a Raster object to use as a default spatial metadata template. By default, transform and crs properties from the template will be copied to the new raster. However, see below for a syntax to override this behavior.
+
+    .. dropdown:: Spatial Keywords
+
+        ::
+        
+            Raster.from_array(..., *, crs)
+            Raster.from_array(..., *, transform)
+            Raster.from_array(..., *, bounds)
+
+        Specifies the crs, transform, and/or bounding box that should be associated with the raster. If used in conjunction with the "spatial" option, then any keyword options will take precedence over the metadata in the spatial template. You may only provide one of the transform/bounds inputs - raises an error if both are provided. If the CRS of a Transform or BoundingBox differs from the spatial/keyword CRS, then the Transform or BoundingBox is reprojected to match the other CRS.
+
+    .. dropdown:: Boolean Raster
+
+        ::
+        
+            Raster.from_array(..., *, isbool=True)
+
+        Indicates that the raster represents a boolean array, regardless of the dtype of the array. The newly created raster will have a bool dtype and values, and its NoData value will be set to False. When using this option, all data pixels in the original array must be equal to 0 or 1. NoData pixels in the array will be converted to False, regardless of their value.
+
+    .. dropdown:: Default NoData
+
+        ::
+        
+            Raster.from_array(..., *, ensure_nodata=False)
+
+        Disables the use of default NoData values. The returned raster's nodata value will be None unless the "nodata" option is specified.
+
+    .. dropdown:: Disable Copying
+
+        ::
+        
+            Raster.from_array(..., *, copy=False)
+
+        Does not copy the input array when possible. This syntax can save memory when initializing a raster from a very large in-memory array. However, changes to the base array will propagate into the Raster's data value matrix. As such, this syntax is not recommended for most users.
+
+    :Inputs:
+        * **array** (*np.ndarray*) -- A 2D numpy array whose data values represent a raster
+        * **name** (str**) -- A name for the raster. Defaults to 'raster'
+        * **nodata** (*scalar*) -- A NoData value for the raster
+        * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the Raster. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
+        * **spatial** (*Raster*) -- A Raster object to use as a default spatial metadata template for the new Raster.
+        * **crs** (*CRS-like*) -- A coordinate reference system for the raster transform: An affine transformation for the raster. Mutually exclusive with the "bounds" input
+        * **bounds** (*BoundingBox-like*) -- A BoundingBox for the raster. Mutually exclusive with the "transform" input
+        * **isbool** (*bool*) -- True to convert the raster to a boolean array, with nodata=False. False (default) to leave the raster as the original dtype.
+        * **ensure_nodata** (*bool*) -- True (default) to infer a default NoData value from the raster's dtype when a NoData value is not provided. False to disable this behavior.
+        * **copy** (*bool*) -- True (default) to build the Raster's data matrix from a copy of the input array. False to build the data matrix from the input array directly.
+
+    :Outputs:
+        *Raster* -- A *Raster* object for the array-based raster dataset
+
+
+
+----
 
 From Vector Features
 --------------------
 
 .. _pfdf.raster.Raster.from_points:
 
-.. py:method:: Raster.from_points(path, *, field = None, fill = None, resolution = 1, layer = None, driver = None, encoding = None)
-    :staticmethod:
+.. py:method:: Raster.from_points(path, field = None, *, bounds = None, nodata = None, casting = "safe", resolution = 10, units = "meters", layer = None, driver = None, encoding = None)
 
-    Creates a *Raster* from a set of point/multi-point features
+    Creates a Raster from a set of point/multi-point features
 
-    .. dropdown:: Boolean Raster
+    .. dropdown:: From Point Features
 
         ::
 
             Raster.from_points(path)
-            Raster.from_points(path, *, layer)
 
-        Returns a boolean raster derived from the input point features. Pixels containing a point are set to True. All other pixels are set to False. The CRS of the output raster is inherited from the input feature file. The default resolution of the output raster is 1 (in the units of the CRS), although see below for options for other resolutions. The bounds of the raster will be the minimal bounds required to contain all input points at the indicated resolution.
+        Returns a raster derived from the input point features. The contents of the input file should resolve to a FeatureCollection of Point and/or MultiPoint geometries (and see below if the file contains multiple layers). The CRS of the output raster is inherited from the input feature file. The default resolution of the output raster is 10 meters, although see below to specify other resolutions. The bounds of the raster will be the minimal bounds required to contain all input points at the indicated resolution.
 
-        The contents of the input file should resolve to a FeatureCollection of Point and/or MultiPoint geometries. If the file contains multiple layers, you can use the "layer" option to indicate the layer that holds the polygon geometries. This may either be an integer index, or the name of the layer in the input file.
+        If you do not specify an attribute field, then the returned raster will have a boolean dtype. Pixels containing a point are set to True. All other pixels are set to False. See below to build the raster from an data property field instead.
 
         By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, see below for syntax to specify the driver and encoding, regardless of extension. You can also use::
 
@@ -575,71 +693,97 @@ From Vector Features
 
         to return a summary of supported file format drivers, and their associated extensions.
 
-
     .. dropdown:: From Data Field
 
         ::
 
-            Raster.from_points(..., *, field)
-            Raster.from_points(..., *, field, fill)
+            Raster.from_points(path, field)
+            Raster.from_points(..., *, nodata)
+            Raster.from_points(..., *, nodata, casting)
 
-        Builds the raster using the indicated field of the point-feature data properties. The specified field must exist in the data properties, and must be an int or float type. The output raster will have a float dtype, regardless of the type of the data field, and the NoData value will be NaN. Pixels that contain a point are set to the value of the data field for that point. If a pixel contains multiple points, then the pixel's value will match the data field of the final point in the set. By default, all pixels not in a point are set as Nodata (NaN). Use the "fill" option to specify a default data value for these pixels instead.
+        Builds the raster using one of the data property fields for the point features. The specified field must exist in the data properties, and must have an int or float type. The dtype of the output raster will match this type. Pixels that contain a point are set to the value of the data field for that point. If a pixel contains multiple points, then the pixel's value will match the data value of the final point in the set.
+
+        Pixels that do not contain a point are set to NoData. If unspecified, uses a default NoData value for the dtype. Use the ``nodata`` input to specify the NoData value instead. By default, the NoData value must be safely castable to the dtype of the raster. Use the ``casting`` option to select other casting rules. NoData options are ignored if you do not specify a field.
+
+    .. dropdown:: Windowed Reading
+
+        ::
+
+            Raster.from_points(..., *, bounds)
+
+        Only uses point features contained within the indicated bounds. The returned raster is also clipped to these bounds. This option can be useful when you only need data from a subset of a much larger Point dataset.
 
     .. dropdown:: Specify Resolution
 
         ::
 
-           Raster.from_points(path, *, resolution)
+            Raster.from_points(path, *, resolution)
+            Raster.from_points(path, *, resolution, units)
 
-        Specifies the resolution of the output raster. The resolution may be a scalar positive number, a 2-tuple of such numbers, or a *Raster* object. If a scalar, indicates the resolution of the output raster (in the units of the CRS) for both the X and Y axes. If a 2-tuple, the first element is the X-axis resolution and the second element is the Y-axis. If a *Raster*, uses the resolution of the raster, or raises an error if the raster does not have a transform.
+        Specifies the resolution of the output raster. The resolution may be a scalar positive number, a 2-tuple of such numbers, a Transform, or a Raster object. If a scalar, indicates the resolution of the output raster for both the X and Y axes. If a 2-tuple, the first element is the X-axis resolution and the second element is the Y-axis. If a Raster or a Transform, uses the associated resolution. Raises an error if a Raster object does not have a Transform.
+
+        If the resolution input does not have an associated CRS, then the resolution values are interpreted as meters. Use the ``units`` option to interpret resolution values in different units instead. Supported units include: "base" (CRS/Transform base unit), "kilometers", "feet", and "miles". Note that this option is ignored if the input resolution has a CRS.
+
+
+    .. dropdown:: Multiple Layers
+
+        ::
+    
+            Raster.from_points(..., *, layer)
+
+        Use this option when the input feature file contains multiple layers. The ``layer`` input indicates the layer holding the relevant Point geometries. This may be either an integer index, or the (string) name of a layer in the input file.
 
     .. dropdown:: Specify File Format
 
         ::
-
+    
             Raster.from_points(..., *, driver)
             Raster.from_points(..., *, encoding)
 
         Specifies the file format driver and encoding used to read the Points feature file. Uses this format regardless of the file extension. You can call::
 
             >>> pfdf.utils.driver.vectors()
-            
+
         to return a summary of file format drivers that are expected to always work.
 
         More generally, the pfdf package relies on fiona (which in turn uses GDAL/OGR) to read vector files, and so additional drivers may work if their associated build requirements are met. You can call::
 
             >>> fiona.drvsupport.vector_driver_extensions()
 
-        to summarize the drivers currently supported by fiona, and a complete list of driver build requirements is available here: `Vector Drivers <https://gdal.org/drivers/vector/index.html>`_.
+        to summarize the drivers currently supported by fiona, and a complete list of driver build requirements is available here: `Vector Drivers <https://gdal.org/drivers/vector/index.html>`_
     
-    :Inputs: * **path** (*Path | str*) -- The path to a Point or MultiPoint feature file
-             * **field** (*str*) -- The name of a data property field used to set pixel values. The data field must have an int or float type.
-             * **fill** (*scalar*) -- A default fill value for rasters built using a data field. Ignored if field is None.
-             * **resolution** (*Raster | scalar | [scalar, scalar]*) -- The desired resolution of the output raster
-             * **layer** (*int*) -- The layer of the input file from which to load the point geometries
-             * **driver** (*str*) -- The file-format driver to use to read the Point feature file
-             * **encoding** (*str*) -- The encoding of the Point feature file
+    
+    :Inputs:
+        * **path** (*Path-like*) -- The path to a Point or MultiPoint feature file
+        * **field** (*str*) -- The name of a data property field used to set pixel values. The data field must have an int or float type.
+        * **bounds** (*BoundingBox | Raster | tuple | dict*) -- A bounding box indicating the subset of point features that should be used to create the raster.
+        * **nodata** (*scalar*) -- The NoData value for the output raster.
+        * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the Raster. Options are "no", "equiv", safe" (default), "same_kind", and "unsafe".
+        * **resolution** (*scalar | vector | Transform | Raster*) -- The desired resolution of the output raster
+        * **units** (*str*) -- Specifies the units of the resolution when the resolution input does not have a CRS. Options include: "base" (CRS/Transform base unit), "meters" (default), "kilometers", "feet", and "miles"
+        * **layer** (*int | str*) -- The layer of the input file from which to load the point geometries
+        * **driver** (*str*) -- The file-format driver to use to read the Point feature file
+        * **encoding** (*str*) -- The encoding of the Point feature file
 
-    :Outputs: *Raster* -- The point-derived raster. Pixels that contain a point are set either to True, or to the value of a data field. All other pixels are either a fill value or NoData (False or NaN).
-    
+    :Outputs:
+        *Raster* -- The point-derived raster. Pixels that contain a point are set either to True, or to the value of a data field. All other pixels are NoData.
+
 
 .. _pfdf.raster.Raster.from_polygons:
 
-.. py:method:: Raster.from_polygons(path, *, field = None, fill = None, resolution = 1, layer = None, driver = None, encoding = None)
-    :staticmethod:
+.. py:method:: Raster.from_polygons(path, field = None, *, bounds = None, nodata = None, casting = "safe", resolution = 10, units = "meters", layer = None, driver = None, encoding = None)
 
-    Creates a *Raster* from a set of polygon/multi-polygon features
+    Creates a Raster from a set of polygon/multi-polygon features
 
-    .. dropdown:: Boolean Raster
+    .. dropdown:: From Polygon Features
 
         ::
 
             Raster.from_polygons(path)
-            Raster.from_polygons(path, *, layer)
 
-        Returns a boolean raster derived from the input polygon features. Pixels whose centers are in any of the polygons are set to True. All other pixels are set to False. The CRS of the output raster is inherited from the input feature file. The default resolution of the output raster is 1 (in the units of the polygon's CRS), although see below for options for other resolutions. The bounds of the raster will be the minimal bounds required to contain all input polygons at the indicated resolution.
+        Returns a raster derived from the input polygon features. The contents of the input file should resolve to a FeatureCollection of Polygon and/or MultiPolygon geometries (and see below if the file contains multiple layers). The CRS of the output raster is inherited from the input feature file. The default resolution of the output raster is 10 meters, although see below to specify other resolutions. The bounds of the raster will be the minimal bounds required to contain all input polygons at the indicated resolution.
 
-        The contents of the input file should resolve to a FeatureCollection of Polygon and/or MultiPolygon geometries. If the file contains multiple layers, you can use the "layer" option to indicate the layer that holds the polygon geometries. This may either be an integer index, or the name of the layer in the input file.
+        If you do not specify an attribute field, then the returned raster will have a boolean dtype. Pixels whose centers are in any of the polygons are set to True. All other pixels are set to False. See below to build the raster from an data property field instead.
 
         By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, see below for syntax to specify the driver and encoding, regardless of extension. You can also use::
 
@@ -650,24 +794,46 @@ From Vector Features
     .. dropdown:: From Data Field
 
         ::
+           
+            Raster.from_polygons(path, field)
+            Raster.from_polygons(..., *, nodata)
+            Raster.from_polygons(..., *, nodata, casting)
 
-            Raster.from_polygons(..., *, field)
-            Raster.from_polygons(..., *, field, fill)
+        Builds the raster using one of the data property fields for the polygon features. The specified field must exist in the data properties, and must have an int or float type. The dtype of the output raster will match this type. Pixels whose centers lie within a polygon are set to the value of the data field for that polygon. If a pixel is in multiple polygons, then the pixel's value will match the data value of the final polygon in the set.
 
-        Builds the raster using the indicated field of the polygon data properties. The specified field must exist in the data properties, and must be an int or float type. The output raster will have a float dtype, regardless of the type of the data field, and the NoData value will be NaN. Pixels whose centers are in a polygon are set to the value of the data field for that polygon. If a pixel is in multiple  overlapping polygons, then the pixel's value will match the data field of the final polygon in the set. By default, all pixels not in a polygon are set as Nodata (NaN). Use the  "fill" option to specify a default data value for these pixels instead.
+        Pixels that do not lie within a polygon are set to NoData. If unspecified, uses a default NoData value for the dtype. Use the ``nodata`` input to specify the NoData value instead. By default, the NoData value must be safely castable to the dtype of the raster. Use the ``casting`` option to select other casting rules. NoData options are ignored if you do not specify a field.
+        
+    .. dropdown:: Windowed Reading
 
+        ::
+           
+            Raster.from_polygons(..., *, bounds)
+
+        Only uses polygon features that intersect the indicated bounds. The returned raster is also clipped to these bounds. This option can be useful when you only need data from a subset of a much large Polygon dataset.
+        
     .. dropdown:: Specify Resolution
 
         ::
 
-            Raster.from_polygons(path, *, resolution)
+            Raster.from_polygons(..., *, resolution)
+            Raster.from_polygons(..., *, resolution, units)
 
-        Specifies the resolution of the output raster. The resolution may be a scalar positive number, a 2-tuple of such numbers, or a *Raster* object. If a scalar, indicates the resolution of the output raster (in the units of the CRS) for both the X and Y axes. If a 2-tuple, the first element is the X-axis resolution and the second element is the Y-axis. If a *Raster*, uses the resolution of the raster, or raises an error if the raster does not have a transform.
+        Specifies the resolution of the output raster. The resolution may be a scalar positive number, a 2-tuple of such numbers, a Transform, or a Raster object. If a scalar, indicates the resolution of the output raster for both the X and Y axes. If a 2-tuple, the first element is the X-axis resolution and the second element is the Y-axis. If a Raster or a Transform, uses the associated resolution. Raises an error if a Raster object does not have a Transform.
 
+        If the resolution input does not have an associated CRS, then the resolution values are interpreted as meters. Use the "units" option to interpret resolution values in different units instead. Supported units include: "base" (CRS/Transform base unit), "kilometers", "feet", and "miles". Note that this option is ignored if the input resolution has a CRS.
+
+    .. dropdown:: Multiple Layers
+
+        ::
+           
+            Raster.from_polygons(..., *, layer)
+
+        Use this option when the input feature file contains multiple layers. The ``layer`` input indicates the layer holding the relevant Polygon geometries. This may be either an integer index, or the (string) name of a layer in the input file.
+        
     .. dropdown:: Specify File Format
 
         ::
-
+           
             Raster.from_polygons(..., *, driver)
             Raster.from_polygons(..., *, encoding)
 
@@ -681,59 +847,44 @@ From Vector Features
 
             >>> fiona.drvsupport.vector_driver_extensions()
 
-        to summarize the drivers currently supported by fiona, and a complete list of driver build requirements is available here: `Vector Drivers <https://gdal.org/drivers/vector/index.html>`_.
+        to summarize the drivers currently supported by fiona, and a complete list of driver build requirements is available here: `Vector Drivers <https://gdal.org/drivers/vector/index.html>`_
 
-    :Inputs: * **path** (*Path | str*) -- The path to a Polygon or MultiPolygon feature file
-             * **field** (*str*) -- The name of a data property field used to set pixel values. The data field must have an int or float type.
-             * **fill** (*scalar*) ---A default fill value for rasters built using a data field. Ignored if field is None.
-             * **resolution** (*Raster | scalar | [scalar, scalar]*) -- The desired resolution of the output raster
-             * **layer** (*int*) -- The layer of the input file from which to load the point geometries
-             * **driver** (*str*) -- The file-format driver to use to read the Point feature file
-             * **encoding** (*str*) -- The encoding of the Point feature file
+    :Inputs:
+        * **path** (*Path-like*) -- The path to a Polygon or MultiPolygon feature file
+        * **field** (*str*) -- The name of a data property field used to set pixel values. The data field must have an int or float type.
+        * **bounds** (*BoundingBox | Raster | tuple | dict*) -- A bounding box indicating the subset of polygon features that should be used to create the raster.
+        * **nodata** (*scalar*) -- The NoData value for the output raster.
+        * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the Raster. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
+        * **resolution** (*scalar | vector | Transform | Raster*) -- The desired resolution of the output raster
+        * **units** (*str*) -- Specifies the units of the resolution when the resolution input does not have a CRS. Options include: "base" (CRS/Transform base unit), "meters" (default), "kilometers", "feet", and "miles"
+        * **layer** (*int | str*) -- The layer of the input file from which to load the polygon geometries
+        * **driver** (*str*) -- The file-format driver to use to read the Polygon feature file
+        * **encoding** (*str*) -- The encoding of the Polygon feature file
 
-    :Outputs: *Raster* -- The polygon-derived raster. Pixels whose centers are in a polygon are set either to True, or to the value of a data field. All other pixels are either a fill value or NoData (False or NaN).
+    :Outputs:
+        *Raster* -- The polygon-derived raster. Pixels whose centers lie within a polygon are set either to True, or to the value of a data field. All other pixels are NoData.
     
 
-Comparisons
------------
-
-.. _pfdf.raster.Raster.__eq__:
-
-.. py:method:: Raster.__eq__(self, other)
-
-    Test *Raster* objects for equality
-
-    ::
-
-        self == other
-
-    True if the other input is a *Raster* with the same values, nodata, transform, and crs. Note that NaN values are interpreted as NoData, and so compare as equal. Also note that the rasters are not required to have the same name to test as equal.
-
-    :Inputs: * **other** -- A second input being compared to the *Raster* object
-
-    :Outputs: *bool* -- True if the second input is a *Raster* with the same values, nodata, transform, and crs. Otherwise False.
-
-    
-.. _pfdf.raster.Raster.validate:
-
-.. py:method:: Raster.validate(self, raster, name)
-
-    Validates a second raster and its metadata against the current raster
-
-    ::
-
-        self.validate(raster, name)
-
-    Validates an input raster against the current *Raster* object. Checks that the second raster's metadata matches the shape, affine transform, and crs of the current object. If the second raster does not have a affine transform or CRS, sets these values to match the current raster. Raises various errors if the metadata criteria are not met. Otherwise, returns the validated raster dataset as a *Raster* object.
-
-    :Inputs: * **raster** (*Raster-like*) -- The input raster being checked
-             * **name** (*str*) -- A name for the raster for use in error messages
-
-    :Outputs: *Raster* -- The validated *Raster* dataset
-
+----
 
 IO
 --
+
+.. _pfdf.raster.Raster.__repr__:
+
+.. py:method:: Raster.__repr__(self)
+
+    Returns a string summarizing the raster
+
+    ::
+    
+        repr(self)
+
+    Returns a string summarizing key information about the raster. Includes the shape, dtype, NoData, CRS, Transform, and BoundingBox.
+
+    :Outputs:
+        *str* -- A string summary of the raster
+
 
 .. _pfdf.raster.Raster.save:
 
@@ -774,6 +925,7 @@ IO
              * **overwrite** (*bool*) -- False (default) to prevent the output from replacing existing file. True to allow replacement. 
              * **driver** (*str*) -- The name of the file format driver to use to write the file
 
+
 .. _pfdf.raster.Raster.copy:
 
 .. py:method:: Raster.copy(self)
@@ -787,7 +939,6 @@ IO
     Returns a copy of the current *Raster*. Note that data values are not duplicated in memory when copying a raster. Instead, both *Raster* objects reference the same underlying array.
 
     :Outputs: *Raster* -- A *Raster* with the same data values and metadata as the current *Raster*
-
 
 
 .. _pfdf.raster.Raster.as_pysheds:
@@ -815,6 +966,8 @@ IO
     :Outputs: *pysheds.sview.Raster* -- The *Raster* as a ``pysheds.sview.Raster`` object.
 
 
+----
+
 .. _api-preprocess:
 
 Preprocessing
@@ -832,12 +985,13 @@ Preprocessing
 
     Locates NoData pixels in the raster and replaces them with the indicated value. The fill value must be safely castable to the dtype of the raster. Note that this method creates a copy of the raster's data array before replacing NoData values. As such, other copies of the raster will not be affected. Also note that the updated raster will no longer have a NoData value, as all NoData pixels will have been replaced.
 
-    :Inputs: * **value** (*scalar*) -- The fill value that NoData pixels will be replaced with
+    :Inputs:
+        * **value** (*scalar*) -- The fill value that NoData pixels will be replaced with
 
 
 .. _pfdf.raster.Raster.find:
 
-.. py:method:: Raster.find(self, values)
+.. py:method:: Raster.find(self, values: RealArray) -> Self:
 
     Returns a boolean raster indicating pixels that match specified values
 
@@ -847,15 +1001,16 @@ Preprocessing
 
     Searches for the input values within the current raster. Returns a boolean raster the same size as the current raster. True pixels indicate pixels that matched one of the input values. All other pixels are False.
 
-    :Inputs: * **values** (*vector*) -- An array of values that the raster values should be compared against.
+    :Inputs:
+        * **values** (*vector*) -- An array of values that the raster values should be compared against.
 
-    :Outputs: *Raster* -- A boolean raster. True elements indicate pixels that matched one of the input values. All other pixels are False
+    :Outputs:
+        *Raster* -- A boolean raster. True elements indicate pixels that matched one of the input values. All other pixels are False
 
-    
 
 .. _pfdf.raster.Raster.set_range:
 
-.. py:method:: Raster.set_range(self, min = None, max = None, fill = False, nodata = None, casting = "safe")
+.. py:method:: Raster.set_range(self, min = None, max = None, fill = False, exclusive = False)
 
     Forces a raster's data values to fall within specified bounds
 
@@ -865,8 +1020,7 @@ Preprocessing
 
             self.set_range(min, max)
 
-        
-        Forces the raster's data values to fall within a specified range. The min and max inputs specify inclusive lower and upper bounds for the range, and must be safely castable to the dtype of the raster. Data values that fall outside these bounds are clipped - pixels less than the lower bound are set to equal the bound, and pixels greater than the upper bound are set to equal that bound. If a bound is None, does not enforce that bound. Raises an error if both bounds are None. Note that the min and max inputs must be safely castable to the dtype of the raster.
+        Forces the raster's data values to fall within a specified range. The min and max inputs specify lower and upper bounds for the range, and must be safely castable to the dtype of the raster. By default, uses inclusive bounds, although see below to use exclusive bounds instead. Data values that fall outside these bounds are clipped - pixels less than the lower bound are set to equal the bound, and pixels greater than the upper bound are set to equal that bound. If a bound is None, does not enforce that bound. Raises an error if both bounds are None.
 
         This method creates a copy of the raster's data values before replacing out-of-bounds pixels, so copies of the raster are not affected. Also, the method does not alter NoData pixels, even if the NoData value is outside of the indicated bounds.
 
@@ -876,27 +1030,26 @@ Preprocessing
 
             self.set_range(..., fill=True)
 
-        Indicates that pixels outside the bounds should be replaced with the raster's NoData value, instead of being clipped to the appropriate bound. Raises a ValueError if the raster does not have a NoData value, although see the next syntax for options to resolve this.
+        Indicates that pixels outside the bounds should be replaced with the raster's NoData value, instead of being clipped to the appropriate bound. Raises a ValueError if the raster does not have a NoData value.
 
-    .. dropdown:: Specify Missing NoData
+    .. dropdown:: Exclusive Bounds
 
         ::
 
-            self.set_range(..., fill=True, nodata)
-            self.set_range(..., fill=True, nodata, casting)
+            self.set_range(..., fill=True, exclusive=True)
 
-        Specifies a NoData value when using the "fill" option for a raster that does not have a NoData value. These inputs are ignored when fill=False. If fill=True, then they are only available if the raster does not have a NoData value - otherwise, raises an error. By default, the nodata value must be safely castable to the raster dtype. Use the "casting" input to allow other casting options.
+        Indicates that the bounds represent exclusive bounds. In this case, data values exactly equal to a bound are also considered outside of the valid range and set to NoData. This option is only available when fill=True.
 
-    :Inputs: * **min** (*scalar*) -- A lower bound for the raster
-             * **max** (*scalar*) -- An upper bound for the raster
-             * **fill** (*bool*) -- If False (default), clips pixels outside the bounds to bounds. If True, replaces pixels outside the bounds with the NoData value
-             * **nodata** (*scalar*) -- A NoData value for when fill=True and the raster does not have a NoData value. Ignored if fill=False
-             * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the *Raster*. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
+    :Inputs:
+        * **min** (*scalar*) -- A lower bound for the raster
+        * **max** (*scalar*) -- An upper bound for the raster
+        * **fill** (*bool*) -- If False (default), clips pixels outside the bounds to bounds. If True, replaces pixels outside the bounds with the NoData value
+        * **exclusive** (*bool*) -- True to consider the min and max data values as outside of the valid data range. False (default) to consider the min/max as within the valid data range. Only available when fill=True.
 
 
 .. _pfdf.raster.Raster.buffer:
 
-.. py:method:: Raster.buffer(self, distance = None, *, left = None, bottom = None, right = None, top = None, pixels = False, nodata = None, casting = "safe")
+.. py:method:: Raster.buffer(self, distance = None, units = "meters", *, left = None, bottom = None, right = None, top = None)
 
     Buffers the current raster by a specified minimum distance
 
@@ -905,11 +1058,25 @@ Preprocessing
         ::
 
             self.buffer(distance)
+            self.buffer(distance, units)
 
-        Buffers the current raster by the specified minimum distance and returns the buffered raster. Buffering adds a number of NoData pixels to each edge of the raster's data value matrix, such that the number of pixels is as least as long as the specified distance. If the specified distance is not a multiple of an axis's resolution, then the buffering distance along that axis will be longer than the input distance. Also note that the number of pixels added to the x and y axes can differ if these axes have different resolutions.
+        Buffers the current raster by the specified minimum distance. Buffering adds a number of NoData pixels to each edge of the raster's data value matrix, such that the number of pixels is as least as long as the specified distance. Raises an error if the raster does not have a NoData value.
 
-        The input distance cannot be negative, and should be in the same units as the raster's affine transformation. In practice, this is often units of meters. Raises an error if the raster does not have an affine transformation, but see below for an option that does not require a transform. Similarly, the default syntax requires the raster to have a NoData value, but see below for a syntax that relaxes this requirement.
+        Note that the number of pixels added to the x and y axes can differ if these axes have different resolutions. Also note that if the buffering distance is not a multiple of an axis's resolution, then the actual buffer along that axis will be longer than the input distance. (The discrepancy will be whatever distance is required to round the buffering distance up to a whole number of pixels).
 
+        The input distance must be positive. By default, this distance is interpreted as meters. Use the ``units`` option to provide a buffering distance in other units instead. Supported units include: "pixels" (the number of pixels to buffer along each edge), "base" (CRS/Transform base units), "meters", "kilometers", "feet", and "miles". Note that different units have different metadata requirements, as follows:
+
+        .. list-table::
+            :header-rows: 1
+
+            * - Units
+              - Required Metadata
+            * - pixels
+              - None
+            * - base
+              - Transform only
+            * - all others
+              - CRS and Transform
 
     .. dropdown:: Specific Edges
 
@@ -920,38 +1087,54 @@ Preprocessing
             self.buffer(*, bottom)
             self.buffer(*, top)
 
-        Specify the distance for a particular direction. The "distance" input is optional (but still permitted) if any of these options are specified. If both the "distance" input and one of these options are specified, then the direction-specific option takes priority. If a direction does not have a distance and the "distance" input is not provided, then no buffering is applied to that direction.
+        Specify the distance for a particular direction. The "distance" input is optional (but still permitted) if any of these options are specified. If both the "distance" input and one of these options are specified, then the direction-specific option takes priority. If a direction does not have a distance and the "distance" input is not provided, then no buffering is applied to that direction. The directions refer to the sides of the matrix of data values as follows:
 
-    .. dropdown:: Buffer by pixels
+        .. list-table::
+          :header-rows: 1
 
-        ::
+          * - Edge
+            - Matrix Index
+          * - left
+            - ``values[ :,  0]``
+          * - right
+            - ``values[ :, -1]``
+          * - top
+            - ``values[ 0,  :]``
+          * - bottom
+            - ``values[-1,  :]``
 
-            self.buffer(..., *, pixels=True)
+        Note that edge-specific buffers are interpreted using whatever units were indicated by the ``units`` option.
 
-        Indicates that the units of the input distances are in pixels, rather than the units of the raster's transform. When using this option, the raster no longer requires an affine transformation. Non-integer pixel buffers are rounded up to the next highest integer.
+    :Inputs:
+        * **distance** (*scalar*) -- A default buffer for all sides of the raster.
+        * **units** (*str*) -- Specifies the units of the input buffers. Options include: "pixels", "base", "meters" (default), "kilometers", "feet", and "miles"
+        * **left** (*scalar*) -- A buffer for the left side of the raster
+        * **right** (*scalar*) -- A buffer for the right side of the raster
+        * **top** (*scalar*) -- A buffer for the top of the raster
+        * **bottom** (*scalar*) -- A buffer for the bottom of the raster
 
-    .. dropdown:: Specify missing NoData
 
-        ::
+.. _pfdf.raster.Raster.clip:
 
-            self.buffer(..., *, nodata)
-            self.buffer(..., *, nodata, casting)
+.. py:method:: Raster.clip(self, bounds)
 
-        Specifies a NoData value to use for the buffer pixels. You may only use this option when the raster does not already have a NoData value - raises a ValueError if this is not the case. The buffered raster will have its NoData value set to this value. By default, raises an error if the NoData value cannot be safely casted to the dtype of the raster. Use the casting option to implement different casting requirements.
+    Clips a raster to the indicated bounds
 
-    :Inputs: * **distance** (*scalar*): A default buffer for all sides of the raster.
-             * **left** (*scalar*) -- A buffer for the left side of the raster
-             * **right** (*scalar*) -- A buffer for the right side of the raster
-             * **top** (*scalar*) -- A buffer for the top of the raster
-             * **bottom** (*scalar*) -- A buffer for the bottom of the raster
-             * **pixels** (*bool*) -- True if input distances are in units of pixels. False (default) if input distances are in the units of the transform.
-             * **nodata** (*scalar*) -- A NoData value used for buffered pixels when a raster does not already have a NoData value.
-             * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the *Raster*. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
-             
+    ::
+
+        self.clip(bounds)
+
+    Clips a raster to the indicated spatial bounds. Bounds may be another raster, a BoundingBox object, or a dict/list/tuple representing a BoundingBox. If a clipping bound does not align with the edge of a pixel, clips the bound to the nearest pixel edge. Note that the raster must have a Transform in order to enable clipping.
+
+    If the clipping bounds include areas outside the current raster, then pixels in these areas are set to the raster's NoData value. Raises an error if this occurs, but the raster does not have a NoData value.
+
+    :Inputs:
+        * **bounds** (*Raster | BoundingBox | tuple | dict*) -- A Raster or BoundingBox used to clip the current raster.
+
 
 .. _pfdf.raster.Raster.reproject:
 
-.. py:method:: Raster.reproject(self, template = None, *, crs = None, transform = None, nodata = None, casting = "safe", resampling = "nearest", num_threads = 1, warp_mem_limit = 0)
+.. py:method:: Raster.reproject(self, template = None, *, crs = None, transform = None, resampling = "nearest", num_threads = 1, warp_mem_limit = 0)
 
     Reprojects a raster to match the spatial characteristics of another raster
 
@@ -963,7 +1146,7 @@ Preprocessing
 
         Reprojects the current raster to match the spatial characteristics of a template raster. The current raster is projected into the same CRS, resolution, and grid alignment as the template. If either raster does not have a CRS, then the rasters are assumed to have the same CRS. If either raster does not have an affine transform, then the rasters are assumed to have the same resolution and grid alignment.
 
-        If the raster is projected outside of its current bounds, then the reprojected pixels outside the bounds are set to the raster's NoData value. Raises an error if the raster does not have a NoData value, although see below for a syntax to resolve this. If resampling is required, uses nearest-neighbor interpolation by default, but see below for additional resampling options.
+        If the raster is projected outside of its current bounds, then the reprojected pixels outside the bounds are set to the raster's NoData value. Raises an error if the raster does not have a NoData value. If resampling is required, uses nearest-neighbor interpolation by default, but see below for additional resampling options.
 
     .. dropdown:: Reproject by Keyword
 
@@ -972,17 +1155,7 @@ Preprocessing
             self.reproject(..., *, crs)
             self.reproject(..., *, transform)
 
-        Specify the crs and/or transform used to reproject the alignment. Note that the transform is used to determine reprojected resolution and grid alignment. If you provide one of these keyword options in addition to the 'template' input, then the keyword value will take priority.
-
-
-    .. dropdown:: Specify Missing NoData
-
-        ::
-
-            self.reproject(..., *, nodata)
-            self.reproject(..., *, nodata, casting)
-
-        Specfies a NoData value to use for reprojection. You can only provide this option if the raster does not already have a NoData value. Otherwise raises an Exception. The NoData value must be castable to the dtype of the raster being reprojected. By default, only safe casting is allowed. Use the casting option to enforce different casting rules.
+        Specify the crs and/or transform of the reprojected raster. Note that the transform is used to determine reprojected resolution and grid alignment. If you provide one of these keyword options in addition to the 'template' input, then the keyword value will take priority. If using the "transform" input and the transform CRS does not match the template/keyword CRS, then the transform will be reprojected to the appropriate CRS before reprojection.
 
     .. dropdown:: Resampling Algorithms
 
@@ -991,7 +1164,6 @@ Preprocessing
             self.reproject(..., *, resampling)
 
         Specifies the interpolation algorithm used for resampling. The default is nearest-neighbor interpolation. Other options include bilinear, cubic, cubic-spline, Lanczos-windowed, average, and mode resampling. Additional algorithms may be available depending on your GDAL installation. See the rasterio documentation for additional details on resampling algorithms and their requirements: `Resampling Algorithms <https://rasterio.readthedocs.io/en/stable/api/rasterio.enums.html#rasterio.enums.Resampling>`_
-    
 
     .. dropdown:: Computational Performance
 
@@ -1002,58 +1174,216 @@ Preprocessing
 
         Specify the number of worker threads and/or memory limit when reprojecting a raster. Reprojection can be computationally expensive, but increasing the number of workers and memory limit can speed up this process. These options are passed directly to rasterio, which uses them to implement the reprojection. Note that the units of warp_mem_limit are MB. By default, uses 1 worker and 64 MB.
 
-    :Inputs: * **template** (*Raster*) -- A template *Raster* that defines the CRS, resolution, and grid alignment of the reprojected raster.
-            * **crs** (*rasterio.coords.CRS*) -- The CRS to use for reprojection. Overrides the template CRS
-            * **transform** (*affine.Affine*) -- The transform used to determe the resolution and grid alignment of the reprojection. Overrides the template transform.
-            * **nodata** (*scalar*) -- A NoData value for rasters that do not already have a NoData value 
-            * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the *Raster*. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
-            * **resampling** (*str*) -- The resampling interpolation algorithm to use. Options include 'nearest' (default), 'bilinear', 'cubic', 'cubic_spline', 'lanczos', 'average', and 'mode'. Depending on the GDAL installation, the following options may also be available: 'max', 'min', 'med', 'q1', 'q3', 'sum', and 'rms'.
-            * **num_threads** (*int*) -- The number of worker threads used to reproject the raster
-            * **warp_mem_limit** (*float*) -- The working memory limit (in MB) used to reproject
+    :Inputs:
+        * **template** (*Raster*) -- A template Raster that defines the CRS, resolution, and grid alignment of the reprojected raster.
+        * **crs** (*CRS-like*) -- The CRS to use for reprojection. Overrides the template CRS
+        * **transform** (*Transform-like*) -- The transform used to determe the resolution and grid alignment of the reprojection. Overrides the template transform.
+        * **resampling** (*str*) -- The resampling interpolation algorithm to use. Options include 'nearest' (default), 'bilinear', 'cubic', 'cubic_spline', 'lanczos', 'average', and 'mode'. Depending on the GDAL installation, the following options may also be available: 'max', 'min', 'med', 'q1', 'q3', 'sum', and 'rms'.
+        * **num_threads** (*int*) -- The number of worker threads used to reproject the raster
+        * **warp_mem_limit** (*scalar*) -- The working memory limit (in MB) used to reproject
 
 
-.. _pfdf.raster.Raster.clip:
+----
 
-.. py:method:: Raster.clip(self, bounds = None, *, left = None, bottom = None, right = None, top = None, nodata = None, casting = "safe")
+Pixel Geometries
+----------------
 
-    Clips a raster to the indicated bounds
+.. _pfdf.raster.Raster.dx:
 
-    .. dropdown:: Clip
+.. py:method:: Raster.dx(self, units = "meters")
+
+    Returns the change in the X-axis spatial coordinate when moving one pixel right
+
+    ::
+        
+        self.dx()
+        self.dx(units)
+
+    Returns the change in X-axis spatial coordinate when moving one pixel to the right. By default, returns dx in meters. Use the ``units`` option to return dx in other units. Supported units include: "base" (base unit of the CRS/Transform), "kilometers", "feet", and "miles".
+
+    :Inputs:
+        * **units** (*str*) -- The units to return dx in. Options include: "base" (CRS/Transform base units), "meters" (default), "kilometers", "feet", and "miles".
+
+    :Outputs:
+        *float* -- The change in X coordinate when moving one pixel right
+
+
+.. _pfdf.raster.Raster.dy:
+
+.. py:method:: Raster.dy(self, units = "meters")
+
+    Returns the change in the Y-axis spatial coordinate when moving one pixel down
+
+    ::
+        
+        self.dy()
+        self.dy(units)
+
+    Returns the change in Y-axis spatial coordinate when moving one pixel down. By default, returns dy in meters. Use the ``units`` option to return dy in other units. Supported units include: "base" (base unit of the CRS/Transform), "kilometers", "feet", and "miles".
+
+    :Inputs:
+        * **units** (*str*) -- The units to return dy in. Options include: "base" (CRS/Transform base units), "meters" (default), "kilometers", "feet", and "miles".
+
+    :Outputs:
+        *float* -- The change in Y coordinate when moving one pixel down
+        
+
+.. _pfdf.raster.Raster.resolution:
+
+.. py:method:: Raster.resolution(self, units = "meters")
+
+    Returns the raster resolution
+
+    ::
+        
+        self.resolution()
+        self.resolution(units)
+
+    Returns the raster resolution as a tuple with two elements. The first element is the X resolution, and the second element is Y resolution. Note that resolution is strictly positive. By default, returns resolution in meters. Use the ``units`` option to return resolution in other units. Supported units include: "base" (base unit of the CRS/Transform), "kilometers", "feet", and "miles".
+
+    :Inputs:
+        * **units** (*str*) -- The units to return resolution in. Options include: "base" (CRS/Transform base units), "meters" (default), "kilometers", "feet", and "miles".
+
+    :Outputs:
+        *float, float* -- The X and Y axis pixel resolution
+        
+
+.. _pfdf.raster.Raster.pixel_area:
+
+.. py:method:: Raster.pixel_area(self, units = "meters")
+
+    Returns the area of one pixel
+
+    ::
+        
+        self.pixel_area()
+        self.pixel_area(units)
+
+    Returns the area of a raster pixel. By default, returns area in meters^2. Use the ``units`` option to return area in a different unit (squared). Supported units include: "base" (CRS/Transform base unit), "kilometers", "feet", and "miles".
+
+    :Inputs:
+        * **units** (*str*) -- The units to return resolution in. Options include: "base" (CRS/Transform base units), "meters" (default), "kilometers", "feet", and "miles".
+
+    :Outputs:
+        *float* -- The area of a raster pixel
+        
+
+.. _pfdf.raster.Raster.pixel_diagonal:
+
+.. py:method:: Raster.pixel_diagonal(self, units = "meters")
+
+    Returns the length of a pixel diagonal
+
+    ::
+        
+        self.pixel_diagonal()
+        self.pixel_diagonal(units)
+
+    Returns the length of a pixel diagonal. By default, returns length in meters. Use the ``units`` option to return length in other units. Supported units include: "base" (base unit of the CRS/Transform), "kilometers", "feet", and "miles".
+
+    :Inputs:
+        * **units** (*str*) -- The units in which to return the length of a pixel diagonal. Options include: "base" (CRS/Transform base units), "meters" (default), "kilometers", "feet", and "miles".
+
+    :Outputs:
+        *float* -- The area of a raster pixel
+        
+
+
+----
+
+Comparisons
+-----------
+
+.. _pfdf.raster.Raster.__eq__:
+
+.. py:method:: Raster.__eq__(self, other)
+
+    Test *Raster* objects for equality
+
+    ::
+
+        self == other
+
+    True if the other input is a *Raster* with the same values, nodata, transform, and crs. Note that NaN values are interpreted as NoData, and so compare as equal. Also note that the rasters are not required to have the same name to test as equal.
+
+    :Inputs: * **other** -- A second input being compared to the *Raster* object
+
+    :Outputs: *bool* -- True if the second input is a *Raster* with the same values, nodata, transform, and crs. Otherwise False.
+
+    
+.. _pfdf.raster.Raster.validate:
+
+.. py:method:: Raster.validate(self, raster, name)
+
+    Validates a second raster and its metadata against the current raster
+
+    ::
+
+        self.validate(raster, name)
+
+    Validates an input raster against the current *Raster* object. Checks that the second raster's metadata matches the shape, affine transform, and crs of the current object. If the second raster does not have a affine transform or CRS, sets these values to match the current raster. Raises various errors if the metadata criteria are not met. Otherwise, returns the validated raster dataset as a *Raster* object.
+
+    :Inputs: * **raster** (*Raster-like*) -- The input raster being checked
+             * **name** (*str*) -- A name for the raster for use in error messages
+
+    :Outputs: *Raster* -- The validated *Raster* dataset
+
+
+----
+
+Metadata Setters
+----------------
+
+.. _pfdf.raster.Raster.ensure_nodata:
+
+.. py:method:: Raster.ensure_nodata(self, default = None, casting = "safe")
+
+    Ensures a raster has a NoData value, setting a default value if missing
+
+    .. dropdown:: Default Value
 
         ::
 
-            self.clip(bounds)
+            self.ensure_nodata()
 
-        Clips a raster to the spatial bounds of a second raster. If a clipping bound does not align with the edge of a pixel, clips the bound to the nearest pixel edge. Both rasters must have the same CRS - if either raster does not have a CRS, then they are assumed to be the same. Similarly, if either raster does not have a transform, then the two rasters are assumed to have the same transform.
+        Checks if the raster has a NoData value. If so, no action is taken. If not, then sets the NoData value to a default determined by the raster's dtype.
 
-        If the clipping bounds include areas outside the current raster, then pixels in these areas are set to the raster's NoData value. Raises an error if this occurs, but the raster does not have a NoData value. (And see below for a syntax to resolve this).
-
-    .. dropdown:: Specific Edges
+    .. dropdown:: Specify Value
 
         ::
 
-            self.clip(..., *, left)
-            self.clip(..., *, bottom)
-            self.clip(..., *, right)
-            self.clip(..., *, top)
+            self.ensure_nodata(default)
+            self.ensure_nodata(default, casting)
 
-        Specifies the clipping bounds for a particular edge of the raster. The "bounds" input is not required if at least one of these keyword options is provided. If the "bounds" input is not provided, then any unspecified edges are set to their current bounds, so are not clipped. If "bounds" is provided, then any keyword bounds will take priority over the bounds of the clipping raster. As with the "bounds" input, keyword bounds must align with the current raster's grid.
+        Specifies the default NoData value to use if the raster does not have NoData. By default, the NoData value must be safely castable to the dtype of the raster. Use the "casting" option to select other casting rules.
 
-        Keyword bounds must also match the orientation of the current raster. For example, if the raster's left spatial coordinate is less than its right coordinate, then the left clipping bound must be less than the right clipping bound. But if the raster's left spatial coordinate is greater than its right coordinate, then the left clipping bound must be greater than the right clipping bound. Same for the top and bottom edges.
+    :Inputs:
+        * **default** (*scalar*) -- A default NoData value. This will override the default value determined automatically from the raster dtype.
+        * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the Raster. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
 
-    .. dropdown:: Specify Missing NoData
 
-        ::
+.. _pfdf.raster.Raster.override:
 
-            self.clip(..., *, nodata)
-            self.clip(..., *, nodata, casting)
+.. py:method:: Raster.override(self, *, crs = None, transform = None, bounds = None, nodata = None, casting = "safe")
 
-        Specfies a NoData value to use when clipping a raster outside of its original bounds. You can only provide this option if the raster does not already have a NoData value, otherwise raises an Exception. The NoData value must be castable to the dtype of the raster being reprojected. By default, only safe casting is allowed. Use the casting option to enable different casting rules.
+    Overrides current metadata values
 
-    :Inputs: * **bounds** (*Raster*) -- A second raster whose bounds will be used to clip the current raster
-             * **left** (*scalar*) -- The bound for the left edge of the clipped raster
-             * **right** (*scalar*) -- The bound for the right edge of the clipped raster
-             * **bottom** (*scalar*) -- The bound for the bottom edge of the clipped raster
-             * **top** (*scalar*) -- The bound for the top edge of the clipped raster
-             * **nodata** (*scalar*) -- A NoData value for rasters that do not have a NoData value
-             * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the *Raster*. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
+    ::
+
+        self.override(*, crs)
+        self.override(*, transform)
+        self.override(*, bounds)
+        self.override(*, nodata)
+        self.override(*, nodata, casting)
+
+    Overrides current metadata values and replaces them with new values. The new values must still be valid metadata. For example, the new CRS must be convertible to a rasterio CRS object, the nodata value must be a scalar, etc. By default, requires safe nodata casting - use the casting input to specify a different casting rule. Note that you can only provide one of the "transform" and "bounds" inputs, as these options are mutually exclusive. If providing transform or bounds, and its CRS does not match the current/new CRS, then the transform will be reprojected to the correct CRS before overriding.
+
+    .. important::
+
+        Only use this method if you know what you're doing! This command replaces existing metadata values, but does not ensure that those values are correct. For example, overriding the CRS **will not** reproject the raster. It will merely replace the CRS metadata. As such, incorrect usage of this command will result in rasters with incorrect georeferencing and/or incorrect data masks. Most users should not use this method.
+
+    :Inputs:
+        * **crs** (*CRS-like*) -- New CRS metadata for the raster
+        * **transform** (*Transform-like*) -- A new affine transform for the raster
+        * **nodata** (*scalar*) -- A new NoData value for the raster
+        * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the Raster. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".

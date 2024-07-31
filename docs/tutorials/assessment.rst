@@ -13,7 +13,16 @@ The assessment relies on rasters from the :doc:`preprocessing tutorial <preproce
 
 .. admonition:: Download
 
-  You can download the datasets and scripts used in this tutorial here: :doc:`Download Files <download>`. This tutorial follows the ``assessment`` and ``export`` scripts. See also ``assessment_plots`` to reproduce the figures.
+    The following list provides download links for the tutorial resources:
+
+    * :doc:`Tutorial Datasets <download>`
+    * :download:`Assessment Script <scripts/assessment.py>`
+    * :download:`Export Script <scripts/export.py>`
+
+    If you want to reproduce the figures, do a :ref:`tutorial install <tutorial-install>` and use the following scripts instead:
+
+    * :download:`Reproduce Figures <scripts/assessment_plots.py>`
+    * :download:`Plotting Utilities <scripts/plot.py>`
 
 
 Input Datasets
@@ -48,24 +57,24 @@ First Steps
 Getting Started
 +++++++++++++++
 
-We'll start by importing the :doc:`severity module </guide/misc/severity>`, :doc:`watershed module </guide/watershed>`, :doc:`Segments class </guide/segments/index>`, and the :doc:`hazard assessment models </guide/models/index>`:
+We'll start by importing the :doc:`severity module </guide/watershed/severity>`, :doc:`watershed module </guide/watershed/watershed>`, :doc:`Segments class </guide/segments/index>`, the :doc:`hazard assessment models </guide/models/index>`, and the :doc:`intensity module </guide/utils/intensity>`.
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
     :start-line: 2
-    :end-line: 5
+    :end-line: 6
 
 We'll also import the script from the :doc:`preprocessing tutorial <preprocess>`, which we'll use to load the various preprocessed rasters:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 6
-    :end-line: 7
+    :start-line: 7
+    :end-line: 8
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 13
-    :end-line: 21
+    :start-line: 14
+    :end-line: 23
 
 Note that we loaded the data array (``.values``) directly for the perimeter, water, and development masks. This is because these rasters are boolean arrays that we'll use for logical operations.
 
@@ -109,10 +118,10 @@ Burn Severity Masks
 
 Next, we'll use the :ref:`severity.mask function <pfdf.severity.mask>` to create two masks from the burn severity raster. We'll use these masks at various points throughout the assessment:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 51
-    :end-line: 53
+    :start-line: 46
+    :end-line: 48
 
 .. tab-set::
 
@@ -128,39 +137,39 @@ Next, we'll use the :ref:`severity.mask function <pfdf.severity.mask>` to create
 Watershed Analysis
 ++++++++++++++++++
 
-Next, we'll use the :doc:`watershed module </guide/watershed>` to analyze the watershed. We'll start by using a conditioned DEM to compute flow directions:
+Next, we'll use the :doc:`watershed module </guide/watershed/watershed>` to analyze the watershed. We'll start by using a conditioned DEM to compute flow directions:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 55
-    :end-line: 57
+    :start-line: 50
+    :end-line: 52
 
 .. image:: /images/assessment/flow-directions.png
 
 
 We'll use the flow directions to compute flow slopes and vertical relief, which we'll use later in the assessment:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 57
-    :end-line: 59
+    :start-line: 52
+    :end-line: 54
 
 Finally, we'll compute several types of flow accumulation. 
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 60
-    :end-line: 63
+    :start-line: 56
+    :end-line: 60
 
 .. list-table::
     :header-rows: 1
     
     * - Accumulation
       - Description
-    * - ``npixels``
-      - The number of catchment pixels for each point.
-    * - ``nburned``
-      - The number of burned pixels in each the catchment.
+    * - ``area_km2``
+      - The total catchment area for each point in kilometers^2.
+    * - ``burned_area_km2``
+      - The burned catchment area for each point in kilometers^2.
     * - ``nretainments``
       - The number of debris-flow retainment features above each point.
 
@@ -178,28 +187,19 @@ As a starting point, most masks should exclude pixels with catchments that are t
 
 We'll start by defining two parameters:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 23
-    :end-line: 25
+    :start-line: 24
+    :end-line: 26
 
 Here, ``min_area_km2`` defines the minimum catchment area (in km^2). Smaller catchments are usually too small to be able to generate a debris-flow. The ``min_burned_area_km2`` parameter defines the minimum burned catchment area (also km^2). Catchments with smaller burned areas are negligibly affected by the fire. We can combine these thresholds with the various flow accumulation rasters to generate the network delineation mask.
 
-We've expressed these parameters in terms of areas, but the :ref:`accumulation <pfdf.watershed.accumulation>` function accumulates pixels, rather than areas. To accommodate this, we'll next convert our areas to pixel counts:
-
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 46
-    :end-line: 49
+    :start-line: 62
+    :end-line: 66
 
-We can now use these pixel counts to start building raster masks:
-
-.. include:: download/code/assessment.py
-    :code:
-    :start-line: 65
-    :end-line: 69
-
-The ``large_enough`` mask indicates catchments that are large enough to generate debris flow, and the ``below_retainment`` mask indicates areas that are below a retainment feature. The ``below_burn`` mask indicates areas that may have altered debris-flow hazards. We'll combine the ``below_burn`` mask with the fire perimeter mask to generate an ``at_risk`` mask. This is not stricly necessary, as there may be areas within the perimeter that aren't below any burned area. However, removing segments within the perimeter can sometimes cause confusion from a communication standpoint, as stakeholders may interpret the missing segments as an incomplete assessment. We use the perimeter because this tutorial is focused on hazard assessments, but note that this may not be necessary for all cases:
+The ``large_enough`` mask indicates catchments that are large enough to generate debris flow, and the ``below_retainment`` mask indicates areas that are below a retainment feature. The ``below_burn`` mask indicates areas that may have altered debris-flow hazards. We'll combine the ``below_burn`` mask with the fire perimeter mask to generate an ``at_risk`` mask. This is not strictly necessary, as there may be areas within the perimeter that aren't below any burned area. However, removing segments within the perimeter can sometimes cause confusion from a communication standpoint, as stakeholders may interpret the missing segments as an incomplete assessment. We use the perimeter because this tutorial is focused on hazard assessments, but note that this may not be necessary for all cases:
 
 .. tab-set::
 
@@ -222,41 +222,41 @@ The ``large_enough`` mask indicates catchments that are large enough to generate
 
 We'll now combine these masks to create the final network-delineation mask. We will exclude small catchments, areas with negligible burn, water bodies, and pixels below retainment features:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 69
-    :end-line: 70
+    :start-line: 66
+    :end-line: 67
 
 .. image:: /images/assessment/mask.png
 
 .. note::
 
-    Depending on the size of your screen, the mask may look like a series of disjointed pixels. In reality, most of the pixels connect continuously.
+    Depending on your screen resolution and size, the mask may look like a series of disjointed pixels. In reality, most of the pixels connect continuously.
 
 
 Delineate Network
 +++++++++++++++++
 We're almost ready to delineate a stream network. Let's define one additional parameter first:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 25
-    :end-line: 26
+    :start-line: 26
+    :end-line: 27
 
-This parameter establishes a maximum length for segments in the network. Segments longer than this length will be split into multiple pieces. We can now use the :ref:`Segments constructor <pfdf.segments.Segments.__init__>` to create an initial network:
+This parameter establishes a maximum length for segments in the network (in meters). Segments longer than this length will be split into multiple pieces. We can now use the :ref:`Segments constructor <pfdf.segments.Segments.__init__>` to create an initial network:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 72
-    :end-line: 73
+    :start-line: 69
+    :end-line: 70
 
 .. figure:: /images/assessment/initial-network.png
 
     An initial stream segment network. Blue lines indicate the stream segments. The grey background is the fire perimeter, and the red dots are debris-retention features.
 
-We can use the ``length`` parameter to see that there are 658 segments in this network::
+We can use the ``size`` parameter to see that there are 658 segments in this network::
 
-    >>> segments.length
+    >>> segments.size
     658
 
 
@@ -286,24 +286,24 @@ In Perimeter
 
 We'll start by defining several filtering parameters:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 28
+    :start-line: 29
     :end-line: 34
 
-Most of the parameters define a threshold for one of the filtering variables. The final ``neighborhood`` parameter indicates the number of pixels in the radius of the focal window used to compute confinement angles. Next, we'll use the ``segments`` object to compute the filtering variables for each segment
+Most of the parameters define a threshold for one of the filtering variables. The final ``neighborhood`` parameter indicates the number of pixels in the radius of the focal window used to compute confinement angles. Next, we'll use the ``segments`` object to compute the filtering variables for each segment. Note that the ``area`` and ``developed_area`` commands return values in kilometers^2 by default:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 75
-    :end-line: 81
+    :start-line: 72
+    :end-line: 78
 
 Here, the output variables are 1D numpy arrays with one element per segment in the network. We'll then compare the variables to the thresholds. The resulting arrays are boolean vectors with one element per segment:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 83
-    :end-line: 89
+    :start-line: 80
+    :end-line: 85
 
 Visualizing these arrays, we use blue lines to indicate segments that meet a physical criterion, and red lines to indicate segments that fail a criterion for debris flow risk:
 
@@ -334,12 +334,19 @@ Visualizing these arrays, we use blue lines to indicate segments that meet a phy
         .. image:: /images/assessment/in-perimeter.png
 
 
-Finally, we'll use these arrays to filter the network. We'll remove all flood-like segments, and we'll retain segments that either (1) are in the fire perimeter, or (2) meet the physical criteria for debris-flow hazards:
+Finally, we'll use these arrays to filter the network. We'll remove all flood-like segments, and we'll retain any segments that:
 
-.. include:: download/code/assessment.py
+* Are in the fire perimeter, or
+* Meet physical criteria for debris-flow hazards, or
+* Would cause a :ref:`flow discontinuity <flow-continuity>` if removed
+
+We use the ``continuous`` function to implement the final criteria. In its default configuration, it will return a boolean vector indicating the segments that either (A) were indicated should be kept, or (B) should be kept to preserve flow continuity.
+
+
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 91
-    :end-line: 94
+    :start-line: 87
+    :end-line: 91
 
 .. tab-set::
 
@@ -351,100 +358,93 @@ Finally, we'll use these arrays to filter the network. We'll remove all flood-li
 
         .. image:: /images/assessment/keep-segments.png
 
-If we compare the filtered network to the indicated segments, we can see that the :ref:`keep command <pfdf.segments.Segments.keep>` retained 4 extra segments in the network::
-    
-    >>> np.sum(keep)
-    466
-    >>> print(segments.length)
-    470
-    
-This is because we used :ref:`keep <pfdf.segments.Segments.keep>` in its default configuration, which prioritizes :ref:`flow continuity <flow-continuity>` over removing segments. Thus, the command may retain additional segments in the network. As such, we return the ``kept`` output. This is a 1D boolean numpy array with one element per segment in the *initial* network. The True elements of the array indicate the segments that were actually retained. We'll use this array later to help save the segments to file.
+
+.. note::
+
+    If you filter the network using the :ref:`remove command <pfdf.segments.Segments.remove>` instead of :ref:`keep <pfdf.segments.Segments.keep>`, then you should call :ref:`continuous <pfdf.segments.Segments.continuous>` with the ``remove=True`` option.
 
 
 Hazard Models
 -------------
 
-We've finished designing the stream network, so we're now ready to implement the hazard models. Specifically, we'll run 
+We've finished designing the stream network, so we're now ready to implement the hazard models. First, we'll run the models needed to implement the combined hazard classification. Specifically, these are:
 
-* The M1 probability/rainfall accumulation model of :doc:`Staley et al., 2017 </guide/models/s17>`
+* The M1 likelihood model of :doc:`Staley et al., 2017 </guide/models/s17>`,
 * The emergency sediment volume model of :doc:`Gartner et al., 2014 </guide/models/g14>`, and
 * The combined hazard classification scheme of :doc:`Cannon et al., 2010 </guide/models/c10>`
 
+The volume model uses peak 15-minute rainfall intensities as input. Thus for consistency, we will only run these models for 15-minute rainfall durations. However, we'll also calculate the rainfall thresholds required to achieve various debris-flow probability levels. These threshold estimates are independent of the volume model, so we can run them for multiple rainfall durations.
 
-Probability / Accumulation
-++++++++++++++++++++++++++
+We'll start by defining our parameters:
 
-We'll start with the probability / accumulation model. This is implemented by the :doc:`s17 module </guide/models/s17>`. We'll start by defining several parameters used to implement the models:
-
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 36
-    :end-line: 39
-
-Here, ``p`` is a set of debris-flow probability levels; we'll use the model to determine the rainfall accumulations needed to achieve these probabilities. Conversely, ``R_mm`` is a set of rainfall accumulations, and we'll also use the model to calculate the probability levels associated with these accumulations. Finally, ``durations_min`` is a set of rainfall durations used to calibrate the M1 model; we'll solve the probability and accumulation for each of these durations.
-
-Our next step is to compute the parameters and variables for the M1 model:
-
-.. include:: download/code/assessment.py
-    :code:
-    :start-line: 96
-    :end-line: 98
-
-Here, each of the parameters (``B``, ``Ct``, ``Cf``, and ``Cs``) is a vector with 3 elements - each element is the parameter value for one of our queried rainfall durations. By contrast, each variable (``T``, ``F``, and ``S``) is a vector with one element per stream segment.
-
-We'll then use these quantities to solve for debris-flow probability, given a set of rainfall accumulations, and vice versa:
-
-.. include:: download/code/assessment.py
-    :code:
-    :start-line: 98
-    :end-line: 100
-
-Here, the ``probability`` and ``accumulation`` outputs are 3D numpy arrays. The number of rows corresponds to the number of segments in the network. Each column holds the solutions for one of our queried rainfall durations. Each element along the third dimension holds the solutions for one of the given probability levels / rainfall accumulations::
-
-    >>> probability.shape
-    (470, 3, 4)
-    >>> probability.shape == (segments.length, len(durations_min), len(R_mm))
-    True
-
-    >>> accumulation.shape
-    (470, 3, 2)
-    >>> accumulation.shape == (segments.length, len(durations_min), len(p))
-    True
-
-Let's visualize the results for the probability model, using 6 mm of rainfall over a 15-minute interval (``probability[:, 0, 1]``). This is equivalent to a peak 15-minute *intensity* of 24 mm/hour. Here, we can see that this amount of rainfall would cause a high probability of debris-flow probability for many of the segments:
-
-.. figure:: /images/assessment/probability.png
-
-    Modeled debris-flow probabilities given 6 mm of rainfall over a 15-minute duration (equivalent to 24mm/hour). Darker shades of red correspond to increased debris-flow probability.
-
-Volume Model
-++++++++++++
-Next, we'll model the potential sediment volume of any debris flows using the :doc:`g14 module </guide/models/g14>`. We'll start by defining a parameter:
-
-.. include:: download/code/assessment.py
-    :code:
-    :start-line: 39
+    :start-line: 37
     :end-line: 40
 
-This is the peak 15-minute rainfall intensity (in mm/hour) for which we'd like to solve the model. Next, we'll compute two variables for the segments:
+Here, ``I15`` is the peak 15-minute rainfall intensities used for the likelihood, volume, and hazard models. The ``durations_min`` variable is the rainfall durations (in minutes) used to calculate rainfall thresholds, and ``p`` is the probability levels for the thresholds.
 
-.. include:: download/code/assessment.py
+
+Likelihood
+++++++++++
+
+We'll start with the likelihood model. This is implemented by the :doc:`s17 module </guide/models/s17>`. The likelihood model requires rainfall accumulations, rather than intensities, so we'll start by converting ``I15`` from intensities to accumulations:
+
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 102
-    :end-line: 104
+    :start-line: 93
+    :end-line: 94
 
-These are (1) the catchment area burned at moderate-or-high severity, and (2) the vertical relief for each segment. The output ``Bmh_km2`` and ``relief`` variables are both numpy 1D arrays with one element per segment. Finally, we'll solve the emergency-assessment sediment volume model for these quantities:
+Next, we'll compute the parameters and variables for the M1 model:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 104
-    :end-line: 105
+    :start-line: 94
+    :end-line: 96
 
-The ``volume`` output is a 2D numpy array with one row per stream segment, and one column per queried rainfall intensity::
+Here, each of the parameters (``B``, ``Ct``, ``Cf``, and ``Cs``) is a scalar, and holds the parameter value for a 15-minute duration. By contrast, each variable (``T``, ``F``, and ``S``) is a vector with one element per stream segment.
+
+We'll then use these quantities to solve for debris-flow likelihood:
+
+.. include:: scripts/assessment.py
+    :code:
+    :start-line: 96
+    :end-line: 97
+
+Here, the ``likelihoods`` output is a 2D numpy array. The number of rows corresponds to the number of segments in the network. Each column holds the solutions for one of our queried rainfall durations:
+
+    >>> likelihood.shape
+    (470, 4)
+    >>> likelihood.shape == (segments.length, len(I15))
+    True
+
+Let's visualize the results for the likelihood model, using 6 mm of rainfall over a 15-minute interval (``likelihood[:, 2]``). This is equivalent to a peak 15-minute *intensity* of 24 mm/hour. Here, we can see that this amount of rainfall would cause a high likelihood of debris-flows for many of the segments:
+
+.. figure:: /images/assessment/likelihood.png
+
+    Modeled debris-flow likelihoods given 6 mm of rainfall over a 15-minute duration (equivalent to 24mm/hour). Darker shades of red correspond to increased debris-flow likelihoods.
+
+Volume
+++++++
+Next, we'll model the potential sediment volume of any debris flows using the :doc:`g14 module </guide/models/g14>`. We'll start by computing two variables for the segments:
+
+.. include:: scripts/assessment.py
+    :code:
+    :start-line: 99
+    :end-line: 101
+
+These are (1) the catchment area burned at moderate-or-high severity, and (2) the vertical relief for each segment. The output ``Bmh_km2`` and ``relief`` variables are both numpy 1D arrays with one element per segment. As with other areal Segments methods, the ``burned_area`` command returns values in kilometers^2 by default. Finally, we'll solve the emergency-assessment sediment volume model for these quantities:
+
+.. include:: scripts/assessment.py
+    :code:
+    :start-line: 101
+    :end-line: 102
+
+Each of the three outputs are a 2D numpy array with one row per stream segment, and one column per queried rainfall intensity. The ``volume`` array holds the estimated potential sediment volumes in meters^3. The ``Vmin`` and ``Vmax`` arrays are the lower and upper bounds of the 95% confidence interval, respectively::
 
     >>> volume.shape
     (470, 4)
-    >>> volume.shape == (segments.length, len(i15))
+    >>> volume.shape == (segments.length, len(I15))
     True
 
 Let's visualize the results for a 24 mm/hour rainfall intensity (``volume[:,2]``):
@@ -457,23 +457,61 @@ Let's visualize the results for a 24 mm/hour rainfall intensity (``volume[:,2]``
 
 Combined Hazard
 +++++++++++++++
-Finally, we'll use the :doc:`c10 module </guide/models/c10>` to classify the relative hazard, based on the modeled debris-flow probabilities and volumes. The original model defines 4 probability classes, but we'll use the ``p_thresholds`` variable to define 5 such classes instead:
+Finally, we'll use the :doc:`c10 module </guide/models/c10>` to classify the relative hazard, based on the modeled debris-flow likelihoods and volumes. The original model defines 4 likelihood classes, but we'll use the ``p_thresholds`` variable to define 5 such classes instead:
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 107
-    :end-line: 108
+    :start-line: 104
+    :end-line: 105
 
-Then, we'll classify the relative hazard resulting from a peak 15-minute rainfall intensity of 24 mm/hour. This corresponds to a rainfall accumulation of 6 mm/15-minutes (``probability[:,0,1]`` and ``volume[:,2]``):
+Then, we'll classify the relative hazard resulting from a peak 15-minute rainfall intensity of 24 mm/hour. This corresponds to a rainfall accumulation of 6 mm over 15-minutes (``likelihood[:,2]`` and ``volume[:,2]``):
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
-    :start-line: 108
-    :end-line: 109
+    :start-line: 105
+    :end-line: 106
 
 .. figure:: /images/assessment/hazard.png
 
     The combined hazard classification for a peak 15-minute rainfall intensity of 24 mm/hour. Darker shades indicate greater hazard.
+
+
+Rainfall Thresholds
++++++++++++++++++++
+
+We'll also use the M1 model to estimate the rainfall thresholds needed to achieve various debris-flow probability levels. These estimates are independent of the volume model, so we will run the model for multiple rainfall durations. Our first step is to obtain the model coefficients for our tested rainfall durations:
+
+.. include:: scripts/assessment.py
+    :code:
+    :start-line: 108
+    :end-line: 109
+
+Here, each of the ``B``, ``Ct``, ``Cf``, and ``Cs`` variables is a vector with 3 elements. Each element corresponds to the coefficient for a particular rainfall duration. Next, we'll use the model to estimate the rainfall accumulation thresholds:
+
+.. include:: scripts/assessment.py
+    :code:
+    :start-line: 109
+    :end-line: 110
+
+Here, the output thresholds are a 3D numpy array. Each row holds the values for a particular stream segment, and each column holds the values for a particular rainfall duration. The third dimension holds the values for each queried probability level::
+
+    >>> accumulation.shape
+    (470, 3, 2)
+    >>> accumulation.shape == (segments.length, len(durations_min), len(p))
+    True
+
+Finally, we'll convert the accumulation values to intensities to facilitate comparison of the different values:
+
+.. include:: scripts/assessment.py
+    :code:
+    :start-line: 110
+    :end-line: 111
+
+Let's visualize the results for a 30-minute rainfall duration at the 50% probability level (``intensities[:,1,0]``):
+
+.. figure:: /images/assessment/thresholds.png
+
+    The peak 30-minute rainfall intensities (mm/hr) required for a 50% probability of debris flows. Darker shades indicate that less intense rainfall is required to achieve this probability level.
 
 
 Export
@@ -498,21 +536,21 @@ We'll do this using the :ref:`save method <pfdf.segments.Segments.save>`, and we
 
 Segments
 ++++++++
-We'll start by exporting the stream segments. ALthough we could use the :ref:`save method <pfdf.segments.Segments.save>` in its basic configuration to save the segment locations, we'd like to also include assessment results. As such, we'll need to build a properties ``dict``, which will hold the values we want to save to file.
+We'll start by exporting the stream segments. Although we could use the :ref:`save method <pfdf.segments.Segments.save>` in its basic configuration to save the segment locations, we'd like to also include assessment results. As such, we'll need to build a properties ``dict``, which will hold the values we want to save to file.
 
 As stated, we'd like to save assessment results, hazard model inputs, and the earth-system variables we calculated for the stream segments. The earth-system variables present a challenge, because we calculated them for every variable in the initial (unfiltered) network. By contrast, we only want to export the final (filtered) network to file. Looking back to the :ref:`filtering section <filter-tutorial>`, recall the ``kept`` variable we returned as output from the :ref:`keep method <pfdf.segments.Segments.keep>`. This boolean array indicates the segments in the initial network that remained in the final network. We can use this array to select values for the segments in the final network:
 
-.. include:: download/code/export.py
+.. include:: scripts/export.py
     :code:
-    :start-line: 23
-    :end-line: 28
+    :start-line: 25
+    :end-line: 30
 
 Now that we've updated these variables, we can build the properties ``dict``:
 
-.. include:: download/code/export.py
+.. include:: scripts/export.py
     :code:
-    :start-line: 30
-    :end-line: 51
+    :start-line: 32
+    :end-line: 55
 
 The keys of the dict should be strings, which represent the variable names. The values should be numeric vectors with one element per stream segment.
 
@@ -522,10 +560,10 @@ The keys of the dict should be strings, which represent the variable names. The 
 
 We can now save the segments to file:
 
-.. include:: download/code/export.py
+.. include:: scripts/export.py
     :code:
-    :start-line: 53
-    :end-line: 54
+    :start-line: 57
+    :end-line: 58
 
 The segments will have LineString geometries, and will resemble the following:
 
@@ -536,23 +574,26 @@ The segments will have LineString geometries, and will resemble the following:
 
 Outlets
 +++++++
-We'll also export the network's :ref:`outlets <export-types>`. These are Point geometries that indicate where segments flow out of the network. We'll need to build a separate property dict for the outlets, because the number of outlets will be less than the number of segments. The ``isterminus`` property is useful for this; it returns a boolean array indicating which segments are terminal segments (i.e. segments that flow out of the network). We'll use this to create a new property dict:
+We'll also export the network's :ref:`outlets <export-types>`. These are Point geometries that indicate where segments flow out of the network. Before exporting the outlets, we'll want to remove any :ref:`nested drainage basins <nested>` from the network, which would appear as undesirable "hanging" outlet points in the exported dataset. We'll use the :ref:`isnested command <pfdf.segments.Segments.isnested>` to identify segments in nested basins, and then remove them with the :ref:`remove method <pfdf.segments.Segments.remove>`:
 
-.. include:: download/code/export.py
+.. include:: scripts/export.py
     :code:
-    :start-line: 56
-    :end-line: 64
+    :start-line: 60
+    :end-line: 62
 
-.. note::
+Since we've removed segments from the network, we'll need to build a new property dict for the outlets and basins. For the sake of brevity, we'll only include hazard model results in this property dict:
 
-    For the sake of brevity, we've only included hazard model results in this property dict.
+.. include:: scripts/export.py
+    :code:
+    :start-line: 64
+    :end-line: 71
 
 We can now export the outlets by calling :ref:`save <pfdf.segments.Segments.save>` and setting ``type="outlets"``:
 
-.. include:: download/code/export.py
+.. include:: scripts/export.py
     :code:
-    :start-line: 66
-    :end-line: 67
+    :start-line: 73
+    :end-line: 74
 
 These features will resemble the following:
 
@@ -571,10 +612,10 @@ Basins
 ++++++
 We'll also export the :ref:`outlet basins <export-types>`. These are Polygon geometries, and each represents the catchment draining into an outlet point. The number of terminal basins will match the number of terminal outlets, so we can re-use the property dict from the previous section. Then, we can export the basins by calling the :ref:`save method <pfdf.segments.Segments.save>` and setting ``type="basins"``:
 
-.. include:: download/code/export.py
+.. include:: scripts/export.py
     :code:
-    :start-line: 67
-    :end-line: 68
+    :start-line: 74
+    :end-line: 75
     
 The basins will resemble the following:
 
@@ -594,15 +635,13 @@ Putting it all together
 
 **Hazard Assessment**
 
-.. include:: download/code/assessment.py
+.. include:: scripts/assessment.py
     :code:
     :start-line: 2
-    :end-line: 109
 
 **Export**
 
-.. include:: download/code/export.py
+.. include:: scripts/export.py
     :code:
-    :start-line: 22
-    :end-line: 68
+    :start-line: 24
 

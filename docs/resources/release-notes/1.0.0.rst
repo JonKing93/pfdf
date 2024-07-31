@@ -1,0 +1,12 @@
+pfdf 1.0.0 Release Notes
+========================
+
+This release provides the core numerical engine needed to implement post-fire debris-flow hazard assessments. This includes routines to:
+
+* Analyze watersheds
+* Delineate and filter stream segment networks
+* Compute earth-system variables for stream segments in a network
+* Assess debris-flow probabilities using various logistic regression models
+* Assess potential debris-flow sediment volumes
+* Classify relative hazards, and
+* Export results to common GIS file formats and GeoJSON

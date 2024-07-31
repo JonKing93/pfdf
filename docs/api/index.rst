@@ -9,6 +9,7 @@ The complete reference guide to pfdf commands. See also the :doc:`User Guide </g
     severity
     watershed
     segments
-    models
-    utils
+    models/index
+    utils/index
+    projection/index
     errors

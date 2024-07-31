@@ -13,7 +13,7 @@ The pfdf (postfire debris-flow) package provides utilities intended to facilitat
 * Assess debris-flow probabilities using the models of Staley and others, 2017
 * Assess potential sediment volumes using the models of Gartner and others, 2014
 * Classify relative hazards using the methods of Cannon and others, 2010, and
-* Export results to GeoJSON and common GIS file formats
+* Export results to common GIS formats (such as Shapefiles and GeoJSON)
 
 Please see the [User Guide](https://ghsc.code-pages.usgs.gov/lhp/pfdf/) for detailed usage instructions, tutorials, and the API.
 

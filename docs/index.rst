@@ -11,7 +11,7 @@ The pfdf package is a Python library designed to facilitate postfire debris-flow
 * Assess debris-flow probabilities using the models of `Staley and others, 2017 <https://doi.org/10.1016/j.geomorph.2016.10.019>`_
 * Assess potential sediment volumes using the models of `Gartner and others, 2014 <https://doi.org/10.1016/j.enggeo.2014.04.008>`_
 * Classify relative hazards using the methods of `Cannon and others, 2010 <https://doi.org/10.1130/B26459.1>`_, and
-* Export results to GeoJSON and common GIS file formats
+* Export results to common GIS formats (such as Shapefiles and GeoJSON)
 
 All routines are optional, and may be configured for a variety of analyses and assessment styles. We note that some coding experience is required to use the routines in this package. As such, pfdf is primarily intended for researchers and developers of hazard assessment tools.
 
@@ -63,7 +63,6 @@ BibTeX::
 
 
 
-
 .. toctree::
     :hidden:
     :caption: Docs
@@ -79,6 +78,7 @@ BibTeX::
     
     Contributing <resources/contributing>
     Legal <resources/legal>
+    Release Notes <resources/release-notes/index>
     Latest Release <https://code.usgs.gov/ghsc/lhp/pfdf/-/releases/permalink/latest>
 
 

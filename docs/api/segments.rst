@@ -1,5 +1,5 @@
-pfdf.segments module
-====================
+pfdf.segments subpackage
+========================
 
 .. _pfdf.segments:
 
@@ -15,90 +15,177 @@ pfdf.segments module
 
     .. dropdown:: Properties
 
-        ===============  ===========
-        Property         Description
-        ===============  ===========
-        ..
-        Network
-        ----------------------------          
-        length           The number of segments in the network
-        nlocal           The number of local drainage networks in the network
-        crs              The coordinate reference system associated with the network
-        ..
-        Segments
-        ----------------------------          
-        segments         A list of ``shapely.LineString`` objects representing the stream segments
-        lengths          The length of each segment
-        ids              A unique integer ID associated with each stream segment
-        parents          The IDs of the upstream parents of each stream segment
-        child            The ID of the downstream child of each stream segment
-        isterminus       Whether each segment is a terminal segment
-        indices          The indices of each segment's pixels in the stream segment raster
-        npixels          The number of pixels in the catchment basin of each stream segment
-        ..
-        Raster Metadata
-        ----------------------------          
-        flow             The flow direction raster used to build the network
-        raster_shape     The shape of the flow direction raster
-        transform        The affine transformation associated with the flow raster
-        resolution       The resolution of the flow raster pixels
-        pixel_area       The area of a raster pixel
-        ===============  ===========
+        .. list-table::
+            :header-rows: 1
+
+            * - Property
+              - Description
+            * - 
+              -
+            * - **Network**
+              - 
+            * - size
+              - The number of segments in the network
+            * - nlocal
+              - The number of local drainage networks
+            * - crs
+              - The coordinate reference system associated with the network
+            * - crs_units
+              - The units of the CRS along the X and Y axes
+            * - 
+              - 
+            * - **Segments**
+              - 
+            * - segments
+              - A list of shapely.LineString objects representing the stream segments
+            * - ids
+              - A unique integer ID associated with each stream segment
+            * - terminal_ids
+              - The IDs of the terminal segments
+            * - indices
+              - The indices of each segment's pixels in the stream segment raster
+            * - npixels
+              - The number of pixels in the catchment basin of each stream segment
+            * - 
+              -
+            * - **Raster Metadata**
+              - 
+            * - flow
+              - The flow direction raster used to build the network
+            * - raster_shape
+              - The shape of the stream segment raster
+            * - transform
+              - The affine Transform of the stream segment raster
+            * - bounds
+              - The BoundingBox of the stream segment raster
+
+
 
     .. dropdown:: Methods
 
-        ===================================================================  ===========
-        Method                                                               Description
-        ===================================================================  ===========
-        :ref:`__init__ <pfdf.segments.Segments.__init__>`                    Create a stream segment network
-        ..
-        **Dunders**
-        :ref:`__len__ <pfdf.segments.Segments.__len__>`                      The number of segments in the network
-        :ref:`__str__ <pfdf.segments.Segments.__str__>`                      A string representing the network
-        :ref:`__geo_interface__ <pfdf.segments.Segments.__geo_interface__>`  A geojson-like dict of the network
-        ..
-        **Rasters**
-        :ref:`raster <pfdf.segments.Segments.raster>`                        Returns a raster representation of the stream segment network
-        :ref:`basin_mask <pfdf.segments.Segments.basin_mask>`                Returns the catchment or terminal outlet basin mask for the queried stream segment
-        :ref:`locate_basins <pfdf.segments.Segments.locate_basins>`          Builds and saves the basin raster, optionally in parallel
-        ..
-        **Outlets**
-        :ref:`terminus <pfdf.segments.Segments.terminus>`                    Return the ID of the queried segment's terminal segment
-        :ref:`termini <pfdf.segments.Segments.termini>`                      Return the IDs of all terminal segments
-        :ref:`outlet <pfdf.segments.Segments.outlet>`                        Return the indices of the queried segment's outlet or terminal outlet pixel
-        :ref:`outlets <pfdf.segments.Segments.outlets>`                      Return the indices of all outlet or terminal outlet pixels
-        ..
-        **Earth-system Variables**
-        :ref:`area <pfdf.segments.Segments.area>`                            Computes the total basin areas
-        :ref:`burn_ratio <pfdf.segments.Segments.burn_ratio>`                Computes the burned proportion of basins
-        :ref:`burned_area <pfdf.segments.Segments.burned_area>`              Computes the burned area of basins
-        :ref:`developed_area <pfdf.segments.Segments.developed_area>`        Computes the developed area of basins
-        :ref:`confinement <pfdf.segments.Segments.confinement>`              Computes the confinement angle for each segment
-        :ref:`in_mask <pfdf.segments.Segments.in_mask>`                      Checks whether each segment is within a mask
-        :ref:`in_perimeter <pfdf.segments.Segments.in_perimeter>`            Checks whether each segment is within a fire perimeter
-        :ref:`kf_factor <pfdf.segments.Segments.kf_factor>`                  Computes mean basin KF-factors
-        :ref:`scaled_dnbr <pfdf.segments.Segments.scaled_dnbr>`              Computes mean basin dNBR / 1000
-        :ref:`scaled_thickness <pfdf.segments.Segments.scaled_thickness>`    Computes mean basin soil thickness / 100
-        :ref:`sine_theta <pfdf.segments.Segments.sine_theta>`                Computes mean basin sin(θ)
-        :ref:`slope <pfdf.segments.Segments.slope>`                          Computes the mean slope of each segment
-        :ref:`relief <pfdf.segments.Segments.relief>`                        Computes the vertical relief to highest ridge cell for each segment
-        :ref:`ruggedness <pfdf.segments.Segments.ruggedness>`                Computes topographic ruggedness (relief / sqrt(area)) for each segment
-        :ref:`upslope_ratio <pfdf.segments.Segments.upslope_ratio>`          Computes the proportion of basin pixels that meet a criteria
-        ..
-        **Generic Statistics**
-        :ref:`statistics <pfdf.segments.Segments.statistics>`                Print or return info about supported statistics
-        :ref:`summary <pfdf.segments.Segments.summary>`                      Compute summary statistics over the pixels for each segment
-        :ref:`basin_summary <pfdf.segments.Segments.basin_summary>`          Compute summary statistics over the catchment basins or terminal outlet basins
-        ..
-        **Filtering**
-        :ref:`remove <pfdf.segments.Segments.remove>`                        Removes segments from the network while optionally preserving continuity
-        :ref:`keep <pfdf.segments.Segments.keep>`                            Restricts the network to the indicated segments while optionally preserving continuity
-        :ref:`copy <pfdf.segments.Segments.copy>`                            Returns a deep copy of the *Segments* object
-        ..
-        **Export**
-        :ref:`geojson <pfdf.segments.Segments.geojson>`                      Returns the network as a ``geojson.FeatureCollection``
-        :ref:`save <pfdf.segments.Segments.save>`                            Saves the network to file
-        ===================================================================  ===========
+        .. list-table::
+            :header-rows: 1
+
+            * - Method
+              - Description
+            * - 
+              -
+            * - **Object Creation**
+              - 
+            * - :ref:`__init__ <pfdf.segments.Segments.__init__>`
+              - Builds an initial stream segment network
+            * - 
+              - 
+            * - **Dunders**
+              - 
+            * - :ref:`__len__ <pfdf.segments.Segments.__len__>`
+              - The number of segments in the network
+            * - :ref:`__str__ <pfdf.segments.Segments.__str__>`
+              - A string representing the network
+            * - :ref:`__geo_interface__ <pfdf.segments.Segments.__geo_interface__>`
+              - A geojson-like dict of the network
+            * - 
+              - 
+            * - **Outlets**
+              - 
+            * - :ref:`isterminal <pfdf.segments.Segments.isterminal>`
+              - Indicates whether segments are terminal segments
+            * - :ref:`termini <pfdf.segments.Segments.termini>`
+              - Returns the IDs of terminal segments
+            * - :ref:`outlets <pfdf.segments.Segments.outlets>`
+              - Returns the row and column indices of outlet pixels
+            * - 
+              - 
+            * - **Local Networks**
+              - 
+            * - :ref:`parents <pfdf.segments.Segments.parents>`
+              - Returns the IDs of segments immediately upstream
+            * - :ref:`child <pfdf.segments.Segments.child>`
+              - Returns the ID of the segment immediately downstream
+            * - :ref:`ancestors <pfdf.segments.Segments.ancestors>`
+              - Returns the IDs of upstream segments in a local network
+            * - :ref:`descendents <pfdf.segments.Segments.descendents>`
+              - Returns the IDs of downstream segments in a local network
+            * - :ref:`family <pfdf.segments.Segments.family>`
+              - Returns the IDs of segments in a local network
+            * - :ref:`isnested <pfdf.segments.Segments.isnested>`
+              - Indicates whether segments are in a nested network
+            * - 
+              - 
+            * - **Rasters**
+              - 
+            * - :ref:`locate_basins <pfdf.segments.Segments.locate_basins>`
+              - Builds and saves the basin raster, optionally in parallel
+            * - :ref:`raster <pfdf.segments.Segments.raster>`
+              - Returns a raster representation of the stream segment network
+            * - :ref:`basin_mask <pfdf.segments.Segments.basin_mask>`
+              - Returns the catchment or terminal outlet basin mask for the queried stream segment
+            * - 
+              - 
+            * - **Generic Statistics**
+              - 
+            * - :ref:`statistics <pfdf.segments.Segments.statistics>`
+              - Print or return info about supported statistics
+            * - :ref:`summary <pfdf.segments.Segments.summary>`
+              - Compute summary statistics over the pixels for each segment
+            * - :ref:`basin_summary <pfdf.segments.Segments.basin_summary>`
+              - Compute summary statistics over the catchment basins or terminal outlet basins
+            * - 
+              - 
+            * - **Earth System Variables**
+              - 
+            * - :ref:`area <pfdf.segments.Segments.area>`
+              - Computes the total basin areas
+            * - :ref:`burn_ratio <pfdf.segments.Segments.burn_ratio>`
+              - Computes the burned proportion of basins
+            * - :ref:`burned_area <pfdf.segments.Segments.burned_area>`
+              - Computes the burned area of basins
+            * - :ref:`confinement <pfdf.segments.Segments.confinement>`
+              - Computes the confinement angle for each segment
+            * - :ref:`developed_area <pfdf.segments.Segments.developed_area>`
+              - Computes the developed area of basins
+            * - :ref:`in_mask <pfdf.segments.Segments.in_mask>`
+              - Checks whether each segment is within a mask
+            * - :ref:`in_perimeter <pfdf.segments.Segments.in_perimeter>`
+              - Checks whether each segment is within a fire perimeter
+            * - :ref:`kf_factor <pfdf.segments.Segments.kf_factor>`
+              - Computes mean basin KF-factors
+            * - :ref:`length <pfdf.segments.Segments.length>`
+              - Computes the length of each stream segment
+            * - :ref:`scaled_dnbr <pfdf.segments.Segments.scaled_dnbr>`
+              - Computes mean basin dNBR / 1000
+            * - :ref:`scaled_thickness <pfdf.segments.Segments.scaled_thickness>`
+              - Computes mean basin soil thickness / 100
+            * - :ref:`sine_theta <pfdf.segments.Segments.sine_theta>`
+              - Computes mean basin sin(theta)
+            * - :ref:`slope <pfdf.segments.Segments.slope>`
+              - Computes the mean slope of each segment
+            * - :ref:`relief <pfdf.segments.Segments.relief>`
+              - Computes the vertical relief to highest ridge cell for each segment
+            * - :ref:`ruggedness <pfdf.segments.Segments.ruggedness>`
+              - Computes topographic ruggedness (relief / sqrt(area)) for each segment
+            * - :ref:`upslope_ratio <pfdf.segments.Segments.upslope_ratio>`
+              - Computes the proportion of basin pixels that meet a criteria
+            * - 
+              -
+            * - **Filtering**
+              - 
+            * - :ref:`continuous <pfdf.segments.Segments.continuous>`
+              - Indicates segments that can be filtered while preserving flow continuity
+            * - :ref:`keep <pfdf.segments.Segments.keep>`
+              - Restricts the network to the indicated segments
+            * - :ref:`remove <pfdf.segments.Segments.remove>`
+              - Removes the indicated segments from the network
+            * - :ref:`copy <pfdf.segments.Segments.copy>`
+              - Returns a deep copy of the *Segments* object
+            * - 
+              -
+            * - **Export**
+              - 
+            * - :ref:`geojson <pfdf.segments.Segments.geojson>`
+              - Returns the network as a geojson.FeatureCollection
+            * - :ref:`save <pfdf.segments.Segments.save>`
+              - Saves the network to file
 
 
     The *Segments* class is used to build and manage a stream segment network. A common workflow is as follows:
@@ -109,7 +196,9 @@ pfdf.segments module
     4. Compute :ref:`hazard assessment inputs <api-segments-variables>`
     5. :ref:`Export <api-export>` results to file and/or GeoJSON
 
-    .. tip:: See the :doc:`/guide/glossary` for descriptions of many terms used throughout this documentation.
+    .. tip:: 
+        
+        See the :doc:`/guide/glossary` for descriptions of many terms used throughout this documentation.
 
 ----
 
@@ -119,7 +208,7 @@ Properties
 Network
 +++++++
 
-.. py:property:: Segments.length
+.. py:property:: Segments.size
 
     The number of stream segments in the network
 
@@ -131,6 +220,10 @@ Network
 
     The coordinate reference system of the stream segment network
 
+.. py:property:: Segments.crs_units
+
+    The units of the CRS along the X and Y axes
+
 
 Segments
 ++++++++
@@ -139,29 +232,19 @@ Segments
     
     A list of shapely LineStrings representing the stream segments
 
-.. py:property:: Segments.lengths
-
-    The length of each stream segment in the units of the CRS
-
 .. py:property:: Segments.ids
 
     The ID of each stream segment
 
-.. py:property:: Segments.parents
+.. _pfdf.segments.Segments.terminal_ids:
 
-    The IDs of the upstream parents of each stream segment
+.. py:property:: Segments.terminal_ids
 
-.. py:property:: Segments.child
-
-    The ID of the downstream child of each stream segment
-
-.. py:property:: Segments.isterminus
-
-    Whether each segment is a terminal segment
+    The IDs of the terminal segments
 
 .. py:property:: Segments.indices
 
-    The row and column indices of the stream raster pixels for each segment
+    The indices of each segment's pixels in the stream segment raster
 
 .. py:property:: Segments.npixels
 
@@ -181,26 +264,23 @@ Raster Metadata
 
 .. py:property:: Segments.transform
 
-    The (affine) transform of the stream segment raster
+    The affine Transform of the stream segment raster
 
-.. py:property:: Segments.resolution
-
-    The resolution of the stream segment raster pixels
-
-.. py:property:: Segments.pixel_area
-
-    The area of the stream segment raster pixels in the units of the transform
+.. py:property:: Segments.bounds
+    
+    The BoundingBox of the stream segment raster
 
 
+----
 
 Dunders
 -------
 
 .. _pfdf.segments.Segments.__init__:
 
-.. py:method:: Segments.__init__(self, flow, mask, max_length = inf)
+.. py:method:: Segments.__init__(self, flow, mask, max_length = inf, units = "meters")
 
-    Creates a new Segments object
+    Creates a new *Segments* object
 
     .. dropdown:: Create Network
 
@@ -210,7 +290,7 @@ Dunders
 
         Builds a *Segments* object to manage the stream segments in a drainage network. Note that stream segments approximate the river beds in the catchment basins, rather than the full catchment basins. The returned object records the pixels associated with each segment in the network.
 
-        The stream segment network is determined using a :ref:`TauDEM-style <api-taudem-style>` D8 flow direction raster and a raster mask. The mask is used to indicate the pixels under consideration as stream segments. True pixels may possibly be assigned to a stream segment, False pixels will never be assiged to a stream segment. The mask typically screens out pixels with low flow accumulations, and may include other screenings - for example, to remove pixels in bodies of water.
+        The stream segment network is determined using a :ref:`TauDEM-style <api-taudem-style>` D8 flow direction raster and a raster mask. The mask is used to indicate the pixels under consideration as stream segments. True pixels may possibly be assigned to a stream segment, False pixels will never be assigned to a stream segment. The mask typically screens out pixels with low flow accumulations, and may include other screenings - for example, to remove pixels in bodies of water.
 
         .. note:: The flow direction raster must have (affine) transform metadata.
 
@@ -218,13 +298,16 @@ Dunders
 
         ::
 
-            Segments(flow, mask, max_length)
+            Segments(..., max_length)
+            Segments(..., max_length, units)
 
-        Also specifies a maximum length for the segments in the network. Any segment longer than this length will be split into multiple pieces. The split pieces will all have the same length, which will be <= max_length. The units of max_length should be the base units of the (affine) transform associated with the flow raster. In practice, this is usually units of meters. The maximum length must be at least as long as the diagonal of the raster pixels.
+        Also specifies a maximum length for the segments in the network. Any segment longer than this length will be split into multiple pieces. The split pieces will all have the same length, which will be < max_length. Note that the max_length must be at least as long as the diagonal of the raster pixels. By default, this command interprets max_length in meters. Use the ``units`` option to specify max_length in different units instead. Unit options include: "base" (CRS/Transform base unit), "meters" (default), "kilometers", "feet", and "miles".
 
-    :Inputs: * **flow** (*Raster*) -- A TauDEM-style D8 flow direction raster
-                * **mask** (*Raster*) -- A raster whose True values indicate the pixels that may potentially belong to a stream segment.
-                * **max_length** (*scalar*) -- A maximum allowed length for segments in the network. Units should be the same as the units of the (affine) transform for the flow raster.
+    :Inputs: 
+        * **flow** (*Raster*) -- A TauDEM-style D8 flow direction raster
+        * **mask** (*Raster*) -- A raster whose True values indicate the pixels that may potentially belong to a stream segment.
+        * **max_length** (*scalar*) -- A maximum allowed length for segments in the network.
+        * **units** (*str*) -- Specifies the units of max_length. Options include: "base" (CRS base units), "meters" (default)", "kilometers", "feet", and "miles".
 
     :Outputs: *Segments* -- A *Segments* object recording the stream segments in the network.
         
@@ -232,22 +315,30 @@ Dunders
 
 .. py:method:: Segments.__len__(self)
 
-    The number of stream segments in a *Segments* object
+    The number of stream segments in the network
 
     ::
 
-        len(segments)
+        len(self)
+
+    :Outputs:
+        *int* -- The number of segments in the network
 
 
 .. _pfdf.segments.Segments.__str__:
 
 .. py:method:: Segments.__str__(self)
 
-    String representation of the object
+    Returns a string summarizing the *Segments* object
 
     ::
 
-        str(segments)
+        str(self)
+
+    Returns a string summarizing that reports (1) the total number of segments, and (2) the total number of local drainage networks.
+
+    :Outputs:
+        *str* -- A string summarizing the *Segments* object
 
 
 .. _pfdf.segments.Segments.__geo_interface__:
@@ -260,6 +351,256 @@ Dunders
 
         segments.__geo_interface__
 
+    :Outputs:
+        *geojson.FeatureCollection* -- A geojson-like dict of the *Segments* object
+
+----
+
+Outlets
+-------
+
+.. _pfdf.segments.Segments.isterminal:
+
+.. py:method:: Segments.isterminal(self, ids = None)
+
+    Indicates whether segments are terminal segments
+
+    .. dropdown:: All Segments
+
+        ::
+
+            self.isterminal()
+
+        Determines whether each segment is a terminal segment or not. A segment is terminal if it does not have a downstream child. (Note that there may still be other segments furhter downstream if the segment is in a nested drainage network). Returns a boolean 1D numpy array with one element per segment in the network. True elements indicate terminal segments, False elements are segments that are not terminal.
+
+    .. dropdown:: Specific Segments
+
+        ::
+        
+            self.isterminal(ids)
+
+        Determines whether the queried segments are terminal segments or not. Returns a boolean 1D array with one element per queried segment.
+
+    :Inputs:
+        * **ids** (*vector*) -- The IDs of segments being queried. If not set, queries all segments in the network.
+
+    :Outputs:
+        *boolean 1D numpy array* -- Whether each segment is terminal.
+
+
+.. _pfdf.segments.Segments.termini:
+
+.. py:method:: Segments.termini(self, ids = None)
+
+    Returns the IDs of terminal segments
+
+    .. dropdown:: All Segments
+
+        ::
+
+            self.termini()
+
+        Determines the ID of the terminal segment for each stream segment in the network. Returns a numpy 1D array with one element per stream segment. Typically, many segments will drain to the same terminal segment, so this array will usually contain many duplicate IDs.
+
+        .. tip::
+
+            If you instead want the unique IDs of the terminal segments, see the :ref:`terminal_ids property <pfdf.segments.Segments.terminal_ids>` instead.
+
+
+    .. dropdown:: Specific Segments
+        
+        ::
+            
+            self.termini(ids)
+
+        Only returns terminal segment IDs for the queried segments. The output array will have one element per queried segment.
+
+    :Inputs:
+        * **ids** (*vector*) -- The IDs of the queried segments. If not set, then queries every segment in the network.
+
+    :Outputs:
+        *numpy 1D array* -- The ID of the terminal segment for each queried segment
+
+
+.. _pfdf.segments.Segments.outlets:
+
+.. py:method:: Segments.outlets(self, ids = None, *, segment_outlets = False, as_array = False)
+
+    Returns the row and column indices of outlet pixels
+
+    .. dropdown:: All Segments
+
+        ::
+            
+            self.outlets()
+
+        Returns the row and column index of the terminal outlet pixel for each segment in the network. Returns a list with one element per segment in the network. Each element is a tuple of two integers. The first element is the row index of the outlet pixel in the stream network raster, and the second element is the column index.
+
+    .. dropdown:: Specific Segments
+
+        ::
+
+            self.outlets(ids)
+
+        Only returns outlet pixel indices for the queried segments. The output list will have one element per queried segment.
+
+    .. dropdown:: Non-terminal Outlets
+
+        ::
+
+            self.outlets(..., *, segment_outlets=True)
+
+        Returns the indices of each segment's immediate outlet pixel, rather than the indices of the terminal outlet pixels. Each segment outlet is the final pixel in the stream segment itself. (Compare with a terminal outlet, which is the final pour point in the segment's local drainage network).
+
+    .. dropdown:: As Array
+
+        ::
+
+            self.outlets(..., *, as_array=True)
+
+        Returns the outlet pixel indices as a numpy array, rather than as a list. The output array will have one row per queried stream segment, and two columns. The first column is the row indices, and the second column is the column indices.
+
+    :Inputs:
+        * **ids** (*vector*) -- The IDs of the queried stream segments. If not set, queries all segments in the network.
+        * **segment_outlets** (*bool*) -- True to return the indices of each stream segment's outlet pixel. False (default) to return the indices of terminal outlet pixels
+        * **as_array** (*bool*) -- True to return the pixel indices as an Nx2 numpy array. False (default) to return indices as a list of 2-tuples.
+
+    :Outputs:
+        *list[tuple[int, int]] | numpy array* -- The outlet pixel indices of the
+            queried stream segments
+
+
+----
+
+Local Networks
+--------------
+
+.. _pfdf.segments.Segments.parents:
+
+.. py:method:: Segments.parents(self, id)
+
+    Returns the IDs of the queried segment's parent segments
+
+    ::
+
+        self.parents(id)
+
+    Given a stream segment ID, returns the IDs of the segment's parents. If the segment has parents, returns a list of IDs. If the segment does not have parents, returns None.
+
+    :Inputs:
+        * **id** (*scalar*) -- The queried stream segment
+
+    :Outputs:
+        *list[int] | None* -- The IDs of the parent segments
+
+
+.. _pfdf.segments.Segments.child:
+
+.. py:method:: Segments.child(self, id)
+
+    Returns the ID of the queried segment's child segment
+
+    ::
+
+        self.child(id)
+
+    Given a stream segment ID, returns the ID of the segment's child segment as an int. If the segment does not have a child, returns None.
+
+    :Inputs:
+        * **id** (*scalar*) -- The ID of the queried segment
+
+    :Outputs:
+        *int | None* -- The ID of the segment's child
+
+
+.. _pfdf.segments.Segments.ancestors:
+
+.. py:method:: Segments.ancestors(self, id)
+
+    Returns the IDs of all upstream segments in a local drainage network
+
+    ::
+
+        self.ancestors(id)
+
+    For a queried stream segment ID, returns the IDs of all upstream segments in the local drainage network. These are the IDs of the queried segment's parents, the IDs of the parents parents, etc. If the queried segment does not have any parent segments, returns an empty array.
+
+    :Inputs:
+        * **id** (*scalar*) -- The ID of a stream segment in the network
+
+    :Outputs:
+        *numpy 1D array* -- The IDs of all segments upstream of the queried segment within the local drainage network.
+
+
+.. _pfdf.segments.Segments.descendents:
+
+.. py:method:: Segments.descendents(self, id)
+
+    Returns the IDs of all downstream segments in a local drainage network
+
+    ::
+
+        self.descendents(id)
+
+    For a queried stream segment, returns the IDs of all downstream segments in the queried segment's local drainage network. This is the ID of any child segment, the child of that child, etc. If the queried segment does not have any descendents, then the returned array will be empty.
+
+    :Inputs:
+        * **id** (*scalar*) -- The ID of the queried stream segment
+
+    :Outputs:
+        *numpy 1D array* -- The IDs of all downstream segments in the local drainage network.
+
+
+.. _pfdf.segments.Segments.family:
+
+.. py:method:: Segments.family(self, id)
+
+    Return the IDs of stream segments in a local drainage network
+
+    ::
+
+        self.family(id)
+
+    Returns the IDs of all stream segments in the queried segment's local drainage network. This includes all segments in the local network that flow to the queried segment's outlet, including the queried segment itself. Note that the returned IDs may include segments that are neither ancestors nor descendents of the queried segment, as the network may contain multiple branches draining to the same outlet.
+
+    :Inputs:
+        * **id** (*scalar*) -- The ID of the queried stream segment
+
+    :Outputs:
+        *numpy 1D array* -- The IDs of all segments in the local drainage network.
+
+
+.. _pfdf.segments.Segments.isnested:
+
+.. py:method:: Segments.isnested(self, ids = None)
+
+    Determines which segments are in nested drainage basins
+
+    .. dropdown:: All Segments
+
+        ::
+
+            self.isnested()
+
+        Identifies segments in nested drainage basins. A nested drainage basin is a local drainage network that flows into another local drainage network further downstream. Nesting is an indication of flow discontinuity. Returns a 1D boolean numpy array with one element per stream segment. True elements indicate segments in nested networks. False elements are segments not in a nested network.
+
+    .. dropdown:: Specific Segments
+
+        ::
+            
+            self.isnested(ids)
+
+        Determines whether the queried segments are in nested drainage basins. The output array will have one element per queried segment.
+
+    :Inputs:
+        **ids** (*vector*) -- The IDs of the segments being queried. If unset, queries all segments in the network.
+
+    :Outputs:
+        *boolean 1D numpy array* -- Whether each segment is in a nested drainage network
+
+
+
+----
 
 Rasters
 -------
@@ -363,97 +704,7 @@ Rasters
     :Inputs: * **parallel** (*bool*) -- True to build the raster in parallel. False (default) to build sequentially.
              * **nprocess** (*int*) -- The number of parallel processes. Must be a scalar, positive integer. Default is the number of CPUs - 1.
 
-
-Outlets
--------
-
-.. _pfdf.segments.Segments.terminus:
-
-.. py:method:: Segments.terminus(self, id)
-
-    Returns the ID of a queried segment's terminal segment
-
-    ::
-
-        self.terminus(id)
-
-    Returns the ID of the queried segment's terminal segment. The terminal segment is the final segment in the queried segment's local drainage network. The input should be the ID associated with the queried segment.
-
-    :Inputs: * **id** (*int*) -- The ID of the segment being queried
-
-    :Outputs: *int* -- The ID of the queried segment's terminal segment
-
-    
-.. _pfdf.segments.Segments.termini:
-
-.. py:method:: Segments.termini(self)
-
-    Returns the IDs of all terminal segments
-
-    ::
-
-        self.termini()
-
-    Returns a numpy 1D array with the IDs of all terminal segments in the network. A terminal segment is a segment at the bottom of its local drainage network.
-
-    :Outputs: *ndarray* -- The IDs of the terminal segments in the network
-
-
-.. _pfdf.segments.Segments.outlet:
-
-.. py:method:: Segments.outlet(self, id, terminal = False)
-
-    Return the indices of the queried segment's outlet pixel
-
-    .. dropdown:: Locate Outlet
-
-        ::
-
-            self.outlet(id)
-
-        Returns the indices of the queried segment's outlet pixel in the stream segment raster. The outlet pixel is the segment's most downstream pixel. The first output is the row index, second output is the column index.
-
-    .. dropdown:: Locate Terminal Outlet
-
-        ::
-
-            self.outlet(id, terminal=True)
-
-        Returns the indices of the queried segment's terminal outlet pixel. The terminal outlet is the final pixel in the segment's local drainage network.
-
-    :Inputs: * **id** (*int*) -- The ID of the queried segment
-             * **terminal** (*bool*) -- True to return the indices of the terminal outlet pixel. False (default) to return the indices of the outlet pixel.
-
-    :Outputs: * *int* -- The row index of the outlet pixel
-              * *int* -- The column index of the outlet pixel
-
-
-.. _pfdf.segments.Segments.outlets:
-
-.. py:method:: Segments.outlets(self, terminal = False)
-
-    Returns the row and column indices of all outlet or terminal outlet pixels
-
-    .. dropdown:: Locate Outlets
-
-        ::
-
-            self.outlets()
-
-        Returns a list of outlet pixel indices for the network. The output has one element per stream segment. Each element is a tuple with the outlet indices for the associated segment. The first element of the tuple is the row index, and the second element is the column index.
-
-    .. dropdown:: Locate Terminal Outlets
-
-        :: 
-
-            self.outlets(terminal=True)
-
-        Returns the indices of all terminal outlet pixels in the network. Terminal outlets are outlets at the bottom of their local drainage network. The output list will have one element per terminal outlet.
-
-    :Inputs: * **terminal** (*bool*) -- True to return the indices of the terminal outlet pixels. False (default) to return the indices of all output pixels.
-
-    Outputs: *list[tuple[int, int]]* -- A list of outlet pixel indices
-
+----
 
 .. _api-segments-variables:
 
@@ -462,17 +713,19 @@ Earth-system Variables
 
 .. _pfdf.segments.Segments.area:
 
-.. py:method:: Segments.area(self, mask = None, terminal = False)
+.. py:method:: Segments.area(self, mask = None, *, units = "kilometers",  terminal = False)
 
-    Returns the areas of basins
+    Returns catchment areas
 
     .. dropdown:: Catchment Area
 
         ::
 
             self.area()
+            self.area(..., *, units)
+            self.area(..., *, terminal=True)
 
-        Computes the total area of the catchment basin for each stream segment. The returned area will be in the same units as the pixel_area property.
+        Computes the total area of the catchment basin for each stream segment. By default, returns areas in kilometers^2. Use the ``units`` option to return areas in other units (squared) instead. Supported units include: "base" (CRS base units), "meters", "kilometers", "feet", and "miles". By default, returns an area for each segment in the network. Set ``terminal=True`` to only return values for the terminal outlet basins.
 
     .. dropdown:: Masked Area
 
@@ -482,18 +735,12 @@ Earth-system Variables
 
         Computes masked areas for the basins. True elements in the mask indicate pixels that should be included in the calculation of areas. False pixels are ignored and given an area of 0. Nodata elements are interpreted as False.
 
-    .. dropdown:: Terminal Basin Areas
+    :Inputs: 
+        * **mask** (*Raster*) -- A raster mask whose True elements indicate the pixels that should be used to compute upslope areas.
+        * **units** (*str*) -- The units (squared) in which to return areas. Options include: "base" (CRS base units), "meters", "kilometers" (default), "feet", and "miles".
+        * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
 
-        ::
-
-            self.area(..., *, terminal=True)
-
-        Only returns values for the terminal outlet basins.
-
-    :Inputs: * **mask** (*Raster*) -- A raster mask whose True elements indicate the pixels that should be used to compute upslope areas.
-             * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
-
-    :Outputs: *ndarray* -- The catchment area for each stream segment
+    :Outputs: *numpy 1D array* -- The catchment area for each stream segment
 
 
 .. _pfdf.segments.Segments.burn_ratio:
@@ -502,21 +749,12 @@ Earth-system Variables
 
     Returns the proportion of burned pixels in basins
 
-    .. dropdown:: Burn Ratio
+    ::
 
-        ::
+        self.burn_ratio(isburned)
+        self.burn_ratio(..., terminal=True)
 
-            self.burn_ratio(isburned)
-
-        Given a mask of burned pixel locations, determines the proportion of burned pixels in the catchment basin of each stream segment. Returns a numpy 1D array with the ratio for each segment. Ratios are on the interval from 0 to 1.
-
-    .. dropdown:: Terminal Basin Ratios
-
-        ::
-
-            self.burn_ratio(isburned, terminal=True)
-
-        Only computes values for the terminal outlet basins.
+    Given a mask of burned pixel locations, determines the proportion of burned pixels in the catchment basin of each stream segment. Ratios are on the interval from 0 to 1. By default, returns a numpy 1D array with the ratio for each segment. Set ``terminal=True`` to only return values for the terminal outlet basins.
 
     :Inputs: * **isburned** (*Raster*) -- A raster mask whose True elements indicate the locations of burned pixels in the watershed.
              * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
@@ -526,115 +764,99 @@ Earth-system Variables
 
 .. _pfdf.segments.Segments.burned_area:
 
-.. py:method:: Segments.burned_area(self, isburned, terminal = False)
+.. py:method:: Segments.burned_area(self, isburned, *, units = "kilometers", terminal = False)
 
     Returns the total burned area of basins
 
-    .. dropdown:: Burned Area
+    ::
 
-        ::
+        self.burned_area(isburned)
+        self.burned_area(..., *, units)
+        self.burned_area(..., *, terminal=True)
 
-            self.burned_area(isburned)
+    Given a mask of burned pixel locations, returns the total burned area in the catchment of each stream segment. By default, returns areas in kilometers^2. Use the ``units`` option to return areas in other units (squared) instead. Supported units include: "base" (CRS base units), "meters", "kilometers", "feet", and "miles". By default, returns the burned catchment area for each segment in the network. Set ``terminal=True`` to only return values for the terminal outlet basins.
 
-        Given a mask of burned pixel locations, returns the total burned area in the catchment of each stream segment. Returns a numpy 1D array with the burned area for each segment. The returned areas will be in the same units as the "pixel_area" property.
-
-    .. dropdown:: Terminal Basin Area
-
-        ::
-
-            self.burned_area(isburned, terminal=True)
-
-        Only computes areas for the terminal outlet basins.
-
-    :Inputs: * **isburned** (*Raster*) -- A raster mask whose True elements indicate the locations of burned pixels within the watershed
-             * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
+    :Inputs: 
+        * **isburned** (*Raster*) -- A raster mask whose True elements indicate the locations of burned pixels within the watershed
+        * **units** (*str*) -- The units (squared) in which to return areas. Options include: "base" (CRS base units), "meters", "kilometers" (default), "feet", and "miles".
+        * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
 
     :Outputs: *ndarray* -- The burned catchment area for the basins
 
 
 .. _pfdf.segments.Segments.confinement:
 
-.. py:method:: Segments.confinement(self, dem, neighborhood, factor = 1)
+.. py:method:: Segments.confinement(self, dem, neighborhood, dem_per_m = 1)
 
     Returns the mean confinement angle of each stream segment
 
-    .. dropdown:: Confinement Angle
+    ::
 
-        ::
+        self.confinement(dem, neighborhood)
+        self.confinement(..., dem_per_m)
 
-            self.confinement(dem, neighborhood)
+    Computes the mean confinement angle for each stream segment. Returns these angles as a numpy 1D array. The order of angles matches the order of segment IDs in the object.
 
-        Computes the mean confinement angle for each stream segment. Returns these angles as a numpy 1D array. The order of angles matches the order of segment IDs in the object.
+    The confinement angle for a given pixel is calculated using the slopes in the two directions perpendicular to stream flow. A given slope is calculated using the maximum DEM height within N pixels of the processing pixel in the associated direction. Here, the number of pixels searched in each direction (N) is equivalent to the "neighborhood" input. The slope equation is thus::
 
-        The confinement angle for a given pixel is calculated using the slopes in the two directions perpendicular to stream flow. A given slope is calculated using the maximum DEM height within N pixels of the processing pixel in the associated direction. Here, the number of pixels searched in each direction (N) is equivalent to the "neighborhood" input. The slope equation is thus::
+        slope = max height(N pixels) / (N * length)
 
-            slope = max height(N pixels) / (N * length)
+    where length is one of the following:
 
-        where length is one of the following:
+    * X axis resolution (for flow along the Y axis)
+    * Y axis resolution (for flow along the X axis)
+    * length of a raster cell diagonal (for diagonal flow)
 
-        * X axis resolution (for flow along the Y axis)
-        * Y axis resolution (for flow along the X axis)
-        * length of a raster cell diagonal (for diagonal flow)
+    Recall that slopes are computed perpendicular to the flow direction, hence the use X axis resolution for Y axis flow and vice versa.
 
-        Recall that slopes are computed perpendicular to the flow direction, hence the use of X axis resolution for Y axis flow and vice versa. The confinment angle is then calculated using:
+    The confinment angle is then calculated using:
 
-        .. math::
+    .. math::
 
-            θ = 180 - \mathrm{tan}^{-1}(\mathrm{slope}_1) - \mathrm{tan}^{-1}(\mathrm{slope}_2)
+        θ = 180 - \mathrm{tan}^{-1}(\mathrm{slope}_1) - \mathrm{tan}^{-1}(\mathrm{slope}_2)
 
-        and the mean confinement angle is calculated over all the pixels in the stream segment.
+    and the mean confinement angle is calculated over all the pixels in the stream segment.
 
-        .. admonition:: Example
+    .. admonition:: Example
 
-            Consider a pixel flowing east with neighborhood=4. (East here indicates that the pixel is flowing to the next pixel on its right - it is not an indication of actual geospatial directions). Confinement angles are then calculated using slopes to the north and south. The north slope is determined using the maximum DEM height in the 4 pixels north of the stream segment pixel, such that::
+        Consider a pixel flowing east with neighborhood=4. (East here indicates that the pixel is flowing to the next pixel on its right - it is not an indication of actual geospatial directions). Confinement angles are then calculated using slopes to the north and south. The north slope is determined using the maximum DEM height in the 4 pixels north of the stream segment pixel, such that::
 
                 slope = max height(4 pixels north) / (4 * Y axis resolution)
 
-            and the south slope is computed similarly. The two slopes are used to compute the confinement angle for the pixel, and this process is then repeated for all pixels in the stream segment. The final value for the stream segment will be the mean of these values.
+        and the south slope is computed similarly. The two slopes are used to compute the confinement angle for the pixel, and this process is then repeated for all pixels in the stream segment. The final value for the stream segment will be the mean of these values.
 
-        .. important::
+    .. important::
 
-            This syntax requires that the units of the DEM are the same as the units of the stream segment resolution (which you can return using the ``resolution`` property). Use the following syntax if this is not the case.
+        By default, this routine assumes that the DEM units are meters. If this is not the case, then use the "dem_per_m" to specify a conversion factor (number of DEM units per meter).
 
-    .. dropdown:: Scale Length Units
+    :Inputs:
+        * **dem** (*Raster-like*) -- A raster of digital elevation model (DEM) data.
+        * **neighborhood** (*int*) -- The number of raster pixels to search for maximum heights. Must be a positive integer.
+        * **dem_per_m** (*scalar*) -- A conversion factor from DEM units to meters
 
-        ::
+    :Outputs:
+        *numpy 1D array* -- The mean confinement angle for each stream segment.
 
-            self.confinement(dem, neighborhood, factor)
-
-        Also specifies a multiplicative constant needed to scale the stream segment raster resolution to the same units as the DEM. If the raster resolution uses different units than the DEM data, then confinement slopes will be calculated incorrectly. Use this syntax to correct for this.
-
-    :Inputs: * **dem** (*Raster*) -- A raster of digital elevation model (DEM) data.
-             * **neighborhood** (*int*) -- The number of raster pixels to search for maximum heights. Must be a positive integer.
-             * **factor** (*scalar*) -- A multiplicative constant used to scale the stream segment raster resolution to the same units as the DEM data.
-
-    :Outputs: *ndarray* -- The mean confinement angle for each stream segment.
 
 
 .. _pfdf.segments.Segments.developed_area:
 
-.. py:method:: Segments.developed_area(self, isdeveloped, terminal = False)
+.. py:method:: Segments.developed_area(self, isdeveloped, *, units = "kilometers", terminal = False)
 
     Returns the total developed area of basins
 
-    .. dropdown:: Developed Area
+    ::
 
-        ::
+        self.developed_area(isdeveloped)
+        self.developed_area(..., *, units)
+        self.developed_area(..., *, terminal=True)
 
-            self.developed_area(isdeveloped)
+    Given a mask of developed pixel locations, returns the total developed area in the catchment of each stream segment. By default, returns areas in kilometers^2. Use the ``units`` option to return areas in other units (squared) instead. Supported units include: "base" (CRS base units), "meters", "kilometers", "feet", and "miles". By default, returns the burned catchment area for each segment in the network. Set ``terminal=True`` to only return values for the terminal outlet basins.
 
-        Given a mask of developed pixel locations, returns the total developed area in the catchment of each stream segment. Returns a numpy 1D array with the developed area for each segment.
-
-    .. dropdown:: Terminal Basin Area
-
-        ::
-
-            self.developed_area(isdeveloped, terminal)
-
-        Only computes areas for the terminal outlet basins.
-
-    :Inputs: * **isdeveloped** (*Raster*) -- A raster mask whose True elements indicate the locations of developed pixels within the watershed.
-             * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
+    :Inputs: 
+        * **isdeveloped** (*Raster*) -- A raster mask whose True elements indicate the locations of developed pixels within the watershed.
+        * **units** (*str*) -- The units (squared) in which to return areas. Options include: "base" (CRS base units), "meters", "kilometers" (default), "feet", and "miles".
+        * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
 
     :Outputs: *ndarray* -- The developed catchment area for each basin
 
@@ -722,6 +944,28 @@ Earth-system Variables
              * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
 
     :Outputs: *ndarray* -- The mean catchment KF-Factor for each basin
+
+
+.. _pfdf.segments.Segments.length:
+
+.. py:method:: Segments.length(self, *, units = "meters", terminal = False)
+
+    Returns the length of each stream segment
+
+    ::
+
+        self.length()
+        self.length(*, units)
+        self.length(*, terminal=True)
+
+    Returns the length of each stream segment in the network. By default, returns lengths in meters. Use the ``units`` option to return lengths in other units. Supported units include: "base" (CRS base units), "meters", "kilometers", "feet", and "miles". By default, returns a numpy 1D array with one element per segment. Set ``terminal=True`` to only return values for the terminal outlet segments.
+
+    :Inputs:
+        * **units** (*str*) -- Indicates the units in which to return segment lengths. Options include: "base" (CRS base units), "meters" (default), "kilometers", "feet", and "miles".
+        * **terminal** (*bool*) -- True to only return the lengths of terminal outlet segments. False (default) to return the length of every segment in the network
+
+    :Outputs:
+        *numpy 1D array* -- The lengths of the segments in the network
 
 
 .. _pfdf.segments.Segments.scaled_dnbr:
@@ -875,7 +1119,7 @@ Earth-system Variables
             self.slope(slopes)
             self.slope(..., *, terminal=True)
 
-        Given a raster of slopes (rise/run), returns the mean slope for each segment as a numpy 1D array. If a stream segment's pixels contain NaN or NoData values, then the slope for the segment is set to NaN. If ``terminal=True``, only returns values for the terminal segments.
+        Given a raster of slope gradients (rise/run), returns the mean slope for each segment as a numpy 1D array. If a stream segment's pixels contain NaN or NoData values, then the slope for the segment is set to NaN. If ``terminal=True``, only returns values for the terminal segments.
 
     .. dropdown:: Ignore NaN Pixels
 
@@ -885,7 +1129,7 @@ Earth-system Variables
 
         Ignores NaN and NoData values when computing mean slope. However, if a segment only contains NaN and NoData values, then its value will still be NaN.
 
-    :Inputs: * **slopes** (*Raster*) -- A slope (rise/run) raster for the watershed
+    :Inputs: * **slopes** (*Raster*) -- A slope gradient (rise/run) raster for the watershed
              * **terminal** (*bool*) -- True to only return values for terminal segments. False (default) to return values for all segments.
 
     :Outputs: *ndarray* -- The mean slope for each stream segment.
@@ -912,22 +1156,35 @@ Earth-system Variables
 
 .. _pfdf.segments.Segments.ruggedness:
 
-.. py:method:: Segments.ruggedness(self, relief)
+.. py:method:: Segments.ruggedness(self, relief, relief_per_m = 1, *, terminal = False)
 
     Returns the ruggedness of each stream segment catchment
 
-    ::
+    .. dropdown:: Topographic Ruggedness
 
-        self.ruggedness(relief)
-        self.ruggedness(relief, terminal=True)
+        ::
 
-    Returns the ruggedness of the catchment for each stream segment in the network. Ruggedness is defined as a stream segment's vertical relief, divided by the square root of its catchment area. Returns ruggedness values as a numpy 1D array with one element per stream segment. If ``terminal=True``, only returns values for the terminal segments.
+            self.ruggedness(relief)
+            self.ruggedness(relief, relief_per_m)
 
-    :Inputs: * **relief** (*Raster*) -- A vertical relief raster for the watershed
-             * **terminal** (*bool*) -- True to only return values for terminal segments. False (default) to return values for all segments.
+        Returns the ruggedness of the catchment for each stream segment in the network in units of meters^-1. Ruggedness is defined as a stream segment's vertical relief, divided by the square root of its catchment area. By default, interprets relief values as meters. If this is not the case, use the "relief_per_m" option to provide a conversion factor between relief units and meters. This ensures that ruggedness values are scaled correctly.
 
-    :Outputs: *ndarray* -- The topographic ruggedness of each stream segment
-    
+    .. dropdown:: Terminal Segments
+
+        ::
+
+            self.ruggedness(..., terminal=True)
+
+        Only returns values for the terminal segments.
+
+    :Inputs:
+        * **relief** (*Raster-like*) -- A vertical relief raster for the watershed
+        * **relief_per_m** (*scalar*) -- A conversion factor between relief units and meters
+        * **terminal** (*bool*) -- True to only return values for terminal segments. False (default) to return values for all segments.
+
+    :Outputs:
+        *numpy 1D array* -- The topographic ruggedness of each stream segment
+
 
 .. _pfdf.segments.Segments.upslope_ratio:
 
@@ -956,6 +1213,7 @@ Earth-system Variables
 
     :Outputs: *ndarray* -- The proportion of True values in each basin
 
+----
 
 Generic Statistics
 ------------------
@@ -1054,101 +1312,97 @@ Generic Statistics
 
     :Outputs: *ndarray* -- The summary statistic for each basin
 
+----
 
 .. _api-filtering:
 
 Filtering
 ---------
 
+.. _pfdf.segments.Segments.continuous:
+
+.. py:method:: Segments.continuous(self, selected, type = "indices", *, remove = False, keep_upstream = False, keep_downstream = False)
+    
+    Indicates segments that can be filtered while preserving flow continuity
+
+    .. dropdown:: Flow Continuous Filtering
+
+        ::
+
+            self.continuous(selected)
+            self.continuous(..., *, remove=True)
+            self.continuous(..., type="ids")
+
+        Given a selection of segments that will be filtered using the :ref:`keep <pfdf.segments.Segments.keep>` or  :ref:`remove <pfdf.segments.Segments.remove>` commands, returns the boolean indices of segments that can be filtered while preserving flow continuity. By default, assumes that the selected segments are for use with the "keep" command. Set ``remove=True`` to indicate that selected segments are for use with the :ref:`remove command <pfdf.segments.Segments.remove>` instead.
+
+        By default, expects the selected segments to be a boolean numpy 1D array with one element per segment in the network. True/False elements should indicate segments for the keep/remove commands, as appropriate. Set ``type="ids"`` to select segments using segment IDs instead. In this case, the selected segments should be a list or numpy 1D array whose elements are the IDs of the segments selected for filtering.
+
+    .. dropdown:: Network Edges
+
+        ::
+
+            self.continuous(..., *, keep_upstream=True)
+            self.continuous(..., *, keep_downstream=True)
+
+        Further customizes the flow continuity algorithm. Set ``keep_upstream=True`` to always retain segments on the upstream end of a local drainage network. Set ``keep_downstream=True`` to always retain segments on the downstream end of a local drainage network.
+
+    :Inputs:
+        * **selected** (*boolean vector | ID vector*) -- The segments being selected for filtering
+        * **type** (*str*) -- "indices" (default) to select segments using a boolean vector. "ids" to select segments using segments IDs
+        * **remove** (*bool*) -- True to indicate that segments are selected for removal. False (default) to indicate that selected segments should be kept.
+        * **keep_upstream** (*bool*) -- True to always retain segments on the upstream end of a local drainage network. False (default) to treat as usual.
+        * **keep_downstream** (*bool*) -- True to always retain segments on the downstream end of a local drainage network. False (default) to treat as usual.
+
+    :Outputs:
+        *boolean 1D numpy array* -- The boolean indices of segments that can be filtered while preserving flow continuity. If ``remove=False`` (default), then True elements indicate segments that should be retained in the network. If ``remove=True``, then True elements indicate segments that should be removed from the network.
+
+
 .. _pfdf.segments.Segments.remove:
 
-.. py:method:: Segments.remove(self, *, ids = None, indices = None, continuous = True, upstream = True, downstream = True)
+.. py:method:: Segments.remove(self, selected, type = "indices")
 
-    Removes segments from the network while optionally preserving continuity
+    Remove segments from the network
 
-    .. dropdown:: Remove Segments
+    ::
 
-        ::
+        self.remove(selected)
+        self.remove(selected, type="ids")
 
-            self.remove(*, ids)
-            self.remove(*, indices)
+    Removes the indicated segments from the network. By default, expects a boolean numpy 1D array with one element per segment in the network. True elements indicate segments that should be removed, and False elements are segments that should be retained.
 
-        Attempts to remove the indicated segments, but prioritizes the continuity of the stream network. An indicated segment will not be removed if it is between two segments being retained. Equivalently, segments are only removed from the upstream and downstream ends of a local network. Conceptually, this algorithm first marches upstream, and removes segments until it reaches a segment that was not indicated as input. The algorithm then marches downstream, and again removes segments until it reaches a segment that was not indicated as input. As such, the total number of removed segments may  be less than the number of input segments. Note that if you remove terminal segments after calling the ``locate_basins`` command, the saved basin
-        raster may be deleted.
+    Set ``type="ids"`` to select segments using IDs, rather than a boolean vector. In this case, the input should be a list or numpy 1D array whose elements are the IDs of the segments that should be removed from the network.
 
-        If using "ids", the input should be a list or numpy 1D array whose elements are the IDs of the segments that may potentially be removed from the network. If using "indices" the input should be a boolean numpy 1D array with one element per segment in the network. True elements indicate the stream segments that may potentially be removed. False elements will always be retained. If you provide both inputs, segments indicated by either input are potentially removed from the network.
+    .. note::
 
-        Returns the indices of the segments that were removed from the network as a boolean numpy 1D array. The output indices will have one element per segment in the original network. True elements indicate segments that were removed. False elements are segments that were retained. These indices are often useful for filtering values computed for the original network.
+        Removing terminal outlet segments can cause any previously located basins to be deleted. As such we recommend calling the :ref:`locate_basins command <pfdf.segments.Segments.locate_basins>` after this command.
 
-    .. dropdown:: Disregard flow continuity
-
-        ::
-
-            self.remove(..., *, continuous=False)
-
-        Removes all indicated segments, regardless of the continuity of the stream network.
-
-    .. dropdown:: Customize flow edges
-
-        ::
-
-            self.remove(*, continuous=True, upstream=False)
-            self.remove(*, continuous=True, downstream=False)
-
-        Further customizes the removal of segments when prioritizing the continuity of the stream network. When upstream=False, segments will not be removed from the upstream end of a local network. Equivalently, a segment will not be removed if it flows into a segment retained in the network. When downstream=False, segments will not be removed from the downstream end of a local network. So a segment will not be removed if a retained segment flow into it. These options are ignored when continuous=False.
-
-    :Inputs: * **ids** (*list | ndarray*) -- A list or numpy 1D array listing the IDs of segments that may be removed from the network
-             * **indices** (*ndarray*) -- A boolean numpy 1D array with one element per stream segment. True elements indicate segments that may be removed from the network.
-             * **continuous** (*bool*) -- If True (default), segments will only be removed if they do not break the continuity of the stream network. If False, all indicated segments are removed.
-             * **upstream** (*bool*) -- Set to False to prevent segments from being removed from the upstream end of a local network. Ignored if continuous=False.
-             * **downstream** (*bool*) -- Set to False to prevent segments from being removed from the downstream end of a local network. Ignored if continuous=False.
-
-    :Outputs: *boolean ndarray* -- The indices of the segments that were removed from the network. Has one element per segment in the initial network. True elements indicate removed segments.
+    :Inputs:
+        * **selected** (*boolean vector | ID vector*) -- The segments that should be removed from the network
+        * **type** (*str*) -- "indices" (default) to select segments using a boolean vector. "ids" to select segments using segments IDs
 
     
 .. _pfdf.segments.Segments.keep:
 
-.. py:method:: Segments.keep(self, *, ids = None, indices = None, continuous = True, upstream = True, downstream = True)
+.. py:method:: Segments.keep(self, selected, type = "indices")
 
     Restricts the network to the indicated segments
 
-    .. dropdown:: Keep Segments
+    ::
 
-        ::
+        self.keep(selected)
+        self.keep(selected, type="ids")
 
-            self.keep(*, ids)
-            self.keep(*, indices)
+    Restricts the network to the indicated segments, discarding all other segments. By default, expects a boolean numpy 1D array with one element per segment in the network. True elements indicate segments that should be retained, and False elements are segments that should be discarded.
 
-        Attempts to restrict the network to the indicated segments, but prioritizes the continuity of the stream network. A segment will be retained if it is an indicated input, or if it falls between two segments being retained. Equivalently, segments are only removed from the upstream and downstream ends of a local network. Conceptually, this algorithm first marches upstream and removes segments until it reaches a segment that was indicated as input. The algorithm then marches downstream, and again removes segments until reaching a segment that was indicated as input. As such, the total number of retained segments may be greater than the number of input segments. Note that if you remove terminal segments after calling the ``locate_basins`` command, the saved basin raster may be deleted.
+    Set ``type="ids"`` to select segments using IDs, rather than a boolean vector. In this case, the input should be a list or numpy 1D array whose elements are the IDs of the segments that should be retained in the network.
 
-        If using "ids", the input should be a list or numpy 1D array whose elements are the IDs of the segments to definitely retain in the network. If using "indices" the input should be a boolean numpy 1D array with one element per segment in the network. True elements indicate stream segments that should definitely be retained. False elements may potentially be removed. If you provide both inputs, segments indicated by either input are definitely retained in the network.
+    .. note::
 
-        Returns the indices of the retained segments as a boolean 1D numpy array. The output indices will have one element per segment in the original network. True elements indicate segments that were retained. False elements are segments that were remove. These indices are often useful for filtering values computed from the original network.
+        Removing terminal outlet segments can cause any previously located basins to be deleted. As such we recommend calling the :ref:`locate_basins command <pfdf.segments.Segments.locate_basins>` after this command.
 
-    .. dropdown:: Disregard flow continuity
-
-        ::
-
-            self.keep(..., continuous=False)
-
-        Only keeps the indicated segments, regardless of network continuity. All segments not indicated by the "ids" or "indices" inputs will be removed.
-
-    .. dropdown:: Customize flow edges
-
-        ::
-
-            self.keep(..., continuous=True, upstream=False)
-            self.keep(..., continuous=True, downstream=False)
-
-        Further customizes the removal of segments when prioritizing the continuity of the stream network. When upstream=False, segments will not be removed from the upstream end of a local network. Equivalently, a segment will not be removed if it flows into a segment retained in the network. When downstream=False, segments will not be removed from the downstream end of a local network. So a segment will not be removed if a retained segment flow into it. These options are ignored when continuous=False.
-
-    :Inputs: * **ids** (*list | ndarray*) -- A list or numpy 1D array listing the IDs of segments that should always be retained in the network
-             * **indices** (*ndarray*) -- A boolean numpy 1D array with one element per stream segment. True elements indicate segments that should always be retained in the network.
-             * **continuous** (*bool*) -- If True (default), segments will only be removed if they do not break the continuity of the stream network. If False, all non-indicated segments are removed.
-             * **upstream** (*bool*) -- Set to False to prevent segments from being removed from the upstream end of a local network. Ignored if  continuous=False.
-             * **downstream** (*bool*) -- Set to False to prevent segments from being removed from the downstream end of a local network. Ignored if continuous=False.
-
-    :Outputs: *boolean ndarray* -- The indices of the segments that remained in the network. Has one element per segment in the initial network. True elements indicate retained segments.
+    :Inputs:
+        * **selected** (*boolean vector | ID vector*) -- The segments that should be retained in the network
+        * **type** (*str*) -- "indices" (default) to select segments using a boolean vector. "ids" to select segments using segments IDs
 
 
 .. _pfdf.segments.Segments.copy:
@@ -1165,6 +1419,7 @@ Filtering
 
     :Outputs: *Segments* -- A copy of the current *Segments* object.
 
+----
 
 .. _api-export:
 
@@ -1173,7 +1428,7 @@ Export
 
 .. _pfdf.segments.Segments.geojson:
 
-.. py:method:: Segments.geojson(self, properties = None, *, type = "segments")
+.. py:method:: Segments.geojson(self, type = "segments", properties = None, *, crs=None)
 
     Exports the network to a ``geojson.FeatureCollection`` object
 
@@ -1182,7 +1437,7 @@ Export
         ::
 
             self.geojson()
-            self.geojson(..., *, type='segments')
+            self.geojson(type='segments')
 
         Exports the network to a ``geojson.FeatureCollection`` object. The individual Features have LineString geometries whose coordinates proceed from upstream to downstream. Will have one feature per stream segment.
 
@@ -1190,7 +1445,7 @@ Export
 
         ::
 
-            self.geojson(..., *, type='basins')
+            self.geojson(type='basins')
 
         Exports terminal outlet basins as a collection of Polygon features. The number of features will be <= the number of local drainage networks. (The number of features will be less than the number of local networks if a local network flows into another local network).
 
@@ -1202,8 +1457,8 @@ Export
 
         ::
 
-            self.geojson(..., *, type='outlets')
-            self.geojson(..., *, type='segment outlets')
+            self.geojson(type='outlets')
+            self.geojson(type='segment outlets')
 
         Exports outlet points as a collection of Point features. If type="outlets", exports the terminal outlet points, which will have one feature per local drainage network. If type="segment outlets", exports the complete set of outlet points, which will have one feature per segment in the network.
 
@@ -1211,19 +1466,32 @@ Export
 
         ::
 
-            self.geojson(properties, ...)   
+            self.geojson(..., properties)
 
-        Specifies data properties for the GeoJSON features. The "properties" input should be a dict. Each key should be a string and will be interpreted as the name of the associated property field. Each value should be a numpy 1D array with an integer, floating, or boolean dtype. All properties in the output GeoJSON features will have a floating dtype, regardless of the input type. If exporting segments or segment outlets, then each array should have one element per segment in the network. If exporting basins or outlets, then each array should have one element per local drainage network.
+        Specifies data properties for the GeoJSON features. The "properties" input should be a dict. Each key should be a string and will be interpreted as the name of the associated property field. Each value should be a numpy 1D array with a boolean, integer, floating, or string dtype. Boolean values are converted to integers in the output GeoJSON object. 
+        
+        If exporting segments or segment outlets, then each array should have one  element per segment in the network. If exporting outlets or basins, each array may have either (1) one element per segment in the network, or (2) one outlet per terminal segment in the network. If using one element per segment, extracts the values for the terminal segments prior to GeoJSON export.
 
-    :Inputs: * **properties** (*dict[str, ndarray]*) -- A dict whose keys are the (string) names of the property fields. Each value should be a numpy 1D array with an integer, floating-point, or boolean dtype. Each array should have one element per segment (for segments or segment outlets), or one element per local drainage network (for outlets or basins).
-             * **type** (*"segments" | "basins" | "outlets" | "segment outlets"*) -- A string indicating the type of feature to export.
+    .. dropdown:: Specify CRS
+
+        ::
+
+            self.geojson(..., *, crs)
+
+        Specifies the CRS of the output geometries. By default, returns geometries in the CRS of the flow direction raster used to derive the network. Use this option to return geometries in a different CRS instead.
+ 
+    :Inputs: 
+        * **type** (*"segments" | "basins" | "outlets" | "segment outlets"*) -- A string indicating the type of feature to export.
+        * **properties** (*dict[str, ndarray]*) -- A dict whose keys are the (string) names of the property fields. Each value should be a numpy 1D array with a boolean,  integer, floating, or string dtype. Each array may have one element per segment (any type of export), or one element per local drainage network (basins and outlets only).
+        * **crs** (*CRS-like*) -- The CRS of the output geometries. Defaults to the CRS of the flow-direction raster used to derive the network.
+
 
     :Outputs: *geojson.FeatureCollection* -- The collection of stream network features
 
 
 .. _pfdf.segments.Segments.save:
 
-.. py:method:: Segments.save(self, path, properties = None, *, type = "segments", driver = None, overwrite = False)
+.. py:method:: Segments.save(self, path, type = "segments", properties = None, *, crs = None, driver = None, overwrite = False)
 
     Saves the network to a vector feature file
 
@@ -1231,9 +1499,9 @@ Export
 
         ::
 
-            save(path)
-            save(path, *, type='segments')
-            save(..., overwrite=True)
+            self.save(path)
+            self.save(path, type='segments')
+            self.save(..., *, overwrite=True)
 
         Saves the network to the indicated path. Each segment is saved as a vector feature with a LineString geometry whose coordinates proceed from upstream to downstream. The vector features will not have any data properties. In the default state, the method will raise a FileExistsError if the file already exists. Set overwrite=True to enable the replacement of existing files.
 
@@ -1247,7 +1515,7 @@ Export
 
         ::
 
-            self.save(..., *, type='basins')
+            self.save(path, type='basins', ...)
 
         Saves the terminal outlet basins as a collection of Polygon features. The number of features will be <= the number of local drainage networks. (The number of features will be less than the number of local networks if a local network flows into another local network).
 
@@ -1259,8 +1527,8 @@ Export
 
         ::
 
-            self.save(..., *, type='outlets')
-            self.save(..., *, type='segment outlets')
+            self.save(path, type='outlets', ...)
+            self.save(path, type='segment outlets', ...)
 
         Saves outlet points as a collection of Point features. If type="outlets", saves the terminal outlet points, which will have one feature per local drainage network. If type="segment outlets", saves the complete set of outlet points, which will have one feature per segment in the network.
 
@@ -1268,9 +1536,19 @@ Export
 
         ::
 
-            self.save(path, properties, ...)
+            self.save(..., properties)
 
-        Specifies data properties for the saved features. The "properties" input should be a dict. Each key should be a string and will be interpreted as the name of the associated property field. Each value should be a numpy 1D array with an integer, floating, or boolean dtype. All properties in the saved features will have a floating dtype, regardless of the input type. If saving segments or segment outlets, then each array should have one element per segment in the network. If saving basins or outlets, then each array should have one element per local drainage network.
+        Specifies data properties for the saved features. The "properties" input should be a dict. Each key should be a string and will be interpreted as the name of the associated property field. Each value should be a numpy 1D array with a boolean, integer, floating, or string dtype. Boolean values are converted to integers in the output GeoJSON object.
+
+        If exporting segments or segment outlets, then each array should have one element per segment in the network. If exporting outlets or basins, each array may have either (1) one element per segment in the network, or (2) one outlet per terminal segment in the network. If using one element per segment, extracts the values for the terminal segments prior to saving.
+
+    .. dropdown:: Specify CRS
+
+        ::
+
+            self.save(..., *, crs)
+
+        Specifies the CRS of the output file. By default, uses the CRS of the flow direction raster used to derive the network. Use this option to export results in a different CRS instead.
 
     .. dropdown:: Specify File Format
 
@@ -1290,10 +1568,12 @@ Export
 
         to summarize the drivers currently supported by fiona, and a complete list of driver build requirements is available here: `Vector Drivers <https://gdal.org/drivers/vector/index.html>`_
 
-    :Inputs: * **path** (*Path | str*) -- The path to the output file
-             * **properties** (*dict[str, ndarray]*) -- A dict whose keys are the (string) names of the property fields. Each value should be a numpy 1D array with an integer, floating-point, or boolean dtype. Each array should have one element per segment (for segments or segment outlets), or one element per local drainage network (for outlets or basins).
-             * **type** (*"segments" | "basins" | "outlets" | "segment outlets"*) -- A string indicating the type of feature to export.
-             * **overwrite** (*bool*) -- True to allow replacement of existing files. False (default) to prevent overwriting.
-             * **driver** (*str*) -- The name of the file-format driver to use when writing the vector feature file. Uses this driver regardless of file extension.
+    :Inputs: 
+        * **path** (*Path | str*) -- The path to the output file
+        * **type** (*"segments" | "basins" | "outlets" | "segment outlets"*) -- A string indicating the type of feature to export.
+        * **properties** (*dict[str, ndarray]*) -- A dict whose keys are the (string) names of the property fields. Each value should be a numpy 1D array with a boolean, integer, floating, or string dtype. Each array may have one element per segment (any type of export), or one element per local drainage network (basins and outlets only).
+        * **crs** (*CRS-like*) -- The CRS of the output file. Defaults to the CRS of the flow-direction raster used to derive the network.
+        * **overwrite** (*bool*) -- True to allow replacement of existing files. False (default) to prevent overwriting.
+        * **driver** (*str*) -- The name of the file-format driver to use when writing the vector feature file. Uses this driver regardless of file extension.
 
              

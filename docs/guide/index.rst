@@ -11,25 +11,39 @@ This guide provides an initial overview of pfdf, and is intended to introduce us
 :doc:`Rasters <rasters/index>`
     A class to manage raster datasets.
 
-:doc:`Watershed Module <watershed>`
-    Functions that analyze watersheds, including flow directions.
+:doc:`Watershed Analyses <watershed/index>`
+    Modules that analyze watershed datasets, including: 
+    
+    * :doc:`Soil burn-severity (SBS) <watershed/severity>`, 
+    * :doc:`Digital elevation models (DEMs) <watershed/watershed>`, and 
+    * :doc:`Flow directions <watershed/watershed>`.
 
 :doc:`Segments <segments/index>`
     A class to build and manage stream segment networks.
 
 :doc:`Models <models/index>`
-    Hazard assessment models, including :doc:`probability and rainfall accumulation <models/s17>`, :doc:`potential sediment volume <models/g14>`, and :doc:`hazard classification <models/c10>`.
+    Hazard assessment models, including:
+    
+    * :doc:`Probability and rainfall accumulation <models/s17>`, 
+    * :doc:`Potential sediment volume <models/g14>`, and 
+    * :doc:`Hazard classification <models/c10>`.
 
-:doc:`Utilities <misc/index>`
-    Miscellaneous utilities: :doc:`burn severities <misc/severity>`, :doc:`slope conversions <misc/slope>`, :doc:`file format drivers <misc/driver>`.
+:doc:`Utilities <utils/index>`
+    Miscellaneous utilities to facilitate working with pfdf: 
+    
+    * :doc:`Rainfall intensities and accumulations <utils/intensity>`,
+    * :doc:`Slope unit conversions <utils/slope>`,
+    * :doc:`Distance unit conversions <utils/units>`,
+    * :doc:`File format drivers <utils/driver>`, and
+    * :doc:`NoData values <utils/nodata>`
 
 .. toctree::
     :hidden:
 
     Working with arrays <arrays>
     Rasters <rasters/index>
-    Watershed <watershed>
+    Watershed Analyses <watershed/index>
     Segments <segments/index>
     Models <models/index>
-    Misc Utilities <misc/index>
+    Misc Utilities <utils/index>
     Glossary <glossary>
