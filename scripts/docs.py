@@ -100,7 +100,7 @@ def figures():
         os.chdir(data)
 
         # Iterate through plotting tutorials. Delete existing figures
-        tutorials = ["assessment", "preprocess"]
+        tutorials = ["preprocess", "assessment"]
         for tutorial in tutorials:
             figures = images / tutorial
             if figures.exists():

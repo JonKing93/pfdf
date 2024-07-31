@@ -1,8 +1,8 @@
 "Code for the hazard assessment tutorial. Does not include plots"
 
-from pfdf.segments import Segments
 from pfdf import severity, watershed
-from pfdf.models import s17, g14, c10
+from pfdf.models import c10, g14, s17
+from pfdf.segments import Segments
 from pfdf.utils import intensity
 
 import preprocess
@@ -14,7 +14,7 @@ import plot
 #####
 
 # Get preprocessed rasters
-perimeter = preprocess.perimeter
+perimeter = preprocess.perimeter.values
 dem = preprocess.dem
 dnbr = preprocess.dnbr
 barc4 = preprocess.barc4
@@ -23,12 +23,12 @@ retainments = preprocess.retainments
 iswater = preprocess.iswater.values
 isdeveloped = preprocess.isdeveloped.values
 
-plot.mask(perimeter, "Fire Perimeter")
+plot.mask(perimeter, "Fire Perimeter", spatial=dem)
 plot.raster(dem, title="DEM", cmap="terrain")
 plot.raster(dnbr, title="dNBR", cmap="OrRd")
 plot.raster(barc4, title="Burn Severity", cmap="OrRd")
 plot.raster(kf, title="KF-factor", cmap="Oranges")
-plot.pr(perimeter, "Retainment Features")
+plot.pr(perimeter, "Retainment Features", spatial=dem)
 plot.mask(iswater, title="Water Mask", spatial=dem)
 plot.mask(isdeveloped, title="Development Mask", spatial=dem)
 
@@ -40,10 +40,10 @@ max_length_m = 500
 # Parameters for filtering the network
 min_burn_ratio = 0.25
 min_slope = 0.12
-max_confinement = 174
-neighborhood = 4
 max_area_km2 = 8
 max_developed_area_km2 = 0.025
+max_confinement = 174
+neighborhood = 4
 
 # Parameters for hazard modeling
 I15 = [20, 22, 24, 26]
@@ -53,11 +53,6 @@ p = [0.5, 0.75]
 #####
 # Hazard Assessment
 #####
-
-# Convert areas to pixel counts
-pixel_area_km2 = dem.pixel_area(units="kilometers")
-min_pixels = min_area_km2 / pixel_area_km2
-min_burned_pixels = min_burned_area_km2 / pixel_area_km2
 
 # Burn severity masks
 isburned = severity.mask(barc4, "burned")
@@ -72,18 +67,19 @@ flow = watershed.flow(conditioned)
 slopes = watershed.slopes(dem, flow)
 relief = watershed.relief(dem, flow)
 
-npixels = watershed.accumulation(flow).values
-nburned = watershed.accumulation(flow, mask=isburned).values
-nretainments = watershed.accumulation(flow, mask=retainments).values
-
 plot.raster(flow, cmap="viridis", title="Flow Directions")
 
+# Flow accumulations
+pixel_area_km2 = dem.pixel_area(units="kilometers")
+area_km2 = watershed.accumulation(flow, times=pixel_area_km2).values
+burned_area_km2 = watershed.accumulation(flow, mask=isburned, times=pixel_area_km2).values
+nretainments = watershed.accumulation(flow, mask=retainments).values
+
 # Build the mask to delineate an initial network
-in_perimeter = perimeter.values
-large_enough = npixels >= min_pixels
+large_enough = area_km2 >= min_area_km2
+below_burn = burned_area_km2 >= min_burned_area_km2
 below_retainment = nretainments > 0
-below_burn = nburned >= min_burned_pixels
-at_risk = in_perimeter | below_burn
+at_risk = perimeter | below_burn
 mask = large_enough & at_risk & ~iswater & ~below_retainment
 
 plot.mask(large_enough, "Large Enough", spatial=dem)
@@ -102,7 +98,7 @@ burn_ratio = segments.burn_ratio(isburned)
 slope = segments.slope(slopes)
 confinement = segments.confinement(dem, neighborhood)
 developed_area_km2 = segments.developed_area(isdeveloped)
-in_perimeter = segments.summary("max", in_perimeter)
+in_perimeter = segments.in_perimeter(perimeter)
 
 # Locate stream segments that meet physical criteria for debris-flow risk
 floodlike = area_km2 > max_area_km2
@@ -110,7 +106,6 @@ burned = burn_ratio >= min_burn_ratio
 steep = slope >= min_slope
 confined = confinement <= max_confinement
 undeveloped = developed_area_km2 <= max_developed_area_km2
-in_perimeter = in_perimeter > 0
 
 plot.filter(segments, ~floodlike, "Not Flood-like", perimeter, save="floodlike.png")
 plot.filter(segments, burned, "Burned", perimeter)

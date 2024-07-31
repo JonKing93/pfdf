@@ -2014,7 +2014,7 @@ class Raster:
         as meters. Use the "units" option to provide a buffering distance in other
         units instead. Supported units include: "pixels" (the number of pixels
         to buffer along each edge), "base" (CRS/Transform base units), "meters",
-        "kilometers", "feet", and "miles". Note that different units have different 
+        "kilometers", "feet", and "miles". Note that different units have different
         metadata requirements, as follows:
 
         Unit       | Required metadata

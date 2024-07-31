@@ -1,12 +1,12 @@
 "Code for the preprocessing tutorial, including plots"
 
 import plot
-import pfdf.severity
+from pfdf import severity
 from pfdf.raster import Raster
 
-# Buffered burn perimeter
-perimeter = Raster.from_polygons('perimeter.geojson')
-perimeter.buffer(3, units='kilometers')
+# Create buffered burn perimeter
+perimeter = Raster.from_polygons("perimeter.geojson")
+perimeter.buffer(3, units="kilometers")
 plot.mask(perimeter, "Buffered Perimeter", gridalpha=1)
 
 # Load datasets that are already rasters
@@ -51,8 +51,8 @@ kf.set_range(min=0, fill=True, exclusive=True)
 plot.raster(kf, "Oranges", "Constrained KF-factor")
 
 # Estimate severity
-severity = pfdf.severity.estimate(dnbr)
-plot.raster(severity, "OrRd", "Burn Severity")
+barc4 = severity.estimate(dnbr)
+plot.raster(barc4, "OrRd", "Burn Severity")
 
 # Build terrain masks
 iswater = evt.find(7292)
