@@ -264,8 +264,9 @@ class Segments:
             mask: A raster whose True values indicate the pixels that may potentially
                 belong to a stream segment.
             max_length: A maximum allowed length for segments in the network.
-            base_unit: True to interpret max_length in the units of the CRS.
-                False (default) to interpret max_length in meters.
+            units: Specifies the units of max_length. Options include:
+                "base" (CRS base units), "meters" (default)", "kilometers", "feet",
+                and "miles".
 
         Outputs:
             Segments: A Segments object recording the stream segments in the network.
@@ -1567,7 +1568,7 @@ class Segments:
         returns lengths in meters. Use the "units" option to return lengths in
         other units. Supported units include: "base" (CRS base units), "meters",
         "kilometers", "feet", and "miles". By default, returns a numpy 1D array
-        with one elemente per segment. Set terminal=True to only return values
+        with one element per segment. Set terminal=True to only return values
         for the terminal outlet segments.
         ----------
         Inputs:
@@ -2057,9 +2058,9 @@ class Segments:
         In this case, the input should be a list or numpy 1D array whose elements
         are the IDs of the segments that should be retained in the network.
 
-        Note that removing terminal outlet segments can cause any previously located
-        basins to be deleted. As such we recommend calling the "locate_basins"
-        command after this command.
+        Note that discarding terminal outlet segments can cause any previously
+        located basins to be deleted. As such, we recommend calling "locate_basins"
+        after this command.
         ----------
         Inputs:
             selected: The segments that should be retained in the network

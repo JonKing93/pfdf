@@ -80,7 +80,20 @@ def figures():
     here = Path.cwd()
     docs = locate_docs()
     data = docs / "tutorial-resources" / "data"
+    scripts = docs / "tutorial-resources" / "scripts"
     images = docs / "images"
+
+    # Error if the data hasn't been downloaded
+    if not data.exists():
+        raise RuntimeError(
+            'Cannot locate the tutorial data. Try running the "download_tutorials" '
+            'command first.'
+        )
+    
+    # Move the tutorial scripts to the workspace
+    if scripts.exists():
+        shutil.rmtree(scripts)
+    shutil.copytree(docs / "tutorials" / "scripts", scripts)
 
     # Move to the sandbox
     try:
@@ -94,7 +107,7 @@ def figures():
                 shutil.rmtree(figures)
 
             # Run the figure script
-            script = data.parent / "code" / f"{tutorial}_plots.py"
+            script = scripts / f"{tutorial}_plots.py"
             run(["python", str(script)])
 
             # Move the figures to the images folder

@@ -237,18 +237,16 @@ class Transform(_Locator):
         Return the change in X coordinate when moving one pixel right
         ----------
         self.dx()
-        Returns the change in X coordinate when moving one pixel right. By default,
-        returns dx in the base unit of the CRS.
-
         self.dx(units)
         self.dx(units, y)
-        Returns dx in the specified units. Options other than "base" are only
-        available when the Transform has a CRS. Supported units include "meters",
-        "kilometers", "feet", and "miles". If the Transform uses a geographic
-        (angular) coordinate system, converts dx to the specified units as if dx
-        were measured along the equator. Use the "y" input to specify a different
-        latitude for unit conversion. Note that y should be in the base units
-        of the CRS.
+        Returns the change in X coordinate when moving one pixel right. By default,
+        returns dx in the base unit of the CRS. Use the "units" option to return
+        dx in other units instead. Supported units include "meters", "kilometers",
+        "feet", and "miles". Note that these options are only supported when the
+        Transform has a CRS. If the Transform uses a geographic (angular) coordinate
+        system, converts dx to the specified units as if dx were measured along
+        the equator. Use the "y" input to specify a different latitude for unit
+        conversion. Note that y should be in the base units of the CRS.
         ----------
         Inputs:
             units: The units that dx should be returned in. Options include:
@@ -271,7 +269,7 @@ class Transform(_Locator):
         self.dy()
         self.dy(units)
         Returns the change in Y coordinate when moving one pixel down. By default,
-        return the distance in the base unit of the transform. Use the "units"
+        returns the distance in the base unit of the transform. Use the "units"
         option to return the distance in specific units instead. This option is
         only available when the Transform has a CRS. Supported units include
         "meters", "kilometers", "feet", and "miles".
@@ -291,16 +289,16 @@ class Transform(_Locator):
         Return pixel resolution along the X axis
         ----------
         self.xres()
-        Returns the pixel resolution along the X axis (the absolute value of dx)
-        in the base units of the CRS.
-
         self.xres(units)
         self.xres(units, y)
-        Returns xres in the specified units. This option is only available when
-        the Transform has a CRS. If the Transform uses a geographic (angular) coordinate
-        system, converts units as if xres were measured along the equator. Use the
-        "y" input to specify a different latitude for unit conversion. Note that
-        y should be in the base units of the CRS.
+        Returns the pixel resolution along the X axis (the absolute value of dx).
+        By default, returns xres in the base units of the CRS. Use the "units" option
+        to return xres in other units instead. Supported units include "meters", "kilometers",
+        "feet", and "miles". Note that these options are only supported when the
+        Transform has a CRS. If the Transform uses a geographic (angular) coordinate
+        system, converts xres to the specified units as if xres were measured along
+        the equator. Use the "y" input to specify a different latitude for unit
+        conversion. Note that y should be in the base units of the CRS.
         ----------
         Inputs:
             units: The units that xres should be returned in. Options include:
@@ -344,17 +342,17 @@ class Transform(_Locator):
         Return pixel resolution
         ----------
         self.resolution()
-        Returns the pixel resolution for the Transform. This is an (X res, Y res)
-        tuple in the units of the Transform CRS.
-
         self.resolution(units)
         self.resolution(units, y)
-        Returns resolution in the specified units. This option is only available
-        when the Transform has a CRS. If the Transform uses a geographic (angular)
-        coordinate system, converts resolution to the indicated units as if xres
-        were measured along the equator. Use the "y" input to specify a different
-        latitude for unit conversion. Note that y should be in the base units of
-        the CRS.
+        Returns the pixel resolution for the Transform as an (X res, Y res) tuple.
+        By default, returns resolution in the base units of the Transform CRS.
+        Use the "units" option to return resolution in the specified units instead.
+        Supported units include "meters", "kilometers", "feet", and "miles". Note
+        that these options are only supported when the Transform has a CRS. If the
+        Transform uses a geographic (angular) coordinate system, converts resolution
+        to the specified units as if resolution were measured along the equator.
+        Use the "y" input to specify a different latitude for unit conversion.
+        Note that y should be in the base units of the CRS.
         ----------
         Inputs:
             units: The units that resolution should be returned in. Options include:
@@ -378,16 +376,16 @@ class Transform(_Locator):
         Returns the area of a pixel for the Transform
         ----------
         self.pixel_area()
-        Returns the area of a pixel for the Transform in the units of the CRS squared.
-
         self.pixel_area(units)
         self.pixel_area(units, y)
-        Returns area in the specified units squared. This option is only available
-        when the Transform has a CRS. If the Transform uses a geographic (angular)
-        coordinate system, converts area to the indicated units as if x-resolution
-        were measured along the equator. Use the "y" input to specify a different
-        latitude for unit conversion. Note that y should be in the base units of
-        the CRS.
+        Returns the area of a pixel for the Transform. By default, returns area
+        in the units of the CRS squared. Use the "units" option to return area
+        in the specified units instead. Supported units include: "meters", "kilometers",
+        "feet", and "miles". This option is only available when the Transform has
+        a CRS. If the Transform uses a geographic (angular) coordinate system,
+        converts area to the indicated units as if x-resolution were measured along
+        the equator. Use the "y" input to specify a different latitude for unit
+        conversion. Note that y should be in the base units of the CRS.
         ----------
         Inputs:
             units: The (squared) units that pixel_area should be returned in. Options
@@ -408,16 +406,16 @@ class Transform(_Locator):
         Returns the area of a pixel for the Transform
         ----------
         self.pixel_diagonal()
-        Returns the length of a pixel diagonal for the Transform in the CRS units.
-
         self.pixel_diagonal(units)
         self.pixel_diagonal(units, y)
-        Returns length in the specified units. This option is only available when
-        the Transform has a CRS. If the Transform uses a geographic (angular)
-        coordinate system, converts length to the indicated units as if x-resolution
-        were measured along the equator. Use the "y" input to specify a different
-        latitude for unit conversion. Note that y should be in the base units of
-        the CRS.
+        Returns the length of a pixel diagonal for the Transform. By default, returns length
+        in the units of the CRS squared. Use the "units" option to return length
+        in the specified units instead. Supported units include: "meters", "kilometers",
+        "feet", and "miles". This option is only available when the Transform has
+        a CRS. If the Transform uses a geographic (angular) coordinate system,
+        converts length to the indicated units as if x-resolution were measured along
+        the equator. Use the "y" input to specify a different latitude for unit
+        conversion. Note that y should be in the base units of the CRS.
         ----------
         Inputs:
             units: The units that the length should be returned in. Options include:

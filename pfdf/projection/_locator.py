@@ -42,8 +42,7 @@ class _Locator(ABC):
     provides the edges (and thereby center) of the raster array. As such, resolution
     and edge functionality is left to the individual classes.
     ----------
-    PROPERTIES:
-
+    **PROPERTIES**
     Class:
         _names          - The names of the 4 floats as they appear in the constructor
         _atts           - The names of the attributes to query for list conversion
@@ -66,8 +65,7 @@ class _Locator(ABC):
         top             - Top edge coordinate
         orientation     - Abstract property for cartesian quadrant of the object
 
-    METHODS:
-
+    **METHODS**
     Object Creation:
         __init__        - Initializes object from 4 floats and an optional CRS
         from_dict       - Builds object from a keyword dict
@@ -78,21 +76,19 @@ class _Locator(ABC):
         __repr__    - String representation using class name, float values, and CRS name
         __eq__      - True if the other object is the same class and has matching floats/CRS
 
-    Orientation:
-        _orientation    - Returns cartesian quadrant given inversion status
+    Validation:
+        _validate_reprojection  - Checks there are two CRSs for reprojection
+        _validate_units         - Checks that unit conversion is supported
 
     Class Conversion:
         _validate_N     - Checks that nrows or ncols is valid
         tolist          - Returns the object as a list
         todict          - Returns the object as a dict
 
-    Testing:
-        isclose         - True if two objects have similar floats and the same CRS
-
-    Axis units:
-        _xlength        - Convert a length along the X axis to the requested units
-        _ylength        - Convert a length along the Y axis to the requested units
+    Misc:
+        _orientation    - Returns cartesian quadrant given inversion status
         _length         - Convert a length along an axis to the requested units
+        isclose         - True if two objects have similar floats and the same CRS
     """
 
     #####
