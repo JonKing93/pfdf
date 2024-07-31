@@ -65,7 +65,7 @@ def rebuild():
 def download_tutorials():
 
     # Get URL and download path
-    URL = "https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data/tutorial-resources.zip?ref_type=heads&inline=false"
+    URL = "https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data-2.0.0/tutorial-resources.zip?ref_type=heads&inline=false"
     docs = locate_docs()
 
     # Download and unzip
