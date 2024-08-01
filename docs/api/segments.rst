@@ -118,8 +118,8 @@ pfdf.segments subpackage
               - Builds and saves the basin raster, optionally in parallel
             * - :ref:`raster <pfdf.segments.Segments.raster>`
               - Returns a raster representation of the stream segment network
-            * - :ref:`basin_mask <pfdf.segments.Segments.basin_mask>`
-              - Returns the catchment or terminal outlet basin mask for the queried stream segment
+            * - :ref:`catchment_mask <pfdf.segments.Segments.catchment_mask>`
+              - Returns the catchment basin mask for the queried stream segment
             * - 
               - 
             * - **Generic Statistics**
@@ -128,8 +128,8 @@ pfdf.segments subpackage
               - Print or return info about supported statistics
             * - :ref:`summary <pfdf.segments.Segments.summary>`
               - Compute summary statistics over the pixels for each segment
-            * - :ref:`basin_summary <pfdf.segments.Segments.basin_summary>`
-              - Compute summary statistics over the catchment basins or terminal outlet basins
+            * - :ref:`catchment_summary <pfdf.segments.Segments.catchment_summary>`
+              - Compute summary statistics over catchment basin pixels
             * - 
               - 
             * - **Earth System Variables**
@@ -140,6 +140,8 @@ pfdf.segments subpackage
               - Computes the burned proportion of basins
             * - :ref:`burned_area <pfdf.segments.Segments.burned_area>`
               - Computes the burned area of basins
+            * - :ref:`catchment_ratio <pfdf.segments.Segments.catchment_ratio>`
+              - Computes the proportion of catchment basin pixels within a mask
             * - :ref:`confinement <pfdf.segments.Segments.confinement>`
               - Computes the confinement angle for each segment
             * - :ref:`developed_area <pfdf.segments.Segments.developed_area>`
@@ -164,8 +166,6 @@ pfdf.segments subpackage
               - Computes the vertical relief to highest ridge cell for each segment
             * - :ref:`ruggedness <pfdf.segments.Segments.ruggedness>`
               - Computes topographic ruggedness (relief / sqrt(area)) for each segment
-            * - :ref:`upslope_ratio <pfdf.segments.Segments.upslope_ratio>`
-              - Computes the proportion of basin pixels that meet a criteria
             * - 
               -
             * - **Filtering**
@@ -605,32 +605,21 @@ Local Networks
 Rasters
 -------
 
-.. _pfdf.segments.Segments.basin_mask:
+.. _pfdf.segments.Segments.catchment_mask:
 
-.. py:method:: Segments.basin_mask(self, id, terminal = False)
+.. py:method:: Segments.catchment_mask(self, id)
 
-    Return a mask of the queried segment's catchment or terminal outlet basin
+    Return a mask of the queried segment's catchment basin
 
-    .. dropdown:: Catchment Mask
+    ::
 
-        ::
+        self.catchment_mask(id)
 
-            self.basin_mask(id)
+    Returns the catchment basin mask for the queried segment. The catchment basin consists of all pixels that drain into the segment. The output will be a boolean raster whose True elements indicate pixels that are in the catchment basin.
 
-        Returns the catchment basin mask for the queried segment. The catchment basin consists of all pixels that drain into the segment. The output will be a boolean raster whose True elements indicate pixels that are in the catchment basin.
+    :Inputs: * **id** (*int*) -- The ID of the stream segment whose catchment mask should be determined
 
-    .. dropdown:: Terminal Basin Mask
-
-        ::
-
-            self.basin_mask(id, terminal=True)
-
-        Returns the mask of the queried segment's terminal outlet basin. The terminal outlet basin is the catchment basin for the segment's local drainage network. This basin is a superset of the segment's catchment basin. The output will be a boolean raster whose True elements indicate pixels that are in the local drainage basin.
-
-    :Inputs: * **id** (*int*) -- The ID of the stream segment whose basin mask should be determined
-             * **terminal** (*bool*) -- True to return the terminal outlet basin mask for the segment. False (default) to return the catchment mask.
-
-    :Outputs: *Raster* -- The boolean raster mask for the basin. True elements indicate pixels that belong to the basin.
+    :Outputs: *Raster* -- The boolean raster mask for the catchment basin. True elements indicate pixels that are in the catchment.
 
 
 .. _pfdf.segments.Segments.raster:
@@ -782,6 +771,34 @@ Earth-system Variables
         * **terminal** (*bool*) -- True to only compute values for terminal outlet basins. False (default) to compute values for all catchment basins.
 
     :Outputs: *ndarray* -- The burned catchment area for the basins
+
+
+.. _pfdf.segments.Segments.catchment_ratio:
+
+.. py:method:: Segments.catchment_ratio(self, mask, terminal = False)
+
+    Returns the proportion of catchment basin pixels within a mask
+
+    .. dropdown:: Catchment Ratio
+
+        ::
+
+            self.catchment_ratio(mask)
+
+        Given a raster mask, computes the proportion of True pixels in the catchment basin for each stream segment. Returns the ratios as a numpy 1D array with one element per stream segment. Ratios will be on the interval from 0 to 1. Note that NoData pixels in the mask are interpreted as False.
+
+    .. dropdown:: Terminal Basins
+
+        ::
+
+            self.catchment_ratio(mask, terminal=True)
+
+        Only computes values for the terminal outlet basins.
+
+    :Inputs: * **mask** (*Raster*) -- A raster mask for the watershed. The method will compute the proportion of True elements in each catchment
+             * **terminal** (*bool*) -- True to only compute values for the terminal outlet basins. False (default) to compute values for all catchment basins.
+
+    :Outputs: *ndarray* -- The proportion of True values in each basin
 
 
 .. _pfdf.segments.Segments.confinement:
@@ -1186,33 +1203,6 @@ Earth-system Variables
         *numpy 1D array* -- The topographic ruggedness of each stream segment
 
 
-.. _pfdf.segments.Segments.upslope_ratio:
-
-.. py:method:: Segments.upslope_ratio(self, mask, terminal = False)
-
-    Returns the proportion of basin pixels that meet a criteria
-
-    .. dropdown:: Upslope Ratio
-
-        ::
-
-            self.upslope_ratio(mask)
-
-        Given a raster mask, computes the proportion of True pixels in the catchment basin for each stream segment. Returns the ratios as a numpy 1D array with one element per stream segment. Ratios will be on the interval from 0 to 1. Note that NoData pixels in the mask are interpreted as False.
-
-    .. dropdown:: Terminal Basins
-
-        ::
-
-            self.upslope_ratio(mask, terminal=True)
-
-        Only computes values for the terminal outlet basins.
-
-    :Inputs: * **mask** (*Raster*) -- A raster mask for the watershed. The method will compute the proportion of True elements in each catchment
-             * **terminal** (*bool*) -- True to only compute values for the terminal outlet basins. False (default) to compute values for all catchment basins.
-
-    :Outputs: *ndarray* -- The proportion of True values in each basin
-
 ----
 
 Generic Statistics
@@ -1230,7 +1220,7 @@ Generic Statistics
 
             Segments.statistics()
 
-        Prints information about supported statistics to the console. The printed text is a table with two columns. The first column holds the names of statistics that can be used with the "summary" and "basin_summary" methods. The second column is a description of each statistic.
+        Prints information about supported statistics to the console. The printed text is a table with two columns. The first column holds the names of statistics that can be used with the "summary" and "catchment_summary" methods. The second column is a description of each statistic.
 
     .. dropdown:: Return Info as Dict
 
@@ -1268,17 +1258,17 @@ Generic Statistics
     :Outputs: *ndarray* -- The summary statistic for each stream segment
 
     
-.. _pfdf.segments.Segments.basin_summary:
+.. _pfdf.segments.Segments.catchment_summary:
 
-.. py:method:: Segments.basin_summary(self, statistic, values, mask = None, terminal = False)
+.. py:method:: Segments.catchment_summary(self, statistic, values, mask = None, terminal = False)
 
-    Computes a summary statistic over each catchment or terminal outlet basin
+    Computes a summary statistic over each catchment basin's pixel
 
     .. dropdown:: Catchment Summary
 
         ::
 
-            self.basin_summary(statistic, values)
+            self.catchment_summary(statistic, values)
 
         Computes the indicated statistic over the catchment basin pixels for each stream segment. Uses the input values raster as the data value for each pixel. Returns a numpy 1D array with one element per stream segment.
 
@@ -1293,7 +1283,7 @@ Generic Statistics
 
         ::
 
-            self.basin_summary(statistic, values, mask)
+            self.catchment_summary(statistic, values, mask)
 
         Computes masked statistics over the catchment basins. True elements in the mask indicate pixels that should be included in statistics. False elements are ignored. If a catchment does not contain any True pixels, then its summary statistic is set to NaN. Note that a mask will have no effect on the "outlet" statistic.
 
@@ -1301,7 +1291,7 @@ Generic Statistics
 
         ::
 
-            self.basin_summary(..., terminal=True)
+            self.catchment_summary(..., terminal=True)
 
         Only computes statistics for the terminal outlet basins. The output will have one element per terminal segment. The order of values will match the order of IDs reported by the ``Segments.termini`` method. The number of terminal outlet basins is often much smaller than the total number of segments. As such, this option presents a faster alternative and is particularly suitable when computing statistics other than "outlet", "mean", "sum", "nanmean", or "nansum".
 

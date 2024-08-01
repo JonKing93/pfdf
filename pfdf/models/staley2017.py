@@ -576,7 +576,7 @@ class M1(Model):
     def _terrain(segments: Segments, moderate_high: Raster, slopes: Raster):
         "Computes the M1 terrain variable"
         mask = Model._terrain_mask(moderate_high, slopes, threshold_degrees=23)
-        return segments.upslope_ratio(mask)
+        return segments.catchment_ratio(mask)
 
     @staticmethod
     def _fire(segments: Segments, dnbr: Raster, omitnan: bool):
@@ -988,7 +988,7 @@ class M3(Model):
     @staticmethod
     def _fire(segments: Segments, moderate_high: Raster):
         "Computes the M3 fire variable"
-        return segments.upslope_ratio(moderate_high)
+        return segments.catchment_ratio(moderate_high)
 
     @staticmethod
     def _soil(segments: Segments, soil_thickness: Raster, omitnan: bool):
@@ -1178,7 +1178,7 @@ class M4(Model):
     def _terrain(segments: Segments, isburned: Raster, slopes: Raster):
         "Computes the M4 terrain variable"
         mask = Model._terrain_mask(isburned, slopes, threshold_degrees=30)
-        return segments.upslope_ratio(mask)
+        return segments.catchment_ratio(mask)
 
     @staticmethod
     def _fire(segments: Segments, dnbr: Raster, omitnan: bool):

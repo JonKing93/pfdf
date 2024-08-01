@@ -148,17 +148,18 @@ class Segments:
     Rasters:
         locate_basins       - Builds and saves the basin raster, optionally in parallel
         raster              - Returns a raster representation of the stream segment network
-        basin_mask          - Returns the catchment or terminal outlet basin mask for the queried stream segment
+        catchment_mask      - Returns the catchment basin mask for the queried stream segment
 
     Generic Statistics:
         statistics          - Print or return info about supported statistics
         summary             - Compute summary statistics over the pixels for each segment
-        basin_summary       - Compute summary statistics over the catchment basins or terminal outlet basins
+        catchment_summary   - Compute summary statistics over catchment basins
 
     Earth system variables:
         area                - Computes the total basin areas
         burn_ratio          - Computes the burned proportion of basins
         burned_area         - Computes the burned area of basins
+        catchment_ratio     - Computes the proportion of catchment pixels that meet a criteria
         confinement         - Computes the confinement angle for each segment
         developed_area      - Computes the developed area of basins
         in_mask             - Checks whether each segment is within a mask
@@ -171,7 +172,6 @@ class Segments:
         slope               - Computes the mean slope of each segment
         relief              - Computes the vertical relief to highest ridge cell for each segment
         ruggedness          - Computes topographic ruggedness (relief / sqrt(area)) for each segment
-        upslope_ratio       - Computes the proportion of basin pixels that meet a criteria
 
     Filtering:
         continuous          - Indicates segments that can be filtered while preserving flow continuity
@@ -858,40 +858,31 @@ class Segments:
     # Rasters
     #####
 
-    def basin_mask(self, id: scalar, terminal: bool = False) -> Raster:
+    def catchment_mask(self, id: scalar) -> Raster:
         """
-        basin_mask  Return a mask of the queried segment's catchment or terminal outlet basin
+        Return a mask of the queried segment's catchment basin
         ----------
         self.basin_mask(id)
         Returns the catchment basin mask for the queried segment. The catchment
         basin consists of all pixels that drain into the segment. The output will
         be a boolean raster whose True elements indicate pixels that are in the
         catchment basin.
-
-        self.basin_mask(id, terminal=True)
-        Returns the mask of the queried segment's terminal outlet basin. The
-        terminal outlet basin is the catchment basin for the segment's local
-        drainage network. This basin is a superset of the segment's catchment
-        basin. The output will be a boolean raster whose True elements indicate
-        pixels that are in the local drainage basin.
         ----------
         Inputs:
-            id: The ID of the stream segment whose basin mask should be determined
-            terminal: True to return the terminal outlet basin mask for the segment.
-                False (default) to return the catchment mask.
+            id: The ID of the stream segment whose catchment mask should be determined
 
         Outputs:
-            Raster: The boolean raster mask for the basin. True elements indicate
-                pixels that belong to the basin.
+            Raster: The boolean raster mask for the catchment basin. True elements
+                indicate pixels that are in the catchment
         """
 
         validate.id(self, id)
-        [[row, column]] = self.outlets(id, segment_outlets=not terminal)
+        [[row, column]] = self.outlets(id, segment_outlets=True)
         return watershed.catchment(self.flow, row, column, check_flow=False)
 
     def raster(self, basins=False) -> Raster:
         """
-        raster  Return a raster representation of the stream network
+        Return a raster representation of the stream network
         ----------
         self.raster()
         Returns the stream segment raster for the network. This raster has a 0
@@ -995,7 +986,7 @@ class Segments:
         Segments.statistics()
         Prints information about supported statistics to the console. The printed
         text is a table with two columns. The first column holds the names of
-        statistics that can be used with the "summary" and "basin_summary" methods.
+        statistics that can be used with the "summary" and "catchment_summary" methods.
         The second column is a description of each statistic.
 
         Segments.statistics(asdict=True)
@@ -1057,7 +1048,7 @@ class Segments:
 
     def summary(self, statistic: Statistic, values: RasterInput) -> SegmentValues:
         """
-        summary  Computes a summary value for each stream segment
+        Computes a summary value over stream segment pixels
         ----------
         self.summary(statistic, values)
         Computes a summary statistic for each stream segment. Each summary
@@ -1094,7 +1085,7 @@ class Segments:
             summary[i] = self._summarize(statistic, values, pixels)
         return summary
 
-    def basin_summary(
+    def catchment_summary(
         self,
         statistic: Statistic,
         values: RasterInput,
@@ -1102,9 +1093,9 @@ class Segments:
         terminal: bool = False,
     ) -> BasinValues:
         """
-        basin_summary  Computes a summary statistic over each catchment or terminal outlet basin
+        Computes a summary statistic over each catchment basin's pixel
         ----------
-        self.basin_summary(statistic, values)
+        self.catchment_summary(statistic, values)
         Computes the indicated statistic over the catchment basin pixels for each
         stream segment. Uses the input values raster as the data value for each pixel.
         Returns a numpy 1D array with one element per stream segment.
@@ -1121,14 +1112,14 @@ class Segments:
         statistics for terminal outlet basins - this is typically a faster operation,
         and more suitable for other statistics.
 
-        self.basin_summary(statistic, values, mask)
+        self.catchment_summary(statistic, values, mask)
         Computes masked statistics over the catchment basins. True elements in the
         mask indicate pixels that should be included in statistics. False elements
         are ignored. If a catchment does not contain any True pixels, then its
         summary statistic is set to NaN. Note that a mask will have no effect
         on the "outlet" statistic.
 
-        self.basin_summary(..., terminal=True)
+        self.catchment_summary(..., terminal=True)
         Only computes statistics for the terminal outlet basins. The output will
         have one element per terminal segment. The order of values will match the
         order of IDs reported by the "Segments.termini" method. The number of
@@ -1301,7 +1292,7 @@ class Segments:
         Outputs:
             numpy 1D array: The proportion of burned pixels in each basin
         """
-        return self.upslope_ratio(isburned, terminal)
+        return self.catchment_ratio(isburned, terminal)
 
     def burned_area(
         self,
@@ -1337,6 +1328,32 @@ class Segments:
             numpy 1D array: The burned catchment area for the basins
         """
         return self.area(isburned, units=units, terminal=terminal)
+
+    def catchment_ratio(self, mask: RasterInput, terminal: bool = False) -> BasinValues:
+        """
+        Returns the proportion of catchment pixels within a mask
+        ----------
+        self.catchment_ratio(mask)
+        Given a raster mask, computes the proportion of True pixels in the
+        catchment basin for each stream segment. Returns the ratios as a numpy 1D
+        array with one element per stream segment. Ratios will be on the interval
+        from 0 to 1. Note that NoData pixels in the mask are interpreted as False.
+
+        self.catchment_ratio(mask, terminal=True)
+        Only computes values for the terminal outlet basins.
+        ----------
+        Inputs:
+            mask: A raster mask for the watershed. The method will compute the
+                proportion of True elements in each catchment
+            terminal: True to only compute values for the terminal outlet basins.
+                False (default) to compute values for all catchment basins.
+
+        Outputs:
+            numpy 1D array: The proportion of True values in each catchment basin
+        """
+        counts = self._accumulation(mask=mask, terminal=terminal)
+        npixels = self._basin_npixels(terminal)
+        return counts / npixels
 
     def confinement(
         self,
@@ -1548,7 +1565,7 @@ class Segments:
             method = "nanmean"
         else:
             method = "mean"
-        return self.basin_summary(
+        return self.catchment_summary(
             method,
             kf_factor,
             mask,
@@ -1639,7 +1656,7 @@ class Segments:
             method = "nanmean"
         else:
             method = "mean"
-        dnbr = self.basin_summary(method, dnbr, mask, terminal)
+        dnbr = self.catchment_summary(method, dnbr, mask, terminal)
         return dnbr / 1000
 
     def scaled_thickness(
@@ -1700,7 +1717,7 @@ class Segments:
             method = "nanmean"
         else:
             method = "mean"
-        soil_thickness = self.basin_summary(method, soil_thickness, mask, terminal)
+        soil_thickness = self.catchment_summary(method, soil_thickness, mask, terminal)
         return soil_thickness / 100
 
     def sine_theta(
@@ -1765,7 +1782,7 @@ class Segments:
             method = "nanmean"
         else:
             method = "mean"
-        return self.basin_summary(method, sine_thetas, mask, terminal)
+        return self.catchment_summary(method, sine_thetas, mask, terminal)
 
     def slope(
         self, slopes: RasterInput, *, terminal: bool = False, omitnan: bool = False
@@ -1865,32 +1882,6 @@ class Segments:
         if relief_per_m is not None:
             relief = relief / relief_per_m
         return relief / np.sqrt(area)
-
-    def upslope_ratio(self, mask: RasterInput, terminal: bool = False) -> BasinValues:
-        """
-        upslope_ratio  Returns the proportion of basin pixels that meet a criteria
-        ----------
-        self.upslope_ratio(mask)
-        Given a raster mask, computes the proportion of True pixels in the
-        catchment basin for each stream segment. Returns the ratios as a numpy 1D
-        array with one element per stream segment. Ratios will be on the interval
-        from 0 to 1. Note that NoData pixels in the mask are interpreted as False.
-
-        self.upslope_ratio(mask, terminal=True)
-        Only computes values for the terminal outlet basins.
-        ----------
-        Inputs:
-            mask: A raster mask for the watershed. The method will compute the
-                proportion of True elements in each catchment
-            terminal: True to only compute values for the terminal outlet basins.
-                False (default) to compute values for all catchment basins.
-
-        Outputs:
-            numpy 1D array: The proportion of True values in each basin
-        """
-        counts = self._accumulation(mask=mask, terminal=terminal)
-        npixels = self._basin_npixels(terminal)
-        return counts / npixels
 
     #####
     # Filtering

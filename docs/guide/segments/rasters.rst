@@ -79,8 +79,8 @@ It's often useful to locate outlet pixels within the stream raster. You can use 
 
 .. _basins:
 
-Terminal Basins
----------------
+Terminal Outlet Basins
+----------------------
 
 It can also be useful to represent segment basins as a raster. The **terminal outlet basins raster** is one such representation. This raster consists of a 0 background, with terminal outlet basins indicated by non-zero pixels. The value of each pixel is the ID of the terminal segment associated with the outlet basin. If a pixel belongs to multiple terminal outlet basins, then its value will match the ID of the terminal segment that is farthest downstream. You can return this raster by calling the :ref:`raster <pfdf.segments.Segments.raster>` method with ``basins`` option::
 
@@ -91,14 +91,14 @@ It can also be useful to represent segment basins as a raster. The **terminal ou
     Locating outlet basins is computationally difficult. See the :doc:`parallelization guide <parallel>` for options that can sometimes speed up this process.
 
 
-.. _basin-mask:
+.. _catchment-mask:
 
-Basin Mask
-----------
+Catchment Mask
+--------------
 
-Sometimes it can be useful to return the **catchment basin mask** for a specific segment. For example, to locate the pixels used to compute a statistical summary over a segment's catchment basin. Here, a basin mask is a boolean raster. True elements indicate pixels that belong to the segment's catchment basin. You can return basin masks using the :ref:`basin_mask <pfdf.segments.Segments.basin_mask>` method:: 
+Sometimes it can be useful to return the **catchment basin mask** for a specific segment. For example, to locate the pixels used to compute a statistical summary over a segment's catchment basin. Here, a catchment mask is a boolean raster. True elements indicate pixels that belong to the segment's catchment basin. You can use the :ref:`catchment_mask <pfdf.segments.Segments.catchment_mask>` method to return these masks:: 
 
-    >>> catchment = segments.basin_mask(id=5)
+    >>> catchment = segments.catchment_mask(id=5)
     
 Note that you can also use the ``npixels`` property to return a numpy array with the number of pixels in the catchment basin of each segment::
 

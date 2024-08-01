@@ -188,7 +188,7 @@ def count_outlets(segments, outlets: Outlets) -> VectorArray:
 
     # Compute the number of terminal outlets flowing into each terminal basin
     nOutlets = watershed.accumulation(segments.flow, mask=raster)
-    nOutlets = segments.basin_summary("outlet", nOutlets, terminal=True)
+    nOutlets = segments.catchment_summary("outlet", nOutlets, terminal=True)
     return nOutlets
 
 

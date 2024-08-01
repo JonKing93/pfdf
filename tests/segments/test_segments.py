@@ -568,9 +568,9 @@ class TestIsNested:
 #####
 
 
-class TestBasinMask:
+class TestCatchmentMask:
     def test_catchment(_, segments):
-        output = segments.basin_mask(id=5)
+        output = segments.catchment_mask(id=5)
         expected = np.array(
             [
                 [0, 0, 0, 0, 0, 0, 0],
@@ -588,33 +588,14 @@ class TestBasinMask:
         assert output.transform == segments.transform
         assert np.array_equal(output.values, expected)
 
-    def test_outlet(_, segments):
-        output = segments.basin_mask(id=5, terminal=True)
-        expected = np.array(
-            [
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 1, 0, 0, 1, 0, 0],
-                [0, 1, 0, 0, 1, 0, 0],
-                [0, 1, 1, 0, 1, 1, 0],
-                [0, 0, 1, 1, 0, 0, 0],
-                [0, 0, 0, 1, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0, 0],
-            ]
-        )
-        assert isinstance(output, Raster)
-        assert output.nodata == False
-        assert output.crs == segments.crs
-        assert output.transform == segments.transform
-        assert np.array_equal(output.values, expected)
-
     def test_invalid_id(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:
-            segments.basin_mask(id=12)
+            segments.catchment_mask(id=12)
         assert_contains(error, "id (value=12)")
 
     def test_multiple_ids(_, segments, assert_contains):
         with pytest.raises(DimensionError) as error:
-            segments.basin_mask(id=[1, 2])
+            segments.catchment_mask(id=[1, 2])
         assert_contains(error, "id")
 
 
@@ -852,7 +833,7 @@ class TestAccumulationSummary:
         assert np.array_equal(output, expected, equal_nan=True)
 
 
-class TestCatchmentSummary:
+class Test_CatchmentSummary:
     def test_standard(_, segments, values):
         output = segments._catchment_summary("sum", values, mask=None, terminal=False)
         expected = np.array([23, 14, nan, 5, 25, 62])
@@ -876,46 +857,46 @@ class TestCatchmentSummary:
         assert np.array_equal(output, expected, equal_nan=True)
 
 
-class TestBasinSummary:
+class TestCatchmentSummary:
     def test_outlet(_, segments, flow):
         flow._nodata = 3
-        output = segments.basin_summary("outlet", flow)
+        output = segments.catchment_summary("outlet", flow)
         expected = np.array([1, 7, nan, 5, 6, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_terminal_outlet(_, segments, flow):
         flow._nodata = 3
-        output = segments.basin_summary("outlet", flow, terminal=True)
+        output = segments.catchment_summary("outlet", flow, terminal=True)
         expected = [nan, 7]
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_accumulation(_, segments, values):
-        output = segments.basin_summary("sum", values)
+        output = segments.catchment_summary("sum", values)
         expected = np.array([23, 14, nan, 5, 25, 62])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_terminal_accumulation(_, segments, values):
-        output = segments.basin_summary("sum", values, terminal=True)
+        output = segments.catchment_summary("sum", values, terminal=True)
         expected = np.array([nan, 62])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_masked_accumulation(_, segments, values, mask2):
-        output = segments.basin_summary("sum", values, mask2)
+        output = segments.catchment_summary("sum", values, mask2)
         expected = np.array([nan, 14, nan, 5, 25, 25])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_catchment(_, segments, values):
-        output = segments.basin_summary("max", values)
+        output = segments.catchment_summary("max", values)
         expected = np.array([7, 7, nan, 5, 7, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_terminal_catchment(_, segments, values):
-        output = segments.basin_summary("max", values, terminal=True)
+        output = segments.catchment_summary("max", values, terminal=True)
         expected = np.array([nan, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_masked_catchment(_, segments, values, mask2):
-        output = segments.basin_summary("nansum", values, mask2)
+        output = segments.catchment_summary("nansum", values, mask2)
         expected = np.array([nan, 14, nan, 5, 25, 25])
         assert np.array_equal(output, expected, equal_nan=True)
 
@@ -969,6 +950,18 @@ class TestBurnedArea:
     def test_terminal(_, segments, flow, mask2):
         output = segments.burned_area(mask2, units="base", terminal=True)
         expected = np.array([2, 4]) * flow.transform.pixel_area()
+        assert np.array_equal(output, expected)
+
+
+class TestCatchmentRatio:
+    def test(_, segments, mask2):
+        output = segments.catchment_ratio(mask2)
+        expected = np.array([0, 1, 1, 1, 1, 4 / 11])
+        assert np.array_equal(output, expected)
+
+    def test_terminal(_, segments, mask2):
+        output = segments.catchment_ratio(mask2, terminal=True)
+        expected = np.array([1, 4 / 11])
         assert np.array_equal(output, expected)
 
 
@@ -1314,18 +1307,6 @@ class TestRuggedness:
         area = npixels * flow.transform.pixel_area()
         expected = relief / np.sqrt(area)
         assert np.array_equal(output, expected, equal_nan=True)
-
-
-class TestUpslopeRatio:
-    def test(_, segments, mask2):
-        output = segments.upslope_ratio(mask2)
-        expected = np.array([0, 1, 1, 1, 1, 4 / 11])
-        assert np.array_equal(output, expected)
-
-    def test_terminal(_, segments, mask2):
-        output = segments.upslope_ratio(mask2, terminal=True)
-        expected = np.array([1, 4 / 11])
-        assert np.array_equal(output, expected)
 
 
 #####
