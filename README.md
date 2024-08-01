@@ -29,7 +29,7 @@ Please read the [Developer Guide](https://ghsc.code-pages.usgs.gov/lhp/pfdf/reso
 
 ## Suggested Citation
 
-King, J., 2023, pfdf - Python library for postfire debris-flow hazard assessments and research, version 1.1.0: U.S. Geological Survey software release, https://doi.org/10.5066/P13RSBEE
+King, J., 2024, pfdf - Python library for postfire debris-flow hazard assessments and research, version 2.0.0: U.S. Geological Survey software release, https://doi.org/10.5066/P145OCNO
 
 
 ## DOI and IPDS Record
@@ -38,7 +38,8 @@ The following table provides the DOI and IPDS record associated with each releas
 
 | Release        | DOI                              | IP Number |
 | -------        | ---                              | --------- |
-| 1.1.0 (latest) | https://doi.org/10.5066/P13RSBEE | IP-163756 |
+| 2.0.0 (latest) | https://doi.org/10.5066/P145OCNO | IP-169248 |
+| 1.1.0          | https://doi.org/10.5066/P13RSBEE | IP-163756 |
 | 1.0.0          | https://doi.org/10.5066/P9JO58MJ | IP-159652 |
 
 

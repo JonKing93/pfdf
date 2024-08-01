@@ -39,26 +39,26 @@ See also the :doc:`installation page <resources/installation>` for additional op
 
 Using these docs
 ----------------
-These docs contain a variety of resources for pfdf users. The :doc:`User Guide </guide/index>` provides an overview of pfdf's components, introduces key functionality, and provides suggestions for common workflows. The :doc:`Tutorials </tutorials/index>` provide in-depth examples of specific use cases, and the :doc:`API </api/index>` provides complete documentation of every command in pfdf. You can also find links to the `latest release`_, :doc:`contribution guidelines <resources/contributing>` (including a :doc:`developer guide <resources/dev-guide>`), and :doc:`legal documents <resources/legal>` in the navigation sidebar.
+These docs contain a variety of resources for pfdf users. The :doc:`User Guide </guide/index>` provides an overview of pfdf's components, introduces key functionality, and provides suggestions for common workflows. The :doc:`Tutorials </tutorials/index>` provide in-depth examples of specific use cases, and the :doc:`API </api/index>` provides complete documentation of every command in pfdf. You can also find links to :doc:`commonly used datasets <resources/datasets>`, the `latest release`_, :doc:`contribution guidelines <resources/contributing>` (including a :doc:`developer guide <resources/dev-guide>`), and :doc:`legal documents <resources/legal>` in the navigation sidebar.
 
 
 Citation
 --------
 If you use pfdf for a publication, please consider citing it::
 
-    King, J., 2023, pfdf - Python library for postfire debris-flow hazard assessments 
-    and research, version 1.1.0: U.S. Geological Survey software release, 
-    https://doi.org/10.5066/P13RSBEE
+    King, J., 2024, pfdf - Python library for postfire debris-flow hazard assessments 
+    and research, version 2.0.0: U.S. Geological Survey software release, 
+    https://doi.org/10.5066/P145OCNO
 
 
 BibTeX::
 
-    @misc{king_2023,
-        title = {pfdf - Python library for postfire debris-flow hazard assessments and research, version 1.1.0},
+    @misc{king_2024,
+        title = {pfdf - Python library for postfire debris-flow hazard assessments and research, version 2.0.0},
         author = {King, Jonathan},
         url = {https://code.usgs.gov/ghsc/lhp},
-        year = {2023},
-        doi = {10.5066/P13RSBEE}
+        year = {2024},
+        doi = {10.5066/P145OCNO}
     }
 
 
