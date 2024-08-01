@@ -13,6 +13,7 @@ Easy Install
 This will install the latest release:
 
 .. parsed-literal::
+    :class: highlight
 
     pip install git+https://code.usgs.gov/ghsc/lhp/pfdf@\ |release|\
 
@@ -24,6 +25,7 @@ Tutorials
 If you want to recreate the plots shown in the :doc:`tutorials </tutorials/index>`, use:
 
 .. parsed-literal::
+    :class: highlight
 
     pip install git+https://code.usgs.gov/ghsc/lhp/pfdf@\ |release|\[tutorials]
 

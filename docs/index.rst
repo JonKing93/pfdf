@@ -30,6 +30,7 @@ Installation
 You can install the latest release using:
 
 .. parsed-literal::
+    :class: highlight
 
     pip install git+https://code.usgs.gov/ghsc/lhp/pfdf@\ |release|\
 
