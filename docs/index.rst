@@ -76,6 +76,7 @@ BibTeX::
     :hidden:
     :caption: Resources
     
+    Datasets <resources/datasets>
     Contributing <resources/contributing>
     Legal <resources/legal>
     Release Notes <resources/release-notes/index>
