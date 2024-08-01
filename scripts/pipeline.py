@@ -1,6 +1,6 @@
 
 from .dev import safety, lint, tests
-from .docs import check_version, build, figures, download_tutorials
+from .docs import build, figures, download_tutorials
 
 
 def pipeline():
@@ -12,7 +12,6 @@ def pipeline():
 def docs_pipeline():
     "Also attempts to build the docs"
     pipeline()
-    check_version()
     download_tutorials()
     figures()
     build()

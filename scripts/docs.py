@@ -122,31 +122,4 @@ def figures():
     finally:
         os.chdir(here)
 
-
-def check_version():
-    "Checks that the release in conf.py matches the version in pyproject.toml"
-
-    # Get the version string from pyproject.toml
-    docs = locate_docs()
-    pyproject = docs.parent / "pyproject.toml"
-    with open(pyproject, 'rb') as file:
-        pyproject = tomllib.load(file)
-    version = pyproject['tool']['poetry']['version']
-
-    # Get the release string from conf.py
-    conf = docs / "conf.py"
-    with open(conf) as file:
-        conf = file.read()
-    release = '\nrelease = "'
-    start = conf.find(release) + len(release)
-    conf = conf[start:]
-    stop = conf.find('"')
-    release = conf[:stop]
-
-    # Require them to be the same
-    if version != release:
-        raise Exception(
-            f"The version string in pyproject.toml ({version}) does not match the "
-            f"release string in conf.py ({release})"
-        )
     

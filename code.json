@@ -3,6 +3,50 @@
       "name": "pfdf",
       "organization": "U.S. Geological Survey",
       "description": "A Python library to facilitate post-wildfire debris-flow hazard assessments and research.",
+      "version": "2.0.0",
+      "status": "Production",
+
+      "permissions": {
+        "usageType": "openSource",
+        "licenses": [
+          {
+            "name": "GNU General Public License Version 3",
+            "URL": "https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/2.0.0/LICENSE.md"
+          }
+        ]
+      },
+
+      "homepageURL": "https://code.usgs.gov/ghsc/lhp/pfdf",
+      "downloadURL": "https://code.usgs.gov/ghsc/lhp/pfdf/-/archive/2.0.0/pfdf-2.0.0.zip",
+      "disclaimerURL": "https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/2.0.0/DISCLAIMER.md",
+      "repositoryURL": "https://code.usgs.gov/ghsc/lhp/pfdf.git",
+      "vcs": "git",
+
+      "laborHours": 1600,
+
+      "tags": [
+        "debris-flow",
+        "post-wildfire",
+        "hazard assessment"
+      ],
+
+      "languages": [
+        "Python"
+      ],
+
+      "contact": {
+        "name": "Jonathan King",
+        "email": "jking@usgs.gov"
+      },
+
+      "date": {
+        "metadataLastUpdated": "2024-08-01"
+      }
+    },
+    {
+      "name": "pfdf",
+      "organization": "U.S. Geological Survey",
+      "description": "A Python library to facilitate post-wildfire debris-flow hazard assessments and research.",
       "version": "1.1.0",
       "status": "Production",
 
