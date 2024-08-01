@@ -68,8 +68,23 @@ Different pfdf routines expect rainfall values as either accumulations (total mm
 G14 Confidence Intervals
 ++++++++++++++++++++++++
 
-Formerly, the functions in the ``models.g14`` module only returned the central estimates for potential sediment volumes. This release adds confidence interval calculations to the functions. Both function now return the central estimate, lower bound of the confidence interval, and upper bound of the confidence interval. By default, the functions use a 95% confidence interval calculated using the residual standard error (RSE) reported in the associated paper. However, both functions now include ``CI`` and ``RSE`` options to specify other intervals and RSE values, respectively.
+Previously, the functions in the ``models.g14`` module only returned the central estimates for potential sediment volumes. This release adds confidence interval calculations to the functions. Both function now return the central estimate, lower bound of the confidence interval, and upper bound of the confidence interval. By default, the functions use a 95% confidence interval calculated using the residual standard error (RSE) reported in the associated paper. However, both functions now include ``CI`` and ``RSE`` options to specify other intervals and RSE values, respectively.
 
+Catchment/Basin Vocabulary
+++++++++++++++++++++++++++
+Previously, there was ambiguity when referring to "basins", as these could either mean catchment basins or terminal outlet basins. This release resolves the ambiguity by strictly using a "catchment" prefix to refer to catchment basins. Unprefixed "basins" strictly refer to terminal outlet basins. Accordingly, the following ``Segments`` methods have been renamed:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Former Name
+      - New Name
+    * - basin_mask
+      - catchment_mask
+    * - basin_summary
+      - catchment_summary
+    * - upslope_ratio
+      - catchment_ratio
 
 
 ----
@@ -245,6 +260,13 @@ These changes affect both the ``geojson`` and ``save`` methods
 * Property dicts can now include string properties
 * Int and boolean properties will now be ``int`` in the exported features, rather than ``float``
 * Changed arg order. Converted ``type`` from kwarg to arg, and ``type`` now precedes ``properties``
+
+**Catchment Vocabulary**
+
+* Renamed ``basin_mask`` to ``catchment_mask``
+* Removed the ``terminal`` option from ``catchment_mask``
+* Renamed ``basin_summary`` to ``catchment_summary``
+* Renamed ``upslope_ratio`` to ``catchment_ratio``
 
 
 S17 Model
@@ -478,6 +500,34 @@ to::
     >>> raster.buffer(..., units="pixels")
 
 
+Catchment Renaming
+++++++++++++++++++
+
+Change::
+
+    >>> segments.basin_mask(id)
+    >>> segments.basin_summary(...)
+    >>> segments.upslope_ratio(...)
+
+to::
+
+    >>> segments.catchment_mask(id)
+    >>> segments.catchment_summary(...)
+    >>> segments.catchment_ratio(...)
+
+Terminal Basin Mask
++++++++++++++++++++
+
+Change::
+
+    >>> mask = segments.basin_mask(id, terminal=True)
+
+to::
+
+    >>> terminal_id = segments.termini(id)
+    >>> mask = segments.catchment_mask(terminal_id)
+
+
 ----
 
 .. _2.0.0-api-changes:
@@ -594,6 +644,13 @@ Segments Class
 These changes affect both the ``geojson`` and ``save`` methods
 
 * Changed arg order. Converted ``type`` from kwarg to arg, and ``type`` now precedes ``properties``
+
+**Catchment Vocabulary**
+
+* Renamed ``basin_mask`` to ``catchment_mask``
+* Removed the ``terminal`` option from ``catchment_mask``
+* Renamed ``basin_summary`` to ``catchment_summary``
+* Renamed ``upslope_ratio`` to ``catchment_ratio``
 
 
 S17 Model
