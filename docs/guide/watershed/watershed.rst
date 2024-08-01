@@ -15,6 +15,11 @@ These flow directions are an essential input to all other watershed functions, a
 5. :ref:`relief` to compute vertical relief.
 
 
+.. admonition:: DEM Resolution
+
+    Many of the hazard assessment models in pfdf were calibrated using data from a 10 meter DEM. As such, we recommend using a 10 meter DEM for standard applications of the models. See also `Smith et al., (2019) <https://doi.org/10.5194/esurf-7-475-2019>`_ for a discussion of the effects of DEM resolution on topographic analysis.
+
+
 .. admonition:: Georeferencing
 
     The :ref:`slopes function <pfdf.watershed.slopes>` requires the input DEM to have both a CRS and affine Transform. Most workflows will require flow slopes, so we recommend using a properly georeferenced DEM whenever possible.
