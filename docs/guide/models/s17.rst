@@ -236,7 +236,7 @@ You can also solve for multiple rainfall accumulations simultaneously. In this c
 Durations and Intensities
 +++++++++++++++++++++++++
 
-The ``likelihood`` function requires rainfall *accumulations* rather than intensities. Note that the input rainfall accumulations should be in millimeters, and are interpreted as the total accumulation over the duration associated with each set of parameters. Continuing the example, we provided three sets of parameters, for 15, 30 and 60 minute intervals, respectively. So the single rainfall duration is equivalent to the following intensities:
+The ``likelihood`` function requires rainfall *accumulations* rather than intensities. Note that the input rainfall accumulations should be in millimeters, and are interpreted as the total accumulation over the duration associated with each set of parameters. Continuing the example, we provided three sets of parameters, for 15, 30 and 60 minute intervals, respectively. So the single rainfall accumulation is equivalent to the following intensities:
 
 * 6 mm in 15 minutes = 24 mm / hour
 * 6 mm in 30 minutes = 12 mm / hour

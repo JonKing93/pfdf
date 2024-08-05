@@ -10,8 +10,12 @@ from pathlib import Path
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "pfdf"
-copyright = "USGS 2024, Public Domain"
 author = "Jonathan King"
+
+# Note: Override theme copyright with public domain attribution
+# copyright = "USGS 2024, Public Domain"
+html_static_path = ["_static"]
+html_css_files = ["copyright.css"]
 
 # Parse the release string from pyproject.toml
 _pyproject = Path(__file__).parents[1] / "pyproject.toml"
