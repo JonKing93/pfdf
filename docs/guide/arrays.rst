@@ -1,7 +1,7 @@
 Input Arrays
 ============
 
-Most pfdf commands require one or more numeric arguments as input. The library ultimately converts these inputs to numpy arrays, but pfdf is flexible enough to accept a variety of input types. Here, we distinguish between scalar, vector, and matrix inputs.
+Many pfdf commands require one or more numeric arguments as input. The library ultimately converts these inputs to numpy arrays, but pfdf is flexible enough to accept a variety of input types. Here, we distinguish between scalar, vector, and matrix inputs.
 
 Scalars
 -------
@@ -49,9 +49,9 @@ A matrix is a 2D array of data values. In the context of pfdf, most matrices are
 
     >>> import numpy as np
 
-    # All scalars and vectors
+    # All scalars and most vectors
     >>> 5
-    >>> [5]
+    >>> [5, 6, 7]
     >>> np.arange(5)
     # etc.
 

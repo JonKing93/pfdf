@@ -571,7 +571,7 @@ class BoundingBox(_Locator):
         Computes the pixel spacing required to fit an input number of columns into
         the BoundingBox. By default, returns spacing in the base unit of the CRS.
         Use the "units" option to specify the units instead. Note that this option
-        is only available when the BoundingBox has a CRS. Suppoted units include:
+        is only available when the BoundingBox has a CRS. Supported units include:
         "meters", "kilometers", "feet", and "miles".
         ----------
         Inputs:
@@ -594,7 +594,7 @@ class BoundingBox(_Locator):
         Computes the pixel spacing required to fit an input number of rows into
         the BoundingBox. By default, returns spacing in the base unit of the CRS.
         Use the "units" option to specify the units instead. Note that this option
-        is only available when the BoundingBox has a CRS. Suppoted units include:
+        is only available when the BoundingBox has a CRS. Supported units include:
         "meters", "kilometers", "feet", and "miles".
         ----------
         Inputs:

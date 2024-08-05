@@ -1,0 +1,39 @@
+pfdf 1.1.0 Release Notes
+========================
+
+This release adds a variety of preprocessing methods to the *Raster* class. It also adds comprehensive documentation, options to locate terminal outlet basins using multiple CPUs, and various smaller quality of life improvements.
+
+Documentation
+-------------
+Added comprehensive documentation for the library including a user guide, tutorials, and an API. The documentation is available here: `pfdf documentation <https://ghsc.code-pages.usgs.gov/lhp/pfdf/>`_
+
+
+Raster Preprocessing
+--------------------
+
+**Numeric**
+
+* ``set_range``: Restricts a raster's data values to a valid range.
+* ``fill``: Replaces NoData pixels with the indicated value
+* ``find``: Returns a mask of data pixels matching the indicated value(s)
+
+**Spatial**
+
+* ``clip``: Clips a raster to the indicated bounds
+* ``buffer``: Applies a buffer of NoData pixels for a specified distance around a raster
+* ``reproject``: Reprojects a raster dataset to a new CRS and/or affine transform
+
+
+Basin Parallelization
+---------------------
+
+Added the ``Segments.locate_basins`` command, which locates terminal outlet basins for further use. Although sequential by default, the command supports options to locate basins in parallel using multiple CPUs.
+
+
+Misc Quality of Life
+--------------------
+
+* ``Raster.from_file`` now has a ``window`` option, which can be used to load a subset of a larger dataset.
+* Added the ``Raster.data_mask`` and ``Raster.nodata_mask`` properties. These return boolean masks indicating the data pixels / NoData pixels in a raster dataset, respectively. Often useful for plotting routines.
+* Added the ``Segments.in_mask`` and ``Segments.in_perimeter`` methods.
+* Improved broadcasting support in the ``models.s17`` and ``models.g14`` modules.

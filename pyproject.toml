@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pfdf"
-version = "1.1.0"
+version = "2.0.0"
 description = "A package to facilitate post-wildfire debris-flow hazard assessments and research"
 authors = [
     "Jonathan King <jking@usgs.gov>",
@@ -65,7 +65,6 @@ open = "scripts.docs:open_docs"
 rebuild = "scripts.docs:rebuild"
 download_tutorials = "scripts.docs:download_tutorials"
 figures = "scripts.docs:figures"
-version = "scripts.docs:check_version"
 pipeline = "scripts.pipeline:pipeline"
 docs_pipeline = "scripts.pipeline:docs_pipeline"
 

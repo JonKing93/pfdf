@@ -24,7 +24,7 @@ def units_per_meter() -> dict[str, float]:
     are variable and depend on the selection of CRS.
     ----------
     Outputs:
-        dict: Conversion factors from supported units to meters
+        dict: Multiplicative conversion factors from meters to each unit
     """
     return units.units_per_meter()
 

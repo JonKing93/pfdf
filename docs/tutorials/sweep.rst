@@ -1,32 +1,35 @@
 Parameter Sweep
 ===============
 
-This tutorial demonstrates how to run the :doc:`M1 probability model </guide/models/s17>` using multiple values of the model's parameters. This type of analysis can be useful for calibrating model parameters. We recommend reading the :doc:`hazard assessment tutorial <assessment>` before this.
+This tutorial demonstrates how to run the :doc:`M1 likelihood model </guide/models/s17>` using multiple values of the model's parameters. This type of analysis can be useful for calibrating model parameters. We recommend reading the :doc:`hazard assessment tutorial <assessment>` before this.
 
 .. admonition:: Download
 
-  You can download the datasets and script used in this tutorial here: :doc:`Download Files <download>`. This tutorial follows the ``sweep`` script.
+    The following list provides download links for the tutorial resources:
+
+    * :doc:`Tutorial Datasets <download>`
+    * :download:`Python Script <scripts/sweep.py>`
 
 
 Getting Started
 ---------------
 We'll start by importing `numpy <https://numpy.org/>`_, the :doc:`staley2017 module </guide/models/s17>`, and the script used to run the :doc:`hazard assessment tutorial <assessment>`:
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 2
     :end-line: 5
 
 We'll then load the stream segment network and the M1 variables from the hazard assessment:
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 7
     :end-line: 11
 
 Finally, we'll define the rainfall parameters we'll use to run the model. Here, we'll run the model for 6 mm of rainfall over a 15 minute duration:
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 13
     :end-line: 15
@@ -39,26 +42,26 @@ Let's say that we'd like to calibrate the model's ``Ct`` parameter. One approach
 
 Here we will demonstrate how to run the model using multiple ``Ct`` values. (Comparing results to a database is beyond the scope of this tutorial). We'll start by getting the standard M1 parameters for the ``B``, ``Cf``, and ``Cs`` variables: 
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 17
     :end-line: 18
 
 Next, we'll sample every ``Ct`` value from 0.01 to 1 in steps of 0.01:
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 18
     :end-line: 19
 
-Finally, we'll run the probability model:
+Finally, we'll run the likelihood model:
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 19
     :end-line: 20
 
-The output probabilities will be a matrix with one row per stream segment. Each column holds the probabilities for one of the 100 tested ``Ct`` values::
+The output likelihoods will be a matrix with one row per stream segment. Each column holds the likelihoods for one of the 100 tested ``Ct`` values::
 
     >>> p1.shape
     (470, 100)
@@ -73,19 +76,19 @@ We could instead choose to test multiple values of multiple parameters simultane
 
 For this example, let's say we've decided to sample the ``Ct`` and ``Cf`` parameters simultaneously. We'll generate 1000 random values of ``Ct`` with a mean of 0.4 and standard deviation of 0.25. We'll also generate 1000 values of ``Cf`` with a mean of 0.67 and standard deviation of 0.3:
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 22
     :end-line: 24
 
 We can then run the model as normal:
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 24
     :end-line: 25
 
-Once again, the output probabilities will be a matrix with one row per segment. Each column holds the probabilities for one of the 1000 tested (``Ct``, ``Cf``) pairs. For example, column 0 holds the values for (``Ct[0]``, ``Cf[0]``), column 1 holds the values for (``Ct[1]``, ``Cf[1]``), etc:
+Once again, the output likelihoods will be a matrix with one row per segment. Each column holds the likelihoods for one of the 1000 tested (``Ct``, ``Cf``) pairs. For example, column 0 holds the values for (``Ct[0]``, ``Cf[0]``), column 1 holds the values for (``Ct[1]``, ``Cf[1]``), etc:
 
     >>> p2.shape
     (470, 1000)
@@ -101,7 +104,7 @@ Once again, the output probabilities will be a matrix with one row per segment. 
 Putting it all together
 -----------------------
 
-.. include:: download/code/sweep.py
+.. include:: scripts/sweep.py
     :code:
     :start-line: 2
     :end-line: 25

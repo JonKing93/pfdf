@@ -38,16 +38,26 @@ Numpy Arrays
 
     When a numpy axis has an invalid shape
 
+----
 
 Spatial Metadata
 ----------------
 
-.. py:exception:: pfdf.errors.CrsError
+.. py:exception:: pfdf.errors.CRSError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
 
     When a coordinate reference system is invalid
+
+
+.. py:exception:: pfdf.errors.MissingCRSError
+    :module: pfdf.errors
+
+    Bases: :py:class:`~pfdf.errors.CRSError`
+
+    When a required CRS is missing.
+
 
 .. py:exception:: pfdf.errors.TransformError
     :module: pfdf.errors
@@ -56,6 +66,23 @@ Spatial Metadata
 
     When an affine transformation is invalid
 
+
+.. py:exception:: pfdf.errors.MissingTransformError
+    :module: pfdf.errors
+
+    Bases: :py:class:`~pfdf.errors.TransformError`
+
+    When a required transform is missing
+
+
+.. py:exception:: pfdf.errors.MissingNoDataError
+    :module: pfdf.errors
+
+    Bases: :py:class:`Exception`
+
+    When a required NoData value is missing
+
+----
 
 Rasters
 -------
@@ -91,6 +118,7 @@ Rasters
 
     When a raster has an invalid coordinate reference system
 
+----
 
 Vector Features
 ---------------
@@ -110,6 +138,15 @@ Vector Features
 
     When a vector feature file cannot be read
 
+
+.. py:exception:: pfdf.errors.NoFeaturesError
+    :module: pfdf.errors
+
+    Bases: :py:class:`~pfdf.errors.FeaturesError`
+
+    When there are no vector features to convert to a raster
+
+
 .. py:exception:: pfdf.errors.GeometryError
     :module: pfdf.errors
 
@@ -118,7 +155,7 @@ Vector Features
     When a feature geometry is not valid
 
 
-.. py:exception:: pfdf.errors.CoordinatesError
+.. py:exception:: pfdf.errors.CoordinateError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.GeometryError`
@@ -140,6 +177,7 @@ Vector Features
 
     When a point's coordinates are not valid
 
+----
 
 Models
 ------

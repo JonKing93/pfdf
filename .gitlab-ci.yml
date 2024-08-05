@@ -5,7 +5,7 @@ stages:
 
 default:
   tags:
-    - build   
+    - us-west-2
 
 #####
 # Python Versions
@@ -85,7 +85,6 @@ pages:
   when: manual
   extends: .latest-python
   script:
-    - poetry run version
     - poetry run download_tutorials
     - poetry run figures
     - poetry run docs

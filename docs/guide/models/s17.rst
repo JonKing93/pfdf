@@ -4,18 +4,13 @@ Staley 2017 Models
 Introduction
 ------------
 
-The :ref:`staley2017 <pfdf.models.staley2017>` (or ``s17``) module provides functions to implement the logistic regression models of `Staley et al., 2017 <https://doi.org/10.1016/j.geomorph.2016.10.019>`_. In brief, these models estimate debris-flow probability given rainfall accumulation, and vice versa.
+The :ref:`staley2017 <pfdf.models.staley2017>` (or ``s17``) module provides functions to implement the logistic regression models of `Staley et al., 2017 <https://doi.org/10.1016/j.geomorph.2016.10.019>`_. In brief, these models estimate debris-flow likelihoods given rainfall accumulation, and vice versa.
 
 ::
 
   >>> from pfdf.models import s17
 
-.. admonition:: Statistics
-
-    Technically, the models estimate debris-flow *likelihood*, rather than probability. However, we use "probability" throughout the documentation to conform with the language of the codebase.
-
-
-In the paper, the probability model describes debris-flow probability as a function of terrain, fire burn severity, soil, and rainfall accumulation, such that:
+In the paper, the likelihood model describes debris-flow likelihoods as a function of terrain, fire burn severity, soil, and rainfall accumulation, such that:
 
 .. _s17-equation-1:
 
@@ -40,7 +35,7 @@ where:
     * - **Variable**
       - **Description**
     * - p
-      - Debris-flow probability (0 to 1)
+      - Debris-flow likelihood (0 to 1)
     * - T
       - A terrain variable
     * - F
@@ -55,7 +50,7 @@ where:
       - Variable coefficients
 
 
-The probability model can also be inverted to compute the rainfall accumulation needed to achieve a given probability level: 
+The likelihood model can also be inverted to compute the rainfall accumulation needed to achieve a given probability level: 
 
 .. _s17-equation-2:
 
@@ -202,10 +197,10 @@ You can also use the ``durations`` option to query specific durations::
 
 
 
-Probability
------------
+Likelihood
+----------
 
-You can solve :ref:`equation 1 <s17-equation-1>` using the :ref:`probability <pfdf.models.staley2017.probability>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 1. This function solves for debris-flow probability given a set of rainfall accumulations (R). Note that the function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to rainfall accumulations.
+You can solve :ref:`equation 1 <s17-equation-1>` using the :ref:`likelihood <pfdf.models.staley2017.likelihood>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 1. This function solves for debris-flow likelihoods given a set of rainfall accumulations (R). Note that the function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to rainfall accumulations.
 
 In the simplest case - a single rainfall accumulation - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations). For example::
   
@@ -221,17 +216,17 @@ In the simplest case - a single rainfall accumulation - the function returns a m
   >>> B.size, Ct.size, Cf.size, Cs.size
   (3, 3, 3, 3)
 
-  # Compute probabilities given rainfall accumulation
-  >>> R = 0.24 # mm/duration
-  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  # Compute likelihoods given rainfall accumulation
+  >>> R = 6 # mm/duration
+  >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 3)
 
 You can also solve for multiple rainfall accumulations simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of accumulations::
 
-  # Compute probabilities for multiple rainfall accumulations
-  >>> R = [0.24, 0.28, 0.3, 0.35]
-  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  # Compute likelihoods for multiple rainfall accumulations
+  >>> R = [4, 6, 7, 10]
+  >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 3, 4)
 
@@ -241,35 +236,30 @@ You can also solve for multiple rainfall accumulations simultaneously. In this c
 Durations and Intensities
 +++++++++++++++++++++++++
 
-Note that the input rainfall accumulations should be in millimeters, and are interpreted relative to the duration associated with each set of parameters. Continuing the example, we provided three sets of parameters, for 15, 30 and 60 minute intervals, respectively. So the single rainfall duration was parsed into the following intensities:
+The ``likelihood`` function requires rainfall *accumulations* rather than intensities. Note that the input rainfall accumulations should be in millimeters, and are interpreted as the total accumulation over the duration associated with each set of parameters. Continuing the example, we provided three sets of parameters, for 15, 30 and 60 minute intervals, respectively. So the single rainfall accumulation is equivalent to the following intensities:
 
-* 0.24 mm / 15 minutes = 0.96 mm / hour
-* 0.24 mm / 30 minutes = 0.48 mm / hour
-* 0.24 mm / 60 minutes = 0.24 mm / hour
+* 6 mm in 15 minutes = 24 mm / hour
+* 6 mm in 30 minutes = 12 mm / hour
+* 6 mm in 60 minutes = 6 mm / hour
 
 which correspond to the columns of the output array, respectively.
 
 .. tip:: 
   
-  If you typically work with rainfall intensities in mm/hour, be sure to scale them to the appropriate duration::
+  If you typically work with rainfall intensities, you can use the :doc:`intensity module </guide/utils/intensity>` to convert them to rainfall accumulations for this function.
 
-    # Converting mm/hour for 15-minute duration
-    >>> I = 0.24  # mm/hour
-    >>> R = I * (60/15)
-
-    # For a 30-minute duration
-    >>> I = 0.24  # mm/hour
-    >>> R = I * (60/30)
-
-
+    >>> from pfdf.utils import intensity
+    >>> I15 = [20, 24, 40] # mm/hour
+    >>> R15 = intensity.to_accumulation(I, duration=15)
+    array([ 5.,  6., 10.])
 
 
 
 Rainfall Accumulation
 ---------------------
-You can solve :ref:`equation 2 <s17-equation-2>` using the :ref:`accumulation <pfdf.models.staley2017.accumulation>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 2. This function computes the rainfall accumulation needed to achieve a given debris-flow probability level (p). Note that the function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to probability levels.
+You can solve :ref:`equation 2 <s17-equation-2>` using the :ref:`accumulation <pfdf.models.staley2017.accumulation>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 2. This function computes the rainfall accumulation needed to achieve a given debris-flow probability level (p). In some cases, it is not possible to achieve the desired probability level with any rainfall level. This is most common when a catchment basin is minimally burned, so the terrain (T) and fire (F) variables are very small. When this occurs, the rainfall accumulation for the stream segment will be nan.
 
-In the simplest case - a single probability level - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations).  For example::
+This function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to probability levels. In the simplest case - a single probability level - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations).  For example::
 
   # Compute variables and parameters for the M1 model
   >>> T, F, S = s17.M1.variables(segments, mod_high, slopes, dnbr, kf)
@@ -298,6 +288,8 @@ You can also solve for multiple probability levels simultaneously. In this case,
   (2561, 3, 4)
 
 
+
+
 .. _acc-duration:
 
 Durations and Intensities
@@ -313,15 +305,11 @@ which correspond to the columns of the output array, respectively.
 
 .. tip:: 
   
-  If you want accumulations as hourly intensities (mm/hour), be sure to scale them to the appropriate duration::
+    You can use the :doc:`intensity module </guide/utils/intensity>` to convert the output accumulations to intensities (in mm/hour)::
 
-    # 15-minute accumulation to mm/hour
-    >>> R = 0.24  # mm/15-minutes
-    >>> I = R * (15/60)
-
-    # 30-minute accumulation to mm/hour
-    >>> R = 0.24  # mm/30-minutes
-    >>> I = R * (30/60)
+    >>> from pfdf.utils import intensity
+    >>> R = s17.accumulation(...)
+    >>> I = intensity.from_accumulation(R, durations)
 
 
 
@@ -333,16 +321,16 @@ Advanced Usage
 Custom Models
 +++++++++++++
 
-As stated, the :ref:`probability <pfdf.models.staley2017.probability>` and :ref:`accumulation <pfdf.models.staley2017.accumulation>` functions solve the general form of equations 1 and 2. As such, you are not required to use the M1-4 models, and you can design custom models instead. In this case, you can compute the variables (T, F, S) and parameters (B, Ct, Cf, Cs) for your custom model, and then use ``probability`` and ``accumulation`` as usual. 
+As stated, the :ref:`likelihood <pfdf.models.staley2017.likelihood>` and :ref:`accumulation <pfdf.models.staley2017.accumulation>` functions solve the general form of equations 1 and 2. As such, you are not required to use the M1-4 models, and you can design custom models instead. In this case, you can compute the variables (T, F, S) and parameters (B, Ct, Cf, Cs) for your custom model, and then use ``likelihood`` and ``accumulation`` as usual. 
 
 .. note:: 
   
-  When designing custom models, the rainfall accumulations are always parsed/returned relative to the duration interval used to calibrate the model parameters. See above for an explanation of how this affects the :ref:`probability <prob-duration>` and :ref:`accumulation <acc-duration>` commands for the M1-4 models.
+  When designing custom models, the rainfall accumulations are always parsed/returned relative to the duration interval used to calibrate the model parameters. See above for an explanation of how this affects the :ref:`likelihood <prob-duration>` and :ref:`accumulation <acc-duration>` commands for the M1-4 models.
 
 Parameter Sweeps
 ++++++++++++++++
 
-Some researchers may be interested in conducting parameter sweeps or using Monte Carlo methods to test model parameters. When doing so, note that each parameter (B, Ct, Cf, Cs) provided as input to ``probability`` and/or ``accumulation`` may either be scalar or a vector. If a parameter is scalar, then the same value is used for each computation. If a parameter is a vector, then each value will correspond to one column of the output array. Note that if multiple parameters are vectors, then the vectors must be the same length.
+Some researchers may be interested in conducting parameter sweeps or using Monte Carlo methods to test model parameters. When doing so, note that each parameter (B, Ct, Cf, Cs) provided as input to ``likelihood`` and/or ``accumulation`` may either be scalar or a vector. If a parameter is scalar, then the same value is used for each computation. If a parameter is a vector, then each value will correspond to one column of the output array. Note that if multiple parameters are vectors, then the vectors must be the same length.
 
 For example, to test multiple values of a single parameter, you could do something like::
 
@@ -360,8 +348,8 @@ For example, to test multiple values of a single parameter, you could do somethi
   >>> Ct.size
   30
 
-  # Estimate probabilities for the 30 Ct values
-  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  # Estimate likelihoods for the 30 Ct values
+  >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 30)
 
@@ -376,8 +364,8 @@ Alternatively, you could instead test multiple values of multiple parameters sim
   >>> Ct.size, Cf.size, Cs.size
   (5000, 5000, 5000)
 
-  # Estimate probabilities for all 5000 sets
-  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  # Estimate likelihoods for all 5000 sets
+  >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 5000)
 
@@ -397,8 +385,8 @@ If you need to vary a variable (T, F, S) in conjunction with parameters, then th
   >>> T.shape
   (2561, 30)
 
-  # Estimate probabilities for the 30 sets of Ct and T
-  >>> p = s17.probability(R, B, Ct, T, Cf, F, Cs, S)
+  # Estimate likelihoods for the 30 sets of Ct and T
+  >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 30)
 
@@ -506,6 +494,12 @@ Example workflow::
   # Compute variables and parameters
   >>> T, F, S = s17.M3.variables(segments, moderate_high, relief, thickness)
   >>> B, Ct, Cf, Cs = s17.M3.parameters()
+
+.. note::
+
+    By default, the relief dataset is interpreted as units of meters. If this is not the case, use the "relief_per_m" option to specify a conversion factor between relief units and meters. For example, if your relief dataset is in feet, use::
+
+        >>> T, F, S = s17.M3.variables(..., relief_per_m=3.28084)
 
 .. _m4:
 

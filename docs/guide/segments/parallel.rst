@@ -6,10 +6,11 @@ Parallelizing Basins
 locate_basins
 -------------
 
-Locating outlet basins is a computationally difficult task, so the :doc:`raster <rasters>`, :ref:`geojson <pfdf.segments.Segments.geojson>`, and :ref:`save <pfdf.segments.Segments.save>` commands may take a long time to run when working with basins::
+Locating outlet basins is a computationally difficult task, so the :doc:`raster <rasters>`, :ref:`isnested <pfdf.segments.Segments.isnested>`, :ref:`geojson <pfdf.segments.Segments.geojson>`, and :ref:`save <pfdf.segments.Segments.save>` commands may take a long time to run when working with basins::
     
     # May take a long time to run
     segments.raster(..., basins=True)
+    segments.isnested()
     segments.geojson(..., type="basins")
     segments.save(..., type="basins")
     
@@ -22,6 +23,7 @@ When this is the case, you may be able to use parallelization to hasten this com
     # But now these commands are fast,
     # because the basins were pre-located
     segments.raster(..., basins=True)
+    segments.isnested()
     segments.geojson(..., type="basins")
     segments.save(..., type="basins")
 

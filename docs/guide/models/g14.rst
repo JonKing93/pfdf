@@ -10,7 +10,15 @@ This model is given by:
 
 .. math::
 
-    V = \mathrm{exp}[4.22 + 0.39\ \mathrm{sqrt}(i15) + 0.36\ \mathrm{ln}(Bmh) + 0.13\ \mathrm{sqrt}(R)]
+    lnV = 4.22 + 0.39\ \mathrm{sqrt}(i15) + 0.36\ \mathrm{ln}(Bmh) + 0.13\ \mathrm{sqrt}(R)
+
+.. math::
+
+    V = \mathrm{exp}(lnV)
+
+.. math::
+
+    \mathrm{95\%} \ \mathrm{CI} = \mathrm{exp}[lnV ± (1.96 \times 1.04)]
 
 where:
 
@@ -22,6 +30,9 @@ where:
     * - V
       - Potential sediment volume
       - meters^3
+    * - lnV
+      - Natural log of potential sediment volume
+      -
     * - i15
       - Peak 15-minute rainfall intensity
       - mm/hour
@@ -31,8 +42,15 @@ where:
     * - R
       - Watershed relief
       - meters
+    * - 1.96
+      - Normal distribution percentile multiplier for 95% confidence interval
+      -
+    * - 1.04
+      - Residual standard error of the model
+      -
 
-You can run this model using the ``emergency`` function. For example, assuming you have already built a stream segment network::
+
+You can run this model using the ``emergency`` function. This function returns the estimated potential sediment volumes (V), the lower bound of the 95% confidence interval (Vmin), and the upper bound of the 95% confidence interval (Vmax). For example, assuming you have already built a stream segment network::
 
     >>> from pfdf.models import g14
     >>> from pfdf import severity, watershed
@@ -45,12 +63,17 @@ You can run this model using the ``emergency`` function. For example, assuming y
     >>> R = segments.relief(relief)
 
     # Estimate debris-flow volume
-    >>> V = g14.emergency(i15, Bmh, R)
+    >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R)
 
 You can also use the "Ci", "Cb", "Cr", and "B" options to change the values of the model coefficients and intercept::
 
     # Estimate volume using custom parameters
-    >>> V = g14.emergency(i15, Bmh, R, B=4.23, Ci=0.38, Cb=0.35, Cr=0.12)
+    >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R, B=4.23, Ci=0.38, Cb=0.35, Cr=0.12)
+
+And the "CI" and "RSE" options to calculate custom confidence intervals::
+
+    # Estimate the 90% CI using a custom RSE
+    >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R, CI=0.9, RSE=1.13)
 
 
 Long-term Model
@@ -59,9 +82,19 @@ This model is given by:
 
 .. math::
 
-    V = \mathrm{exp}[6.07 + 0.71\ \mathrm{ln}(i60) + 0.22\ \mathrm{ln}(B_t) - 0.24\ \mathrm{ln}(T) + 0.49\ \mathrm{ln}(A) + 0.03\ \mathrm{sqrt}(R)]
+    lnV = 6.07 + 0.71\ \mathrm{ln}(i60) + 0.22\ \mathrm{ln}(B_t) - 0.24\ \mathrm{ln}(T) + 0.49\ \mathrm{ln}(A) + 0.03\ \mathrm{sqrt}(R)
 
-where
+.. math::
+
+    V = \mathrm{exp}(lnV)
+
+.. math::
+
+    \mathrm{95\%} \ \mathrm{CI} = \mathrm{exp}[lnV ± (1.96 \times 1.25)]
+
+
+
+where:
 
 .. list-table::
 
@@ -71,6 +104,9 @@ where
     * - V
       - Potential sediment volume
       - meters^3
+    * - lnV
+      - Natural log of potential sediment volume
+      -
     * - i60
       - Peak 60-minute rainfall intensity
       - mm/hour
@@ -86,8 +122,15 @@ where
     * - R
       - Watershed relief
       - meters
+    * - 1.96
+      - Normal distribution percentile multiplier for 95% confidence interval
+      -
+    * - 1.25
+      - Residual standard error of the model
+      -
 
-You can run this model using the ``longterm`` function. For example, assuming you have already built a stream segment network::
+
+You can run this model using the ``longterm`` function. This function returns the estimated potential sediment volumes (V), the lower bound of the 95% confidence interval (Vmin), and the upper bound of the 95% confidence interval (Vmax). For example, assuming you have already built a stream segment network::
 
     >>> from pfdf.models import g14
     >>> from pfdf import severity
@@ -101,9 +144,14 @@ You can run this model using the ``longterm`` function. For example, assuming yo
     >>> R = segments.relief(relief)
 
     # Estimate debris-flow volume
-    >>> V = g14.longterm(i60, Bt, T, A, R)
+    >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R)
 
 You can also use the "Ci", "Cb", "Ct", "Ca", "Cr", and "B" options to change the values of the model coefficients and intercept::
 
     # Estimate volume using custom parameters
-    >>> V = g14.longterm(i60, Bt, T, A, R, B=6.08, Ci=0.72, Cb=0.21, Ct=0.25, Ca=0.48, Cr=0.04)
+    >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, B=6.08, Ci=0.72, Cb=0.21, Ct=0.25, Ca=0.48, Cr=0.04)
+
+And the "CI" and "RSE" options to calculate custom confidence intervals::
+
+    # Estimate the 90% CI using a custom RSE
+    >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, CI=0.9, RSE=1.13)

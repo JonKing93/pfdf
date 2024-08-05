@@ -1997,16 +1997,16 @@ class Raster:
         ----------
         self.buffer(distance)
         self.buffer(distance, units)
-        Buffers the current raster by the specified minimum distance and returns
-        the buffered raster. Buffering adds a number of NoData pixels to each edge
-        of the raster's data value matrix, such that the number of pixels is
-        *as least* as long as the specified distance. Raises an error if the
-        raster does not have a NoData value.
+        Buffers the current raster by the specified minimum distance. Buffering
+        adds a number of NoData pixels to each edge of the raster's data value
+        matrix, such that the number of pixels is *as least* as long as the
+        specified distance. Raises an error if the raster does not have a NoData
+        value.
 
         Note that the number of pixels added to the x and y axes can differ if
         these axes have different resolutions. Also note that if the buffering
-        distance is not a multiple of an axis's resolution, then the buffering
-        distance along that axis will be longer than the input distance. (The
+        distance is not a multiple of an axis's resolution, then the actual buffer
+        along that axis will be longer than the input distance. (The
         discrepancy will be whatever distance is required to round the buffering
         distance up to a whole number of pixels).
 
@@ -2014,9 +2014,14 @@ class Raster:
         as meters. Use the "units" option to provide a buffering distance in other
         units instead. Supported units include: "pixels" (the number of pixels
         to buffer along each edge), "base" (CRS/Transform base units), "meters",
-        "kilometers", "feet", and "miles". Note that meters/kilometers/feet/miles
-        require both a CRS and a Transform, "base" only requires a Transform, and
-        "pixels" relaxes all metadata requirements.
+        "kilometers", "feet", and "miles". Note that different units have different
+        metadata requirements, as follows:
+
+        Unit       | Required metadata
+        ---------- | -----------------
+        pixels     | None
+        base       | Transform only
+        all others | CRS and Transform
 
         self.buffer(*, left)
         self.buffer(*, right)
@@ -2041,10 +2046,8 @@ class Raster:
         Inputs:
             distance: A default buffer for all sides of the raster.
             units: Specifies the units of the input buffers. Options include:
-                "meters" (default): Buffers in meters (requires CRS and Transform)
-                "kilometers", "feet", "miles": (require CRS and Transform)
-                "base": Buffers are in the base unit of the transform (requires Transform)
-                "pixels": Buffers are pixel counts (no metadata requirements)
+                "pixels", "base", "meters" (default), "kilometers", "feet", and
+                "miles"
             left: A buffer for the left side of the raster
             right: A buffer for the right side of the raster
             top: A buffer for the top of the raster

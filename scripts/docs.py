@@ -65,7 +65,7 @@ def rebuild():
 def download_tutorials():
 
     # Get URL and download path
-    URL = "https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data/tutorial-resources.zip?ref_type=heads&inline=false"
+    URL = "https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data-2.0.0/tutorial-resources.zip?ref_type=heads&inline=false"
     docs = locate_docs()
 
     # Download and unzip
@@ -80,21 +80,34 @@ def figures():
     here = Path.cwd()
     docs = locate_docs()
     data = docs / "tutorial-resources" / "data"
+    scripts = docs / "tutorial-resources" / "scripts"
     images = docs / "images"
+
+    # Error if the data hasn't been downloaded
+    if not data.exists():
+        raise RuntimeError(
+            'Cannot locate the tutorial data. Try running the "download_tutorials" '
+            'command first.'
+        )
+    
+    # Move the tutorial scripts to the workspace
+    if scripts.exists():
+        shutil.rmtree(scripts)
+    shutil.copytree(docs / "tutorials" / "scripts", scripts)
 
     # Move to the sandbox
     try:
         os.chdir(data)
 
         # Iterate through plotting tutorials. Delete existing figures
-        tutorials = ["assessment", "preprocess"]
+        tutorials = ["preprocess", "assessment"]
         for tutorial in tutorials:
             figures = images / tutorial
             if figures.exists():
                 shutil.rmtree(figures)
 
             # Run the figure script
-            script = data.parent / "code" / f"{tutorial}_plots.py"
+            script = scripts / f"{tutorial}_plots.py"
             run(["python", str(script)])
 
             # Move the figures to the images folder
@@ -109,31 +122,4 @@ def figures():
     finally:
         os.chdir(here)
 
-
-def check_version():
-    "Checks that the release in conf.py matches the version in pyproject.toml"
-
-    # Get the version string from pyproject.toml
-    docs = locate_docs()
-    pyproject = docs.parent / "pyproject.toml"
-    with open(pyproject, 'rb') as file:
-        pyproject = tomllib.load(file)
-    version = pyproject['tool']['poetry']['version']
-
-    # Get the release string from conf.py
-    conf = docs / "conf.py"
-    with open(conf) as file:
-        conf = file.read()
-    release = '\nrelease = "'
-    start = conf.find(release) + len(release)
-    conf = conf[start:]
-    stop = conf.find('"')
-    release = conf[:stop]
-
-    # Require them to be the same
-    if version != release:
-        raise Exception(
-            f"The version string in pyproject.toml ({version}) does not match the "
-            f"release string in conf.py ({release})"
-        )
     

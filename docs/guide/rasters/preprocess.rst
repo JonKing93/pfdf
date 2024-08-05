@@ -7,6 +7,7 @@ Some pfdf routines requires multiple rasters as input. When this is the case, th
 
 .. tip:: See also the :doc:`preprocessing tutorial </tutorials/preprocess>` for in-depth examples of these commands.
 
+----
 
 buffer
 ------
@@ -19,24 +20,32 @@ Use the :ref:`buffer <pfdf.raster.Raster.buffer>` command to add NoData pixels t
     >>> perimeter.shape
     (3000, 2500)
 
-    # Buffer the perimeter by 1000 units
+    # Buffer the perimeter by 1000 meters
     >>> perimeter.buffer(distance=1000)
     >>> perimeter.shape
     (3200, 2700)
 
-Note that buffering distance is interpreted in the units of the transform. Use the ``pixels`` option to specify the buffer in pixels instead::
+Note that buffering distance is interpreted in meters by default. Use the ``units`` option to specify the buffer in other units instead::
 
-    # Buffer the perimeter by 5 pixels
-    >>> perimeter.shape
-    (3000, 2500)
-    >>> perimeter.buffer(distance=5, pixels=True) 
-    >>> perimeter.shape
-    (3010, 2510)
+    # Buffer by 12 pixels
+    >>> perimeter.buffer(distance=12, units="pixels")
 
+    # Buffer by 1000 CRS units
+    >>> perimeter.buffer(distance=1000, units="base")
+
+    # Other unit options
+    >>> perimeter.buffer(distance=1, units="kilometers")
+    >>> perimeter.buffer(distance=1000, units="feet")
+    >>> perimeter.buffer(distance=1000, units="miles")
+
+
+----
+
+.. _guide-reproject:
 
 reproject
 ---------
-Use the :ref:`reproject <pfdf.raster.Raster.reproject>` method to reproject a *Raster* to the same CRS and transform of another (template) *Raster*::
+Use the :ref:`reproject <pfdf.raster.Raster.reproject>` method to reproject a *Raster* to the same CRS, resolution, and alignment of another (template) *Raster*::
 
     # The CRS of the DEM is 26911
     >>> dem = Raster('dem.tif')
@@ -53,6 +62,14 @@ Use the :ref:`reproject <pfdf.raster.Raster.reproject>` method to reproject a *R
     >>> print(dnbr.CRS)
     EPSG:26911
 
+Alternatively, use the ``crs`` and/or ``transform`` options to reproject to specific spatial metadata::
+
+    # Reproject to an explicit CRS
+    >>> dnbr.reproject(crs=26910)
+
+    # Reproject to an explicit transform
+    >>> dnbr.reproject(transform=(5,-5,100,0))
+
 By default, this method will use nearest-neighbor interpolation to reproject the raster. Use the ``resampling`` option to select a different algorithm::
 
     # Uses bilinear resampling
@@ -60,6 +77,9 @@ By default, this method will use nearest-neighbor interpolation to reproject the
 
 See the :ref:`reproject API <pfdf.raster.Raster.reproject>` for a complete list of supported algorithms.
 
+----
+
+.. _guide-clip:
 
 clip
 ----
@@ -80,9 +100,14 @@ Use the :ref:`clip <pfdf.raster.Raster.clip>` command to match a raster's bounds
     >>> dnbr.bounds
     BoundingBox(left=0, bottom=0, right=100, top=100)
 
+Alternatively, you can clip the raster to a known bounding box::
+
+    >>> bounds = {'left': -124, 'right': -121, 'bottom': 30, 'top': 33, 'crs': 4326}
+    >>> dnbr.clip(bounds)
+
 Note that if a raster is clipped outside its initial bounds, then the exterior pixels will be filled with NoData.
     
-
+----
 
 set_range
 ---------
@@ -108,7 +133,12 @@ By default, out-of-range pixels are set to the value of the nearest bound. Use t
     # Replaces out-of-range pixels with NoData values
     >>> dnbr.set_range(min=-1000, max=1000, fill=True)
 
+When ``fill=True``, you can also use the ``exclusive`` option to indicate that the bounds are excluded from the valid range. In this case, pixels exactly matching one of the bounds are also replaced with NoData. For example::
 
+    # Enforce strictly positive values (Replace 0 with NoData)
+    >>> kf.set_range(min=0, fill=True, exclusive=True)
+
+----
 
 find
 ----
