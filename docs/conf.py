@@ -10,7 +10,7 @@ from pathlib import Path
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "pfdf"
-copyright = "2024, USGS"
+copyright = "USGS 2024, Public Domain"
 author = "Jonathan King"
 
 # Parse the release string from pyproject.toml

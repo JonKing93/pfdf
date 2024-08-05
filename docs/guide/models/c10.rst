@@ -36,8 +36,7 @@ By default, the function uses the following classification scheme:
       - >10^5
       - N/A
 
-
-However, you can also use the "p_thresholds", "v_thresholds", and "h_thresholds" options to specify different thresholds for the likelihood (p), (v)olume, and (h)azard classifications. For example::
+where parentheses ``()`` indicate an open interval, and brackets ``[]`` indicate a closed interval. The above table lists the default thresholds, but you can also use the "p_thresholds", "v_thresholds", and "h_thresholds" options to specify different thresholds for the likelihood (p), (v)olume, and (h)azard classifications. For example::
 
     # Use custom thresholds to classify hazards
     >>> hazard = c10.hazard(

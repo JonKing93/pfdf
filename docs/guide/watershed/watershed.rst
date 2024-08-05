@@ -67,7 +67,7 @@ Next, use the :ref:`flow function <pfdf.watershed.flow>` to compute flow directi
 
 .. _taudem-style:
 
-This function produces D8 flow directions in the TauDEM style:
+This function produces D8 flow directions in the `TauDEM <https://hydrology.usu.edu/taudem/taudem5/>`_ style:
 
 .. math::
 
@@ -79,7 +79,9 @@ This function produces D8 flow directions in the TauDEM style:
 
 where X is the current pixel, and integers indicate flow in a particular direction. So for example, if pixel X flows into the next pixel to the left, then X will be marked with a flow direction of 5. But if X flows into the pixel to the right, then its flow direction will be 1.
 
-.. important:: All pfdf routines that use flow directions require values in the TauDEM style. Keep this in mind if you use something other than this function to compute flow directions.
+.. important:: 
+    
+    All pfdf routines that use flow directions require values in the `TauDEM <https://hydrology.usu.edu/taudem/taudem5/>`_ style. Keep this in mind if you use something other than this function to compute flow directions.
 
 
 .. _accumulation:

@@ -1,7 +1,7 @@
 pfdf 2.0.0 Release Notes
 ========================
 
-This release substantially improves support for working with datasets in a mix of coordinate reference systems (CRSs), including both projected and geographic CRS. The release also introduces several new classes for working with spatial metadata, adds confidence intervals to the :doc:`Gartner 2014 volume model </guide/models/g14>`, enhances support for different unit systems, and improves the user experience when filtering segments.
+This release substantially improves support for working with datasets in a mix of coordinate reference systems (CRSs), including both projected and geographic CRSs. The release also introduces several new classes for working with spatial metadata, adds confidence intervals to the :doc:`Gartner 2014 volume model </guide/models/g14>`, enhances support for different unit systems, and improves the user experience when filtering segments.
 
 .. important::
 
@@ -54,7 +54,7 @@ This release adds a number of functions to help work with local networks. The ``
 Exporting Segments
 ++++++++++++++++++
 
-Previously, users could not include string properties when exporting segments. Furthermore, the segments could only be exported in the CRS of the flow-direction raster used to derive the network. Finally, needed to filter property dicts to terminal values when exporting basins and outlets.
+Previously, users could not include string properties when exporting segments. Furthermore, the segments could only be exported in the CRS of the flow-direction raster used to derive the network. Finally, users needed to filter property dicts to terminal values when exporting basins and outlets.
 
 This release provides several quality of life improvements to address these issues. Users can now export string properties, select the desired CRS of the exported segments, and do not need to filter property dicts for basins and outlets.
 
@@ -415,6 +415,7 @@ Change::
 
 to::
 
+    >>> raster.from_file(..., bounds=bounds)
     >>> raster.from_rasterio(..., bounds=bounds)
 
 

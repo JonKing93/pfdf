@@ -1,7 +1,7 @@
 Burn Severities
 ===============
 
-The :ref:`severity module <pfdf.severity>` provides two utilities for working with `BARC4-like burn severity <https://burnseverity.cr.usgs.gov/baer/faqs>`_ rasters. In brief, these rasters classify pixel burn severity using integers from 1 (unburned) to 4 (highly burned). You can use the :ref:`classification <pfdf.severity.classification>` function to return the scheme used/expected by this module::
+The :ref:`severity module <pfdf.severity>` provides two utilities for working with 4-class burned area reflectance rasters. These datasets are typically referred as `BARC4 burn severities <https://burnseverity.cr.usgs.gov/baer/faqs>`_. In brief, these rasters classify each pixel's burn severity using an integer from 1 (unburned) to 4 (highly burned). You can use the :ref:`classification <pfdf.severity.classification>` function to return the scheme used/expected by this module::
 
     # Import the severity module and examine the classification scheme
     >>> from pfdf import severity
