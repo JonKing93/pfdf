@@ -28,7 +28,7 @@ for raster in rasters:
 
 # Set dNBR and KF-factor data ranges
 dnbr.set_range(min=-1000, max=1000)
-kf.set_range(min=0, fill=True, exclusive=True)
+kf.set_range(min=0, fill=True, exclude_bounds=True)
 
 # Estimate severity
 barc4 = severity.estimate(dnbr)

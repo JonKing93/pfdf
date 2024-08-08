@@ -47,7 +47,7 @@ plot.raster(kf, "turbo", "Reprojected KF-factor")
 dnbr.set_range(min=-1000, max=1000)
 plot.raster(dnbr, "OrRd", "Constrained dNBR")
 
-kf.set_range(min=0, fill=True, exclusive=True)
+kf.set_range(min=0, fill=True, exclude_bounds=True)
 plot.raster(kf, "Oranges", "Constrained KF-factor")
 
 # Estimate severity

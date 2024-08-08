@@ -261,7 +261,7 @@ It's often useful to constrain a dataset to a valid data range, and you can do t
 
 .. _constrain-kf:
 
-We'll also constrain the KF-factor raster to positive values, as negative values are unphysical. :ref:`Inspecting the raster <kf-plot>`, we can see a region of negative values over Morrison reservoir. Essentially, the negative values have been used to denote a water body. Here, we'll use the ``fill`` option, which will replace negative pixels with NoData. We'll also use the ``exclusive`` option, which indicates that the bound at 0 is not included in the valid data range. Essentially, the ``exclusive`` option ensures that 0 values are also converted to NoData:
+We'll also constrain the KF-factor raster to positive values, as negative values are unphysical. :ref:`Inspecting the raster <kf-plot>`, we can see a region of negative values over Morrison reservoir. Essentially, the negative values have been used to denote a water body. Here, we'll use the ``fill`` option, which will replace negative pixels with NoData. We'll also use the ``exclude_bounds`` option, which indicates that the bound at 0 is not included in the valid data range. Essentially, the ``exclude_bounds`` option ensures that 0 values are also converted to NoData:
 
 .. include:: scripts/preprocess.py
   :code:

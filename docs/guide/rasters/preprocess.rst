@@ -133,10 +133,10 @@ By default, out-of-range pixels are set to the value of the nearest bound. Use t
     # Replaces out-of-range pixels with NoData values
     >>> dnbr.set_range(min=-1000, max=1000, fill=True)
 
-When ``fill=True``, you can also use the ``exclusive`` option to indicate that the bounds are excluded from the valid range. In this case, pixels exactly matching one of the bounds are also replaced with NoData. For example::
+When ``fill=True``, you can also use the ``exclude_bounds`` option to indicate that the bounds are excluded from the valid range. In this case, pixels exactly matching one of the bounds are also replaced with NoData. For example::
 
     # Enforce strictly positive values (Replace 0 with NoData)
-    >>> kf.set_range(min=0, fill=True, exclusive=True)
+    >>> kf.set_range(min=0, fill=True, exclude_bounds=True)
 
 ----
 
