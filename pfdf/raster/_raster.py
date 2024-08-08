@@ -1901,7 +1901,7 @@ class Raster:
         min: Optional[scalar] = None,
         max: Optional[scalar] = None,
         fill: bool = False,
-        exclusive: bool = False,
+        exclude_bounds: bool = False,
     ) -> None:
         """
         Forces a raster's data values to fall within specified bounds
@@ -1926,17 +1926,17 @@ class Raster:
         raster's NoData value, instead of being clipped to the appropriate bound.
         Raises a ValueError if the raster does not have a NoData value.
 
-        self.set_range(..., fill=True, exclusive=True)
-        Indicates that the bounds represent exclusive bounds. In this case, data
-        values exactly equal to a bound are also considered outside of the valid
-        range and set to NoData. This option is only available when fill=True.
+        self.set_range(..., fill=True, exclude_bounds=True)
+        Indicates that the bounds should be excluded from the valid range. In this
+        case, data values exactly equal to a bound are also set to NoData. This
+        option is only available when fill=True.
         ----------
         Inputs:
             min: A lower bound for the raster
             max: An upper bound for the raster
             fill: If False (default), clips pixels outside the bounds to bounds.
                 If True, replaces pixels outside the bounds with the NoData value
-            exclusive: True to consider the min and max data values as outside of
+            exclude_bounds: True to consider the min and max data values as outside of
                 the valid data range. False (default) to consider the min/max as
                 within the valid data range. Only available when fill=True.
         """
@@ -1950,22 +1950,22 @@ class Raster:
                 f"does not have a NoData value. Either set fill=False, or use the "
                 '"ensure_nodata" command to set a NoData value for this raster.'
             )
-        elif exclusive and not fill:
+        elif exclude_bounds and not fill:
             raise ValueError("You can only set exclusive=True when fill=True.")
 
         # Get the comparison operator
-        if exclusive:
-            greater = np.greater_equal
-            lesser = np.less_equal
+        if exclude_bounds:
+            too_large = np.greater_equal
+            too_small = np.less_equal
         else:
-            greater = np.greater
-            lesser = np.less
+            too_large = np.greater
+            too_small = np.less
 
         # Locate out-of-bounds data pixels
         values = self.values
         data = NodataMask(values, self.nodata, invert=True)
-        high = data & greater(values, max)
-        low = data & lesser(values, min)
+        too_large = data & too_large(values, max)
+        too_small = data & too_small(values, min)
 
         # If filling, replace out-of-range values with NoData
         if fill:
@@ -1974,8 +1974,8 @@ class Raster:
 
         # Replace out-of-bounds values with either the closest bound, or NoData
         values = values.copy()
-        high.fill(values, max)
-        low.fill(values, min)
+        too_large.fill(values, max)
+        too_small.fill(values, min)
         self._finalize(values)
 
     #####

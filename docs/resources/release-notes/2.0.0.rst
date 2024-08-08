@@ -171,7 +171,7 @@ These changes apply to both the ``from_points`` and ``from_polygons`` commands
 
 * Added the ``__repr__`` method, which returns a string summarizing the raster
 * Added the ``copy`` option to ``from_array``, which allows developers to build a Raster from an array without copying.
-* Added the ``exclusive`` option to ``set_range``, which allows you indicate that the bounds are not included in the valid range.
+* Added the ``exclude_bounds`` option to ``set_range``, which allows you indicate that the bounds are not included in the valid range.
 * In ``buffer``, replaced the ``pixels`` option with ``units``. This allows the user to specify buffers in a variety of units, including pixels.
 
 

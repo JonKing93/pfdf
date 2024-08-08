@@ -1665,12 +1665,12 @@ class TestSetRange:
     def test_invalid_exclusive(_, araster, assert_contains):
         raster = Raster(araster)
         with pytest.raises(ValueError) as error:
-            raster.set_range(min=0, exclusive=True)
+            raster.set_range(min=0, exclude_bounds=True)
         assert_contains(error, "You can only set exclusive=True when fill=True.")
 
     def test_exclusive(_, araster):
         raster = Raster.from_array(araster, nodata=-999)
-        raster.set_range(min=3, max=6, fill=True, exclusive=True)
+        raster.set_range(min=3, max=6, fill=True, exclude_bounds=True)
         expected = araster.copy()
         expected[expected <= 3] = -999
         expected[expected >= 6] = -999

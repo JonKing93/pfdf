@@ -1010,7 +1010,7 @@ Preprocessing
 
 .. _pfdf.raster.Raster.set_range:
 
-.. py:method:: Raster.set_range(self, min = None, max = None, fill = False, exclusive = False)
+.. py:method:: Raster.set_range(self, min = None, max = None, fill = False, exclude_bounds = False)
 
     Forces a raster's data values to fall within specified bounds
 
@@ -1036,15 +1036,15 @@ Preprocessing
 
         ::
 
-            self.set_range(..., fill=True, exclusive=True)
+            self.set_range(..., fill=True, exclude_bounds=True)
 
-        Indicates that the bounds represent exclusive bounds. In this case, data values exactly equal to a bound are also considered outside of the valid range and set to NoData. This option is only available when fill=True.
+        Indicates that the bounds should be excluded from the valid range. In this case, data values exactly equal to a bound are also set to NoData. This option is only available when ``fill=True``.
 
     :Inputs:
         * **min** (*scalar*) -- A lower bound for the raster
         * **max** (*scalar*) -- An upper bound for the raster
         * **fill** (*bool*) -- If False (default), clips pixels outside the bounds to bounds. If True, replaces pixels outside the bounds with the NoData value
-        * **exclusive** (*bool*) -- True to consider the min and max data values as outside of the valid data range. False (default) to consider the min/max as within the valid data range. Only available when fill=True.
+        * **exclude_bounds** (*bool*) -- True to consider the min and max data values as outside of the valid data range. False (default) to consider the min/max as within the valid data range. Only available when ``fill=True``.
 
 
 .. _pfdf.raster.Raster.buffer:
