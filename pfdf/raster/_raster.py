@@ -1927,8 +1927,8 @@ class Raster:
         Raises a ValueError if the raster does not have a NoData value.
 
         self.set_range(..., fill=True, exclude_bounds=True)
-        Indicates that the bounds should be excluded from the valid range. In this 
-        case, data values exactly equal to a bound are also set to NoData. This 
+        Indicates that the bounds should be excluded from the valid range. In this
+        case, data values exactly equal to a bound are also set to NoData. This
         option is only available when fill=True.
         ----------
         Inputs:
