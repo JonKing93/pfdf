@@ -15,10 +15,6 @@ The pfdf package is a Python library designed to facilitate postfire debris-flow
 
 All routines are optional, and may be configured for a variety of analyses and assessment styles. We note that some coding experience is required to use the routines in this package. As such, pfdf is primarily intended for researchers and developers of hazard assessment tools.
 
-.. tip::
-
-    If you just want to run a hazard assessment (rather than writing code), we recommend seeing the `wildcat assessment tool <https://code.usgs.gov/ghsc/lhp/wildcat>`_ instead.
-
 
 Installation
 ------------
