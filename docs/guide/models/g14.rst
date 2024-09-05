@@ -29,7 +29,7 @@ where:
       - **Units**
     * - V
       - Potential sediment volume
-      - meters^3
+      - m³
     * - lnV
       - Natural log of potential sediment volume
       -
@@ -38,7 +38,7 @@ where:
       - mm/hour
     * - Bmh
       - Catchment area burned at moderate or high intensity
-      - km^2
+      - km²
     * - R
       - Watershed relief
       - meters
@@ -65,12 +65,12 @@ You can run this model using the ``emergency`` function. This function returns t
     # Estimate debris-flow volume
     >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R)
 
-You can also use the "Ci", "Cb", "Cr", and "B" options to change the values of the model coefficients and intercept::
+You can also use the Ci, Cb, Cr, and B options to change the values of the model coefficients and intercept::
 
     # Estimate volume using custom parameters
     >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R, B=4.23, Ci=0.38, Cb=0.35, Cr=0.12)
 
-And the "CI" and "RSE" options to calculate custom confidence intervals::
+And the CI and RSE options to calculate custom confidence intervals::
 
     # Estimate the 90% CI using a custom RSE
     >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R, CI=0.9, RSE=1.13)
@@ -103,7 +103,7 @@ where:
       - **Units**
     * - V
       - Potential sediment volume
-      - meters^3
+      - m³
     * - lnV
       - Natural log of potential sediment volume
       -
@@ -112,13 +112,13 @@ where:
       - mm/hour
     * - Bt
       - Total burned catchment area
-      - km^2
+      - km²
     * - T
       - Time elapsed since fire
       - years
     * - A
       - Total catchment area
-      - km^2
+      - km²
     * - R
       - Watershed relief
       - meters
@@ -146,12 +146,12 @@ You can run this model using the ``longterm`` function. This function returns th
     # Estimate debris-flow volume
     >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R)
 
-You can also use the "Ci", "Cb", "Ct", "Ca", "Cr", and "B" options to change the values of the model coefficients and intercept::
+You can also use the Ci, Cb, Ct, Ca, Cr, and B options to change the values of the model coefficients and intercept::
 
     # Estimate volume using custom parameters
     >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, B=6.08, Ci=0.72, Cb=0.21, Ct=0.25, Ca=0.48, Cr=0.04)
 
-And the "CI" and "RSE" options to calculate custom confidence intervals::
+And the CI and RSE options to calculate custom confidence intervals::
 
     # Estimate the 90% CI using a custom RSE
     >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, CI=0.9, RSE=1.13)

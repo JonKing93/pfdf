@@ -65,7 +65,7 @@ If you are exporting basins or outlets, then the property arrays may optionally 
 
 CRS
 ---
-By default, both methods will export the features using the CRS of the flow-direction raster used to derive the network. However, you can use the ``crs`` option to export the features to a different CRS instead::
+By default, both methods will export the features using the :ref:`CRS <guide-crs>` of the flow-direction raster used to derive the network. However, you can use the ``crs`` option to export the features to a different CRS instead::
 
   # Default would export to EPSG:26911
   >>> segments.crs.to_epsg()
