@@ -158,7 +158,7 @@ Use the ``height`` method to return the distance between the top and bottom edge
 
 .. note::
 
-    The ``height`` and ``width`` methods always return positive values. If orientation is important, you can alternatively use ``xdisp`` to return (right - left) and ```ydisp`` to return (top - bottom). These two values may be negative, depending on the orientation of the box.
+    The ``height`` and ``width`` methods always return positive values. If orientation is important, you can alternatively use ``xdisp`` to return (right - left) and ``ydisp`` to return (top - bottom). These two values may be negative, depending on the orientation of the box.
 
 Reprojection
 ++++++++++++

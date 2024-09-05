@@ -81,11 +81,11 @@ In some cases, the omitnan option may not be sufficient. In this case, all catch
 Additional Options
 ++++++++++++++++++
 
-The :ref:`area <pfdf.segments.Segments.area>`, :ref:`burned_area <pfdf.segments.Segments.burned_area>`, and :ref:`developed_area <pfdf.segments.Segments.developed_area>` methods all return areas in kilometers^2 by default. Analogously, the :ref:`length method <pfdf.segments.Segments.length>` uses meters by default. You can use the ``units`` option to return values in other units instead::
+The :ref:`area <pfdf.segments.Segments.area>`, :ref:`burned_area <pfdf.segments.Segments.burned_area>`, and :ref:`developed_area <pfdf.segments.Segments.developed_area>` methods all return areas in square kilometers (km²) by default. Analogously, the :ref:`length method <pfdf.segments.Segments.length>` uses meters by default. You can use the ``units`` option to return values in other units instead::
 
     # Return values in other units
     >>> self.area(units="miles")  # Square miles
-    >>> self.area(units="meters") # Meters^2
+    >>> self.area(units="meters") # Square meters
     >>> self.length(units="kilometers")
 
 
