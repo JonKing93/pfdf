@@ -79,9 +79,11 @@ The paper then describes 4 specific models, each which uses a different combinat
     * - M1
       - | Proportion of catchment area with both 
         | (1) moderate or high burn severity, and 
-        | (2) slope >= 23 degrees
-      - Mean catchment dNBR / 1000
-      - Mean catchment KF-factor
+        | (2) slope ≥ 23 degrees
+      - | Mean catchment 
+        | dNBR / 1000
+      - | Mean catchment 
+        | KF-factor
       - -3.63, -3.61, -3.21
       - 0.41, 0.26, 0.17
       - 0.67, 0.39, 0.20
@@ -116,7 +118,7 @@ The paper then describes 4 specific models, each which uses a different combinat
     * - M4
       - | Proportion of catchment area 
         | that both (1) was burned, and 
-        | (2) has a slope >= 30 degrees
+        | (2) has a slope ≥ 30 degrees
       - | Mean catchment 
         | dNBR / 1000
       - | Mean catchment 
@@ -413,7 +415,7 @@ M1
   * - T
     - | Proportion of catchment area with both 
       | (1) moderate or high burn severity, and 
-      | (2) slope angle >= 23 degrees.
+      | (2) slope angle ≥ 23 degrees.
   * - F
     - Mean catchment dNBR / 1000
   * - S
@@ -514,7 +516,7 @@ M4
   * - T
     - | Proportion of catchment area that both 
       | (1) was burned, and 
-      | (2) has a slope angle >= 30 degrees.
+      | (2) has a slope angle ≥ 30 degrees.
   * - F
     - Mean catchment dNBR / 1000
   * - S

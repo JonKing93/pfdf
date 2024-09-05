@@ -167,9 +167,9 @@ Finally, we'll compute several types of flow accumulation.
     * - Accumulation
       - Description
     * - ``area_km2``
-      - The total catchment area for each point in kilometers^2.
+      - The total catchment area for each point in square kilometers (km²).
     * - ``burned_area_km2``
-      - The burned catchment area for each point in kilometers^2.
+      - The burned catchment area for each point in square kilometers (km²).
     * - ``nretainments``
       - The number of debris-flow retainment features above each point.
 
@@ -192,7 +192,7 @@ We'll start by defining two parameters:
     :start-line: 24
     :end-line: 26
 
-Here, ``min_area_km2`` defines the minimum catchment area (in km^2). Smaller catchments are usually too small to be able to generate a debris-flow. The ``min_burned_area_km2`` parameter defines the minimum burned catchment area (also km^2). Catchments with smaller burned areas are negligibly affected by the fire. We can combine these thresholds with the various flow accumulation rasters to generate the network delineation mask.
+Here, ``min_area_km2`` defines the minimum catchment area (in square kilometers). Smaller catchments are usually too small to be able to generate a debris-flow. The ``min_burned_area_km2`` parameter defines the minimum burned catchment area (also square kilometers). Catchments with smaller burned areas are negligibly affected by the fire. We can combine these thresholds with the various flow accumulation rasters to generate the network delineation mask.
 
 .. include:: scripts/assessment.py
     :code:
@@ -291,7 +291,7 @@ We'll start by defining several filtering parameters:
     :start-line: 29
     :end-line: 34
 
-Most of the parameters define a threshold for one of the filtering variables. The final ``neighborhood`` parameter indicates the number of pixels in the radius of the focal window used to compute confinement angles. Next, we'll use the ``segments`` object to compute the filtering variables for each segment. Note that the ``area`` and ``developed_area`` commands return values in kilometers^2 by default:
+Most of the parameters define a threshold for one of the filtering variables. The final ``neighborhood`` parameter indicates the number of pixels in the radius of the focal window used to compute confinement angles. Next, we'll use the ``segments`` object to compute the filtering variables for each segment. Note that the ``area`` and ``developed_area`` commands return values in square kilometers (km²) by default:
 
 .. include:: scripts/assessment.py
     :code:
@@ -433,14 +433,14 @@ Next, we'll model the potential sediment volume of any debris flows using the :d
     :start-line: 99
     :end-line: 101
 
-These are (1) the catchment area burned at moderate-or-high severity, and (2) the vertical relief for each segment. The output ``Bmh_km2`` and ``relief`` variables are both numpy 1D arrays with one element per segment. As with other areal Segments methods, the ``burned_area`` command returns values in kilometers^2 by default. Finally, we'll solve the emergency-assessment sediment volume model for these quantities:
+These are (1) the catchment area burned at moderate-or-high severity, and (2) the vertical relief for each segment. The output ``Bmh_km2`` and ``relief`` variables are both numpy 1D arrays with one element per segment. As with other areal Segments methods, the ``burned_area`` command returns values in square kilometers (km²) by default. Finally, we'll solve the emergency-assessment sediment volume model for these quantities:
 
 .. include:: scripts/assessment.py
     :code:
     :start-line: 101
     :end-line: 102
 
-Each of the three outputs are a 2D numpy array with one row per stream segment, and one column per queried rainfall intensity. The ``volume`` array holds the estimated potential sediment volumes in meters^3. The ``Vmin`` and ``Vmax`` arrays are the lower and upper bounds of the 95% confidence interval, respectively::
+Each of the three outputs are a 2D numpy array with one row per stream segment, and one column per queried rainfall intensity. The ``volume`` array holds the estimated potential sediment volumes in cubic meters (m³). The ``Vmin`` and ``Vmax`` arrays are the lower and upper bounds of the 95% confidence interval, respectively::
 
     >>> volume.shape
     (470, 4)
