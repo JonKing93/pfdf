@@ -1,0 +1,6 @@
+pfdf 2.0.1 Release Notes
+========================
+
+Bugfix
+------
+This release fixes a bug that would cause *Raster* and *Segments* commands to crash when pfdf was installed with rasterio 1.4+. The release updates pfdf to work with both old and new versions of rasterio.
