@@ -1279,13 +1279,17 @@ class Raster:
         except Exception as error:
             _merror.features(error, geometry)
 
-        # Add each point feature set to the raster
+        # Get the GIS coordinates for each point
         for geometry, value in features:
             coords = geometry["coordinates"]
             coords = np.array(coords).reshape(-1, 2)
+
+            # Determine the raster index and set the index to the point's value
             rows, cols = rasterio.transform.rowcol(
                 transform.affine, xs=coords[:, 0], ys=coords[:, 1]
             )
+            rows = np.array(rows).astype(int).tolist()
+            cols = np.array(cols).astype(int).tolist()
             raster[rows, cols] = value
         return Raster._from_features(raster, crs, transform, nodata, bounds)
 
