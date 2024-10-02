@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pfdf"
-version = "2.0.0"
+version = "2.0.1"
 description = "A package to facilitate post-wildfire debris-flow hazard assessments and research"
 authors = [
     "Jonathan King <jking@usgs.gov>",
@@ -29,7 +29,6 @@ packages = [
 python = ">=3.11, <3.13"
 numpy = "<2"
 pysheds = "0.3.5"
-numba = "*"
 rasterio = "*"
 affine = "*"
 shapely = "*"

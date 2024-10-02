@@ -1,5 +1,6 @@
 "Function to build a raster windowing object"
 
+import numpy as np
 import rasterio
 from rasterio.windows import Window
 
@@ -25,8 +26,12 @@ def build(
         bounds = bounds.reproject(crs)
     affine = file.transform
 
-    # Get pixel indices from smallest to largest (easier to make slices)
+    # Get pixel indices
     rows, cols = rasterio.transform.rowcol(affine, xs=bounds.xs, ys=bounds.ys, op=round)
+    rows = np.array(rows).astype(int).tolist()
+    cols = np.array(cols).astype(int).tolist()
+
+    # Order from smallest to largest (easier to make slices)
     top, bottom = min(rows), max(rows)
     left, right = min(cols), max(cols)
 

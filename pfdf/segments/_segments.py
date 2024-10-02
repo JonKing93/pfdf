@@ -326,11 +326,15 @@ class Segments:
             starts[s, :] = coords[0, :]
             outlets[s, :] = coords[-1, :]
 
-            # Get the pixel indices for each segment. If the first two indices are
-            # identical, then this is downstream of a split point
+            # Get the pixel indices for each segment. Ensure they are lists
+            # (different rasterio versions may return lists or numpy arrays)
             rows, cols = rowcol(
                 self.flow.transform.affine, xs=coords[:, 0], ys=coords[:, 1]
             )
+            rows = np.array(rows).astype(int).tolist()
+            cols = np.array(cols).astype(int).tolist()
+
+            # If the first two indices match, then this is downstream of a split point
             if rows[0] == rows[1] and cols[0] == cols[1]:
                 split = True
 
