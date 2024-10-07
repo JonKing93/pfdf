@@ -8,7 +8,7 @@ Functions:
 from numpy import digitize, inf, nan
 
 from pfdf._utils.nodata import NodataMask
-from pfdf.typing import RealArray, VectorArray, scalar
+from pfdf.typing.core import RealArray, VectorArray, scalar
 
 
 def classify(

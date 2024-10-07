@@ -34,8 +34,8 @@ from typing import Literal, Optional
 
 from pandas import DataFrame
 
-import pfdf._validate as validate
-from pfdf.typing import Pathlike
+import pfdf._validate.core as validate
+from pfdf.typing.core import Pathlike
 
 # Type aliases
 Driver = tuple[str, str, str]

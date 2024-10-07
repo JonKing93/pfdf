@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-import pfdf._validate._misc as validate
+import pfdf._validate.core._misc as validate
 
 #####
 # Paths
@@ -114,6 +114,24 @@ class TestType:
         with pytest.raises(TypeError) as error:
             validate.type(5, "test", str, "str")
         assert_contains(error, "test must be a str")
+
+
+class TestCallable:
+    def test_valid(_):
+        def test():
+            pass
+
+        test()
+        validate.callable_(test, "test")
+
+    def test_invalid(_, assert_contains):
+        with pytest.raises(TypeError) as error:
+            validate.callable_(5, "test name")
+        assert_contains(
+            error,
+            'The "test name" input must be a callable object, such as a function '
+            "or a static method",
+        )
 
 
 #####

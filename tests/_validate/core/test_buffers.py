@@ -1,6 +1,6 @@
 import pytest
 
-import pfdf._validate._buffers as validate
+import pfdf._validate.core._buffers as validate
 from pfdf.errors import DimensionError
 
 

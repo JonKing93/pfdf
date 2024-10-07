@@ -60,13 +60,14 @@ from pysheds.sview import Raster as PyshedsRaster
 from shapely import LineString
 from shapely.ops import substring
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import _crs
-from pfdf.raster import Raster, RasterInput
-from pfdf.typing import Units, scalar
+from pfdf.raster import Raster
+from pfdf.typing.core import Units, scalar
+from pfdf.typing.raster import RasterInput
 
 # Flow direction options - D8 and TauDEM style directions
 _FLOW_OPTIONS = {"routing": "d8", "dirmap": (3, 2, 1, 8, 7, 6, 5, 4)}

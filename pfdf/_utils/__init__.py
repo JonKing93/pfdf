@@ -21,7 +21,7 @@ from typing import Any
 
 import numpy as np
 
-from pfdf.typing import RealArray
+from pfdf.typing.core import RealArray
 
 # Combination numpy dtype for real-valued data
 real = [np.integer, np.floating, np.bool_]

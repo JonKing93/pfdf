@@ -14,14 +14,12 @@ Misc:
 import numpy as np
 import shapely
 
-from pfdf.typing import (
-    MatrixArray,
+from pfdf.typing.core import MatrixArray, RealArray, VectorArray
+from pfdf.typing.segments import (
+    BooleanIndices,
     NetworkIndices,
-    RealArray,
-    SegmentIndices,
     SegmentParents,
     SegmentValues,
-    VectorArray,
 )
 
 #####
@@ -30,7 +28,7 @@ from pfdf.typing import (
 
 
 def family(
-    child: SegmentValues, parents: SegmentParents, remove: SegmentIndices
+    child: SegmentValues, parents: SegmentParents, remove: BooleanIndices
 ) -> None:
     "Updates child-parent relationships in-place after segments are removed"
 
@@ -55,7 +53,7 @@ def indices(family: RealArray, nremoved: VectorArray) -> None:
 
 
 def segments(
-    segments, remove: SegmentIndices
+    segments, remove: BooleanIndices
 ) -> tuple[list[shapely.LineString], NetworkIndices]:
     "Computes updated linestrings and pixel indices after segments are removed"
 
@@ -72,7 +70,7 @@ def segments(
 
 
 def connectivity(
-    segments, remove: SegmentIndices
+    segments, remove: BooleanIndices
 ) -> tuple[SegmentValues, SegmentParents]:
     "Computes updated child and parents after segments are removed"
 
@@ -93,7 +91,7 @@ def connectivity(
     return child, parents
 
 
-def basins(segments, remove: SegmentIndices) -> MatrixArray | None:
+def basins(segments, remove: BooleanIndices) -> MatrixArray | None:
     "Resets basins if any terminal basin outlets were removed"
 
     # If there aren't any basins, just leave them as None

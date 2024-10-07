@@ -11,7 +11,7 @@ Functions:
 
 from pyproj import CRS, Transformer
 
-from pfdf.typing import ExportType
+from pfdf.typing.segments import ExportType
 
 # Type aliases
 XY = tuple[float, float]

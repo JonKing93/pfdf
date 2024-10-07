@@ -20,16 +20,25 @@ from math import nan, sqrt
 
 import numpy as np
 
-import pfdf.segments._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import limits, nodata, real
 from pfdf.raster import Raster
-from pfdf.typing import FlowNumber, ScalarArray, scalar, slopes
+from pfdf.segments._validate import raster as validate_raster
+from pfdf.typing.core import ScalarArray, scalar
+from pfdf.typing.segments import (
+    ConfinementSlopes,
+    FlowNumber,
+    NetworkIndices,
+    SegmentValues,
+)
 
 # Type aliases
 KernelIndices = tuple[list[int], list[int]]
 
 
-def angles(segments, dem, neighborhood, dem_per_m):
+def angles(
+    segments, dem: Raster, neighborhood: int, dem_per_m: scalar
+) -> SegmentValues:
     "Computes confinement angles for a stream segment network"
 
     # Validate
@@ -37,7 +46,7 @@ def angles(segments, dem, neighborhood, dem_per_m):
     validate.positive(neighborhood, "neighborhood")
     validate.integers(neighborhood, "neighborhood")
     dem_per_m = validate.conversion(dem_per_m, "dem_per_m")
-    dem = validate.raster(segments, dem, "dem")
+    dem = validate_raster(segments, dem, "dem")
 
     # Preallocate. Initialize kernel
     theta = segments._preallocate()
@@ -62,7 +71,9 @@ def angles(segments, dem, neighborhood, dem_per_m):
     return theta
 
 
-def angle(segments, pixels, lengths, kernel, dem):
+def angle(
+    segments, pixels: NetworkIndices, lengths: dict, kernel: "Kernel", dem: Raster
+) -> ScalarArray:
     "Computes the confinement angle for a single stream segment"
 
     # Get the flow directions. If any are NoData, set confinement to NaN
@@ -86,7 +97,9 @@ def angle(segments, pixels, lengths, kernel, dem):
     return 180 - np.degrees(theta)
 
 
-def pixel_slopes(flow, lengths, rowcol, kernel, dem):
+def pixel_slopes(
+    flow: int, lengths: dict, rowcol: tuple[int, int], kernel: "Kernel", dem: Raster
+) -> ConfinementSlopes:
     "Computes the two slopes perpendicular to flow for a pixel"
 
     # Get the perpendicular flow length
@@ -300,7 +313,7 @@ class Kernel:
 
     def orthogonal_slopes(
         self, flow: FlowNumber, length: scalar, dem: Raster
-    ) -> slopes:
+    ) -> ConfinementSlopes:
         """Returns the slopes perpendicular to flow for the current pixel
         flow: TauDEM style D8 flow direction number
         length: The lateral or diagonal flow length across 1 pixel

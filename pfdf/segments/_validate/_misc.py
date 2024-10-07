@@ -9,7 +9,7 @@ Functions:
 from multiprocessing import cpu_count
 from typing import Any
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf.raster import Raster
 

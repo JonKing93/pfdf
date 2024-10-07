@@ -1,5 +1,4 @@
 from multiprocessing import Pool
-from os import cpu_count
 
 import numpy as np
 import pytest
@@ -108,6 +107,7 @@ class TestChunkRaster:
         assert np.array_equal(output, basin_raster)
 
 
+@pytest.mark.slow
 class TestGroupRasters:
     expected = np.array(
         [
@@ -151,6 +151,7 @@ class TestGroupRasters:
         assert np.array_equal(collected, self.expected)
 
 
+@pytest.mark.slow
 class TestBuiltInParallel:
     def test(_, segments, basin_raster):
         output = _basins.built_in_parallel(segments, nprocess=2)
@@ -168,6 +169,7 @@ class TestBuild:
         output = _basins.build(segments, parallel=False, nprocess=None)
         assert np.array_equal(output, basin_raster)
 
+    @pytest.mark.slow
     def test_parallel(_, segments, basin_raster):
         output = _basins.build(segments, parallel=True, nprocess=2)
         assert np.array_equal(output, basin_raster)

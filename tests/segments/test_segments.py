@@ -305,6 +305,19 @@ def test_bounds(segments, flow):
     assert segments.bounds == flow.bounds
 
 
+class TestLocatedBasins:
+    def test_not_located(_, segments):
+        output = segments.located_basins
+        assert isinstance(output, bool)
+        assert output == False
+
+    def test_located(_, segments):
+        segments.locate_basins()
+        output = segments.located_basins
+        assert isinstance(output, bool)
+        assert output == True
+
+
 #####
 # Utilities
 ###
@@ -605,12 +618,19 @@ class TestSegmentsRaster:
         assert np.array_equal(output, stream_raster)
 
 
-class TestLocateRaster:
-    @pytest.mark.parametrize("parallel, nprocess", ((False, None), (True, 2)))
-    def test_sequential(_, segments, parallel, nprocess, outlet_raster):
+class TestLocateBasins:
+    @pytest.mark.slow
+    def test_parallel(_, segments, outlet_raster):
         assert segments._basins is None
-        segments.locate_basins(parallel, nprocess)
+        segments.locate_basins(parallel=True, nprocess=2)
         assert np.array_equal(segments._basins, outlet_raster)
+        assert segments.located_basins
+
+    def test_sequential(_, segments, outlet_raster):
+        assert segments._basins is None
+        segments.locate_basins()
+        assert np.array_equal(segments._basins, outlet_raster)
+        assert segments.located_basins
 
     def test_invalid_nprocess(_, segments, assert_contains):
         with pytest.raises(ValueError) as error:

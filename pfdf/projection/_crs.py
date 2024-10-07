@@ -64,7 +64,7 @@ from pyproj.database import Unit, get_units_map, query_utm_crs_info
 
 from pfdf._utils import no_nones
 from pfdf.errors import CRSError
-from pfdf.typing import XY, Units, scalar, vector
+from pfdf.typing.core import XY, Units, scalar, vector
 from pfdf.utils.units import convert
 
 EARTH_RADIUS_M = 6371000

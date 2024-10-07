@@ -10,11 +10,11 @@ from typing import Any, Optional, Self
 
 from affine import Affine
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf.errors import TransformError
 from pfdf.projection import CRSInput, _crs, _Locator, bbox
-from pfdf.typing import Units, scalar
+from pfdf.typing.core import Units, scalar
 
 
 class Transform(_Locator):

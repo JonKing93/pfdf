@@ -7,7 +7,7 @@ Functions:
     src_dst     - Parses source and destination values
 """
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import all_nones, no_nones
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.raster import _raster

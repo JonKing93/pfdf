@@ -4,19 +4,15 @@ A class and type hint for working with raster datasets
 This module provides the "Raster" class, which pfdf uses to manage raster datasets.
 The class can acquire raster values and metadata from a variety of formats,
 and all computed rasters are returned as Raster objects. (And please see the docstring
-of the Raster class for additional details). The module also provides the "RasterInput" 
-type hint, which denotes all types that pfdf accepts as representing a raster.
+of the Raster class for additional details).
 ----------
 Class:
     Raster      - Class that manages raster datasets and metadata
-
-Type Hint:
-    RasterInput - Types that are convertible to a Raster object
 """
 
 from math import ceil
 from pathlib import Path
-from typing import Any, Optional, Self
+from typing import Any, Callable, Optional, Self
 
 import numpy as np
 import rasterio
@@ -26,7 +22,9 @@ from affine import Affine
 from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
 
-import pfdf.raster._validate as validate
+import pfdf._validate.core as cvalidate
+import pfdf._validate.projection as pvalidate
+import pfdf.raster._validate as rvalidate
 from pfdf._utils import all_nones, nodata, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import (
@@ -39,7 +37,7 @@ from pfdf.errors import (
 )
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
 from pfdf.raster import _align, _clip, _features, _merror, _parse, _window
-from pfdf.typing import (
+from pfdf.typing.core import (
     BooleanArray,
     BufferUnits,
     Casting,
@@ -168,13 +166,15 @@ class Raster:
     """
 
     # User input type hints
+    # (Not using derived type hints to avoid circular import)
     CRSInput = CRS | Self | int | str | dict | Any
     TransformInput = Transform | Self | dict | list | tuple | Affine
     BoundsInput = BoundingBox | Self | dict | list | tuple
     RasterInput = (
         Self | str | Path | rasterio.DatasetReader | MatrixArray | PyshedsRaster
     )
-    ResolutionInput = scalar | tuple[scalar, scalar] | vector | Self | Transform
+    ResolutionInput = TransformInput | scalar | vector
+    operation = Callable[[scalar], scalar]
 
     #####
     # Properties
@@ -188,7 +188,7 @@ class Raster:
 
     @name.setter
     def name(self, name: str) -> None:
-        validate.type(name, "raster name", str, "string")
+        cvalidate.type(name, "raster name", str, "string")
         self._name = name
 
     @property
@@ -215,7 +215,7 @@ class Raster:
             raise ValueError(
                 "Cannot set the NoData value because the raster already has a NoData value."
             )
-        self._nodata = validate.nodata(nodata, casting_="safe", dtype=self.dtype)
+        self._nodata = rvalidate.nodata(nodata, casting_="safe", dtype=self.dtype)
 
     @property
     def nodata_mask(self) -> BooleanArray:
@@ -260,7 +260,7 @@ class Raster:
                 "Cannot set the CRS because the raster already has a CRS. "
                 "See the 'reproject' method to change a raster's CRS."
             )
-        self._crs = validate.crs(crs)
+        self._crs = pvalidate.crs(crs)
 
     @property
     def crs_units(self):
@@ -301,7 +301,7 @@ class Raster:
             )
 
         # Validate and set. Reproject as needed.
-        transform = validate.transform(transform)
+        transform = pvalidate.transform(transform)
         crs, transform = _parse.projection(self.crs, transform, self.shape)
         self._finalize(crs=crs, transform=transform)
 
@@ -313,7 +313,7 @@ class Raster:
             return None
 
         # Informative error if conversion to meters is not possible
-        units = validate.units(units)
+        units = cvalidate.units(units)
         if self.crs is None and units != "base":
             raise MissingCRSError(
                 f"Cannot convert {self.name} {method} to {units} because the raster does "
@@ -460,7 +460,7 @@ class Raster:
             )
 
         # Validate and convert to transform. Reproject as needed.
-        bounds = validate.bounds(bounds)
+        bounds = pvalidate.bounds(bounds)
         crs, transform = _parse.projection(self.crs, bounds, self.shape)
         self._finalize(crs=crs, transform=transform)
 
@@ -548,14 +548,14 @@ class Raster:
             nodata = self.nodata
 
         # Validate array values, metadata, and NoData casting
-        values = validate.matrix(values, self.name, dtype=real)
-        crs, transform, nodata = validate.metadata(
+        values = cvalidate.matrix(values, self.name, dtype=real)
+        crs, transform, nodata = rvalidate.metadata(
             crs, transform, None, nodata, casting, values.dtype
         )
 
         # Optionally convert to boolean
         if isbool:
-            values = validate.boolean(values, "a boolean raster", ignore=nodata)
+            values = cvalidate.boolean(values, "a boolean raster", ignore=nodata)
             nodata = np.bool_(False)
 
         # Strip CRS from the transform
@@ -831,12 +831,12 @@ class Raster:
         """
 
         # Validate inputs
-        path = validate.input_path(path, "path")
+        path = cvalidate.input_path(path, "path")
         if driver is not None:
-            validate.type(driver, "driver", str, "string")
-        validate.type(band, "band", int, "int")
+            cvalidate.type(driver, "driver", str, "string")
+        cvalidate.type(band, "band", int, "int")
         if bounds is not None:
-            bounds = validate.bounds(bounds)
+            bounds = pvalidate.bounds(bounds)
 
         # Open file. Get metadata
         with rasterio.open(path) as file:
@@ -942,7 +942,7 @@ class Raster:
         """
 
         # Validate and get linked path. Informative error if file is missing
-        validate.type(
+        cvalidate.type(
             reader,
             "input raster",
             rasterio.DatasetReader,
@@ -1002,7 +1002,7 @@ class Raster:
             Raster: The new Raster object
         """
 
-        validate.type(
+        cvalidate.type(
             sraster, "input raster", PyshedsRaster, "pysheds.sview.Raster object"
         )
         crs = CRS.from_wkt(sraster.crs.to_wkt())
@@ -1111,7 +1111,7 @@ class Raster:
         """
 
         # Validate metadata. Copy array as needed
-        crs, projection, nodata = validate.metadata(
+        crs, projection, nodata = rvalidate.metadata(
             crs, transform, bounds, nodata, casting
         )
         values = np.array(array, copy=copy)
@@ -1135,11 +1135,17 @@ class Raster:
         path: Pathlike,
         field: Optional[str] = None,
         *,
-        bounds: Optional[BoundsInput] = None,
+        # Field options
+        dtype: Optional[np.dtype] = None,
+        field_casting: Casting = "safe",
         nodata: Optional[scalar] = None,
         casting: Casting = "safe",
+        operation: Optional[operation] = None,
+        # Spatial
+        bounds: Optional[BoundsInput] = None,
         resolution: ResolutionInput = 10,
         units: Units = "meters",
+        # File IO
         layer: Optional[int | str] = None,
         driver: Optional[str] = None,
         encoding: Optional[str] = None,
@@ -1171,21 +1177,47 @@ class Raster:
         extensions.
 
         Raster.from_points(path, field)
-        Raster.from_points(..., *, nodata)
-        Raster.from_points(..., *, nodata, casting)
+        Raster.from_points(..., *, dtype)
+        Raster.from_points(..., *, dtype, field_casting)
         Builds the raster using one of the data property fields for the point features.
-        The specified field must exist in the data properties, and must have an
-        int or float type. The dtype of the output raster will match this type.
-        Pixels that contain a point are set to the value of the data field for
-        that point. If a pixel contains multiple points, then the pixel's value
-        will match the data value of the final point in the set.
+        Pixels that contain a point are set to the value of the data field for that
+        point. If a pixel contains multiple points, then the pixel's value will match
+        the data value of the final point in the set. Pixels that do not contain a point
+        are set to a default NoData value, but see below for options to specify the
+        NoData value instead.
 
-        Pixels that do not contain a point are set to NoData. If unspecified, uses
-        a default NoData value for the dtype. Use the "nodata" input to specify
-        the NoData value instead. By default, the NoData value must be safely
-        castable to the dtype of the raster. Use the "casting" option to select
-        other casting rules. NoData options are ignored if you do not specify a
-        field.
+        The indicated data field must exist in the data properties, and must have an int
+        or float type. By default, the dtype of the output raster will match this type.
+        Use the "dtype" option to specify the type of the output raster instead. In this
+        case, the data field values will be casted to the indicated dtype before being
+        used to build the raster. By default, field values must be safely castable to
+        the indicated dtype. Use the "field_casting" option to select different casting
+        rules. The "dtype" and "field_casting" options are ignored if you do not specify
+        a field.
+
+        Raster.from_points(..., field, *, nodata)
+        Raster.from_points(..., field, *, nodata, casting)
+        Specifies the NoData value to use when building the raster from a data attribute
+        field. By default, the NoData value must be safely castable to the dtype of the
+        output raster. Use the "casting" option to select other casting rules. NoData
+        options are ignored if you do not specify a field.
+
+        Raster.from_points(..., field, *, operation)
+        Applies the indicated function to the data field values and uses the output
+        values to build the raster. The input function should accept one numeric input,
+        and return one real-valued numeric output. Useful when data field values require
+        a conversion. For example, you could use the following to scale Point values
+        by a factor of 100:
+
+            def times_100(value):
+                return value * 100
+
+            Raster.from_points(..., field, operation=times_100)
+
+        Values are converted before they are validated against the "dtype" and
+        "field_casting" options, so you can also use an operation to implement a custom
+        conversion from data values to the output raster dtype. The operation input is
+        ignored if you do not specify a field.
 
         Raster.from_points(..., *, bounds)
         Only uses point features contained within the indicated bounds. The returned
@@ -1233,12 +1265,19 @@ class Raster:
             path: The path to a Point or MultiPoint feature file
             field: The name of a data property field used to set pixel values.
                 The data field must have an int or float type.
-            bounds: A bounding box indicating the subset of point features that
-                should be used to create the raster.
+            dtype: The dtype of the output raster when building from a data field
+            field_casting: The type of data casting allowed to occur when converting
+                data field values to a specified output dtype. Options are "no",
+                "equiv", "safe" (default), "same_kind", and "unsafe".
             nodata: The NoData value for the output raster.
             casting: The type of data casting allowed to occur when converting a
                 NoData value to the dtype of the Raster. Options are "no", "equiv",
                 "safe" (default), "same_kind", and "unsafe".
+            operation: A function that should be applied to data field values before
+                they are used to build the raster. Should accept one numeric input and
+                return one real-valued numeric input.
+            bounds: A bounding box indicating the subset of point features that
+                should be used to create the raster.
             resolution: The desired resolution of the output raster
             units: Specifies the units of the resolution when the resolution input
                 does not have a CRS. Options include: "base" (CRS/Transform base
@@ -1256,14 +1295,21 @@ class Raster:
         # Process the point feature file
         geometry = "point"
         features, crs, transform, shape, dtype, nodata = _features.parse_file(
+            # General
             geometry,
             path,
             field,
-            bounds,
+            # Field options
+            dtype,
+            field_casting,
             nodata,
             casting,
+            operation,
+            # Spatial
+            bounds,
             resolution,
             units,
+            # File IO
             layer,
             driver,
             encoding,
@@ -1298,11 +1344,17 @@ class Raster:
         path: Pathlike,
         field: Optional[str] = None,
         *,
-        bounds: Optional[BoundsInput] = None,
+        # Field options
+        dtype: Optional[np.dtype] = None,
+        field_casting: Casting = "safe",
         nodata: Optional[scalar] = None,
         casting: Casting = "safe",
+        operation: Optional[operation] = None,
+        # Spatial options
+        bounds: Optional[BoundsInput] = None,
         resolution: ResolutionInput = 10,
         units: Units = "meters",
+        # File IO
         layer: Optional[int | str] = None,
         driver: Optional[str] = None,
         encoding: Optional[str] = None,
@@ -1334,26 +1386,52 @@ class Raster:
         extensions.
 
         Raster.from_polygons(path, field)
-        Raster.from_polygons(..., *, nodata)
-        Raster.from_polygons(..., *, nodata, casting)
-        Builds the raster using one of the data property fields for the polygon features.
-        The specified field must exist in the data properties, and must have an
-        int or float type. The dtype of the output raster will match this type.
-        Pixels whose centers lie within a polygon are set to the value of the data
-        field for that polygon. If a pixel is in multiple polygons, then the pixel's
-        value will match the data value of the final polygon in the set.
+        Raster.from_polygons(..., *, dtype)
+        Raster.from_polygons(..., *, dtype, field_casting)
+        Builds the raster using one of the data property fields for the polygon
+        features. Pixels whose centers lie within a polygon are set to the value of the
+        data field for that polygon. If a pixel is in multiple polygons, then the
+        pixel's value will match the data value of the final polygon in the set. Pixels
+        that do no lie within a polygon are set to a default NoData value, but see below
+        for options to specify the NoData value instead.
 
-        Pixels that do not lie within a polygon are set to NoData. If unspecified,
-        uses a default NoData value for the dtype. Use the "nodata" input to specify
-        the NoData value instead. By default, the NoData value must be safely
-        castable to the dtype of the raster. Use the "casting" option to select
-        other casting rules. NoData options are ignored if you do not specify a
-        field.
+        The indicated data field must exist in the data properties, and must have an int
+        or float type. By default, the dtype of the output raster will match this type.
+        Use the "dtype" option to specify the type of the output raster instead. In this
+        case, the data field values will be casted to the indicated dtype before being
+        used to build the raster. By default, field values must be safely castable to
+        the indicated dtype. Use the "field_casting" option to select different casting
+        rules. The "dtype" and "field_casting" options are ignored if you do not specify
+        a field.
+
+        Raster.from_polygons(..., field, *, nodata)
+        Raster.from_polygons(..., field, *, nodata, casting)
+        Specifies the NoData value to use when building the raster from a data attribute
+        field. By default, the NoData value must be safely castable to the dtype of the
+        output raster. Use the "casting" option to select other casting rules. NoData
+        options are ignored if you do not specify a field.
+
+        Raster.from_polygons(..., field, *, operation)
+        Applies the indicated function to the data field values and uses the output
+        values to build the raster. The input function should accept one numeric input,
+        and return one real-valued numeric output. Useful when data field values require
+        a conversion. For example, you could use the following to scale Polygon values
+        by a factor of 100:
+
+            def times_100(value):
+                return value * 100
+
+            Raster.from_polygons(..., field, operation=times_100)
+
+        Values are converted before they are validated against the "dtype" and
+        "field_casting" options, so you can also use an operation to implement a custom
+        conversion from data values to the output raster dtype. The operation input is
+        ignored if you do not specify a field.
 
         Raster.from_polygons(..., *, bounds)
         Only uses polygon features that intersect the indicated bounds. The
         returned raster is also clipped to these bounds. This option can be useful
-        when you only need data from a subset of a much large Polygon dataset.
+        when you only need data from a subset of a much larger Polygon dataset.
 
         Raster.from_polygons(..., *, resolution)
         Raster.from_polygons(..., *, resolution, units)
@@ -1396,12 +1474,19 @@ class Raster:
             path: The path to a Polygon or MultiPolygon feature file
             field: The name of a data property field used to set pixel values.
                 The data field must have an int or float type.
-            bounds: A bounding box indicating the subset of polygon features that
-                should be used to create the raster.
+            dtype: The dtype of the output raster when building from a data field
+            field_casting: The type of data casting allowed to occur when converting
+                data field values to a specified output dtype. Options are "no",
+                "equiv", "safe" (default), "same_kind", and "unsafe".
             nodata: The NoData value for the output raster.
             casting: The type of data casting allowed to occur when converting a
                 NoData value to the dtype of the Raster. Options are "no", "equiv",
                 "safe" (default), "same_kind", and "unsafe".
+            operation: A function that should be applied to data field values before
+                they are used to build the raster. Should accept one numeric input and
+                return one real-valued numeric input.
+            bounds: A bounding box indicating the subset of polygon features that
+                should be used to create the raster.
             resolution: The desired resolution of the output raster
             units: Specifies the units of the resolution when the resolution input
                 does not have a CRS. Options include: "base" (CRS/Transform base
@@ -1419,14 +1504,21 @@ class Raster:
         # Process the polygon feature file
         geometry = "polygon"
         features, crs, transform, shape, dtype, nodata = _features.parse_file(
+            # General
             geometry,
             path,
             field,
-            bounds,
+            # Field options
+            dtype,
+            field_casting,
             nodata,
             casting,
+            operation,
+            # Spatial
+            bounds,
             resolution,
             units,
+            # File IO
             layer,
             driver,
             encoding,
@@ -1508,7 +1600,7 @@ class Raster:
         if default is None:
             nodata = default_nodata(self.dtype)
         else:
-            nodata = validate.nodata(default, casting, self.dtype)
+            nodata = rvalidate.nodata(default, casting, self.dtype)
         self._finalize(nodata=nodata)
 
     def override(
@@ -1554,7 +1646,7 @@ class Raster:
         """
 
         # Validate
-        crs, projection, nodata = validate.metadata(
+        crs, projection, nodata = rvalidate.metadata(
             crs, transform, bounds, nodata, casting, self.dtype
         )
 
@@ -1735,7 +1827,7 @@ class Raster:
         """
 
         # Validate and resolve path
-        path = validate.output_path(path, overwrite)
+        path = cvalidate.output_path(path, overwrite)
 
         # Rasterio does not accept boolean dtype, so convert to int8 instead
         if self.dtype == bool:
@@ -1855,8 +1947,8 @@ class Raster:
         """
 
         # Validate the fill value
-        value = validate.scalar(value, "fill value", dtype=real)
-        value = validate.casting(value, "fill value", self.dtype, casting="safe")
+        value = cvalidate.scalar(value, "fill value", dtype=real)
+        value = rvalidate.casting(value, "fill value", self.dtype, casting="safe")
 
         # Just exit if there's not a NoData Value
         if self.nodata is None:
@@ -1889,7 +1981,7 @@ class Raster:
         """
 
         # Validate, then locate values in the raster
-        values = validate.array(values, "values", dtype=real)
+        values = cvalidate.array(values, "values", dtype=real)
         isin = np.isin(self.values, values)
 
         # Also support NaN searches
@@ -1946,8 +2038,8 @@ class Raster:
         """
 
         # Validate
-        min = validate.data_bound(min, "min", self.dtype)
-        max = validate.data_bound(max, "max", self.dtype)
+        min = rvalidate.data_bound(min, "min", self.dtype)
+        max = rvalidate.data_bound(max, "max", self.dtype)
         if fill and self.nodata is None:
             raise MissingNoDataError(
                 f"You cannot use set_range with fill=True because the {self.name} "
@@ -2059,7 +2151,7 @@ class Raster:
         """
 
         # Validate buffers and units
-        units = validate.units(units, include="pixels")
+        units = cvalidate.units(units, include="pixels")
         if self.nodata is None:
             raise MissingNoDataError(
                 f"Cannot buffer the {self.name} because it does not have a NoData "
@@ -2077,7 +2169,7 @@ class Raster:
                 "does not have a CRS. Note that a CRS is not required when buffering "
                 'with the units="base" or units="pixels" options.'
             )
-        buffers = validate.buffers(distance, left, bottom, right, top)
+        buffers = cvalidate.buffers(distance, left, bottom, right, top)
 
         # Build conversion dict from axis units to pixels
         if units != "pixels":
@@ -2146,7 +2238,7 @@ class Raster:
             )
 
         # Parse NoData, bounds, and CRS. Reproject bounds if needed
-        bounds = validate.bounds(bounds)
+        bounds = pvalidate.bounds(bounds)
         crs = _crs.parse(self.crs, bounds.crs)
         if _crs.different(self.crs, bounds.crs):
             bounds = bounds.reproject(crs)
@@ -2240,10 +2332,10 @@ class Raster:
                 f"Cannot reproject {self.name} because it does not have a NoData value. "
                 'See the "ensure_nodata" command to provide a NoData value for the raster.'
             )
-        resampling = validate.resampling(resampling)
+        resampling = rvalidate.resampling(resampling)
 
         # Parse CRS and validate transform
-        crs, transform = validate.spatial(crs, transform)
+        crs, transform = rvalidate.spatial(crs, transform)
         crs, transform = _parse.template(template, "template raster", crs, transform)
         src_crs, crs = _parse.src_dst(self.crs, crs, default=CRS(4326))
         src_transform, transform = _parse.src_dst(
@@ -2291,10 +2383,3 @@ class Raster:
         if self.dtype == bool:
             values = values.astype(bool)
         self._finalize(values, crs, transform)
-
-
-#####
-# Type Hints
-#####
-
-RasterInput = str | Path | rasterio.DatasetReader | MatrixArray | Raster | PyshedsRaster

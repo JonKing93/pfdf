@@ -4,6 +4,7 @@ Misc low-level validation functions
 Misc:
     type        - Checks input has the specified type
     option      - Checks input is a recognized string option
+    callable    - Checks input is a callable object
 
 Paths:
     input_path  - Checks input is a path to an existing file
@@ -19,8 +20,8 @@ from typing import Any, Optional, Sequence
 
 from pfdf._utils import real
 from pfdf._utils.units import supported as supported_units
-from pfdf._validate._array import scalar
-from pfdf._validate._elements import positive
+from pfdf._validate.core._array import scalar
+from pfdf._validate.core._elements import positive
 
 #####
 # Misc
@@ -75,6 +76,15 @@ def option(input: Any, name: str, allowed: Sequence[str]) -> str:
             f"{name} ({input}) is not a recognized option. Supported options are: {allowed}"
         )
     return input_lowered
+
+
+def callable_(input: Any, name: str) -> None:
+    "Checks an input is a callable object"
+    if not callable(input):
+        raise TypeError(
+            f'The "{name}" input must be a callable object, such as a function or a '
+            f"static method."
+        )
 
 
 #####

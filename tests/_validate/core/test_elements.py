@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-import pfdf._validate._elements as validate
+import pfdf._validate.core._elements as validate
 from pfdf._utils.nodata import NodataMask
 
 #####
