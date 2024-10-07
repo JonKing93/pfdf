@@ -54,20 +54,20 @@ safety:
   stage: test
   extends: .latest-python
   script:
-    - poetry run safety check
+    - poe safety
 
 format:
   stage: test
   extends: .latest-python
   script:
-    - poetry run lint
+    - poe lint
 
 test:
   stage: test
   extends: .multiple-python-versions
   script:
     - source "venv-$VERSION/bin/activate"
-    - poetry run tests
+    - poe tests
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     expire_in: 1 hour
@@ -85,9 +85,9 @@ pages:
   when: manual
   extends: .latest-python
   script:
-    - poetry run download_tutorials
-    - poetry run figures
-    - poetry run docs
+    - poe download-tutorials
+    - poe figures
+    - poe docs
   artifacts:
     paths:
     - public
@@ -99,6 +99,4 @@ release:
   extends: .latest-python
   script:
     - poetry build
-  artifacts:
-    paths:
-      - dist/
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*

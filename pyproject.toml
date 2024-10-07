@@ -45,27 +45,21 @@ tutorials = ["cartopy", "matplotlib"]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
+# Code
+poethepoet = "*"
 pytest = "^7.3.1"
 black = ">=24.3.0"
 isort = "^5.12.0"
 pytest-cov = "*"
 coverage = "*"
 safety = "^2.1.1"
+twine = "*"
+
+# Docs
 sphinx = ">=7.2.6"
 sphinx-rtd-theme = ">=1.3.0"
 sphinx_design = ">=0.5"
-
-[tool.poetry.scripts]
-tests = "scripts.dev:tests"
-format = "scripts.dev:format"
-lint = "scripts.dev:lint"
-docs = "scripts.docs:build"
-open = "scripts.docs:open_docs"
-rebuild = "scripts.docs:rebuild"
-download_tutorials = "scripts.docs:download_tutorials"
-figures = "scripts.docs:figures"
-pipeline = "scripts.pipeline:pipeline"
-docs_pipeline = "scripts.pipeline:docs_pipeline"
+sphinx-copybutton = "*"
 
 [tool.pytest.ini_options]
 filterwarnings = [
@@ -73,6 +67,91 @@ filterwarnings = [
     "ignore::DeprecationWarning:pysheds.sview",
     "ignore::DeprecationWarning:numba.core.typing.context",
 ]
+markers = [
+    "slow: marks tests as slow (deselect with: -m \"not slow\")",
+]
 
 [tool.isort]
 profile = "black"
+
+#####
+# Developer scripts
+#####
+
+[tool.poe.tasks.safety]
+help = "Checks package dependencies for security issues"
+cmd = "safety check"
+
+[tool.poe.tasks.tests]
+help = "Runs the tests and requires 100% coverage"
+sequence = [
+  { cmd = "pytest tests --cov=pfdf --cov=tests --cov-fail-under=100 --cov-report xml:coverage.xml" },
+  { ref = "coverage" },
+]
+
+[tool.poe.tasks.quicktest]
+help = "Runs the tests, but skips any slow tests"
+cmd = "pytest tests -m \"not slow\""
+
+[tool.poe.tasks.coverage]
+help = "Prints the coverage report for the tests"
+cmd = "coverage report"
+
+[tool.poe.tasks._open]
+help = "Opens an HTML index page in a browser"
+expr = "webbrowser.open(pathlib.Path.cwd() / sys.argv[1] / 'index.html')"
+imports = ["webbrowser", "pathlib"]
+
+[tool.poe.tasks.htmlcov]
+help = "Builds an HTML coverage report and opens in browser"
+sequence = [
+  { cmd = "coverage html --skip-covered" },
+  { ref = "_open htmlcov" },
+]
+
+[tool.poe.tasks.format]
+help = "Applies black and isort to pfdf and its tests"
+sequence = ["isort pfdf", "isort tests", "black pfdf", "black tests"]
+default_item_type = "cmd"
+
+[tool.poe.tasks.lint]
+help = "Requires pfdf and its tests to be properly formatted"
+sequence = [
+  "isort pfdf --check", 
+  "isort tests --check", 
+  "black pfdf --check", 
+  "black tests --check",
+]
+default_item_type = "cmd"
+
+[tool.poe.tasks.pipeline]
+help = "Mimics the Gitlab pipeline. Runs safety check, tests, and lint"
+sequence = ["safety", "lint", "tests"]
+
+[tool.poe.tasks._delete_docs]
+help = "Deletes the docs if they exist"
+expr = "shutil.rmtree('public') if pathlib.Path('public').exists() else None"
+imports = ["shutil", "pathlib"]
+
+[tool.poe.tasks.docs]
+help = "Deletes and then rebuilds the documentation"
+sequence = [
+  { ref = "_delete_docs" },
+  { cmd = "sphinx-build -qa docs public" },
+]
+
+[tool.poe.tasks.open-docs]
+help = "Opens the docs in a webbrowser"
+ref = "_open public"
+
+[tool.poe.tasks.download-tutorials]
+help = "Downloads data for the tutorials"
+script = "scripts.docs:download_tutorials"
+
+[tool.poe.tasks.figures]
+help = "Builds the figures for the tutorials"
+script = "scripts.docs:figures"
+
+[tool.poe.tasks.docs-pipeline]
+help = "Downloads tutorial data, creates figures, and rebuilds the docs"
+sequence = ["download-tutorials", "figures", "docs"]
