@@ -28,12 +28,12 @@ Both methods support 4 types of export:
 By default, both methods will export segments, but you can use the "type" option to select a different type::
 
     # Save segments as LineStrings (default)
-    >>> segments.save('segments.shp')
+    segments.save('segments.shp')
 
     # Save basins and outlets (Polygons and Points)
-    >>> segments.save('basins.shp', type="basins")
-    >>> segments.save('outlets.shp', "outlets")
-    >>> segments.save('all-outlets.shp', "segment outlets")
+    segments.save('basins.shp', type="basins")
+    segments.save('outlets.shp', "outlets")
+    segments.save('all-outlets.shp', "segment outlets")
 
 
 Properties
@@ -65,13 +65,15 @@ If you are exporting basins or outlets, then the property arrays may optionally 
 
 CRS
 ---
-By default, both methods will export the features using the :ref:`CRS <guide-crs>` of the flow-direction raster used to derive the network. However, you can use the ``crs`` option to export the features to a different CRS instead::
+By default, both methods will export the features using the :ref:`CRS <guide-crs>` of the flow-direction raster used to derive the network. However, you can use the ``crs`` option to export the features to a different CRS instead:
 
-  # Default would export to EPSG:26911
+.. code:: pycon
+
+  >>> # Default would export to EPSG:26911
   >>> segments.crs.to_epsg()
   26911
 
-  # But this will export to EPSG:4326 instead
+  >>> # But this will export to EPSG:4326 instead
   >>> segments.save('segments.shp', crs=4326)
 
 
@@ -82,10 +84,10 @@ __geo_interface__
 
 The class also supports the `__geo_interface__ <https://gist.github.com/sgillies/2217756>`_ protocol::
 
-    >>> geojson_dict = segments.__geo_interface__
+    geojson_dict = segments.__geo_interface__
 
 This returns a dict-like ``geojson.FeatureCollection``, and is equivalent to calling the ``geojson`` method for segments with no properties::
 
   # Same output
-  >>> geojson_dict = segments.__geo_interface__
-  >>> the_same_dict = segments.geojson(type="segments", properties=None)
+  geojson_dict = segments.__geo_interface__
+  the_same_dict = segments.geojson(type="segments", properties=None)

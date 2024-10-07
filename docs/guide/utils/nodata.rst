@@ -25,7 +25,9 @@ By default, *Raster* objects try to ensure they have a NoData value. So if you c
     * - Anything else
       - None
 
-You can use the :ref:`nodata.default function <pfdf.utils.nodata.default>` to query the default value for specific dtypes::
+You can use the :ref:`nodata.default function <pfdf.utils.nodata.default>` to query the default value for specific dtypes:
+
+.. code:: pycon
 
     >>> from pfdf.utils import nodata
 
@@ -48,13 +50,17 @@ Data Mask
 
     It is usually preferable to use the :ref:`Raster.data_mask <pfdf.raster.Raster.data_mask>` or :ref:`Raster.nodata_mask <pfdf.raster.Raster.nodata_mask>` properties, rather than this function.
 
-The :ref:`mask function <pfdf.utils.nodata.mask>` returns a NoData mask or data mask, given an array and a NoData value. In a NoData mask, NoData elements are marked as True::
+The :ref:`mask function <pfdf.utils.nodata.mask>` returns a NoData mask or data mask, given an array and a NoData value. In a NoData mask, NoData elements are marked as True:
+
+.. code:: pycon
 
     >>> from pfdf.utils import nodata
     >>> nodata.mask([1,2,3], nodata=2)
     array([False,  True, False])
 
-A data mask is the opposite - data elements are marked as True. Use the "invert" option to return a data mask instead::
+A data mask is the opposite - data elements are marked as True. Use the "invert" option to return a data mask instead:
+
+.. code:: pycon
 
     >>> nodata.mask([1,2,3], invert=True)
     array([ True, False,  True])

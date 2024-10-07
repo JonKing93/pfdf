@@ -254,7 +254,9 @@ This parameter establishes a maximum length for segments in the network (in mete
 
     An initial stream segment network. Blue lines indicate the stream segments. The grey background is the fire perimeter, and the red dots are debris-retention features.
 
-We can use the ``size`` parameter to see that there are 658 segments in this network::
+We can use the ``size`` parameter to see that there are 658 segments in this network:
+
+.. code:: pycon
 
     >>> segments.size
     658
@@ -411,7 +413,9 @@ We'll then use these quantities to solve for debris-flow likelihood:
     :start-line: 96
     :end-line: 97
 
-Here, the ``likelihoods`` output is a 2D numpy array. The number of rows corresponds to the number of segments in the network. Each column holds the solutions for one of our queried rainfall durations:
+Here, the ``likelihoods`` output is a 2D numpy array. The number of rows corresponds to the number of segments in the network. Each column holds the solutions for one of our queried rainfall durations
+
+.. code:: pycon
 
     >>> likelihood.shape
     (470, 4)
@@ -440,7 +444,9 @@ These are (1) the catchment area burned at moderate-or-high severity, and (2) th
     :start-line: 101
     :end-line: 102
 
-Each of the three outputs are a 2D numpy array with one row per stream segment, and one column per queried rainfall intensity. The ``volume`` array holds the estimated potential sediment volumes in cubic meters (m³). The ``Vmin`` and ``Vmax`` arrays are the lower and upper bounds of the 95% confidence interval, respectively::
+Each of the three outputs are a 2D numpy array with one row per stream segment, and one column per queried rainfall intensity. The ``volume`` array holds the estimated potential sediment volumes in cubic meters (m³). The ``Vmin`` and ``Vmax`` arrays are the lower and upper bounds of the 95% confidence interval, respectively:
+
+.. code:: pycon
 
     >>> volume.shape
     (470, 4)
@@ -493,7 +499,9 @@ Here, each of the ``B``, ``Ct``, ``Cf``, and ``Cs`` variables is a vector with 3
     :start-line: 109
     :end-line: 110
 
-Here, the output thresholds are a 3D numpy array. Each row holds the values for a particular stream segment, and each column holds the values for a particular rainfall duration. The third dimension holds the values for each queried probability level::
+Here, the output thresholds are a 3D numpy array. Each row holds the values for a particular stream segment, and each column holds the values for a particular rainfall duration. The third dimension holds the values for each queried probability level:
+
+.. code:: pycon
 
     >>> accumulation.shape
     (470, 3, 2)

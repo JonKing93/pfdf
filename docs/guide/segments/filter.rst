@@ -7,16 +7,18 @@ It's often useful to reduce a stream segment network to a subset of its segments
 
 remove
 ------
-The :ref:`remove <pfdf.segments.Segments.remove>` method will remove the selected segments from the network. By default, the command expects a boolean vector with one element per segment in the network, but you can also use the ``type`` option to select segments using IDs instead. For example::
+The :ref:`remove <pfdf.segments.Segments.remove>` method will remove the selected segments from the network. By default, the command expects a boolean vector with one element per segment in the network, but you can also use the ``type`` option to select segments using IDs instead. For example:
 
-    # Indicate segments using boolean indexing
+.. code:: pycon
+
+    >>> # Indicate segments using boolean indexing
     >>> areas = segments.area()
     >>> too_small = areas < 0.25
     >>> segments.remove(too_small)
     >>> segments.size
     954
     
-    # Indicate segments using integer IDs
+    >>> # Indicate segments using integer IDs
     >>> segments.size
     1000
     >>> segments.remove([1,4,17,200], type="ids")
@@ -30,9 +32,11 @@ The :ref:`remove <pfdf.segments.Segments.remove>` method will remove the selecte
 
 keep
 ----
-The :ref:`keep <pfdf.segments.Segments.keep>` method is essentially the inverse of :ref:`remove`. This method will keep the indicated segments, and will discard all others. For example::
+The :ref:`keep <pfdf.segments.Segments.keep>` method is essentially the inverse of :ref:`remove`. This method will keep the indicated segments, and will discard all others. For example:
 
-    # Indicate segments using boolean indexing
+.. code:: pycon
+
+    >>> # Indicate segments using boolean indexing
     >>> areas = segments.area()
     [20, 250, 400, 19]
     >>> large_enough = areas > 100
@@ -40,7 +44,7 @@ The :ref:`keep <pfdf.segments.Segments.keep>` method is essentially the inverse 
     >>> segments.size
     2
 
-    # Indicate segments using integer IDs
+    >>> # Indicate segments using integer IDs
     >>> segments.size
     1000
     >>> segments.keep([1,4,17,200], type="ids")
@@ -70,16 +74,18 @@ In this example, the red segments (1, 2, 4, 7, 9) have been marked for removal. 
 
   Removal that preserves flow continuity
 
-You can implement flow continuous filtering using the :ref:`continuous <pfdf.segments.Segments.continuous>` method. Given a set of segments selected for filtering, the command returns the indices of segments that can be filtered without altering flow continuity. By default, the command assumes you are filtering using the :ref:`keep command <keep>`, but you can set ``remove=True`` to indicate filtering using the :ref:`remove command <remove>` instead. As with the filtering commands, you can indicate selected segments using a boolean vector (default), or using segment IDs (with the ``type="ids" option)``. For example::
+You can implement flow continuous filtering using the :ref:`continuous <pfdf.segments.Segments.continuous>` method. Given a set of segments selected for filtering, the command returns the indices of segments that can be filtered without altering flow continuity. By default, the command assumes you are filtering using the :ref:`keep command <keep>`, but you can set ``remove=True`` to indicate filtering using the :ref:`remove command <remove>` instead. As with the filtering commands, you can indicate selected segments using a boolean vector (default), or using segment IDs (with the ``type="ids" option)``. For example:
 
-    # Filtering with "keep" and segment IDs
+.. code:: pycon
+
+    >>> # Filtering with "keep" and segment IDs
     >>> segments.size
     9
     >>> keep = segments.continuous([3, 5, 6, 8], type="ids")
     >>> segments.ids[keep]
     [3, 4, 5, 6, 8]
 
-    # Filtering with "remove" and segment indices
+    >>> # Filtering with "remove" and segment indices
     >>> segments.size
     9
     >>> remove = np.isin(segments.ids, [1,2,4,7,9])
@@ -90,12 +96,12 @@ You can implement flow continuous filtering using the :ref:`continuous <pfdf.seg
 You can then call the :ref:`keep <keep>` or :ref:`remove <remove>` on the output indices to implement flow-continuous filtering::
 
     # Filtering with "keep"
-    >>> keep = segments.continuous(keep)
-    >>> segments.keep(keep)
+    keep = segments.continuous(keep)
+    segments.keep(keep)
 
     # Filtering with "remove"
-    >>> remove = segments.continuous(remove, remove=True)
-    >>> segments.remove(remove)
+    remove = segments.continuous(remove, remove=True)
+    segments.remove(remove)
 
 
 
@@ -107,11 +113,11 @@ Nested Basins
 
 It is sometimes desirable to remove nested drainages from the stream segment network. A nested drainage network is a local drainage network upstream of another local drainage network, and is indicative of a flow discontinuity. Nested networks are often removed to provide cleaner :doc:`export <export>` of basin outlet points, as a nested network will result in a "hanging" outlet point in the middle of a larger drainage basin. You can locate nested segments using the :ref:`isnested command <pfdf.segments.Segments.isnested>`::
 
-    >>> nested = segments.isnested()
+    nested = segments.isnested()
 
 And remove them using the usual :ref:`remove command <remove>`::
 
-    >>> segments.remove(indices=nested)
+    segments.remove(indices=nested)
 
 .. tip::
 
@@ -126,13 +132,13 @@ copy
 The :ref:`keep` and :ref:`remove` methods permanently alter a *Segments* object, and discarded segments cannot be restored. However, you can use the :ref:`copy <pfdf.segments.Segments.copy>` method to create a copy of the object before filtering. You can then remove segments from one copy without affecting the other. This can be useful for testing different filtering criteria::
 
   # Copy the segments and create two different filtering criteria
-  >>> acopy = segments.copy()
-  >>> test1 = segments.area() < 100
-  >>> test2 = segments.area() < 200
+  acopy = segments.copy()
+  test1 = segments.area() < 100
+  test2 = segments.area() < 200
 
   # Filter the segments and the copy using separate criteria
-  >>> segments.remove(indices=test1)
-  >>> acopy.remove(indices=test2)
+  segments.remove(indices=test1)
+  acopy.remove(indices=test2)
 
 
 Filtering Effects

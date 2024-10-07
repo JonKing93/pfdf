@@ -26,9 +26,9 @@ release = _pyproject['tool']['poetry']['version']
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ["sphinx_rtd_theme", "sphinx_design"]
+extensions = ["sphinx_rtd_theme", "sphinx_design", "sphinx_copybutton"]
 exclude_patterns = ["images","tutorials/download"]
-highlight_language = "pycon"
+highlight_language = "python"
 pygments_style = "sphinx"
 
 
@@ -38,4 +38,4 @@ pygments_style = "sphinx"
 html_copy_source = False
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {'navigation_depth': -1}
-
+copybutton_exclude = '.linenos, .gp, .go'

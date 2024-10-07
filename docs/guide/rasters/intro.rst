@@ -23,7 +23,7 @@ Raster Objects
 As stated, rasters are the fundamental input for pfdf analyses. As such, pfdf provides a custom :ref:`Raster class <pfdf.raster.Raster>` to help manage these datasets::
 
     # Import the Raster class
-    >>> from pfdf.raster import Raster
+    from pfdf.raster import Raster
 
 This class includes methods to:
 
@@ -34,9 +34,11 @@ This class includes methods to:
 
 .. note:: See also the :doc:`raster </tutorials/rasters>` and :doc:`preprocessing </tutorials/preprocess>` tutorials for detailed examples using *Raster* commands.
 
-In many cases, you can create a *Raster* object by calling :ref:`the constructor <pfdf.raster.Raster.__init__>` on a file or an array-like dataset. For example, from a file::
+In many cases, you can create a *Raster* object by calling :ref:`the constructor <pfdf.raster.Raster.__init__>` on a file or an array-like dataset. For example, from a file:
 
-    # File-based dataset
+.. code:: pycon
+
+    >>> # File-based dataset
     >>> dem = Raster('dem.tif')
     Raster:
         Name: raster
@@ -47,9 +49,11 @@ In many cases, you can create a *Raster* object by calling :ref:`the constructor
         Transform(dx=10, dy=-10, left=736399, top=4990804, crs="NAD83 / UTM zone 11N")
         BoundingBox(left=736399, bottom=4876354, right=846259, top=4990804, crs="NAD83 / UTM zone 11N")
 
-or from a numpy array::
+or from a numpy array:
 
-    # From a numpy array
+.. code:: pycon
+
+    >>> # From a numpy array
     >>> import numpy as np
     >>> array = np.arange(200).reshape(20,10)
     >>> raster = Raster(array)
@@ -65,15 +69,17 @@ or from a numpy array::
 Once you have a *Raster* object, you can save the raster to file using the :ref:`save method <pfdf.raster.Raster.save>`::
 
     # Save to file
-    >>> raster.save('my-raster.tif')
+    raster.save('my-raster.tif')
 
 
 Data Properties
 ----------------
 
-Each *Raster* represents its data grid as a 2D numpy array. You can use the ``values`` property to return this array::
+Each *Raster* represents its data grid as a 2D numpy array. You can use the ``values`` property to return this array:
 
-    # Return Raster data values
+.. code:: pycon
+
+    >>> # Return Raster data values
     >>> dem.values
     array([[nan, nan, nan, ..., nan, nan, nan],
            [nan, nan, nan, ..., nan, nan, nan],
@@ -87,14 +93,14 @@ Each *Raster* represents its data grid as a 2D numpy array. You can use the ``va
 Note that *Raster* values are read-only, so you will need to make a copy if you want to alter the array::
 
     # This is fine (not changing values)
-    >>> array = dem.values + 1
+    array = dem.values + 1
 
     # As is this (copied before changing values)
-    >>> values = dem.values.copy()
-    >>> values[0,0] = 1
+    values = dem.values.copy()
+    values[0,0] = 1
 
     # But not this (didn't copy, so will raise an error)
-    >>> dem.values[0,0] = 1
+    dem.values[0,0] = 1
 
 Some other useful properties include:
 

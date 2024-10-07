@@ -52,28 +52,28 @@ where:
 
 You can run this model using the ``emergency`` function. This function returns the estimated potential sediment volumes (V), the lower bound of the 95% confidence interval (Vmin), and the upper bound of the 95% confidence interval (Vmax). For example, assuming you have already built a stream segment network::
 
-    >>> from pfdf.models import g14
-    >>> from pfdf import severity, watershed
+    from pfdf.models import g14
+    from pfdf import severity, watershed
 
     # Compute model inputs
-    >>> i15 = 0.24
-    >>> moderate_high = severity.mask(barc4, ["moderate","high"])
-    >>> Bmh = segments.burned_area(moderate_high)
-    >>> relief = watershed.relief(dem, flow)
-    >>> R = segments.relief(relief)
+    i15 = 0.24
+    moderate_high = severity.mask(barc4, ["moderate","high"])
+    Bmh = segments.burned_area(moderate_high)
+    relief = watershed.relief(dem, flow)
+    R = segments.relief(relief)
 
     # Estimate debris-flow volume
-    >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R)
+    V, Vmin, Vmax = g14.emergency(i15, Bmh, R)
 
 You can also use the Ci, Cb, Cr, and B options to change the values of the model coefficients and intercept::
 
     # Estimate volume using custom parameters
-    >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R, B=4.23, Ci=0.38, Cb=0.35, Cr=0.12)
+    V, Vmin, Vmax = g14.emergency(i15, Bmh, R, B=4.23, Ci=0.38, Cb=0.35, Cr=0.12)
 
 And the CI and RSE options to calculate custom confidence intervals::
 
     # Estimate the 90% CI using a custom RSE
-    >>> V, Vmin, Vmax = g14.emergency(i15, Bmh, R, CI=0.9, RSE=1.13)
+    V, Vmin, Vmax = g14.emergency(i15, Bmh, R, CI=0.9, RSE=1.13)
 
 
 Long-term Model
@@ -132,26 +132,26 @@ where:
 
 You can run this model using the ``longterm`` function. This function returns the estimated potential sediment volumes (V), the lower bound of the 95% confidence interval (Vmin), and the upper bound of the 95% confidence interval (Vmax). For example, assuming you have already built a stream segment network::
 
-    >>> from pfdf.models import g14
-    >>> from pfdf import severity
+    from pfdf.models import g14
+    from pfdf import severity
 
     # Compute model inputs
-    >>> i60 = 0.96
-    >>> burned = severity.mask(barc4, "burned")
-    >>> Bt = segments.burned_area(burned)
-    >>> T = 2
-    >>> A = segments.area()
-    >>> R = segments.relief(relief)
+    i60 = 0.96
+    burned = severity.mask(barc4, "burned")
+    Bt = segments.burned_area(burned)
+    T = 2
+    A = segments.area()
+    R = segments.relief(relief)
 
     # Estimate debris-flow volume
-    >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R)
+    V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R)
 
 You can also use the Ci, Cb, Ct, Ca, Cr, and B options to change the values of the model coefficients and intercept::
 
     # Estimate volume using custom parameters
-    >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, B=6.08, Ci=0.72, Cb=0.21, Ct=0.25, Ca=0.48, Cr=0.04)
+    V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, B=6.08, Ci=0.72, Cb=0.21, Ct=0.25, Ca=0.48, Cr=0.04)
 
 And the CI and RSE options to calculate custom confidence intervals::
 
     # Estimate the 90% CI using a custom RSE
-    >>> V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, CI=0.9, RSE=1.13)
+    V, Vmin, Vmax = g14.longterm(i60, Bt, T, A, R, CI=0.9, RSE=1.13)

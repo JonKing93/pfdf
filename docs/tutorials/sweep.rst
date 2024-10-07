@@ -61,7 +61,9 @@ Finally, we'll run the likelihood model:
     :start-line: 19
     :end-line: 20
 
-The output likelihoods will be a matrix with one row per stream segment. Each column holds the likelihoods for one of the 100 tested ``Ct`` values::
+The output likelihoods will be a matrix with one row per stream segment. Each column holds the likelihoods for one of the 100 tested ``Ct`` values:
+
+.. code:: pycon
 
     >>> p1.shape
     (470, 100)
@@ -88,7 +90,9 @@ We can then run the model as normal:
     :start-line: 24
     :end-line: 25
 
-Once again, the output likelihoods will be a matrix with one row per segment. Each column holds the likelihoods for one of the 1000 tested (``Ct``, ``Cf``) pairs. For example, column 0 holds the values for (``Ct[0]``, ``Cf[0]``), column 1 holds the values for (``Ct[1]``, ``Cf[1]``), etc:
+Once again, the output likelihoods will be a matrix with one row per segment. Each column holds the likelihoods for one of the 1000 tested (``Ct``, ``Cf``) pairs. For example, column 0 holds the values for (``Ct[0]``, ``Cf[0]``), column 1 holds the values for (``Ct[1]``, ``Cf[1]``), etc
+
+.. code:: pycon
 
     >>> p2.shape
     (470, 1000)

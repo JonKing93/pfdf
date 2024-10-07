@@ -43,17 +43,17 @@ The first step for most users is to apply the :ref:`condition <pfdf.watershed.co
 Note that this function returns a new conditioned *Raster* object as output - it does not modify the input DEM dataset::
 
     # Condition a DEM
-    >>> from pfdf import watershed
-    >>> from pfdf.raster import Raster
-    >>> dem = Raster('dem.tif')
-    >>> conditioned = watershed.condition(dem)
+    from pfdf import watershed
+    from pfdf.raster import Raster
+    dem = Raster('dem.tif')
+    conditioned = watershed.condition(dem)
 
 You can also use the ``fill_pits``, ``fill_depressions``, and ``resolve_flats`` options to disable specific conditioning steps::
 
     # Disable steps of the DEM conditioning algorithm
-    >>> output = watershed.condition(dem, fill_pits=False)
-    >>> output = watershed.condition(dem, fill_depressions=False)
-    >>> output = watershed.condition(dem, resolve_flats=False)
+    output = watershed.condition(dem, fill_pits=False)
+    output = watershed.condition(dem, fill_depressions=False)
+    output = watershed.condition(dem, resolve_flats=False)
 
 
 .. _flow:
@@ -62,7 +62,7 @@ Flow Directions
 ---------------
 Next, use the :ref:`flow function <pfdf.watershed.flow>` to compute flow directions from the conditioned DEM::
 
-    >>> flow = watershed.flow(conditioned)
+    flow = watershed.flow(conditioned)
 
 
 .. _taudem-style:
@@ -90,18 +90,18 @@ Accumulation
 ------------
 The :ref:`accumulation <pfdf.watershed.accumulation>` function computes flow accumulation for each pixel in the watershed. In the simplest case, the value for each pixel is the number of upstream pixels flowing into it::
     
-    >>> npixels = watershed.accumulation(flow)
+    npixels = watershed.accumulation(flow)
 
 You can use the ``times`` option to apply a multiplicative constant to these pixel counts. Setting the option equal to the area of a raster pixel will return accumulation in area, rather than pixel counts::
 
-    >>> pixel_area = flow.pixel_area(units="meters")
-    >>> area_m2 = watershed.accumulation(flow, times=pixel_area)
+    pixel_area = flow.pixel_area(units="meters")
+    area_m2 = watershed.accumulation(flow, times=pixel_area)
 
 You can also compute accumulation using a second raster as pixel weights. For example, you could use::
 
-    >>> barc4 = Raster('barc4.tif')
-    >>> isburned = barc4.values > 0
-    >>> nburned = watershed.accumulation(flow, weights=isburned)
+    barc4 = Raster('barc4.tif')
+    isburned = barc4.values > 0
+    nburned = watershed.accumulation(flow, weights=isburned)
 
 to compute the number of burned upstream pixels.
 
@@ -113,11 +113,11 @@ Slopes
 
 D8 flow slopes are often useful for implementing :doc:`hazard assessment models </guide/models/s17>`. You can compute them using the :ref:`slopes function <pfdf.watershed.slopes>`::
 
-    >>> slopes = watershed.slopes(dem, flow)
+    slopes = watershed.slopes(dem, flow)
 
 Note that this function requires the DEM to have both a CRS and an affine Transform. The function also assumes that the DEM is in meters. If this is not the case, use the "dem_per_m" option to specify a conversion factor from DEM units to meters. For example, if your DEM is in units of feet, use::
 
-    >>> slopes = watershed.slopes(dem_in_feet, flow, dem_per_m=3.28084)
+    slopes = watershed.slopes(dem_in_feet, flow, dem_per_m=3.28084)
 
 .. note:: The input DEM may be a raw DEM; a conditioned DEM is not required for this function. However, you may wish to use a conditioned DEM for consistency across your analyses.
 
@@ -129,7 +129,7 @@ Relief
 
 Vertical relief is often used to implement :doc:`potential sediment volume models </guide/models/g14>`. Use the :ref:`relief function <pfdf.watershed.relief>` to compute it:
 
-    >>> relief = watershed.relief(dem, flow)
+    relief = watershed.relief(dem, flow)
 
 .. note:: As with :ref:`slopes`, the DEM input may be a raw DEM; a conditioned DEM is not required for this function. However, you may wish to use a conditioned DEM for consistency across your analyses.
 
