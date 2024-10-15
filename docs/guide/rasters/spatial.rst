@@ -13,7 +13,9 @@ The remainder of this page describes some common commands for examining a *Raste
 
 CRS
 ---
-You can use the ``crs`` property to return a *Raster* object's CRS. This will return a `pyproj.CRS object <https://pyproj4.github.io/pyproj/latest/examples.html>`_ with detailed information about the CRS. For example::
+You can use the ``crs`` property to return a *Raster* object's CRS. This will return a `pyproj.CRS object <https://pyproj4.github.io/pyproj/latest/examples.html>`_ with detailed information about the CRS. For example:
+
+.. code:: pycon
 
     >>> raster.crs
     <Geographic 2D CRS: EPSG:4326>
@@ -32,7 +34,15 @@ You can use the ``crs`` property to return a *Raster* object's CRS. This will re
 Missing CRS
 +++++++++++
 
-If a *Raster* does not have a CRS, then the ``crs`` property will return ``None``. When this is the case, you can use the property to specify a CRS for the raster. You can use any input accepted by pyproj to initialize the CRS, or alternatively another *Raster* object. Some common options include:
+If a *Raster* does not have a CRS, then the ``crs`` property will return ``None``. 
+
+.. code:: pycon
+
+    >>> # Raster lacking a CRS
+    >>> print(raster.crs)
+    None
+
+When this is the case, you can use the property to specify a CRS for the raster. You can use any input accepted by pyproj to initialize the CRS, or alternatively another *Raster* object. Some common options include:
 
 * An EPSG code, 
 * A CRS name, 
@@ -41,15 +51,11 @@ If a *Raster* does not have a CRS, then the ``crs`` property will return ``None`
 
 ::
 
-    # Raster lacking a CRS
-    >>> print(raster.crs)
-    None
-
     # Common options to initialize a CRS
-    >>> raster.crs = 4326                    # An EPSG code
-    >>> raster.crs = "NAD83 / UTM zone 11N"  # By name
-    >>> raster.crs = other_raster            # Another Raster object
-    >>> raster.crs = "+proj=latlon"          # A PROJ4 string
+    raster.crs = 4326                    # An EPSG code
+    raster.crs = "NAD83 / UTM zone 11N"  # By name
+    raster.crs = other_raster            # Another Raster object
+    raster.crs = "+proj=latlon"          # A PROJ4 string
 
 .. note::
 
@@ -62,30 +68,35 @@ If a *Raster* does not have a CRS, then the ``crs`` property will return ``None`
 Transform
 ---------
 
-You can use the ``transform`` property to return a :ref:`Transform object <pfdf.projection.transform.Transform>` for a *Raster*. A *Transform* object includes information on a raster's resolution, as well as the locations of the left and top edges::
+You can use the ``transform`` property to return a :ref:`Transform object <pfdf.projection.transform.Transform>` for a *Raster*. A *Transform* object includes information on a raster's resolution, as well as the locations of the left and top edges:
+
+.. code:: pycon
 
     >>> raster.transform
     Transform(dx=8.9e-05, dy=-9e-05, left=-121, top=0, crs="WGS 84")
 
-Here, ``dx`` is the change in spatial coordinate when moving one pixel right, and ``dy`` is the change in spatial coordinate when moving one pixel down. Alternatively, you can use the ``affine`` property to return the transform as an `affine.Affine object <https://pypi.org/project/affine/>`_, which can be used for coordinate mathematics::
+Here, ``dx`` is the change in spatial coordinate when moving one pixel right, and ``dy`` is the change in spatial coordinate when moving one pixel down. Alternatively, you can use the ``affine`` property to return the transform as an `affine.Affine object <https://pypi.org/project/affine/>`_, which can be used for coordinate mathematics:
+
+.. code:: pycon
 
     >>> raster.affine
     Affine(8.9e-05, 0.0, -121.0,
        0.0, -9e-05, 0.0)
 
-You can also use the ``resolution`` method to return the raster's resolution. By default, resolution is reported in meters, but you can use the ``units`` option to report resolution in a different unit instead::
+You can also use the ``resolution`` method to return the raster's resolution. By default, resolution is reported in meters, but you can use the ``units`` option to report resolution in a different unit instead:
 
-    # Default is meters
+.. code:: pycon
+
+    >>> # Default is meters
     >>> raster.resolution()
     (9.896348471216168, 10.007543398010286)
 
-    # Other unit options
-    >>> raster.resolution("kilometers")
+    >>> # But you can use other units
     >>> raster.resolution("feet")
-    >>> raster.resolution("miles")
+    (32.46833488, 32.83314763)
 
-    # Report in the base units of the CRS
-    # (in this case, units are degrees)
+    >>> # Report in the base units of the CRS
+    >>> # (in this case, units are degrees)
     >>> raster.resolution(units="base")
     (8.9e-05, 9e-05)
 
@@ -99,7 +110,15 @@ Note that resolution is strictly positive. Equivalently, resolution is the absol
 Missing Transform
 +++++++++++++++++
 
-If a *Raster* does not have a transform, then the ``transform`` property will return ``None``. When this is the case, you can use the property to initialize a *Transform* for the raster. You can use a variety of inputs to initialize a transform. Some common options include: 
+If a *Raster* does not have a transform, then the ``transform`` property will return ``None``:
+
+.. code:: pycon
+
+    >>> # Raster without a transform
+    >>> print(raster.transform)
+    None
+
+When this is the case, you can use the property to initialize a *Transform* for the raster. You can use a variety of inputs to initialize a transform. Some common options include: 
 
 * A dict,
 * A ``(dx, dy, left, top)`` list or tuple
@@ -109,16 +128,12 @@ If a *Raster* does not have a transform, then the ``transform`` property will re
 
 ::
 
-    # Raster without a transform
-    >>> print(raster.transform)
-    None
-
     # Common options to initialize transform
-    >>> raster.transform = (10, -10, -121, 5)  # dx, dy, left, top
-    >>> raster.transform = {'dx': 10, 'dy': -10, 'left': -121, 'top': 5}
-    >>> raster.transform = other_raster
-    >>> raster.transform = Transform(10, -10, -121, 5)
-    >>> raster.transform = Affine(10, 0, -121, 0, -10, 5)
+    raster.transform = (10, -10, -121, 5)  # dx, dy, left, top
+    raster.transform = {'dx': 10, 'dy': -10, 'left': -121, 'top': 5}
+    raster.transform = other_raster
+    raster.transform = Transform(10, -10, -121, 5)
+    raster.transform = Affine(10, 0, -121, 0, -10, 5)
 
 Since the transform and bounding box represent the same information, initializing the transform will also initialize the bounding box.
 
@@ -132,17 +147,23 @@ Since the transform and bounding box represent the same information, initializin
 
 Bounding Box
 ------------
-You can use the ``bounds`` property to return a :ref:`BoundingBox object <pfdf.projection.bbox.BoundingBox>` for a *Raster*. This reports the spatial coordinates raster's edges::
+You can use the ``bounds`` property to return a :ref:`BoundingBox object <pfdf.projection.bbox.BoundingBox>` for a *Raster*. This reports the spatial coordinates raster's edges:
+
+.. code:: pycon
 
     >>> raster.bounds
     BoundingBox(left=736399, bottom=4876354, right=846259, top=4990804, crs="NAD83 / UTM zone 11N")
 
-You can also use the ``center`` property to return the coordinate at the center of the *BoundingBox*::
+You can also use the ``center`` property to return the coordinate at the center of the *BoundingBox*:
+
+.. code:: pycon
 
     >>> raster.center
     (791329.0, 4933579.0)
 
-And the ``utm_zone`` property returns the CRS of the UTM zone that overlaps this center coordinate::
+And the ``utm_zone`` property returns the CRS of the UTM zone that overlaps this center coordinate:
+
+.. code:: pycon
 
     >>> raster.utm_zone
     <Projected CRS: EPSG:32612>
@@ -168,7 +189,16 @@ And the ``utm_zone`` property returns the CRS of the UTM zone that overlaps this
 Missing Bounding Box
 ++++++++++++++++++++
 
-If a *Raster* does not have a *BoundingBox*, then the ``bounds`` property will return ``None``. When this is the case, you can use the property to initialize the bounding box. You can use a variety of inputs to initialize a bounding box. These include: 
+If a *Raster* does not have a *BoundingBox*, then the ``bounds`` property will return ``None``:
+
+.. code:: pycon
+
+    >>> # Raster without bounds
+    >>> print(raster.bounds)
+    None
+
+
+When this is the case, you can use the property to initialize the bounding box. You can use a variety of inputs to initialize a bounding box. These include: 
 
 * A ``(left, bottom, right, top)`` tuple/list, 
 * A dict, 
@@ -177,15 +207,11 @@ If a *Raster* does not have a *BoundingBox*, then the ``bounds`` property will r
 
 ::
 
-    # Raster without bounds
-    >>> print(raster.bounds)
-    None
-
     # Common options to initialize bounds
-    >>> raster.bounds = (0, 5, 10, 100)  # left, bottom, right, top
-    >>> raster.bounds = {'left': 0, 'bottom': 5, 'right': 10, 'top': 100}
-    >>> raster.bounds = other_raster
-    >>> raster.bounds = BoundingBox(0, 5, 10, 100)
+    raster.bounds = (0, 5, 10, 100)  # left, bottom, right, top
+    raster.bounds = {'left': 0, 'bottom': 5, 'right': 10, 'top': 100}
+    raster.bounds = other_raster
+    raster.bounds = BoundingBox(0, 5, 10, 100)
 
 Since the bounding box and transform represent the same information, initializing the bounding box will also initialize the transform.
 

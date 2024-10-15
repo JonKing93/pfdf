@@ -18,7 +18,7 @@ from affine import Affine
 from pfdf.errors import MissingNoDataError
 from pfdf.projection import BoundingBox
 from pfdf.raster import _merror
-from pfdf.typing import MatrixArray, ScalarArray, VectorArray
+from pfdf.typing.core import MatrixArray, ScalarArray, VectorArray
 
 limits = tuple[int, int]
 

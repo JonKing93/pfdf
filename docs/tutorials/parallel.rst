@@ -27,13 +27,13 @@ We begin with the :ref:`locate_basins <pfdf.segments.Segments.locate_basins>` co
 
 The use of multiple CPUs imposes two restrictions. First, the code must be run from the command line as a Python script. For example, you could run the tutorial script using something like::
     
-    $ python parallel.py
+    python parallel.py
     
 or
 
 ::
 
-    $ python -m parallel
+    python -m parallel
 
 Second, the code in the script must be protected by the ``if __name__ == "__main__":`` block seen on line 5 of the example script. This is essential, because the Python interpreter re-imports the script for each activated CPU. If this block is missing, the re-imported script will reach the part of the code that activates multiple CPUs and will attempt to activate even more CPUs. These CPUs will each then re-import the script, resulting in an infinite loop that will eventually crash the terminal. By contrast, code in a ``if __name__ == "__main__":`` block isn't run when the script is re-imported, thereby preventing the infinite loop.
 

@@ -55,10 +55,10 @@ The *Segments* class includes methods to calculate commonly used physical variab
 
 All of these methods return a 1D numpy array with one element per segment. Most require a raster as input, and some require additional inputs::
 
-    >>> area = segments.area()
-    >>> burn_ratio = segments.burn_ratio(isburned)
-    >>> scaled_dnbr = segments.scaled_dnbr(dnbr)
-    >>> confinement = segments.confinement(dem, neighborhood)
+    area = segments.area()
+    burn_ratio = segments.burn_ratio(isburned)
+    scaled_dnbr = segments.scaled_dnbr(dnbr)
+    confinement = segments.confinement(dem, neighborhood)
 
 Ignoring Pixels
 +++++++++++++++
@@ -66,16 +66,16 @@ Ignoring Pixels
 Many methods have an optional ``omitnan`` option. Set this value to True to ignore raster pixels equal to NaN. For example::
 
     # Will ignore NaN pixels when computing summaries
-    >>> scaled_dnbr = segments.scaled_dnbr(dnbr, omitnan=True)
-    >>> kf_factor = segments.kf_factor(kf, omitnan=True)
+    scaled_dnbr = segments.scaled_dnbr(dnbr, omitnan=True)
+    kf_factor = segments.kf_factor(kf, omitnan=True)
 
 .. _mask-option:
 
 In some cases, the omitnan option may not be sufficient. In this case, all catchment summaries support a ``mask`` option, which accepts a boolean *Raster* mask. False elements of the mask are ignored when computing catchment summaries. For example::
     
     # Will ignore False elements when computing summaries
-    >>> scaled_dnbr = segments.scaled_dnbr(dnbr, mask)
-    >>> kf_factor = segments.kf_factor(kf, mask)
+    scaled_dnbr = segments.scaled_dnbr(dnbr, mask)
+    kf_factor = segments.kf_factor(kf, mask)
 
 
 Additional Options
@@ -84,9 +84,9 @@ Additional Options
 The :ref:`area <pfdf.segments.Segments.area>`, :ref:`burned_area <pfdf.segments.Segments.burned_area>`, and :ref:`developed_area <pfdf.segments.Segments.developed_area>` methods all return areas in square kilometers (km²) by default. Analogously, the :ref:`length method <pfdf.segments.Segments.length>` uses meters by default. You can use the ``units`` option to return values in other units instead::
 
     # Return values in other units
-    >>> self.area(units="miles")  # Square miles
-    >>> self.area(units="meters") # Square meters
-    >>> self.length(units="kilometers")
+    self.area(units="miles")  # Square miles
+    self.area(units="meters") # Square meters
+    self.length(units="kilometers")
 
 
 .. _terminal-option:
@@ -94,9 +94,9 @@ The :ref:`area <pfdf.segments.Segments.area>`, :ref:`burned_area <pfdf.segments.
 Separately, you can also configure any catchment summary to only return values for terminal basins by setting the ``terminal`` option to True::
 
     # Only returns values for terminal basins
-    >>> area = segments.area(terminal=True)
-    >>> burn_ratio = segments.burn_ratio(isburned, terminal=True)
-    >>> scaled_dnbr = segments.scaled_dnbr(dnbr, terminal=True)
+    area = segments.area(terminal=True)
+    burn_ratio = segments.burn_ratio(isburned, terminal=True)
+    scaled_dnbr = segments.scaled_dnbr(dnbr, terminal=True)
 
 
 

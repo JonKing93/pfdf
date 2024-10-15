@@ -5,10 +5,10 @@ The ``cannon2010`` (or ``c10``) module provides functions to classify relative h
 
 You can use the ``hazard`` function to classify relative hazard. The function requires a set of debris-flow likelihoods (on the interval from 0 to 1), and potential sediment volumes (in m^3). These inputs should be numpy arrays, and are often produced by the :doc:`staley2017 <s17>` and :doc:`gartner2014 <g14>` modules. For example::
 
-    >>> from pfdf.models import s17, g14, c10
-    >>> likelihoods = s17.likelihood(...)
-    >>> volumes, Vmin, Vmax = g14.emergency(...)
-    >>> hazard = c10.hazard(likelihoods, volumes)
+    from pfdf.models import s17, g14, c10
+    likelihoods = s17.likelihood(...)
+    volumes, Vmin, Vmax = g14.emergency(...)
+    hazard = c10.hazard(likelihoods, volumes)
 
 By default, the function uses the following classification scheme:
 
@@ -39,21 +39,21 @@ By default, the function uses the following classification scheme:
 where parentheses ``()`` indicate an open interval, and brackets ``[]`` indicate a closed interval. The above table lists the default thresholds, but you can also use the "p_thresholds", "v_thresholds", and "h_thresholds" options to specify different thresholds for the likelihood (p), (v)olume, and (h)azard classifications. For example::
 
     # Use custom thresholds to classify hazards
-    >>> hazard = c10.hazard(
-            likelihoods, 
-            volumes, 
-            p_thresholds=[.3, .6, .9],
-            v_thresholds = [2E3, 2E4, 2E5],
-            h_thresholds = [2,4,6],
-        )
+    hazard = c10.hazard(
+        likelihoods, 
+        volumes, 
+        p_thresholds=[.3, .6, .9],
+        v_thresholds = [2E3, 2E4, 2E5],
+        h_thresholds = [2,4,6],
+    )
 
 Advanced users may also be interested in the ``pscore`` and ``vscore`` functions, which return the individual likelihood and volume classes::
 
     # Classify likelihood and volume individually
-    >>> p = c10.pscore(likelihoods)
-    >>> v = c10.vscore(volumes)
+    p = c10.pscore(likelihoods)
+    v = c10.vscore(volumes)
 
 And note that these functions also accept custom thresholds::
 
-    >>> p = c10.pscore(likelihoods, thresholds=[.3, .6, .9])
-    >>> v = c10.vscore(volumes, threholds=[2E3, 2E4, 2E5])
+    p = c10.pscore(likelihoods, thresholds=[.3, .6, .9])
+    v = c10.vscore(volumes, threholds=[2E3, 2E4, 2E5])

@@ -12,11 +12,11 @@ import numpy as np
 import rasterio.warp
 from pyproj import CRS
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf.errors import MissingCRSError
 from pfdf.projection import CRSInput, _crs, _Locator, transform
-from pfdf.typing import Quadrant, Units, scalar
+from pfdf.typing.core import Quadrant, Units, scalar
 
 # Type aliases
 limits = tuple[float, float]

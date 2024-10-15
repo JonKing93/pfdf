@@ -57,7 +57,8 @@ from pysheds.grid import Grid
 import pfdf.segments._validate as validate
 from pfdf import watershed
 from pfdf.raster import Raster
-from pfdf.typing import MatrixArray, Outlets, VectorArray, scalar, shape2d
+from pfdf.typing.core import MatrixArray, VectorArray, scalar, shape2d
+from pfdf.typing.segments import Outlets
 
 #####
 # Raster Builders

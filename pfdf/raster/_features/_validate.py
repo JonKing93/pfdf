@@ -1,15 +1,20 @@
 """
 Functions that validate inputs used to build rasters from feature files
 ----------
-User options:
-    resolution          - Checks that raster resolution represents two positive values
-    field               - Checks that field can be used to build the raster
-    resolution_units    - Checks that resolution units can be converted to base units
+Option Groups:
+    field_options   - Checks options used to build a raster from a data field
+    spatial         - Checks options that set the raster's spatial characteristics
+    file_io         - Checks options used to read data from the feature file
+
+Specific options:
+    resolution      - Checks that raster resolution represents two positive values
+    field           - Checks that a data field exists and has an int or float schema
+    units           - Checks that resolution units can be converted to base units
 
 Coordinate Arrays:
-    geometry            - Checks a geometry is valid and returns multi-coordinate array
-    point               - Checks a point coordinate array is valid
-    polygon             - Checks a polygon coordinate array is valid
+    geometry        - Checks a geometry is valid and returns multi-coordinate array
+    point           - Checks a point coordinate array is valid
+    polygon         - Checks a polygon coordinate array is valid
 """
 
 from pathlib import Path
@@ -18,7 +23,9 @@ from typing import Any
 import numpy as np
 from shapely import Point, Polygon
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
+import pfdf._validate.projection as pvalidate
+import pfdf.raster._validate as rvalidate
 from pfdf import raster
 from pfdf._utils import real
 from pfdf.errors import (
@@ -29,15 +36,76 @@ from pfdf.errors import (
     PolygonError,
     ShapeError,
 )
-from pfdf.projection import CRS, Transform
-from pfdf.typing import Units, VectorArray
+from pfdf.projection import CRS, BoundingBox, Transform
+from pfdf.raster._features.typing import (
+    Resolution,
+    driver,
+    encoding,
+    layer,
+    nodata,
+    value,
+)
+from pfdf.typing.core import Units
 
 #####
-# User options
+# Option groups
 #####
 
 
-def resolution(resolution: Any) -> VectorArray | Transform:
+def field_options(
+    field: Any,
+    dtype: Any,
+    field_casting: Any,
+    nodata: Any,
+    casting: Any,
+    operation: Any,
+) -> tuple[np.dtype | None, str, nodata | None]:
+    "Validates options for building a raster from a data attribute field"
+
+    validate.type(field, "field", str, "str")
+    if dtype is not None:
+        dtype = validate.real_dtype(dtype, 'the "dtype" input')
+    field_casting = rvalidate.casting_option(field_casting, "field_casting")
+    if nodata is not None:
+        nodata = rvalidate.nodata(nodata, casting, dtype)
+    if operation is not None:
+        validate.callable(operation, "operation")
+    return dtype, field_casting, nodata
+
+
+def spatial(
+    bounds: Any, resolution_: Any, units: Any
+) -> tuple[BoundingBox | None, Resolution, str]:
+    "Validates options that control the output raster's spatial characteristics"
+
+    units = validate.units(units)
+    resolution_ = resolution(resolution_)
+    if bounds is not None:
+        bounds = pvalidate.bounds(bounds)
+    return bounds, resolution_, units
+
+
+def file_io(
+    path: Any, layer: Any, driver: Any, encoding: Any
+) -> tuple[Path, layer, driver, encoding]:
+    "Validate options used to read data from the feature file"
+
+    if layer is not None:
+        validate.type(layer, "layer", (int, str), "int or string")
+    if driver is not None:
+        validate.type(driver, "driver", str, "string")
+    if encoding is not None:
+        validate.type(encoding, "encoding", str, "string")
+    path = validate.input_path(path, "path")
+    return path, layer, driver, encoding
+
+
+#####
+# Specific options
+#####
+
+
+def resolution(resolution: Any) -> Resolution:
     "Checks input can be used to extract resolution"
 
     # Extract transform from rasters
@@ -73,15 +141,14 @@ def resolution(resolution: Any) -> VectorArray | Transform:
     return resolution
 
 
-def field(properties: dict, field: Any) -> type:
-    "Checks that field can be used to build raster and returns type"
+def field(field: str | None, properties: dict) -> None:
+    "Checks that a data field exists and has an int or float schema type"
 
-    # If there's no field, return settings for boolean raster
+    # Just exit if there is no field
     if field is None:
-        return bool
+        return
 
-    # Field must be a property key...
-    validate.type(field, "field", str, "str")
+    # Field must be in the property list
     if field not in properties:
         allowed = ", ".join(properties.keys())
         raise KeyError(
@@ -89,24 +156,20 @@ def field(properties: dict, field: Any) -> type:
             f"Allowed field names are: {allowed}"
         )
 
-    # ...and must be int or float
-    typestr = properties[field]
-    if typestr.startswith("int"):
-        return int
-    elif typestr.startswith("float"):
-        return float
-    else:
-        typestr = typestr.split(":")[0]
+    # Must have an int or float schema
+    type = properties[field]
+    if not type.startswith(("int", "float")):
+        type = type.split(":")[0]
         raise TypeError(
             f"The '{field}' field must be an int or float, but it has "
-            f"a '{typestr}' type instead."
+            f"a '{type}' type instead."
         )
 
 
-def resolution_units(
+def units(
     units: Units,
     crs: CRS | None,
-    resolution: tuple | Transform,
+    resolution: Resolution,
     geometry: str,
     path: Path,
 ) -> None:
@@ -117,6 +180,14 @@ def resolution_units(
             "feature file does not have a CRS.\n"
             f"File: {path}"
         )
+
+
+def value(value: Any, name: str, dtype: np.dtype, casting: str) -> value:
+    "Checks that a feature value is a real-valued scalar castable to the dtype"
+
+    value = validate.scalar(value, name, dtype=real)
+    value = rvalidate.casting(value, name, dtype, casting)
+    return value
 
 
 #####

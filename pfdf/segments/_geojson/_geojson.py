@@ -17,7 +17,7 @@ from geojson import Feature, FeatureCollection, LineString, Point
 import pfdf.segments._validate as validate
 from pfdf.projection import CRS, _crs
 from pfdf.segments._geojson import _reproject
-from pfdf.typing import ExportType, PropertySchema, SegmentValues
+from pfdf.typing.segments import ExportType, PropertySchema, SegmentValues
 
 PropertyConvert = dict[str, tuple[SegmentValues, Callable]]
 

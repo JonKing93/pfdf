@@ -7,15 +7,19 @@ The :doc:`staley2017 (s17) module </guide/models/s17>` module works strictly wit
 To Accumulation
 ---------------
 
-The :ref:`to_accumulation command <pfdf.utils.intensity.to_accumulation>` converts input rainfall intensities to accumulations, given a rainfall duration (in minutes)::
+The :ref:`to_accumulation command <pfdf.utils.intensity.to_accumulation>` converts input rainfall intensities to accumulations, given a rainfall duration (in minutes):
+
+.. code:: pycon
 
     >>> from pfdf.utils import intensity
     >>> I = [16, 20, 24, 40]  # Rainfall intensity in mm/hour
     >>> R = intensity.to_accumulation(I, duration=15)
-    >> print(R) # mm accumulated over a 15 minute interval
+    >>> print(R) # mm accumulated over a 15 minute interval
     array([ 4.,  5.,  6., 10.])
 
-You can alternatively provide a specific duration for each input intensity::
+You can alternatively provide a specific duration for each input intensity:
+
+.. code:: pycon
 
     >>> I = [16, 20, 24, 40]
     >>> durations = [15, 30, 60, 60]  # in minutes
@@ -27,7 +31,9 @@ You can alternatively provide a specific duration for each input intensity::
 From Accumulation
 -----------------
 
-The :ref:`from_accumulation command <pfdf.utils.intensity.from_accumulation>` converts from rainfall accumulations to intensities, again given the relevant durations (in minutes). This command is specifically designed for output from the :ref:`s17.accumulation command <pfdf.models.staley2017.accumulation>`, so the input durations are broadcast across the second dimension of the input accumulations array::
+The :ref:`from_accumulation command <pfdf.utils.intensity.from_accumulation>` converts from rainfall accumulations to intensities, again given the relevant durations (in minutes). This command is specifically designed for output from the :ref:`s17.accumulation command <pfdf.models.staley2017.accumulation>`, so the input durations are broadcast across the second dimension of the input accumulations array:
+
+.. code:: pycon
 
     >>> from pfdf.utils import intensity
     >>> import numpy as np

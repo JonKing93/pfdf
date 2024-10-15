@@ -11,11 +11,11 @@ from typing import Any, Self
 import numpy as np
 from pyproj import CRS
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf.errors import CRSError, MissingCRSError
 from pfdf.projection import CRSInput, _crs
-from pfdf.typing import XY, Quadrant, Units, scalar
+from pfdf.typing.core import XY, Quadrant, Units, scalar
 
 
 class _Locator(ABC):

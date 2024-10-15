@@ -1,66 +1,25 @@
+"""
+Scripts used to build the documentation
+----------
+Functions:
+    locate_docs         - Returns the Path to the docs folder
+    download_tutorials  - Downloads data for building the tutorials
+    figures             - Builds the tutorial figures
+"""
+
 from pathlib import Path
 import shutil
 import subprocess
-import sys
-import webbrowser
 import os
-import tomllib
 
 import requests
 import zipfile
 import io
 
 
-from . import run
-
-
-#####
-# Sphinx builds
-#####
-
 def locate_docs():
     return Path(__file__).parents[1] / "docs"
 
-
-def locate_build():
-    root = locate_docs()
-    return root.parent / "public"
-
-
-def build():
-    "Deletes old docs, then builds new docs. Returns path to new build"
-
-    # Locate the build folder and delete any contents
-    build = locate_build()
-    if build.exists():
-        shutil.rmtree(build)
-
-    # Use sphinx to rebuild the docs
-    root = locate_docs()
-    subprocess.run(["sphinx-build", "-qa", str(root), str(build)])
-
-
-def open_docs():
-    "Opens indicated page of docs"
-
-    build = locate_build()
-    args = sys.argv
-    if len(args) == 1:
-        page = "index"
-    else:
-        page = args[1]
-    webbrowser.open(build / f"{page}.html")
-
-
-def rebuild():
-    "Builds docs, then opens to index or page"
-    build()
-    open_docs()
-
-
-#####
-# Tutorials / Version
-#####
 
 def download_tutorials():
 
@@ -87,9 +46,9 @@ def figures():
     if not data.exists():
         raise RuntimeError(
             'Cannot locate the tutorial data. Try running the "download_tutorials" '
-            'command first.'
+            "command first."
         )
-    
+
     # Move the tutorial scripts to the workspace
     if scripts.exists():
         shutil.rmtree(scripts)
@@ -108,18 +67,16 @@ def figures():
 
             # Run the figure script
             script = scripts / f"{tutorial}_plots.py"
-            run(["python", str(script)])
+            subprocess.run(["python", str(script)], check=True)
 
             # Move the figures to the images folder
-            os.mkdir(images/tutorial)
+            os.mkdir(images / tutorial)
             files = os.listdir(data)
             for file in files:
-                if file.endswith('.png'):
+                if file.endswith(".png"):
                     destination = images / tutorial / file
                     os.rename(file, destination)
 
     # Move back when finished
     finally:
         os.chdir(here)
-
-    

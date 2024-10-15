@@ -21,8 +21,7 @@ from pfdf.errors import (
     TransformError,
 )
 from pfdf.projection import CRS, BoundingBox, Transform
-from pfdf.raster import Raster, RasterInput
-from pfdf.typing import MatrixArray
+from pfdf.raster import Raster
 
 #####
 # Testing utilities
@@ -67,12 +66,6 @@ def check(output, name, araster, transform, crs):
 #####
 # Low level Init
 #####
-
-
-def test_raster_input():
-    assert RasterInput == (
-        str | Path | rasterio.DatasetReader | MatrixArray | Raster | PyshedsRaster
-    )
 
 
 class TestInitEmpty:
@@ -925,6 +918,60 @@ class TestFromPoints:
         )
         assert np.array_equal(raster.values, expected, equal_nan=True)
 
+    def test_dtype_casting(_, points, crs):
+        raster = Raster.from_points(
+            points, field="test-float", dtype="int32", field_casting="unsafe"
+        )
+        assert raster.dtype == "int32"
+        assert raster.crs == crs
+        fill = np.iinfo("int32").min
+        assert raster.nodata == fill
+        assert raster.transform.affine == Transform(10, -10, 10, 60).affine
+
+        expected = np.array(
+            [
+                [fill, fill, fill, fill, 3],
+                [fill, fill, 2, fill, fill],
+                [fill, fill, fill, fill, fill],
+                [fill, fill, fill, fill, fill],
+                [1, fill, fill, fill, fill],
+            ]
+        )
+        assert np.array_equal(raster.values, expected, equal_nan=True)
+
+    def test_invalid_dtype_casting(_, points, assert_contains):
+        with pytest.raises(TypeError) as error:
+            Raster.from_points(
+                points, field="test-float", dtype="int32", field_casting="safe"
+            )
+        assert_contains(
+            error, "Cannot cast the value for feature 0", "to the raster dtype"
+        )
+
+    def test_operation(_, points, crs):
+        def times100(value):
+            return value * 100
+
+        raster = Raster.from_points(points, field="test-float", operation=times100)
+        assert raster.dtype == float
+        assert raster.crs == crs
+        assert isnan(raster.nodata)
+        assert raster.transform.affine == Transform(10, -10, 10, 60).affine
+
+        expected = (
+            np.array(
+                [
+                    [nan, nan, nan, nan, 3.2],
+                    [nan, nan, 2.2, nan, nan],
+                    [nan, nan, nan, nan, nan],
+                    [nan, nan, nan, nan, nan],
+                    [1.2, nan, nan, nan, nan],
+                ]
+            )
+            * 100
+        )
+        assert np.array_equal(raster.values, expected, equal_nan=True)
+
     def test_invalid_field(_, points):
         with pytest.raises(KeyError):
             Raster.from_points(points, field="missing")
@@ -1124,19 +1171,74 @@ class TestFromPolygons:
         assert raster.crs == crs
         assert raster.transform.affine == Affine(10, 0, 20, 0, -10, 90)
 
+        expected = np.array(
+            [
+                [nan, nan, 2.2, 2.2, 2.2, 2.2, 2.2],
+                [nan, nan, 2.2, 2.2, 2.2, 2.2, 2.2],
+                [1.2, 1.2, 2.2, 2.2, 2.2, 2.2, 2.2],
+                [1.2, 1.2, 1.2, 1.2, nan, nan, nan],
+                [1.2, 1.2, 1.2, 1.2, nan, nan, nan],
+                [nan, nan, 1.2, 1.2, nan, nan, nan],
+                [nan, nan, 1.2, 1.2, nan, nan, nan],
+            ],
+        )
+        assert np.array_equal(raster.values, expected, equal_nan=True)
+
+    def test_dtype_casting(_, polygons, crs):
+        raster = Raster.from_polygons(
+            polygons, field="test-float", dtype="int32", field_casting="unsafe"
+        )
+        assert raster.dtype == "int32"
+        fill = np.iinfo("int32").min
+        assert raster.nodata == fill
+        assert raster.crs == crs
+        assert raster.transform.affine == Affine(10, 0, 20, 0, -10, 90)
+
+        expected = np.array(
+            [
+                [fill, fill, 2, 2, 2, 2, 2],
+                [fill, fill, 2, 2, 2, 2, 2],
+                [1, 1, 2, 2, 2, 2, 2],
+                [1, 1, 1, 1, fill, fill, fill],
+                [1, 1, 1, 1, fill, fill, fill],
+                [fill, fill, 1, 1, fill, fill, fill],
+                [fill, fill, 1, 1, fill, fill, fill],
+            ],
+        )
+        assert np.array_equal(raster.values, expected)
+
+    def test_invalid_dtype_casting(_, polygons, assert_contains):
+        with pytest.raises(TypeError) as error:
+            Raster.from_polygons(
+                polygons, field="test-float", dtype="int32", field_casting="safe"
+            )
+        assert_contains(
+            error, "Cannot cast the value for feature 0", "to the raster dtype"
+        )
+
+    def test_operation(_, polygons, crs):
+        def times100(value):
+            return value * 100
+
+        raster = Raster.from_polygons(polygons, field="test-float", operation=times100)
+        assert raster.dtype == float
+        assert isnan(raster.nodata)
+        assert raster.crs == crs
+        assert raster.transform.affine == Affine(10, 0, 20, 0, -10, 90)
+
         expected = (
             np.array(
                 [
-                    [nan, nan, 1, 1, 1, 1, 1],
-                    [nan, nan, 1, 1, 1, 1, 1],
-                    [0, 0, 1, 1, 1, 1, 1],
-                    [0, 0, 0, 0, nan, nan, nan],
-                    [0, 0, 0, 0, nan, nan, nan],
-                    [nan, nan, 0, 0, nan, nan, nan],
-                    [nan, nan, 0, 0, nan, nan, nan],
+                    [nan, nan, 2.2, 2.2, 2.2, 2.2, 2.2],
+                    [nan, nan, 2.2, 2.2, 2.2, 2.2, 2.2],
+                    [1.2, 1.2, 2.2, 2.2, 2.2, 2.2, 2.2],
+                    [1.2, 1.2, 1.2, 1.2, nan, nan, nan],
+                    [1.2, 1.2, 1.2, 1.2, nan, nan, nan],
+                    [nan, nan, 1.2, 1.2, nan, nan, nan],
+                    [nan, nan, 1.2, 1.2, nan, nan, nan],
                 ],
             )
-            + 1.2
+            * 100
         )
         assert np.array_equal(raster.values, expected, equal_nan=True)
 

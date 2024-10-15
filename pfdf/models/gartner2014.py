@@ -21,16 +21,17 @@ Internal:
     _validate_variables     - Checks that input variables are valid
 """
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 from numpy import exp, log, nan, sqrt
 from scipy.stats import norm
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import clean_dims, real
 from pfdf.errors import ShapeError
-from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volume, Volumes
+from pfdf.typing.core import MatrixArray, VectorArray
+from pfdf.typing.models import Parameter, Variable, Volume, Volumes
 
 #####
 # User Functions
@@ -39,16 +40,16 @@ from pfdf.typing import MatrixArray, Parameters, Variables, VectorArray, Volume,
 
 @np.errstate(divide="ignore")  # Suppress divide-by-zero warning for log(0)
 def emergency(
-    i15: Variables,
-    Bmh: Variables,
-    R: Variables,
+    i15: Variable,
+    Bmh: Variable,
+    R: Variable,
     *,
-    B: Parameters = 4.22,
-    Ci: Parameters = 0.39,
-    Cb: Parameters = 0.36,
-    Cr: Parameters = 0.13,
-    CI: Parameters = 0.95,
-    RSE: Parameters = 1.04,
+    B: Parameter = 4.22,
+    Ci: Parameter = 0.39,
+    Cb: Parameter = 0.36,
+    Cr: Parameter = 0.13,
+    CI: Parameter = 0.95,
+    RSE: Parameter = 1.04,
     keepdims: bool = False,
 ) -> Volumes:
     """
@@ -169,21 +170,21 @@ def emergency(
 
 @np.errstate(divide="ignore")  # Suppress divide-by-zero warning for log(0)
 def longterm(
-    i60: Variables,
-    Bt: Variables,
-    T: Variables,
-    A: Variables,
-    R: Variables,
+    i60: Variable,
+    Bt: Variable,
+    T: Variable,
+    A: Variable,
+    R: Variable,
     *,
-    B: Parameters = 6.07,
-    Ci: Parameters = 0.71,
-    Cb: Parameters = 0.22,
-    Ct: Parameters = -0.24,
-    Ca: Parameters = 0.49,
-    Cr: Parameters = 0.03,
-    CI: Parameters = 0.95,
-    RSE: Parameters = 1.25,
-    keepdims=False,
+    B: Parameter = 6.07,
+    Ci: Parameter = 0.71,
+    Cb: Parameter = 0.22,
+    Ct: Parameter = -0.24,
+    Ca: Parameter = 0.49,
+    Cr: Parameter = 0.03,
+    CI: Parameter = 0.95,
+    RSE: Parameter = 1.25,
+    keepdims: bool = False,
 ) -> Volumes:
     """
     longterm  Solves the long-term model (Equation 2)
@@ -321,7 +322,7 @@ def longterm(
 #####
 
 
-def _volumes(lnV: Volume, CI: Parameters, RSE: Parameters, keepdims: bool) -> Volumes:
+def _volumes(lnV: Volume, CI: Parameter, RSE: Parameter, keepdims: bool) -> Volumes:
     "Converts ln(V) to expected, min, and max volumes"
 
     # Optionally remove trailing dimensions
@@ -338,9 +339,13 @@ def _volumes(lnV: Volume, CI: Parameters, RSE: Parameters, keepdims: bool) -> Vo
     return V, Vmin, Vmax
 
 
+_ValidatedParameters = tuple[VectorArray, ...]
+_nRuns = int
+
+
 def _validate_parameters(
-    parameters: Dict[str, Any]
-) -> tuple[tuple[VectorArray, ...], int]:
+    parameters: dict[str, Any]
+) -> tuple[_ValidatedParameters, _nRuns]:
     """Checks that parameters are real-valued vectors with broadcastable shapes.
     Returns the number of runs and a tuple of validated arrays"""
 
@@ -366,8 +371,8 @@ def _validate_parameters(
 
 
 def _validate_variables(
-    variables: Dict[str, Any], nruns: int
-) -> Tuple[MatrixArray, ...]:
+    variables: dict[str, Any], nruns: int
+) -> tuple[MatrixArray, ...]:
     "Checks that variables are positive, real-valued matrices with allowed shapes"
 
     # Check each variable is a real-valued matrix. Interpret 1D intensity/time

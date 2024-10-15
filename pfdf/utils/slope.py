@@ -23,7 +23,7 @@ From measure to gradient:
 
 import numpy as np
 
-from pfdf.typing import RealArray
+from pfdf.typing.core import RealArray
 
 #####
 # To measure

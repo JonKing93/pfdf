@@ -37,11 +37,15 @@ from typing import Any
 
 import numpy as np
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import aslist, real
 from pfdf._utils.classify import classify
-from pfdf.raster import Raster, RasterInput
-from pfdf.typing import Thresholds, strs
+from pfdf.raster import Raster
+from pfdf.typing.core import strs, vector
+from pfdf.typing.raster import RasterInput
+
+# Type hints
+Thresholds = tuple[float, float, float] | vector
 
 # The classification scheme used in the module
 _classification = {

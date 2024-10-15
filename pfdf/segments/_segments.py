@@ -10,7 +10,7 @@ Classes:
 """
 
 from math import inf, nan
-from typing import Callable, Literal, Optional, Self
+from typing import Literal, Optional, Self
 
 import fiona
 import numpy as np
@@ -18,57 +18,44 @@ import shapely
 from geojson import FeatureCollection
 from rasterio.transform import rowcol
 
-import pfdf.segments._validate as validate
+import pfdf._validate.core as validate
+import pfdf.segments._validate as svalidate
 from pfdf import watershed
 from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import CRS, BoundingBox, Transform, _crs
-from pfdf.raster import Raster, RasterInput
+from pfdf.raster import Raster
 from pfdf.segments import _basins, _confinement, _geojson, _update
-from pfdf.typing import (
-    BasinValues,
+from pfdf.typing.core import (
     BooleanMatrix,
-    ExportType,
     MatrixArray,
-    NetworkIndices,
     Pathlike,
-    PixelIndices,
-    PropertyDict,
     RealArray,
     ScalarArray,
-    SegmentIndices,
-    SegmentParents,
-    SegmentValues,
     Units,
     VectorArray,
     scalar,
     shape2d,
     vector,
 )
-
-# Type aliases
-IDs = vector
-Selection = SegmentIndices | IDs
-SelectionType = Literal["indices", "ids"]
-Statistic = Literal[
-    "outlet",
-    "min",
-    "max",
-    "mean",
-    "median",
-    "std",
-    "sum",
-    "var",
-    "nanmin",
-    "nanmax",
-    "nanmean",
-    "nanmedian",
-    "nanstd",
-    "nansum",
-    "nanvar",
-]
-StatFunction = Callable[[np.ndarray], ScalarArray]
+from pfdf.typing.raster import RasterInput
+from pfdf.typing.segments import (
+    BooleanIndices,
+    CatchmentValues,
+    ExportType,
+    NetworkIndices,
+    Outlets,
+    PixelIndices,
+    PropertyDict,
+    SegmentParents,
+    SegmentValues,
+    Selection,
+    SelectionType,
+    StatFunction,
+    Statistic,
+    TerminalValues,
+)
 
 # Supported statistics -- name: (function, description)
 _STATS = {
@@ -122,6 +109,7 @@ class Segments:
         raster_shape        - The shape of the stream segment raster
         transform           - The affine Transform of the stream segment raster
         bounds              - The BoundingBox of the stream segment raster
+        located_basins      - True when the object has pre-located outlet basins
 
     **METHODS**
     Object Creation:
@@ -444,7 +432,7 @@ class Segments:
         return self._ids.copy()
 
     @property
-    def terminal_ids(self) -> VectorArray:
+    def terminal_ids(self) -> TerminalValues:
         "The IDs of the terminal segments in the network"
         return self.ids[self.isterminal()]
 
@@ -480,6 +468,11 @@ class Segments:
         "The BoundingBox of the stream segment raster"
         return self._flow.bounds
 
+    @property
+    def located_basins(self) -> bool:
+        "True if the Segments object has pre-located the outlet basins"
+        return self._basins is not None
+
     #####
     # Utilities
     #####
@@ -498,7 +491,7 @@ class Segments:
         ids[valid] = self._ids[indices[valid]]
         return ids
 
-    def _basin_npixels(self, terminal: bool) -> BasinValues:
+    def _basin_npixels(self, terminal: bool) -> CatchmentValues | TerminalValues:
         "Returns the number of pixels in catchment or terminal outlet basins"
         if terminal:
             return self._npixels[self.isterminal()]
@@ -512,7 +505,7 @@ class Segments:
         else:
             return self.size
 
-    def _preallocate(self, terminal: bool = False) -> BasinValues:
+    def _preallocate(self, terminal: bool = False) -> SegmentValues | TerminalValues:
         "Preallocates an array to hold summary values"
         length = self._nbasins(terminal)
         return np.empty(length, dtype=float)
@@ -523,7 +516,7 @@ class Segments:
         mask: Optional[RasterInput] = None,
         terminal: bool = False,
         omitnan: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         "Computes flow accumulation values"
 
         # Default case is just npixels
@@ -540,7 +533,7 @@ class Segments:
     # Outlets
     #####
 
-    def isterminal(self, ids: Optional[vector] = None) -> VectorArray:
+    def isterminal(self, ids: Optional[vector] = None) -> SegmentValues | VectorArray:
         """
         Indicates whether segments are terminal segments
         ----------
@@ -564,10 +557,10 @@ class Segments:
             boolean 1D numpy array: Whether each segment is terminal.
         """
 
-        indices = validate.ids(self, ids)
+        indices = svalidate.ids(self, ids)
         return self._child[indices] == -1
 
-    def termini(self, ids: Optional[vector] = None) -> VectorArray:
+    def termini(self, ids: Optional[vector] = None) -> SegmentValues | VectorArray:
         """
         Returns the IDs of terminal segments
         ----------
@@ -593,7 +586,7 @@ class Segments:
         """
 
         # Walk downstream to locate the terminal index for each queried segment
-        indices = validate.ids(self, ids)
+        indices = svalidate.ids(self, ids)
         termini = []
         for index in indices:
             while self._child[index] != -1:
@@ -610,7 +603,7 @@ class Segments:
         *,
         segment_outlets: bool = False,
         as_array: bool = False,
-    ) -> list[tuple[int, int]] | MatrixArray:
+    ) -> Outlets | MatrixArray:
         """
         Returns the row and column indices of outlet pixels
         ----------
@@ -654,7 +647,7 @@ class Segments:
         # Get the indices of the appropriate segments
         if not segment_outlets:
             ids = self.termini(ids)
-        indices = validate.ids(self, ids)
+        indices = svalidate.ids(self, ids)
 
         # Extract outlet pixel indices
         outlets = []
@@ -694,7 +687,7 @@ class Segments:
             list[int] | None: The IDs of the parent segments
         """
 
-        index = validate.id(self, id)
+        index = svalidate.id(self, id)
         parents = self._get_parents(index)
         if len(parents) == 0:
             return None
@@ -717,7 +710,7 @@ class Segments:
             int | None: The ID of the segment's child
         """
 
-        index = validate.id(self, id)
+        index = svalidate.id(self, id)
         child = self._child[index]
         if child == -1:
             return None
@@ -744,7 +737,7 @@ class Segments:
         """
 
         # Validate ID and initial ancestors with immediate parents
-        segment = validate.id(self, id)
+        segment = svalidate.id(self, id)
         ancestors = self._get_parents(segment)
 
         # Recursively add parents of parents
@@ -778,7 +771,7 @@ class Segments:
         """
 
         # Validate ID and initialize descendent list
-        segment = validate.id(self, id)
+        segment = svalidate.id(self, id)
         descendents = []
 
         # Recursively add children of children
@@ -812,7 +805,7 @@ class Segments:
         """
 
         # Locate segments in the local drainage network
-        validate.id(self, id)
+        svalidate.id(self, id)
         terminus = self.termini(id)
         upstream = self.ancestors(terminus)
 
@@ -822,7 +815,7 @@ class Segments:
         family[1:] = upstream
         return family
 
-    def isnested(self, ids: Optional[vector] = None) -> SegmentIndices:
+    def isnested(self, ids: Optional[vector] = None) -> SegmentValues | VectorArray:
         """
         Determines which segments are in nested drainage basins
         ----------
@@ -880,7 +873,7 @@ class Segments:
                 indicate pixels that are in the catchment
         """
 
-        validate.id(self, id)
+        svalidate.id(self, id)
         [[row, column]] = self.outlets(id, segment_outlets=True)
         return watershed.catchment(self.flow, row, column, check_flow=False)
 
@@ -923,7 +916,7 @@ class Segments:
         )
 
     def locate_basins(
-        self, parallel: bool = False, nprocess: Optional[scalar] = None
+        self, parallel: bool = False, nprocess: Optional[int] = None
     ) -> None:
         """
         locate_basins  Builds and saves a terminal basin raster, optionally in parallel
@@ -1036,7 +1029,9 @@ class Segments:
         else:
             return statistic(values).reshape(1)[0]
 
-    def _values_at_outlets(self, raster: Raster, terminal: bool = False) -> BasinValues:
+    def _values_at_outlets(
+        self, raster: Raster, terminal: bool = False
+    ) -> SegmentValues:
         "Returns the values at segment outlets. Returns NoData values as NaN"
 
         identity = lambda input: input
@@ -1076,7 +1071,7 @@ class Segments:
 
         # Validate
         statistic = validate.option(statistic, "statistic", allowed=_STATS.keys())
-        values = validate.raster(self, values, "values raster")
+        values = svalidate.raster(self, values, "values raster")
 
         # Either get outlet values...
         if statistic == "outlet":
@@ -1095,7 +1090,7 @@ class Segments:
         values: RasterInput,
         mask: Optional[RasterInput] = None,
         terminal: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         """
         Computes a summary statistic over each catchment basin's pixel
         ----------
@@ -1147,9 +1142,9 @@ class Segments:
 
         # Validate
         statistic = validate.option(statistic, "statistic", allowed=_STATS.keys())
-        values = validate.raster(self, values, "values raster")
+        values = svalidate.raster(self, values, "values raster")
         if mask is not None:
-            mask = validate.raster(self, mask, "mask")
+            mask = svalidate.raster(self, mask, "mask")
             mask = validate.boolean(mask.values, mask.name, ignore=mask.nodata)
 
         # Outlet values
@@ -1170,7 +1165,7 @@ class Segments:
         values: Raster,
         mask: BooleanMatrix | None,
         terminal: bool,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         "Uses flow accumulation to compute basin summaries"
 
         # Note whether the summary should omit NaN and NoData values
@@ -1206,7 +1201,7 @@ class Segments:
         values: Raster,
         mask: Raster | None,
         terminal: bool,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         "Iterates through basin catchments to compute summaries"
 
         # Get statistic, preallocate, and locate catchment outlets
@@ -1236,7 +1231,7 @@ class Segments:
         *,
         units: Units = "kilometers",
         terminal: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         """
         Returns catchment areas
         ----------
@@ -1275,7 +1270,9 @@ class Segments:
             N = self._accumulation(mask=mask, terminal=terminal)
         return N * self.flow.pixel_area(units)
 
-    def burn_ratio(self, isburned: RasterInput, terminal: bool = False) -> BasinValues:
+    def burn_ratio(
+        self, isburned: RasterInput, terminal: bool = False
+    ) -> CatchmentValues:
         """
         Returns the proportion of burned pixels in basins
         ----------
@@ -1304,7 +1301,7 @@ class Segments:
         *,
         units: Units = "kilometers",
         terminal: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         """
         Returns the total burned area of basins
         ----------
@@ -1333,7 +1330,9 @@ class Segments:
         """
         return self.area(isburned, units=units, terminal=terminal)
 
-    def catchment_ratio(self, mask: RasterInput, terminal: bool = False) -> BasinValues:
+    def catchment_ratio(
+        self, mask: RasterInput, terminal: bool = False
+    ) -> CatchmentValues:
         """
         Returns the proportion of catchment pixels within a mask
         ----------
@@ -1433,7 +1432,7 @@ class Segments:
         *,
         units: Units = "kilometers",
         terminal: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         """
         developed_area  Returns the total developed area of basins
         ----------
@@ -1462,7 +1461,7 @@ class Segments:
         """
         return self.area(isdeveloped, units=units, terminal=terminal)
 
-    def in_mask(self, mask: RasterInput, terminal: bool = False) -> SegmentIndices:
+    def in_mask(self, mask: RasterInput, terminal: bool = False) -> SegmentValues:
         """
         Determines whether segments have pixels within a mask
         ----------
@@ -1483,7 +1482,7 @@ class Segments:
                 within the mask.
         """
 
-        mask = validate.raster(self, mask, "mask")
+        mask = svalidate.raster(self, mask, "mask")
         validate.boolean(mask.values, "mask", ignore=mask.nodata)
         isin = self.summary("nanmax", mask) == 1
         if terminal:
@@ -1492,7 +1491,7 @@ class Segments:
 
     def in_perimeter(
         self, perimeter: RasterInput, terminal: bool = False
-    ) -> SegmentIndices:
+    ) -> SegmentValues:
         """
         Determines whether segments have pixels within a fire perimeter
         ----------
@@ -1521,7 +1520,7 @@ class Segments:
         *,
         terminal: bool = False,
         omitnan: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         """
         kf_factor  Computes mean soil KF-factor for basins
         ----------
@@ -1561,7 +1560,7 @@ class Segments:
         """
 
         # Validate
-        kf_factor = validate.raster(self, kf_factor, "kf_factor")
+        kf_factor = svalidate.raster(self, kf_factor, "kf_factor")
         validate.positive(kf_factor.values, "kf_factor", ignore=[kf_factor.nodata, nan])
 
         # Summarize
@@ -1617,7 +1616,7 @@ class Segments:
         *,
         terminal: bool = False,
         omitnan: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         """
         scaled_dnbr  Computes mean catchment dNBR / 1000 for basins
         ----------
@@ -1670,7 +1669,7 @@ class Segments:
         *,
         omitnan: bool = False,
         terminal: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         """
         scaled_thickness  Computes mean catchment soil thickness / 100 for basins
         ----------
@@ -1711,7 +1710,7 @@ class Segments:
         """
 
         # Validate
-        soil_thickness = validate.raster(self, soil_thickness, "soil_thickness")
+        soil_thickness = svalidate.raster(self, soil_thickness, "soil_thickness")
         validate.positive(
             soil_thickness.values, "soil_thickness", ignore=[soil_thickness.nodata, nan]
         )
@@ -1731,7 +1730,7 @@ class Segments:
         *,
         omitnan: bool = False,
         terminal: bool = False,
-    ) -> BasinValues:
+    ) -> CatchmentValues:
         """
         sine_theta  Computes the mean sin(theta) value for each segment's catchment
         ----------
@@ -1772,7 +1771,7 @@ class Segments:
         """
 
         # Validate
-        sine_thetas = validate.raster(self, sine_thetas, "sine_thetas")
+        sine_thetas = svalidate.raster(self, sine_thetas, "sine_thetas")
         validate.inrange(
             sine_thetas.values,
             sine_thetas.name,
@@ -1842,7 +1841,7 @@ class Segments:
             numpy 1D array: The vertical relief for each segment
         """
 
-        relief = validate.raster(self, relief, "relief")
+        relief = svalidate.raster(self, relief, "relief")
         relief = self._values_at_outlets(relief)
         if terminal:
             relief = relief[self.isterminal()]
@@ -1893,12 +1892,12 @@ class Segments:
 
     @staticmethod
     def _removable(
-        requested: SegmentIndices,
+        requested: BooleanIndices,
         child: SegmentValues,
         parents: SegmentParents,
         keep_upstream: bool,
         keep_downstream: bool,
-    ) -> SegmentIndices:
+    ) -> BooleanIndices:
         "Returns the indices of requested segments on the edges of their local networks"
 
         edge = False
@@ -1916,7 +1915,7 @@ class Segments:
         remove: bool = False,
         keep_upstream: bool = False,
         keep_downstream: bool = False,
-    ) -> SegmentIndices:
+    ) -> SegmentValues:
         """
         Indicates segments that can be filtered while preserving flow continuity
         ----------
@@ -1964,7 +1963,7 @@ class Segments:
         """
 
         # Get the segments requested for removal
-        requested_remove = validate.selection(self, selected, type)
+        requested_remove = svalidate.selection(self, selected, type)
         if not remove:
             requested_remove = ~requested_remove
 
@@ -2019,7 +2018,7 @@ class Segments:
         """
 
         # Validate. Get segments being kept / removed
-        remove = validate.selection(self, selected, type)
+        remove = svalidate.selection(self, selected, type)
         keep = ~remove
 
         # Compute new attributes
@@ -2063,7 +2062,7 @@ class Segments:
                 "ids" to select segments using segments IDs
         """
 
-        keep = validate.selection(self, selected, type)
+        keep = svalidate.selection(self, selected, type)
         self.remove(~keep)
 
     def copy(self) -> Self:

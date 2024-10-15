@@ -8,7 +8,9 @@ The :ref:`utils.driver module <pfdf.utils.driver>` provides information about su
 
 Raster Formats
 --------------
-The :ref:`rasters <pfdf.utils.driver.rasters>` function returns a summary of supported raster file drivers::
+The :ref:`rasters <pfdf.utils.driver.rasters>` function returns a summary of supported raster file drivers:
+
+.. code:: pycon
 
     >>> from pfdf.utils import driver
     >>> driver.rasters()
@@ -42,7 +44,9 @@ The :ref:`rasters <pfdf.utils.driver.rasters>` function returns a summary of sup
 
 Vector Formats
 --------------
-And the :ref:`vectors <pfdf.utils.driver.vectors>` function returns the supported vector file formats::
+And the :ref:`vectors <pfdf.utils.driver.vectors>` function returns the supported vector file formats:
+
+.. code:: pycon
 
     >>> driver.vectors()
                                    Description                  Extensions
@@ -65,7 +69,9 @@ And the :ref:`vectors <pfdf.utils.driver.vectors>` function returns the supporte
 Extensions
 ----------
 
-Alternatively, you can use the :ref:`extensions <pfdf.utils.driver.extensions>` function to see the file format inferred by various extensions::
+Alternatively, you can use the :ref:`extensions <pfdf.utils.driver.extensions>` function to see the file format inferred by various extensions:
+
+.. code:: pycon
 
     >>> driver.extensions(type="raster")
                  Driver                                   Description
@@ -100,7 +106,7 @@ Alternatively, you can use the :ref:`extensions <pfdf.utils.driver.extensions>` 
     .vrt            VRT                           GDAL Virtual Format
     .xml           PDS4        NASA Planetary Data System (Version 4)
 
-::
+.. code:: pycon
 
     >>> driver.extensions(type="vector")
                      Driver                   Description

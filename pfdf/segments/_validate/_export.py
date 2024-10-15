@@ -10,10 +10,10 @@ from typing import Any
 
 import numpy as np
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf.errors import ShapeError
-from pfdf.typing import ExportType, PropertyDict, PropertySchema
+from pfdf.typing.segments import ExportType, PropertyDict, PropertySchema
 
 
 def _properties(

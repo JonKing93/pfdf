@@ -26,7 +26,7 @@ from numpy import integer, issubdtype, unsignedinteger
 
 from pfdf._utils import aslist
 from pfdf._utils.nodata import NodataMask
-from pfdf.typing import BooleanArray, RealArray, ScalarArray, ignore, scalar
+from pfdf.typing.core import BooleanArray, RealArray, ScalarArray, ignore, scalar
 
 # Type alias
 index = tuple[int, ...]

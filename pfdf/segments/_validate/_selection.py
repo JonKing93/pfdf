@@ -12,9 +12,10 @@ from typing import Any
 
 import numpy as np
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import real
-from pfdf.typing import SegmentIndices, VectorArray
+from pfdf.typing.core import VectorArray
+from pfdf.typing.segments import BooleanIndices
 
 
 def _check_in_network(segments, ids: VectorArray, name: str) -> None:
@@ -59,7 +60,7 @@ def ids(segments, ids: Any) -> VectorArray:
     return indices
 
 
-def selection(segments, selection: Any, type: Any) -> SegmentIndices:
+def selection(segments, selection: Any, type: Any) -> BooleanIndices:
     "Validates boolean indices or IDs and returns them as boolean indices"
 
     type = validate.option(type, "type", allowed=["indices", "ids"])

@@ -1,65 +1,10 @@
-import numpy as np
 import pytest
 from affine import Affine
 
-import pfdf.raster._validate._metadata as validate
+import pfdf._validate.projection as validate
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import CRS, BoundingBox, Transform
 from pfdf.raster import Raster
-
-#####
-# NoData
-#####
-
-
-class TestCasting:
-    def test_bool(_):
-        a = np.array(True).reshape(1)
-        assert validate.casting(a, "", bool, "safe") == True
-
-    def test_bool_as_number(_):
-        a = np.array(1.00).reshape(1)
-        assert validate.casting(a, "", bool, casting="safe") == True
-
-    def test_castable(_):
-        a = np.array(2.2).reshape(1)
-        assert validate.casting(a, "", int, casting="unsafe") == 2
-
-    def test_not_castable(_, assert_contains):
-        a = np.array(2.2).reshape(1)
-        with pytest.raises(TypeError) as error:
-            validate.casting(a, "test name", int, casting="safe")
-        assert_contains(error, "Cannot cast test name")
-
-
-class TestNodata:
-    def test_nodata(_):
-        output = validate.nodata(5, "safe")
-        assert output == 5
-
-    def test_casting(_):
-        output = validate.nodata(2.2, "unsafe", int)
-        assert output == 2
-
-    def test_invalid_casting_option(_, assert_contains):
-        with pytest.raises(ValueError) as error:
-            validate.nodata(1, "invalid", bool)
-        assert_contains(error, "casting")
-
-    def test_invalid_nodata(_, assert_contains):
-        with pytest.raises(TypeError) as error:
-            validate.nodata("invalid", "unsafe")
-        assert_contains(error, "nodata")
-
-    def test_invalid_casting(_, assert_contains):
-        with pytest.raises(TypeError) as error:
-            validate.nodata(2.2, "safe", int)
-        assert_contains(error, "Cannot cast the NoData value")
-
-
-#####
-# Projection
-#####
 
 
 class TestCRS:
@@ -162,47 +107,3 @@ class TestTransform:
         assert_contains(
             error, "must be a dict, list, tuple, affine.Affine, Transform, or Raster"
         )
-
-
-#####
-# Multiple Metadatas
-#####
-
-
-class TestSpatial:
-    def test_none(_):
-        assert validate.spatial(None, None) == (None, None)
-
-    def test(_):
-        output = validate.spatial(4326, (1, 2, 3, 4))
-        assert output == (CRS(4326), Transform(1, 2, 3, 4))
-
-
-class TestMetadata:
-    def test_none(_):
-        assert validate.metadata(None, None, None, None, None, None) == (
-            None,
-            None,
-            None,
-        )
-
-    def test(_):
-        output = validate.metadata(4326, (1, 2, 3, 4), None, 5, "safe", int)
-        assert output == (CRS(4326), Transform(1, 2, 3, 4), 5)
-
-    def test_bounds_transform(_, assert_contains):
-        with pytest.raises(ValueError) as error:
-            validate.metadata(None, (1, 2, 3, 4), (10, 20, 30, 40), None, "safe")
-        assert_contains(
-            error,
-            'You cannot specify both "transform" and "bounds" metadata.',
-            "The two inputs are mutually exclusive.",
-        )
-
-    def test_bounds(_):
-        crs, bounds, nodata = validate.metadata(
-            None, None, (10, 20, 30, 40), None, "safe"
-        )
-        assert crs is None
-        assert bounds == BoundingBox(10, 20, 30, 40)
-        assert nodata is None

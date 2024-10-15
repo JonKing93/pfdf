@@ -49,17 +49,14 @@ By default, the method will use the number of available CPUs - 1 (one CPU is res
 Requirements
 ------------
 
-The use of the ``parallel`` option adds two requirements. First, the parallel option cannot be used in an interactive Python session (it will cause the terminal to crash). Instead, you must use the option in a command line script. For example:
+The use of the ``parallel`` option adds two requirements. First, the parallel option cannot be used in an interactive Python session (it will cause the terminal to crash). Instead, you must use the option in a script called from the command line. For example:
 
-.. highlight:: none
 
-.. code::
+.. code:: bash
 
-    $ python -m my_parallel_script
+    python -m my_parallel_script
 
 ----
-
-.. highlight:: python
 
 Second, the code in the parallelized script must be protected by a ``if __name__ == "__main__"`` block. So for example::
 

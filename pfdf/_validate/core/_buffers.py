@@ -7,8 +7,8 @@ Functions:
 """
 
 from pfdf._utils import all_nones
-from pfdf._validate._array import scalar
-from pfdf._validate._elements import positive
+from pfdf._validate.core._array import scalar
+from pfdf._validate.core._elements import positive
 
 #####
 # Buffers

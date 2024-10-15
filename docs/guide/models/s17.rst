@@ -8,7 +8,7 @@ The :ref:`staley2017 <pfdf.models.staley2017>` (or ``s17``) module provides func
 
 ::
 
-  >>> from pfdf.models import s17
+  from pfdf.models import s17
 
 In the paper, the likelihood model describes debris-flow likelihoods as a function of terrain, fire burn severity, soil, and rainfall accumulation, such that:
 
@@ -148,24 +148,26 @@ The module provides the :ref:`M1 <pfdf.models.staley2017.M1>`, :ref:`M2 <pfdf.mo
 Each class provides a ``variables`` method, which computes the T, F, and S variables given a stream segment network and various inputs. For example, using the M1 model::
 
   # Compute Terrain, Fire and Soil variables for M1
-  >>> from pfdf.models import s17
-  >>> T, F, S = s17.M1.variables(segments, moderate_high, slopes, dnbr, kf_factor)
+  from pfdf.models import s17
+  T, F, S = s17.M1.variables(segments, moderate_high, slopes, dnbr, kf_factor)
 
 You can alternatively return specific variables, using each model's ``terrain``, ``fire``, and/or ``soil`` method::
 
   # Compute variables individually
-  >>> T = s17.M1.terrain(segments, moderate_high, slopes)
-  >>> F = s17.M1.fire(dnbr)
-  >>> S = s17.M1.soil(kf_factor)
+  T = s17.M1.terrain(segments, moderate_high, slopes)
+  F = s17.M1.fire(dnbr)
+  S = s17.M1.soil(kf_factor)
 
 .. note:: The specific inputs to these methods will vary by model.
 
-Each class also provides a ``parameters`` method, which returns the :ref:`B, Ct, Cf, and Cs <s17-variables>` coefficients for the model. By default, each parameter is a vector with the values for the 15, 30, and 60 minute calibration, in that order. For example, using the M1 model::
+Each class also provides a ``parameters`` method, which returns the :ref:`B, Ct, Cf, and Cs <s17-variables>` coefficients for the model. By default, each parameter is a vector with the values for the 15, 30, and 60 minute calibration, in that order. For example, using the M1 model:
 
-  # Acquire model parameters
+.. code:: pycon
+
+  >>> # Acquire model parameters
   >>> B, Ct, Cf, Cs = s17.M1.parameters()
 
-  # Examine parameters
+  >>> # Examine parameters
   >>> B
   array([-3.63, -3.61, -3.21])
   >>> Ct
@@ -175,17 +177,21 @@ Each class also provides a ``parameters`` method, which returns the :ref:`B, Ct,
   >>> Cs
   array([0.7 , 0.5 , 0.22])
 
-The ``durations`` property reports the default duration-order of parameters::
+The ``durations`` property reports the default duration-order of parameters:
+
+.. code:: pycon
 
   >>> s17.M1.durations()
   [15, 30, 60]
 
-You can also use the ``durations`` option to query specific durations::
+You can also use the ``durations`` option to query specific durations:
 
-  # Return parameters for specific rainfall durations
+.. code:: pycon
+
+  >>> # Return parameters for specific rainfall durations
   >>> B, Ct, Cf, Cs = s17.M1.parameters(durations=[60, 15])
 
-  # Examine parameters
+  >>> # Examine parameters
   >>> B
   array([-3.21, -3.63])
   >>> Ct
@@ -204,13 +210,15 @@ Likelihood
 
 You can solve :ref:`equation 1 <s17-equation-1>` using the :ref:`likelihood <pfdf.models.staley2017.likelihood>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 1. This function solves for debris-flow likelihoods given a set of rainfall accumulations (R). Note that the function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to rainfall accumulations.
 
-In the simplest case - a single rainfall accumulation - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations). For example::
+In the simplest case - a single rainfall accumulation - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations). For example:
+
+.. code:: pycon
   
-  # Compute variables and parameters for the M! model
+  >>> # Compute variables and parameters for the M1 model
   >>> T, F, S = s17.M1.variables(segments, mod_high, slopes, dnbr, kf)
   >>> B, Ct, Cf, Cs = s17.M1.parameters()
 
-  # Examine sizes
+  >>> # Examine sizes
   >>> len(segments)
   2561
   >>> T.size, F.size, S.size
@@ -218,15 +226,17 @@ In the simplest case - a single rainfall accumulation - the function returns a m
   >>> B.size, Ct.size, Cf.size, Cs.size
   (3, 3, 3, 3)
 
-  # Compute likelihoods given rainfall accumulation
+  >>> # Compute likelihoods given rainfall accumulation
   >>> R = 6 # mm/duration
   >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 3)
 
-You can also solve for multiple rainfall accumulations simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of accumulations::
+You can also solve for multiple rainfall accumulations simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of accumulations:
 
-  # Compute likelihoods for multiple rainfall accumulations
+.. code:: pycon
+
+  >>> # Compute likelihoods for multiple rainfall accumulations
   >>> R = [4, 6, 7, 10]
   >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
@@ -250,6 +260,8 @@ which correspond to the columns of the output array, respectively.
   
   If you typically work with rainfall intensities, you can use the :doc:`intensity module </guide/utils/intensity>` to convert them to rainfall accumulations for this function.
 
+  .. code:: pycon
+
     >>> from pfdf.utils import intensity
     >>> I15 = [20, 24, 40] # mm/hour
     >>> R15 = intensity.to_accumulation(I, duration=15)
@@ -261,13 +273,15 @@ Rainfall Accumulation
 ---------------------
 You can solve :ref:`equation 2 <s17-equation-2>` using the :ref:`accumulation <pfdf.models.staley2017.accumulation>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 2. This function computes the rainfall accumulation needed to achieve a given debris-flow probability level (p). In some cases, it is not possible to achieve the desired probability level with any rainfall level. This is most common when a catchment basin is minimally burned, so the terrain (T) and fire (F) variables are very small. When this occurs, the rainfall accumulation for the stream segment will be nan.
 
-This function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to probability levels. In the simplest case - a single probability level - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations).  For example::
+This function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to probability levels. In the simplest case - a single probability level - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations).  For example:
 
-  # Compute variables and parameters for the M1 model
+.. code:: pycon
+
+  >>> # Compute variables and parameters for the M1 model
   >>> T, F, S = s17.M1.variables(segments, mod_high, slopes, dnbr, kf)
   >>> B, Ct, Cf, Cs = s17.M1.parameters()
 
-  # Examine sizes
+  >>> # Examine sizes
   >>> len(segments)
   2561
   >>> T.size, F.size, S.size
@@ -275,15 +289,17 @@ This function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) 
   >>> B.size, Ct.size, Cf.size, Cs.size
   (3, 3, 3, 3)
 
-  # Compute accumulations given probability
+  >>> # Compute accumulations given probability
   >>> p = 0.5
   >>> R = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
   >>> R.shape
   (2561, 3)
 
-You can also solve for multiple probability levels simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of probability levels::
+You can also solve for multiple probability levels simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of probability levels:
 
-  # Compute accumulations for multiple probabilities
+.. code:: pycon
+
+  >>> # Compute accumulations for multiple probabilities
   >>> p = [.2, .4, .6, .8]
   >>> R = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
   >>> R.shape
@@ -309,9 +325,9 @@ which correspond to the columns of the output array, respectively.
   
     You can use the :doc:`intensity module </guide/utils/intensity>` to convert the output accumulations to intensities (in mm/hour)::
 
-    >>> from pfdf.utils import intensity
-    >>> R = s17.accumulation(...)
-    >>> I = intensity.from_accumulation(R, durations)
+      from pfdf.utils import intensity
+      R = s17.accumulation(...)
+      I = intensity.from_accumulation(R, durations)
 
 
 
@@ -334,9 +350,11 @@ Parameter Sweeps
 
 Some researchers may be interested in conducting parameter sweeps or using Monte Carlo methods to test model parameters. When doing so, note that each parameter (B, Ct, Cf, Cs) provided as input to ``likelihood`` and/or ``accumulation`` may either be scalar or a vector. If a parameter is scalar, then the same value is used for each computation. If a parameter is a vector, then each value will correspond to one column of the output array. Note that if multiple parameters are vectors, then the vectors must be the same length.
 
-For example, to test multiple values of a single parameter, you could do something like::
+For example, to test multiple values of a single parameter, you could do something like:
 
-  # Get model parameters. Use 30 different values of Ct
+.. code:: pycon
+
+  >>> # Get model parameters. Use 30 different values of Ct
   >>> import numpy as np
   >>> B = -3.63
   >>> Ct = np.arange(0.2, 0.5, 0.01)
@@ -344,13 +362,13 @@ For example, to test multiple values of a single parameter, you could do somethi
   >>> Cs = 0.70
   >>> R = 0.24  # mm/duration
 
-  # Examine sizes.
+  >>> # Examine sizes.
   >>> len(segments)
   2561
   >>> Ct.size
   30
 
-  # Estimate likelihoods for the 30 Ct values
+  >>> # Estimate likelihoods for the 30 Ct values
   >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 30)
@@ -359,14 +377,16 @@ In this example, we have tested an M1-like model using 30 different values of th
 
 ----
 
-Alternatively, you could instead test multiple values of multiple parameters simultaneously. For example, suppose you use a `latin hyper-cube <https://en.wikipedia.org/wiki/Latin_hypercube_sampling>`_ to sample 5000 different sets of Ct, Cf, and Cs parameters. Your code might resemble the following::
+Alternatively, you could instead test multiple values of multiple parameters simultaneously. For example, suppose you use a `latin hyper-cube <https://en.wikipedia.org/wiki/Latin_hypercube_sampling>`_ to sample 5000 different sets of Ct, Cf, and Cs parameters. Your code might resemble the following:
 
-  # Sample 5000 sets of Ct, Cf, and Cs values
+.. code:: pycon
+
+  >>> # Sample 5000 sets of Ct, Cf, and Cs values
   >>> Ct, Cf, Cs = my_lhc_sampler(N=5000)
   >>> Ct.size, Cf.size, Cs.size
   (5000, 5000, 5000)
 
-  # Estimate likelihoods for all 5000 sets
+  >>> # Estimate likelihoods for all 5000 sets
   >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 5000)
@@ -375,19 +395,21 @@ Here, the output array is a matrix with one column per sampled set of parameters
 
 ----
 
-If you need to vary a variable (T, F, S) in conjunction with parameters, then the variable should be a matrix with one column per parameter set. For example, the following code could be used to vary the terrain variable as a function of the Ct parameter::
+If you need to vary a variable (T, F, S) in conjunction with parameters, then the variable should be a matrix with one column per parameter set. For example, the following code could be used to vary the terrain variable as a function of the Ct parameter:
 
-  # Use a different terrain variable for 30 Ct values
+.. code:: pycon
+
+  >>> # Use a different terrain variable for 30 Ct values
   >>> Ct = np.arange(0.2, 0.5, 0.01)
   >>> T = my_terrain_sampler(segments, Ct)
 
-  # Examine sizes
+  >>> # Examine sizes
   >>> Ct.size
   30
   >>> T.shape
   (2561, 30)
 
-  # Estimate likelihoods for the 30 sets of Ct and T
+  >>> # Estimate likelihoods for the 30 sets of Ct and T
   >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
   (2561, 30)
@@ -424,15 +446,15 @@ M1
 Example workflow::
 
   # Get input rasters
-  >>> from pfdf import severity, watershed
-  >>> moderate_high = severity.mask(barc4, ["moderate","high"])
-  >>> slopes = watershed.slopes(dem, flow)
-  >>> dnbr = Raster('dnbr.tif')
-  >>> kf = Raster('kf-factor.tif')
+  from pfdf import severity, watershed
+  moderate_high = severity.mask(barc4, ["moderate","high"])
+  slopes = watershed.slopes(dem, flow)
+  dnbr = Raster('dnbr.tif')
+  kf = Raster('kf-factor.tif')
 
   # Compute variables and parameters
-  >>> T, F, S = s17.M1.variables(segments, moderate_high, slopes, dnbr, kf)
-  >>> B, Ct, Cf, Cs = s17.M1.parameters()
+  T, F, S = s17.M1.variables(segments, moderate_high, slopes, dnbr, kf)
+  B, Ct, Cf, Cs = s17.M1.parameters()
 
 .. _m2:
 
@@ -455,15 +477,15 @@ M2
 Example workflow::
 
   # Get input rasters
-  >>> from pfdf import severity, watershed
-  >>> moderate_high = severity.mask(barc4, ["moderate","high"])
-  >>> slopes = watershed.slopes(dem, flow)
-  >>> dnbr = Raster('dnbr.tif')
-  >>> kf = Raster('kf-factor.tif')
+  from pfdf import severity, watershed
+  moderate_high = severity.mask(barc4, ["moderate","high"])
+  slopes = watershed.slopes(dem, flow)
+  dnbr = Raster('dnbr.tif')
+  kf = Raster('kf-factor.tif')
 
   # Compute variables and parameters
-  >>> s17.M2.variables(segments, moderate_high, slopes, dnbr, kf_factor)
-  >>> B, Ct, Cf, Cs = s17.M2.parameters()
+  s17.M2.variables(segments, moderate_high, slopes, dnbr, kf_factor)
+  B, Ct, Cf, Cs = s17.M2.parameters()
 
 .. _m3:
 
@@ -488,20 +510,20 @@ M3
 Example workflow::
 
   # Get input rasters
-  >>> from pfdf import severity, watershed
-  >>> moderate_high = severity.mask(barc4, ["moderate","high"])
-  >>> relief = watershed.relief(dem, flow)
-  >>> thickness = Raster('soil-thickness.tif')
+  from pfdf import severity, watershed
+  moderate_high = severity.mask(barc4, ["moderate","high"])
+  relief = watershed.relief(dem, flow)
+  thickness = Raster('soil-thickness.tif')
 
   # Compute variables and parameters
-  >>> T, F, S = s17.M3.variables(segments, moderate_high, relief, thickness)
-  >>> B, Ct, Cf, Cs = s17.M3.parameters()
+  T, F, S = s17.M3.variables(segments, moderate_high, relief, thickness)
+  B, Ct, Cf, Cs = s17.M3.parameters()
 
 .. note::
 
     By default, the relief dataset is interpreted as units of meters. If this is not the case, use the "relief_per_m" option to specify a conversion factor between relief units and meters. For example, if your relief dataset is in feet, use::
 
-        >>> T, F, S = s17.M3.variables(..., relief_per_m=3.28084)
+        T, F, S = s17.M3.variables(..., relief_per_m=3.28084)
 
 .. _m4:
 
@@ -525,13 +547,13 @@ M4
 Example Workflow::
 
   # Get input rasters
-  >>> from pfdf import severity, watershed
-  >>> isburned = severity.mask(barc4, "burned")
-  >>> slopes = watershed.slopes(dem, flow)
-  >>> dnbr = Raster('dnbr.tif')
-  >>> thickness = Raster('soil-thickness.tif')
+  from pfdf import severity, watershed
+  isburned = severity.mask(barc4, "burned")
+  slopes = watershed.slopes(dem, flow)
+  dnbr = Raster('dnbr.tif')
+  thickness = Raster('soil-thickness.tif')
 
   # Compute variables and parameters
-  >>> T, F, S = s17.M4.variables(segments, isburned, slopes, dnbr, thickness)
-  >>> B, Ct, Cf, Cs = s17.M4.parameters()
+  T, F, S = s17.M4.variables(segments, isburned, slopes, dnbr, thickness)
+  B, Ct, Cf, Cs = s17.M4.parameters()
 

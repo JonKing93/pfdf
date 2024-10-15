@@ -32,10 +32,10 @@ from typing import Any, Tuple
 
 import numpy as np
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf._utils.classify import classify
-from pfdf.typing import RealArray, VectorArray, scalar, vector
+from pfdf.typing.core import RealArray, VectorArray, scalar, vector
 
 #####
 # User Functions
@@ -160,7 +160,7 @@ def pscore(likelihoods: RealArray, thresholds: vector = [0.25, 0.5, 0.75]) -> Re
     return classify(p, T)
 
 
-def vscore(volumes: RealArray, thresholds: vector = [1e3, 1e4, 1e5]):
+def vscore(volumes: RealArray, thresholds: vector = [1e3, 1e4, 1e5]) -> RealArray:
     """
     vscore  Scores a set of debris flow sediment volumes
     ----------
@@ -213,7 +213,7 @@ def vscore(volumes: RealArray, thresholds: vector = [1e3, 1e4, 1e5]):
     return classify(v, T)
 
 
-def hscore(combined: RealArray, thresholds: vector = [3, 6]):
+def hscore(combined: RealArray, thresholds: vector = [3, 6]) -> RealArray:
     """
      hscore  Computes a combined hazard assessment score
      ----------

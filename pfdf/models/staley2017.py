@@ -41,26 +41,27 @@ from typing import Any, Optional
 
 import numpy as np
 
-import pfdf._validate as validate
+import pfdf._validate.core as validate
 from pfdf._utils import clean_dims, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import DurationsError, ShapeError
-from pfdf.raster import Raster, RasterInput
+from pfdf.raster import Raster
 from pfdf.segments import Segments
 from pfdf.segments._validate import raster as validate_raster
-from pfdf.typing import (
+from pfdf.typing.core import BooleanMatrix, scalar
+from pfdf.typing.models import (
     Accumulations,
-    BooleanMatrix,
+    AccumulationVector,
     Durations,
+    Likelihoods,
+    Parameter,
     Parameters,
-    Pvalues,
-    S17ModelParameters,
-    S17ModelVariables,
-    SegmentAccumulations,
-    SegmentPvalues,
+    Probabilities,
+    Variable,
     Variables,
-    scalar,
 )
+from pfdf.typing.raster import RasterInput
+from pfdf.typing.segments import CatchmentValues, SegmentValues
 from pfdf.utils import slope
 
 # Type hint
@@ -73,18 +74,18 @@ omitnan = bool | OmitnanDict
 
 
 def accumulation(
-    p: Pvalues,
-    B: Parameters,
-    Ct: Parameters,
-    T: Variables,
-    Cf: Parameters,
-    F: Variables,
-    Cs: Parameters,
-    S: Variables,
+    p: Probabilities,
+    B: Parameter,
+    Ct: Parameter,
+    T: Variable,
+    Cf: Parameter,
+    F: Variable,
+    Cs: Parameter,
+    S: Variable,
     *,
     keepdims: bool = False,
     screen: bool = True,
-) -> SegmentAccumulations:
+) -> Accumulations:
     """
     accumulation  Computes rainfall accumulations needed for specified debris-flow probability levels
     ----------
@@ -192,16 +193,16 @@ def accumulation(
 
 
 def likelihood(
-    R: Accumulations,
-    B: Parameters,
-    Ct: Parameters,
-    T: Variables,
-    Cf: Parameters,
-    F: Variables,
-    Cs: Parameters,
-    S: Variables,
+    R: AccumulationVector,
+    B: Parameter,
+    Ct: Parameter,
+    T: Variable,
+    Cf: Parameter,
+    F: Variable,
+    Cs: Parameter,
+    S: Variable,
     keepdims: bool = False,
-) -> SegmentPvalues:
+) -> Likelihoods:
     """
     Computes debris-flow likelihood for specified rainfall accumulations
     ----------
@@ -292,7 +293,9 @@ def likelihood(
     return clean_dims(likelihood, keepdims)
 
 
-def _validate(PR, PRname, B, Ct, Cf, Cs, T, F, S):
+def _validate(
+    PR: Any, PRname: str, B: Any, Ct: Any, Cf: Any, Cs: Any, T: Any, F: Any, S: Any
+) -> tuple[Parameter, Parameter, Parameter, Parameter, Variable, Variable, Variable]:
     "Validates parameters and variables and reshapes for broadcasting"
 
     # Validate parameter vectors
@@ -411,7 +414,7 @@ class Model(ABC):
     Cs = None  # Soil coefficients
 
     @classmethod
-    def parameters(cls, durations: Durations = durations) -> S17ModelParameters:
+    def parameters(cls, durations: Durations = durations) -> Parameters:
         """
         parameters  Return model parameters for the queried durations.
         ----------
@@ -459,7 +462,7 @@ class Model(ABC):
 
     @classmethod
     @abstractmethod
-    def variables(cls, segments: Segments, *args, **kwargs) -> S17ModelVariables:
+    def variables(cls, segments: Segments, *args, **kwargs) -> Variables:
         """
         variables  Returns terrain, fire, and soil variables for a model
         ----------
@@ -573,18 +576,20 @@ class M1(Model):
     #####
 
     @staticmethod
-    def _terrain(segments: Segments, moderate_high: Raster, slopes: Raster):
+    def _terrain(
+        segments: Segments, moderate_high: Raster, slopes: Raster
+    ) -> CatchmentValues:
         "Computes the M1 terrain variable"
         mask = Model._terrain_mask(moderate_high, slopes, threshold_degrees=23)
         return segments.catchment_ratio(mask)
 
     @staticmethod
-    def _fire(segments: Segments, dnbr: Raster, omitnan: bool):
+    def _fire(segments: Segments, dnbr: Raster, omitnan: bool) -> CatchmentValues:
         "Computes the M1 fire variable"
         return segments.scaled_dnbr(dnbr, omitnan=omitnan)
 
     @staticmethod
-    def _soil(segments: Segments, kf_factor: Raster, omitnan: bool):
+    def _soil(segments: Segments, kf_factor: Raster, omitnan: bool) -> CatchmentValues:
         "Computes the M1 soil variable"
         return segments.kf_factor(kf_factor, omitnan=omitnan)
 
@@ -593,7 +598,9 @@ class M1(Model):
     #####
 
     @staticmethod
-    def terrain(segments: Segments, moderate_high: RasterInput, slopes: RasterInput):
+    def terrain(
+        segments: Segments, moderate_high: RasterInput, slopes: RasterInput
+    ) -> CatchmentValues:
         """
         Computes the M1 terrain variable
         ----------
@@ -614,9 +621,11 @@ class M1(Model):
         return M1._terrain(segments, moderate_high, slopes)
 
     @staticmethod
-    def fire(segments: Segments, dnbr: RasterInput, omitnan: bool = False):
+    def fire(
+        segments: Segments, dnbr: RasterInput, omitnan: bool = False
+    ) -> CatchmentValues:
         """
-        Computes the M2 fire variable
+        Computes the M1 fire variable
         ----------
         M1.fire(segments, dnbr)
         M1.fire(segments, dnbr, omitnan=True)
@@ -636,7 +645,9 @@ class M1(Model):
         return M1._fire(segments, dnbr, omitnan)
 
     @staticmethod
-    def soil(segments: Segments, kf_factor: RasterInput, omitnan: bool = False):
+    def soil(
+        segments: Segments, kf_factor: RasterInput, omitnan: bool = False
+    ) -> CatchmentValues:
         """
         Computes the M1 soil variable
         ----------
@@ -665,7 +676,7 @@ class M1(Model):
         dnbr: RasterInput,
         kf_factor: RasterInput,
         omitnan: omitnan = False,
-    ) -> S17ModelVariables:
+    ) -> Variables:
         """
         variables  Computes the T, F, and S variables for the M1 model
         ----------
@@ -767,7 +778,7 @@ class M2(Model):
     @staticmethod
     def _terrain(
         segments: Segments, slopes: Raster, moderate_high: Raster, omitnan: bool
-    ):
+    ) -> CatchmentValues:
         "Computes the M2 terrain variable"
 
         # Convert slopes to sine-thetas, but preserve nodata
@@ -787,12 +798,12 @@ class M2(Model):
         return segments.sine_theta(sine_thetas, moderate_high, omitnan=omitnan)
 
     @staticmethod
-    def _fire(segments: Segments, dnbr: Raster, omitnan: bool):
+    def _fire(segments: Segments, dnbr: Raster, omitnan: bool) -> CatchmentValues:
         "Computes the M2 fire variable"
         return segments.scaled_dnbr(dnbr, omitnan=omitnan)
 
     @staticmethod
-    def _soil(segments: Segments, kf_factor: Raster, omitnan: bool):
+    def _soil(segments: Segments, kf_factor: Raster, omitnan: bool) -> CatchmentValues:
         "Computes the M2 soil variable"
         return segments.kf_factor(kf_factor, omitnan=omitnan)
 
@@ -806,7 +817,7 @@ class M2(Model):
         slopes: RasterInput,
         moderate_high: RasterInput,
         omitnan=False,
-    ):
+    ) -> CatchmentValues:
         """
         Computes the M2 terrain variable
         ----------
@@ -831,7 +842,9 @@ class M2(Model):
         return M2._terrain(segments, slopes, moderate_high, omitnan)
 
     @staticmethod
-    def fire(segments: Segments, dnbr: RasterInput, omitnan: bool = False):
+    def fire(
+        segments: Segments, dnbr: RasterInput, omitnan: bool = False
+    ) -> CatchmentValues:
         """
         Computes the M2 fire variable
         ----------
@@ -853,7 +866,9 @@ class M2(Model):
         return M2._fire(segments, dnbr, omitnan)
 
     @staticmethod
-    def soil(segments: Segments, kf_factor: RasterInput, omitnan: bool = False):
+    def soil(
+        segments: Segments, kf_factor: RasterInput, omitnan: bool = False
+    ) -> CatchmentValues:
         """
         Computes the M2 soil variable
         ----------
@@ -882,7 +897,7 @@ class M2(Model):
         dnbr: RasterInput,
         kf_factor: RasterInput,
         omitnan: omitnan = False,
-    ) -> S17ModelVariables:
+    ) -> Variables:
         """
         variables  Computes the T, F, and S variables for the M2 model
         ----------
@@ -981,17 +996,21 @@ class M3(Model):
     #####
 
     @staticmethod
-    def _terrain(segments: Segments, relief: Raster, relief_per_m: scalar | None):
+    def _terrain(
+        segments: Segments, relief: Raster, relief_per_m: scalar | None
+    ) -> SegmentValues:
         "Computes the M3 terrain variable"
         return segments.ruggedness(relief, relief_per_m)
 
     @staticmethod
-    def _fire(segments: Segments, moderate_high: Raster):
+    def _fire(segments: Segments, moderate_high: Raster) -> CatchmentValues:
         "Computes the M3 fire variable"
         return segments.catchment_ratio(moderate_high)
 
     @staticmethod
-    def _soil(segments: Segments, soil_thickness: Raster, omitnan: bool):
+    def _soil(
+        segments: Segments, soil_thickness: Raster, omitnan: bool
+    ) -> CatchmentValues:
         "Computes the M3 soil variable"
         return segments.scaled_thickness(soil_thickness, omitnan=omitnan)
 
@@ -1002,7 +1021,7 @@ class M3(Model):
     @staticmethod
     def terrain(
         segments: Segments, relief: RasterInput, relief_per_m: Optional[scalar] = None
-    ):
+    ) -> SegmentValues:
         """
         Computes the M3 terrain variable
         ----------
@@ -1025,7 +1044,7 @@ class M3(Model):
         return M3._terrain(segments, relief, relief_per_m)
 
     @staticmethod
-    def fire(segments: Segments, moderate_high: RasterInput):
+    def fire(segments: Segments, moderate_high: RasterInput) -> CatchmentValues:
         """
         Computes the M3 fire variable
         ----------
@@ -1043,7 +1062,9 @@ class M3(Model):
         return M3._fire(segments, moderate_high)
 
     @staticmethod
-    def soil(segments: Segments, soil_thickness: RasterInput, omitnan: bool = False):
+    def soil(
+        segments: Segments, soil_thickness: RasterInput, omitnan: bool = False
+    ) -> CatchmentValues:
         """
         Computes the M3 soil variable
         ----------
@@ -1074,7 +1095,7 @@ class M3(Model):
         soil_thickness: RasterInput,
         relief_per_m: Optional[scalar] = None,
         omitnan: omitnan = False,
-    ) -> S17ModelVariables:
+    ) -> Variables:
         """
         variables  Computes the T, F, and S variables for the M3 model
         ----------
@@ -1175,18 +1196,22 @@ class M4(Model):
     #####
 
     @staticmethod
-    def _terrain(segments: Segments, isburned: Raster, slopes: Raster):
+    def _terrain(
+        segments: Segments, isburned: Raster, slopes: Raster
+    ) -> CatchmentValues:
         "Computes the M4 terrain variable"
         mask = Model._terrain_mask(isburned, slopes, threshold_degrees=30)
         return segments.catchment_ratio(mask)
 
     @staticmethod
-    def _fire(segments: Segments, dnbr: Raster, omitnan: bool):
+    def _fire(segments: Segments, dnbr: Raster, omitnan: bool) -> CatchmentValues:
         "Computes the M4 fire variable"
         return segments.scaled_dnbr(dnbr, omitnan=omitnan)
 
     @staticmethod
-    def _soil(segments: Segments, soil_thickness: Raster, omitnan: bool):
+    def _soil(
+        segments: Segments, soil_thickness: Raster, omitnan: bool
+    ) -> CatchmentValues:
         "Computes the M4 soil variable"
         return segments.scaled_thickness(soil_thickness, omitnan=omitnan)
 
@@ -1195,7 +1220,9 @@ class M4(Model):
     #####
 
     @staticmethod
-    def terrain(segments: Segments, isburned: RasterInput, slopes: Raster):
+    def terrain(
+        segments: Segments, isburned: RasterInput, slopes: Raster
+    ) -> CatchmentValues:
         """
         Computes the M4 terrain variable
         ----------
@@ -1216,7 +1243,9 @@ class M4(Model):
         return M4._terrain(segments, isburned, slopes)
 
     @staticmethod
-    def fire(segments: Segments, dnbr: RasterInput, omitnan: bool = False):
+    def fire(
+        segments: Segments, dnbr: RasterInput, omitnan: bool = False
+    ) -> CatchmentValues:
         """
         Computes the M4 fire variable
         ----------
@@ -1238,7 +1267,9 @@ class M4(Model):
         return M4._fire(segments, dnbr, omitnan)
 
     @staticmethod
-    def soil(segments: Segments, soil_thickness: RasterInput, omitnan: bool = False):
+    def soil(
+        segments: Segments, soil_thickness: RasterInput, omitnan: bool = False
+    ) -> CatchmentValues:
         """
         Computes the M4 soil variable
         ----------
@@ -1269,7 +1300,7 @@ class M4(Model):
         dnbr: RasterInput,
         soil_thickness: RasterInput,
         omitnan: omitnan = False,
-    ) -> S17ModelVariables:
+    ) -> Variables:
         """
         variables  Computes the T, F, and S variables for the M4 model
         ----------

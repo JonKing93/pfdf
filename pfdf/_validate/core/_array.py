@@ -2,6 +2,7 @@
 Functions that validate the shape and dtype of numpy arrays
 ----------
 Low level:
+    real_dtype      - Checks an input represents a numeric real-valued dtype
     dtype_          - Checks a dtype is an allowed value
     shape_          - Checks that a shape is allowed
     nonsingletons   - Locates nonsingleton dimensions
@@ -18,9 +19,9 @@ from typing import Any, Optional
 
 import numpy as np
 
-from pfdf._utils import aslist, astuple
+from pfdf._utils import aslist, astuple, real
 from pfdf.errors import DimensionError, EmptyArrayError, ShapeError
-from pfdf.typing import (
+from pfdf.typing.core import (
     MatrixArray,
     RealArray,
     ScalarArray,
@@ -34,6 +35,20 @@ from pfdf.typing import (
 #####
 # Low Level
 #####
+
+
+def real_dtype(input: Any, name: str) -> np.dtype:
+    "Checks that an input represents a numeric real-valued numpy dtype"
+
+    # Convert to dtype
+    try:
+        dtype = np.dtype(input)
+    except Exception as error:
+        raise TypeError(f"Could not convert {name} to a numpy dtype") from error
+
+    # Require real-valued type
+    dtype_(name, allowed=real, actual=dtype)
+    return dtype
 
 
 def dtype_(name: str, allowed: dtypes, actual: type) -> None:

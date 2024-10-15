@@ -45,7 +45,7 @@ You can install a generic release using::
 
 where ``X.Y.Z`` is the release tag.
 
-You can also install the most recent devlopment from the main branch using::
+You can also install the most recent development from the main branch using::
 
     pip install git+https://code.usgs.gov/ghsc/lhp/pfdf@main
 

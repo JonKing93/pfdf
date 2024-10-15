@@ -12,7 +12,7 @@ from math import ceil, floor
 import rasterio.warp
 
 from pfdf.projection import CRS, BoundingBox, Transform
-from pfdf.typing import shape2d
+from pfdf.typing.core import shape2d
 
 
 def reprojection(

@@ -678,9 +678,11 @@ Rasters
         
         Building a basin raster is computationally difficult and can take a while to run. Setting parallel=True allows this process to run on multiple CPUs, which can improve runtime. However, the use of this option imposes two restrictions.
 
-        First, you cannot use the "parallel" option from an interactive python session. Instead, the pfdf code MUST be called from a script via the command line. For example, something like::
+        First, you cannot use the "parallel" option from an interactive python session. Instead, the pfdf code MUST be called from a script via the command line. For example, something like:
+
+        .. code:: bash
                 
-                $ python -m my_script
+                python -m my_script
 
         Second, the code in the script must be within a::
 

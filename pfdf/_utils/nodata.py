@@ -23,7 +23,7 @@ import numpy as np
 from numpy import isnan
 
 from pfdf._utils import aslist, no_nones
-from pfdf.typing import BooleanArray, RealArray, VectorArray, ignore, scalar
+from pfdf.typing.core import BooleanArray, RealArray, VectorArray, ignore, scalar
 
 # Type alias
 nodata = scalar | None

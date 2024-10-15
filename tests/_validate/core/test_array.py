@@ -1,12 +1,40 @@
 import numpy as np
 import pytest
 
-import pfdf._validate._array as validate
+import pfdf._validate.core._array as validate
 from pfdf.errors import DimensionError, EmptyArrayError, ShapeError
 
 ###
 # Low-level
 ###
+
+
+class TestRealDtype:
+    @pytest.mark.parametrize(
+        "input, expected",
+        (
+            (float, np.dtype(float)),
+            ("uint16", np.dtype("uint16")),
+            (np.dtype("int8"), np.dtype("int8")),
+        ),
+    )
+    def test_valid(_, input, expected):
+        output = validate.real_dtype(input, "test")
+        assert output == expected
+
+    def test_not_dtype(_, assert_contains):
+        with pytest.raises(TypeError) as error:
+            validate.real_dtype(5, "test")
+        assert_contains(error, "Could not convert test to a numpy dtype")
+
+    def test_not_allowed_dtype(_, assert_contains):
+        with pytest.raises(TypeError) as error:
+            validate.real_dtype(str, "test name")
+        assert_contains(
+            error,
+            "The dtype of test name",
+            "is not an allowed dtype",
+        )
 
 
 class TestShape:

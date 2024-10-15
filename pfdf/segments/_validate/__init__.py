@@ -10,30 +10,8 @@ Selection:
     id          - Checks a scalar ID is valid and returns index
     ids         - Checks a set of IDs are valid and returns indices
     selection   - Checks filtering selection is valid and returns indices
-
-From pfdf._validate:
-    boolean
-    conversion
-    inrange
-    integers
-    option
-    output_path
-    positive
-    scalar
-    units
 """
 
-from pfdf._validate import (
-    boolean,
-    conversion,
-    inrange,
-    integers,
-    option,
-    output_path,
-    positive,
-    scalar,
-    units,
-)
 from pfdf.segments._validate._export import export
 from pfdf.segments._validate._misc import nprocess, raster
 from pfdf.segments._validate._selection import id, ids, selection
