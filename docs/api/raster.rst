@@ -599,7 +599,7 @@ Object Creation
             Raster.from_array(..., *, nodata)
             Raster.from_array(..., *, nodata, casting)
 
-        Specifies a NoData value for the raster. The NoData value will be set to the same dtype as the array. Raises a TypeError if the NoData value cannot be safely casted to this dtype. Use the casting option to change this behavior. Casting options are as follows:
+        Specifies a NoData value for the raster. The NoData value will be set to the same dtype as the array. Raises a TypeError if the NoData value cannot be safely cast to this dtype. Use the casting option to change this behavior. Casting options are as follows:
 
         * 'no': The data type should not be cast at all
         * 'equiv': Only byte-order changes are allowed
@@ -673,7 +673,7 @@ From Vector Features
 
 .. _pfdf.raster.Raster.from_points:
 
-.. py:method:: Raster.from_points(path, field = None, *, bounds = None, nodata = None, casting = "safe", resolution = 10, units = "meters", layer = None, driver = None, encoding = None)
+.. py:method:: Raster.from_points(path, field = None, *, dtype = None, field_casting = "safe", nodata = None, casting = "safe", operation = None, bounds = None, resolution = 10, units = "meters", layer = None, driver = None, encoding = None)
 
     Creates a Raster from a set of point/multi-point features
 
@@ -698,12 +698,36 @@ From Vector Features
         ::
 
             Raster.from_points(path, field)
-            Raster.from_points(..., *, nodata)
-            Raster.from_points(..., *, nodata, casting)
+            Raster.from_points(..., *, dtype)
+            Raster.from_points(..., *, dtype, field_casting)
 
-        Builds the raster using one of the data property fields for the point features. The specified field must exist in the data properties, and must have an int or float type. The dtype of the output raster will match this type. Pixels that contain a point are set to the value of the data field for that point. If a pixel contains multiple points, then the pixel's value will match the data value of the final point in the set.
+        Builds the raster using one of the data property fields for the point features. Pixels that contain a point are set to the value of the data field for that point. If a pixel contains multiple points, then the pixel's value will match the data value of the final point in the set. Pixels that do not contain a point are set to a default NoData value, but see below for options to specify the NoData value instead.
 
-        Pixels that do not contain a point are set to NoData. If unspecified, uses a default NoData value for the dtype. Use the ``nodata`` input to specify the NoData value instead. By default, the NoData value must be safely castable to the dtype of the raster. Use the ``casting`` option to select other casting rules. NoData options are ignored if you do not specify a field.
+        The indicated data field must exist in the data properties, and must have an int or float type. By default, the dtype of the output raster will match this type. Use the ``dtype`` option to specify the type of the output raster instead. In this case, the data field values will be cast to the indicated dtype before being used to build the raster. By default, field values must be safely castable to the indicated dtype. Use the ``field_casting`` option to select different casting rules. The ``dtype`` and ``field_casting`` options are ignored if you do not specify a field.
+
+    .. dropdown:: NoData
+
+        ::
+
+            Raster.from_points(..., field, *, nodata)
+            Raster.from_points(..., field, *, nodata, casting)
+
+        Specifies the NoData value to use when building the raster from a data attribute field. By default, the NoData value must be safely castable to the dtype of the output raster. Use the ``casting`` option to select other casting rules. NoData options are ignored if you do not specify a field.
+
+    .. dropdown:: Field Operation
+
+        ::
+
+            Raster.from_points(..., field, *, operation)
+
+        Applies the indicated function to the data field values and uses the output values to build the raster. The input function should accept one numeric input, and return one real-valued numeric output. Useful when data field values require a conversion. For example, you could use the following to scale Point values by a factor of 100::
+
+            def times_100(value):
+                return value * 100
+
+            Raster.from_points(..., field, operation=times_100)
+
+        Values are converted before they are validated against the ``dtype`` and ``field_casting`` options, so you can also use an operation to implement a custom conversion from data values to the output raster dtype. The operation input is ignored if you do not specify a field.
 
     .. dropdown:: Windowed Reading
 
@@ -723,7 +747,6 @@ From Vector Features
         Specifies the resolution of the output raster. The resolution may be a scalar positive number, a 2-tuple of such numbers, a Transform, or a Raster object. If a scalar, indicates the resolution of the output raster for both the X and Y axes. If a 2-tuple, the first element is the X-axis resolution and the second element is the Y-axis. If a Raster or a Transform, uses the associated resolution. Raises an error if a Raster object does not have a Transform.
 
         If the resolution input does not have an associated CRS, then the resolution values are interpreted as meters. Use the ``units`` option to interpret resolution values in different units instead. Supported units include: "base" (CRS/Transform base unit), "kilometers", "feet", and "miles". Note that this option is ignored if the input resolution has a CRS.
-
 
     .. dropdown:: Multiple Layers
 
@@ -756,9 +779,12 @@ From Vector Features
     :Inputs:
         * **path** (*Path-like*) -- The path to a Point or MultiPoint feature file
         * **field** (*str*) -- The name of a data property field used to set pixel values. The data field must have an int or float type.
-        * **bounds** (*BoundingBox | Raster | tuple | dict*) -- A bounding box indicating the subset of point features that should be used to create the raster.
+        * **dtype** (*type*) -- The dtype of the output raster when building from a data field
+        * **field_casting** (*str*) -- The type of data casting allowed to occur when converting data field values to a specified output dtype. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
         * **nodata** (*scalar*) -- The NoData value for the output raster.
         * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the Raster. Options are "no", "equiv", safe" (default), "same_kind", and "unsafe".
+        * **operation** (*Callable*) -- A function that should be applied to data field values before they are used to build the raster. Should accept one numeric input and return one real-valued numeric input.
+        * **bounds** (*BoundingBox | Raster | tuple | dict*) -- A bounding box indicating the subset of point features that should be used to create the raster.
         * **resolution** (*scalar | vector | Transform | Raster*) -- The desired resolution of the output raster
         * **units** (*str*) -- Specifies the units of the resolution when the resolution input does not have a CRS. Options include: "base" (CRS/Transform base unit), "meters" (default), "kilometers", "feet", and "miles"
         * **layer** (*int | str*) -- The layer of the input file from which to load the point geometries
@@ -771,7 +797,7 @@ From Vector Features
 
 .. _pfdf.raster.Raster.from_polygons:
 
-.. py:method:: Raster.from_polygons(path, field = None, *, bounds = None, nodata = None, casting = "safe", resolution = 10, units = "meters", layer = None, driver = None, encoding = None)
+.. py:method:: Raster.from_polygons(path, field = None, *, dtype = None, field_casting = "safe", nodata = None, casting = "safe", operation = None, bounds = None, resolution = 10, units = "meters", layer = None, driver = None, encoding = None)
 
     Creates a Raster from a set of polygon/multi-polygon features
 
@@ -796,12 +822,36 @@ From Vector Features
         ::
            
             Raster.from_polygons(path, field)
-            Raster.from_polygons(..., *, nodata)
-            Raster.from_polygons(..., *, nodata, casting)
+            Raster.from_polygons(..., *, dtype)
+            Raster.from_polygons(..., *, dtype, field_casting)
 
-        Builds the raster using one of the data property fields for the polygon features. The specified field must exist in the data properties, and must have an int or float type. The dtype of the output raster will match this type. Pixels whose centers lie within a polygon are set to the value of the data field for that polygon. If a pixel is in multiple polygons, then the pixel's value will match the data value of the final polygon in the set.
+        Builds the raster using one of the data property fields for the polygon features. Pixels whose centers lie within a polygon are set to the value of the data field for that polygon. If a pixel is in multiple polygons, then the pixel's value will match the data value of the final polygon in the set. Pixels that do no lie within a polygon are set to a default NoData value, but see below for options to specify the NoData value instead.
 
-        Pixels that do not lie within a polygon are set to NoData. If unspecified, uses a default NoData value for the dtype. Use the ``nodata`` input to specify the NoData value instead. By default, the NoData value must be safely castable to the dtype of the raster. Use the ``casting`` option to select other casting rules. NoData options are ignored if you do not specify a field.
+        The indicated data field must exist in the data properties, and must have an int or float type. By default, the dtype of the output raster will match this type. Use the ``dtype`` option to specify the type of the output raster instead. In this case, the data field values will be cast to the indicated dtype before being used to build the raster. By default, field values must be safely castable to the indicated dtype. Use the ``field_casting`` option to select different casting rules. The ``dtype`` and ``field_casting`` options are ignored if you do not specify a field.
+
+    .. dropdown:: NoData
+
+        ::
+
+            Raster.from_polygons(..., field, *, nodata)
+            Raster.from_polygons(..., field, *, nodata, casting)
+
+        Specifies the NoData value to use when building the raster from a data attribute field. By default, the NoData value must be safely castable to the dtype of the output raster. Use the ``casting`` option to select other casting rules. NoData options are ignored if you do not specify a field.
+
+    .. dropdown:: Field Operation
+
+        ::
+
+            Raster.from_polygons(..., field, *, operation)
+        
+        Applies the indicated function to the data field values and uses the output values to build the raster. The input function should accept one numeric input, and return one real-valued numeric output. Useful when data field values require a conversion. For example, you could use the following to scale Polygon values by a factor of 100::
+
+            def times_100(value):
+                return value * 100
+
+            Raster.from_polygons(..., field, operation=times_100)
+
+        Values are converted before they are validated against the ``dtype`` and ``field_casting`` options, so you can also use an operation to implement a custom conversion from data values to the output raster dtype. The operation input is ignored if you do not specify a field.
         
     .. dropdown:: Windowed Reading
 
@@ -852,9 +902,12 @@ From Vector Features
     :Inputs:
         * **path** (*Path-like*) -- The path to a Polygon or MultiPolygon feature file
         * **field** (*str*) -- The name of a data property field used to set pixel values. The data field must have an int or float type.
-        * **bounds** (*BoundingBox | Raster | tuple | dict*) -- A bounding box indicating the subset of polygon features that should be used to create the raster.
+        * **dtype** (*type*) -- The dtype of the output raster when building from a data field
+        * **field_casting** (*str*) -- The type of data casting allowed to occur when converting data field values to a specified output dtype. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
         * **nodata** (*scalar*) -- The NoData value for the output raster.
-        * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the Raster. Options are "no", "equiv", "safe" (default), "same_kind", and "unsafe".
+        * **casting** (*str*) -- The type of data casting allowed to occur when converting a NoData value to the dtype of the Raster. Options are "no", "equiv", safe" (default), "same_kind", and "unsafe".
+        * **operation** (*Callable*) -- A function that should be applied to data field values before they are used to build the raster. Should accept one numeric input and return one real-valued numeric input.
+        * **bounds** (*BoundingBox | Raster | tuple | dict*) -- A bounding box indicating the subset of polygon features that should be used to create the raster.
         * **resolution** (*scalar | vector | Transform | Raster*) -- The desired resolution of the output raster
         * **units** (*str*) -- Specifies the units of the resolution when the resolution input does not have a CRS. Options include: "base" (CRS/Transform base unit), "meters" (default), "kilometers", "feet", and "miles"
         * **layer** (*int | str*) -- The layer of the input file from which to load the polygon geometries

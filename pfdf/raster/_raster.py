@@ -1041,7 +1041,7 @@ class Raster:
         Raster.from_array(..., *, nodata, casting)
         Specifies a NoData value for the raster. The NoData value will be set to
         the same dtype as the array. Raises a TypeError if the NoData value cannot
-        be safely casted to this dtype. Use the casting option to change this
+        be safely cast to this dtype. Use the casting option to change this
         behavior. Casting options are as follows:
         'no': The data type should not be cast at all
         'equiv': Only byte-order changes are allowed
@@ -1189,7 +1189,7 @@ class Raster:
         The indicated data field must exist in the data properties, and must have an int
         or float type. By default, the dtype of the output raster will match this type.
         Use the "dtype" option to specify the type of the output raster instead. In this
-        case, the data field values will be casted to the indicated dtype before being
+        case, the data field values will be cast to the indicated dtype before being
         used to build the raster. By default, field values must be safely castable to
         the indicated dtype. Use the "field_casting" option to select different casting
         rules. The "dtype" and "field_casting" options are ignored if you do not specify
@@ -1398,7 +1398,7 @@ class Raster:
         The indicated data field must exist in the data properties, and must have an int
         or float type. By default, the dtype of the output raster will match this type.
         Use the "dtype" option to specify the type of the output raster instead. In this
-        case, the data field values will be casted to the indicated dtype before being
+        case, the data field values will be cast to the indicated dtype before being
         used to build the raster. By default, field values must be safely castable to
         the indicated dtype. Use the "field_casting" option to select different casting
         rules. The "dtype" and "field_casting" options are ignored if you do not specify

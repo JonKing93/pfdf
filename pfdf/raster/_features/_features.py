@@ -109,7 +109,7 @@ def _parse_value(
         except Exception as error:
             raise RuntimeError('The "operation" function caused an error.') from error
 
-    # Check the value is a numeric scalar that can be casted to the raster dtype
+    # Check the value is a numeric scalar that can be cast to the raster dtype
     name = f"the value for feature {f}"
     if operation is not None:
         name = name + ' output by "operation"'
