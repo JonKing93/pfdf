@@ -7,9 +7,15 @@ Functions:
     units_per_m - Returns the conversion factors from supported units to meters
 """
 
+from __future__ import annotations
+
+import typing
+
 import pfdf._validate.core as validate
 from pfdf._utils import real, units
-from pfdf.typing.core import RealArray
+
+if typing.TYPE_CHECKING:
+    from pfdf.typing.core import RealArray
 
 
 def units_per_meter() -> dict[str, float]:

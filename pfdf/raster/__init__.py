@@ -1,23 +1,21 @@
 """
 Manage and preprocess raster datasets
 ----------
-This subpackage contains modules used to implement the Raster class, which is
-used to manage raster datasets within pfdf.
+This package contains modules that implement the Raster and RasterMetadata classes,
+which are used to manage raster datasets within pfdf.
 ----------
-Rasters:
-    Raster      - Class to manage raster datasets
+Classes:
+    Raster          - Class to manage raster datasets
+    RasterMetadata  - Class to manage raster metadata
 
-Internal Subpackages:
-    _features   - Subpackage to process vector feature files
+Internal modules:
+    _raster         - Module implementing the Raster class
+    _metadata       - Module implementing the RasterMetadata class
 
-Internal Modules:
-    _align      - Functions used to align a reprojected raster to a target transform
-    _clip       - Functions used to clip raster arrays
-    _merror     - Functions used to supplement memory-related errors
-    _parse      - Functions that parse spatial metadata options
-    _raster     - Module implementing the Raster class
-    _validate   - Functions to validate inputs for Raster routines
-    _window     - Functions used to build rasterio windowing objects
+Internal subpackages:
+    _features       - Modules to process vector feature files
+    _utils          - Utility modules used throughout the package
 """
 
+from pfdf.raster._metadata import RasterMetadata
 from pfdf.raster._raster import Raster

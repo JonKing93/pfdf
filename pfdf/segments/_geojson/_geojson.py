@@ -8,18 +8,25 @@ Functions:
     _values         - Builds the property value dict for a feature
 """
 
-from typing import Any, Callable
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 import rasterio.features
 from geojson import Feature, FeatureCollection, LineString, Point
 
+import pfdf._validate.projection as pvalidate
 import pfdf.segments._validate as validate
-from pfdf.projection import CRS, _crs
 from pfdf.segments._geojson import _reproject
-from pfdf.typing.segments import ExportType, PropertySchema, SegmentValues
 
-PropertyConvert = dict[str, tuple[SegmentValues, Callable]]
+if typing.TYPE_CHECKING:
+    from typing import Any, Callable
+
+    from pfdf.projection import CRS
+    from pfdf.typing.segments import ExportType, PropertySchema, SegmentValues
+
+    PropertyConvert = dict[str, tuple[SegmentValues, Callable]]
 
 
 def _values(properties: PropertyConvert, index: int) -> dict:
@@ -92,7 +99,7 @@ def features(
     if crs is None:
         crs = segments.crs
     else:
-        crs = _crs.validate(crs)
+        crs = pvalidate.crs(crs)
 
     # Add built-in converters to properties
     builtins = {"float": float, "int": int, "str": str}

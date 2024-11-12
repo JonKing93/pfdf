@@ -21,9 +21,14 @@ From measure to gradient:
     from_sine: Convert sin(theta) to gradient
 """
 
+from __future__ import annotations
+
+import typing
+
 import numpy as np
 
-from pfdf.typing.core import RealArray
+if typing.TYPE_CHECKING:
+    from pfdf.typing.core import RealArray
 
 #####
 # To measure

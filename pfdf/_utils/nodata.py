@@ -16,17 +16,24 @@ Class:
     NodataMask  - Objects to facilitate working with nodata/data masks
 """
 
+from __future__ import annotations
+
 import operator
-from typing import Callable, Optional, Self
+import typing
 
 import numpy as np
 from numpy import isnan
 
 from pfdf._utils import aslist, no_nones
-from pfdf.typing.core import BooleanArray, RealArray, VectorArray, ignore, scalar
 
-# Type alias
-nodata = scalar | None
+if typing.TYPE_CHECKING:
+    from typing import Callable, Optional
+
+    from pfdf._utils.nodata import NodataMask
+    from pfdf.typing.core import BooleanArray, RealArray, VectorArray, ignore, scalar
+
+    other = NodataMask | BooleanArray | None
+    nodata = scalar | None
 
 
 def mask(array: RealArray, nodata: nodata) -> BooleanArray:
@@ -120,7 +127,6 @@ class NodataMask:
     """
 
     # Type hint
-    other = Self | BooleanArray | None
 
     #####
     # Object Creation
@@ -173,7 +179,7 @@ class NodataMask:
     # Element-wise logical operators
     #####
 
-    def _logical(self, operator: Callable, other: other) -> Self:
+    def _logical(self, operator: Callable, other: other) -> NodataMask:
         "Implements an element-wise logical operator like 'and' or 'or'."
 
         # Extract the mask array if the second object is also a NodataMask object
@@ -194,7 +200,7 @@ class NodataMask:
         mask.size = self.size
         return mask
 
-    def __or__(self, other: other) -> Self:
+    def __or__(self, other: other) -> NodataMask:
         """
         __or__  Element-wise logical "or" for nodata masks
         ----------
@@ -211,7 +217,7 @@ class NodataMask:
 
         return self._logical(operator.or_, other)
 
-    def __and__(self, other: other) -> Self:
+    def __and__(self, other: other) -> NodataMask:
         """
         __and__  Element-wise logical "and" for nodata masks
         ----------

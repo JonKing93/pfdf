@@ -20,12 +20,18 @@ Functions:
     from_accumulation   - Converts rainfall accumulations to intensities
 """
 
+from __future__ import annotations
+
+import typing
+
 import numpy as np
 
 import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf.errors import ShapeError
-from pfdf.typing.core import RealArray, VectorArray, vector
+
+if typing.TYPE_CHECKING:
+    from pfdf.typing.core import RealArray, VectorArray, vector
 
 
 def to_accumulation(I: vector, durations: vector) -> VectorArray:

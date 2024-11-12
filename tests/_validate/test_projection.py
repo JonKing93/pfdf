@@ -4,7 +4,7 @@ from affine import Affine
 import pfdf._validate.projection as validate
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import CRS, BoundingBox, Transform
-from pfdf.raster import Raster
+from pfdf.raster import Raster, RasterMetadata
 
 
 class TestCRS:
@@ -46,8 +46,14 @@ class TestBounds:
         raster = Raster.from_array(araster, transform=transform)
         assert validate.bounds(raster) == bounds
 
-    def test_missing(_, araster, assert_contains):
+    def test_missing_raster(_, araster, assert_contains):
         raster = Raster(araster)
+        with pytest.raises(MissingTransformError) as error:
+            validate.bounds(raster)
+        assert_contains(error, "does not have an affine Transform")
+
+    def test_missing_metadata(_, araster, assert_contains):
+        raster = RasterMetadata(araster.shape)
         with pytest.raises(MissingTransformError) as error:
             validate.bounds(raster)
         assert_contains(error, "does not have an affine Transform")
@@ -65,7 +71,9 @@ class TestBounds:
     def test_invalid(_, assert_contains):
         with pytest.raises(TypeError) as error:
             validate.bounds("invalid")
-        assert_contains(error, "must be a dict, list, tuple, BoundingBox, or Raster")
+        assert_contains(
+            error, "must be a BoundingBox, Raster, RasterMetadata, dict, list, or tuple"
+        )
 
 
 class TestTransform:
@@ -105,5 +113,6 @@ class TestTransform:
         with pytest.raises(TypeError) as error:
             validate.transform("invalid")
         assert_contains(
-            error, "must be a dict, list, tuple, affine.Affine, Transform, or Raster"
+            error,
+            "must be a Transform, Raster, RasterMetadata, dict, list, tuple, or affine.Affine",
         )

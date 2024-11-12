@@ -400,15 +400,19 @@ class TestAccumulation:
         assert np.array_equal(output, expected)
 
     def test_includenan(_, segments, flow):
-        flow._nodata = 7
+        flow.override(nodata=7)
         output = segments._accumulation(weights=flow)
         expected = np.array([nan, nan, 6, 5, nan, nan])
+        print(output)
+        print(expected)
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_omitnan(_, segments, flow):
-        flow._nodata = 7
+        flow.override(nodata=7)
         output = segments._accumulation(weights=flow, omitnan=True)
         expected = np.array([2, 0, 6, 5, 11, 13])
+        print(output)
+        print(expected)
         assert np.array_equal(output, expected, equal_nan=True)
 
 
@@ -749,13 +753,13 @@ class TestSummarize:
 
 class TestValuesAtOutlets:
     def test_all(_, segments, flow):
-        flow._nodata = 3
+        flow.override(nodata=3)
         output = segments._values_at_outlets(flow, terminal=False)
         expected = np.array([1, 7, nan, 5, 6, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_terminal(_, segments, flow):
-        flow._nodata = 3
+        flow.override(nodata=3)
         output = segments._values_at_outlets(flow, terminal=True)
         expected = np.array([nan, 7])
         assert np.array_equal(output, expected, equal_nan=True)
@@ -763,19 +767,19 @@ class TestValuesAtOutlets:
 
 class TestSummary:
     def test_standard(_, segments, flow):
-        flow._nodata = 3
+        flow.override(nodata=3)
         output = segments.summary("sum", flow)
         expected = np.array([23, 14, nan, 5, 6, 14])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_outlet(_, segments, flow):
-        flow._nodata = 3
+        flow.override(nodata=3)
         output = segments.summary("outlet", flow)
         expected = np.array([1, 7, nan, 5, 6, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_ignore_all_nan(_, segments, flow):
-        flow._nodata = 3
+        flow.override(nodata=3)
         output = segments.summary("nansum", flow)
         expected = np.array([23, 14, nan, 5, 6, 14])
         assert np.array_equal(output, expected, equal_nan=True)
@@ -832,7 +836,7 @@ class TestAccumulationSummary:
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_nansum(_, segments, flow):
-        flow._nodata = 7
+        flow.override(nodata=7)
         output = segments._accumulation_summary(
             "nansum", flow, mask=None, terminal=False
         )
@@ -840,7 +844,7 @@ class TestAccumulationSummary:
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_nanmean(_, segments, flow):
-        flow._nodata = 7
+        flow.override(nodata=7)
         output = segments._accumulation_summary(
             "nanmean", flow, mask=None, terminal=False
         )
@@ -879,13 +883,13 @@ class Test_CatchmentSummary:
 
 class TestCatchmentSummary:
     def test_outlet(_, segments, flow):
-        flow._nodata = 3
+        flow.override(nodata=3)
         output = segments.catchment_summary("outlet", flow)
         expected = np.array([1, 7, nan, 5, 6, 7])
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_terminal_outlet(_, segments, flow):
-        flow._nodata = 3
+        flow.override(nodata=3)
         output = segments.catchment_summary("outlet", flow, terminal=True)
         expected = [nan, 7]
         assert np.array_equal(output, expected, equal_nan=True)
@@ -1014,7 +1018,7 @@ class TestConfinement:
         assert np.allclose(output, expected, equal_nan=True)
 
     def test_nan_dem_center(_, segments, dem):
-        dem._nodata = 41
+        dem.override(nodata=41)
         output = segments.confinement(dem, neighborhood=2)
         expected = np.array(
             [nan, 264.20279455, 175.71489195, 258.69006753, 93.94635581, 21.80295443]
@@ -1022,7 +1026,7 @@ class TestConfinement:
         assert np.allclose(output, expected, equal_nan=True)
 
     def test_nan_dem_adjacent(_, segments, dem):
-        dem._nodata = 19
+        dem.override(nodata=19)
         output = segments.confinement(dem, neighborhood=2)
         expected = np.array(
             [nan, 264.20279455, 175.71489195, 258.69006753, 93.94635581, nan]
@@ -1044,7 +1048,8 @@ class TestConfinement:
         assert np.allclose(output, expected)
 
     def test_crs_not_meters(_, segments, dem):
-        segments._flow.override(crs=4326)
+        flow = segments.flow
+        segments._flow.override(crs=4326, transform=flow.transform.remove_crs())
         output = segments.confinement(dem, neighborhood=2)
         expected = np.array(
             [
@@ -1195,7 +1200,7 @@ class TestScaledDnbr:
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_omitnan(_, segments, flow):
-        flow._nodata = 7
+        flow.override(nodata=7)
         output = segments.scaled_dnbr(flow, omitnan=True)
         expected = np.array([1, nan, 3, 5, 5.5, 13 / 4]) / 1000
         assert np.array_equal(output, expected, equal_nan=True)
@@ -1286,7 +1291,7 @@ class TestSlope:
         assert np.array_equal(output, expected, equal_nan=True)
 
     def test_omitnan(_, segments, flow):
-        flow._nodata = 7
+        flow.override(nodata=7)
         output = segments.slope(flow, omitnan=True)
         expected = np.array([1, nan, 3, 5, 6, nan])
         assert np.array_equal(output, expected, equal_nan=True)

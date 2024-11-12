@@ -15,13 +15,19 @@ Unit Conversions:
     conversion  - Validates a units-per-meter conversion factor
 """
 
+from __future__ import annotations
+
+import typing
 from pathlib import Path
-from typing import Any, Optional, Sequence
 
 from pfdf._utils import real
 from pfdf._utils.units import supported as supported_units
 from pfdf._validate.core._array import scalar
 from pfdf._validate.core._elements import positive
+
+if typing.TYPE_CHECKING:
+    from typing import Any, Optional, Sequence
+
 
 #####
 # Misc

@@ -17,15 +17,16 @@ Coordinate Arrays:
     polygon         - Checks a polygon coordinate array is valid
 """
 
-from pathlib import Path
-from typing import Any
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 from shapely import Point, Polygon
 
 import pfdf._validate.core as validate
 import pfdf._validate.projection as pvalidate
-import pfdf.raster._validate as rvalidate
+import pfdf.raster._utils.validate as rvalidate
 from pfdf import raster
 from pfdf._utils import real
 from pfdf.errors import (
@@ -36,16 +37,23 @@ from pfdf.errors import (
     PolygonError,
     ShapeError,
 )
-from pfdf.projection import CRS, BoundingBox, Transform
-from pfdf.raster._features.typing import (
-    Resolution,
-    driver,
-    encoding,
-    layer,
-    nodata,
-    value,
-)
-from pfdf.typing.core import Units
+from pfdf.projection import Transform
+
+if typing.TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Any
+
+    from pfdf.projection import CRS, BoundingBox
+    from pfdf.raster._features.typing import (
+        Resolution,
+        driver,
+        encoding,
+        layer,
+        nodata,
+        value,
+    )
+    from pfdf.typing.core import Units
+
 
 #####
 # Option groups
@@ -108,8 +116,8 @@ def file_io(
 def resolution(resolution: Any) -> Resolution:
     "Checks input can be used to extract resolution"
 
-    # Extract transform from rasters
-    if isinstance(resolution, raster.Raster):
+    # Extract transform from Raster/RasterMetadata
+    if isinstance(resolution, (raster.Raster, raster.RasterMetadata)):
         if resolution.transform is None:
             raise MissingTransformError(
                 f"Cannot use {resolution.name} to specify resolution because it "

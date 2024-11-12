@@ -85,7 +85,7 @@ class TestParse:
         with fiona.open(polygons) as file:
             features = list(file)
         assert geomvals == [(features[0]["geometry"], True)]
-        assert bounds == BoundingBox(20, 20, 60, 70, crs)
+        assert bounds == window
 
     def test_point_window(_, points, crs):
         window = BoundingBox(0, 0, 45, 45, crs)
@@ -99,7 +99,7 @@ class TestParse:
             (features[0]["geometry"], True),
             (features[1]["geometry"], True),
         ]
-        assert bounds == BoundingBox(10, 20, 33, 44, crs)
+        assert bounds == window
 
     def test_no_features(_, polygons, crs, assert_contains):
         window = BoundingBox(1000, 1000, 2000, 2000, crs)

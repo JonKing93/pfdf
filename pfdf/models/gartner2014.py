@@ -21,7 +21,9 @@ Internal:
     _validate_variables     - Checks that input variables are valid
 """
 
-from typing import Any
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 from numpy import exp, log, nan, sqrt
@@ -30,8 +32,15 @@ from scipy.stats import norm
 import pfdf._validate.core as validate
 from pfdf._utils import clean_dims, real
 from pfdf.errors import ShapeError
-from pfdf.typing.core import MatrixArray, VectorArray
-from pfdf.typing.models import Parameter, Variable, Volume, Volumes
+
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from pfdf.typing.core import MatrixArray, VectorArray
+    from pfdf.typing.models import Parameter, Variable, Volume, Volumes
+
+    ValidatedParameters = tuple[VectorArray, ...]
+    nRuns = int
 
 #####
 # User Functions
@@ -339,13 +348,9 @@ def _volumes(lnV: Volume, CI: Parameter, RSE: Parameter, keepdims: bool) -> Volu
     return V, Vmin, Vmax
 
 
-_ValidatedParameters = tuple[VectorArray, ...]
-_nRuns = int
-
-
 def _validate_parameters(
     parameters: dict[str, Any]
-) -> tuple[_ValidatedParameters, _nRuns]:
+) -> tuple[ValidatedParameters, nRuns]:
     """Checks that parameters are real-valued vectors with broadcastable shapes.
     Returns the number of runs and a tuple of validated arrays"""
 

@@ -6,15 +6,24 @@ Functions:
     _parse_file - Determines values from an opened feature file using validated options
 """
 
-from typing import Any, Callable
+from __future__ import annotations
 
-from numpy import dtype
+import typing
 
-from pfdf.projection import CRS, BoundingBox, Transform, _crs
+from pfdf import raster
+from pfdf.projection import crs as _crs
 from pfdf.raster._features import _features, _parse, _validate
 from pfdf.raster._features._ffile import FeatureFile
-from pfdf.raster._features.typing import GeometryValues, Resolution, nodata
-from pfdf.typing.core import scalar, shape2d
+
+if typing.TYPE_CHECKING:
+    from typing import Any, Callable
+
+    from numpy import dtype
+
+    from pfdf.projection import CRS, BoundingBox
+    from pfdf.raster import RasterMetadata
+    from pfdf.raster._features.typing import Resolution, nodata
+    from pfdf.typing.core import GeometryValues, scalar
 
 
 def parse_file(
@@ -29,14 +38,14 @@ def parse_file(
     casting: Any,
     operation: Any,
     # Spatial
-    bounds: Any,
+    window: Any,
     resolution: Any,
     units: Any,
     # File IO
     layer: Any,
     driver: Any,
     encoding: Any,
-) -> tuple[GeometryValues, CRS, Transform, shape2d, dtype, nodata]:
+) -> tuple[GeometryValues, RasterMetadata]:
     "Validates feature file and computes values for raster creation"
 
     # Validate
@@ -44,10 +53,10 @@ def parse_file(
         dtype, field_casting, nodata = _validate.field_options(
             field, dtype, field_casting, nodata, casting, operation
         )
-    bounds, resolution, units = _validate.spatial(bounds, resolution, units)
+    window, resolution, units = _validate.spatial(window, resolution, units)
     path, layer, driver, encoding = _validate.file_io(path, layer, driver, encoding)
 
-    # Open file. Read and parse properties
+    # Open file. Parse feature values and geometries
     with FeatureFile(path, layer, driver, encoding) as ffile:
         features, crs, bounds, dtype, nodata = _parse_file(
             # General
@@ -61,15 +70,20 @@ def parse_file(
             casting,
             operation,
             # Spatial
-            bounds,
+            window,
             resolution,
             units,
         )
 
-    # Convert resolution to axis unit. Then compute transform and shape
+    # Convert resolution to axis unit. Compute shape and transform
     resolution, crs = _parse.resolution(resolution, units, crs, bounds)
     transform, shape = _parse.extent(bounds, resolution)
-    return features, crs, transform, shape, dtype, nodata
+
+    # Build metadata for the output array
+    metadata = raster.RasterMetadata(
+        shape=shape, dtype=dtype, nodata=nodata, crs=crs, transform=transform
+    )
+    return features, metadata
 
 
 def _parse_file(
@@ -84,7 +98,7 @@ def _parse_file(
     casting: str,
     operation: Callable | None,
     # Spatial
-    bounds: BoundingBox | None,
+    window: BoundingBox | None,
     resolution: Resolution,
     units: str,
 ) -> tuple[GeometryValues, CRS | None, BoundingBox, dtype, scalar]:
@@ -98,12 +112,12 @@ def _parse_file(
     dtype = _parse.dtype(field, properties, dtype)
     nodata = _parse.nodata(nodata, casting, dtype)
 
-    # Validate CRS and resolution units
+    # Validate CRS and resolution units. Get window in the same CRS as the features
     crs = _crs.validate(ffile.crs)
     _validate.units(units, crs, resolution, geometry, ffile.path)
 
     # Load features and validate geometries
     features, bounds = _features.parse(
-        geometry, ffile, field, dtype, field_casting, operation, crs, bounds
+        geometry, ffile, field, dtype, field_casting, operation, crs, window
     )
     return features, crs, bounds, dtype, nodata

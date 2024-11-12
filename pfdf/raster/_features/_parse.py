@@ -8,16 +8,25 @@ Functions:
     extent      - Determines the Transform and shape of the output raster
 """
 
+from __future__ import annotations
+
+import typing
 from math import ceil
-from typing import Any
 
 import numpy as np
 
-import pfdf.raster._validate as validate
-from pfdf.projection import CRS, BoundingBox, Transform, _crs
-from pfdf.raster._features.typing import Resolution, value
-from pfdf.typing.core import Units, shape2d
+import pfdf.raster._utils.validate as validate
+from pfdf.projection import Transform
+from pfdf.projection import crs as _crs
 from pfdf.utils.nodata import default as default_nodata
+
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from pfdf.projection import CRS, BoundingBox
+    from pfdf.raster._features.typing import Resolution, value
+    from pfdf.typing.core import Units, shape2d
+
 
 #####
 # Data field
@@ -37,9 +46,9 @@ def dtype(field: str | None, properties: dict, dtype: np.dtype | None) -> np.dty
 
     # Otherwise, use default int or float as appropriate
     elif properties[field].startswith("int"):
-        return np.dtype(int)
+        return np.dtype("int32")
     else:
-        return np.dtype(float)
+        return np.dtype("float64")
 
 
 def nodata(nodata: Any | None, casting: str, dtype: type) -> value:
@@ -68,18 +77,16 @@ def resolution(
 
     # Transform: Reproject as needed, then extract resolution
     if isinstance(resolution, Transform):
-        crs = _crs.parse(crs, resolution.crs)
-        if _crs.different(crs, resolution.crs):
-            y = bounds.reproject(resolution.crs).center_y
-            resolution = resolution.reproject(crs, y)
-        resolution = resolution.resolution()
+        transform = resolution.match_crs(crs)
+        resolution = transform.resolution()
+        crs = transform.crs
 
     # Vector: Convert to base units as needed
     elif units != "base":
         xres, yres = resolution
-        xres = _crs.units_to_base(crs, "x", xres, units, bounds.center_y)
-        yres = _crs.units_to_base(crs, "y", yres, units)
-        resolution = (xres, yres)
+        xres = _crs.units_to_base(crs, "x", xres, units, bounds.center_y)[0]
+        yres = _crs.units_to_base(crs, "y", yres, units)[0]
+        resolution = (float(xres), float(yres))
     return resolution, crs
 
 

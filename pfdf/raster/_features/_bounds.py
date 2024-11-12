@@ -9,20 +9,25 @@ Functions:
     _from_polygon   - Returns bbox edges for a polygon feature
 """
 
+from __future__ import annotations
+
+import typing
 from math import inf
-from typing import Optional
 
 import numpy as np
 
-from pfdf.projection import CRS
+if typing.TYPE_CHECKING:
+    from typing import Optional
 
-# Type hints
-coords = list[tuple[float, float]]
-edges = tuple[float, float, float, float]
-bounds = dict[str, float]
+    from pfdf.projection import CRS
+    from pfdf.typing.core import EdgeDict
+
+    coords = list[tuple[float, float]]
+    edges = tuple[float, float, float, float]
+    bounds = dict[str, float]
 
 
-def unbounded(crs: Optional[CRS] = None) -> dict:
+def unbounded(crs: Optional[CRS] = None) -> EdgeDict:
     "Returns a bounds dict for an unbounded spatial domain"
     bounds = {"left": inf, "bottom": inf, "right": -inf, "top": -inf}
     if crs is not None:
@@ -30,7 +35,9 @@ def unbounded(crs: Optional[CRS] = None) -> dict:
     return bounds
 
 
-def update(bounds: dict, left: float, bottom: float, right: float, top: float) -> None:
+def update(
+    bounds: EdgeDict, left: float, bottom: float, right: float, top: float
+) -> None:
     "Updates bounds in-place to contain new edges"
     bounds["left"] = min(bounds["left"], left)
     bounds["right"] = max(bounds["right"], right)
@@ -38,7 +45,7 @@ def update(bounds: dict, left: float, bottom: float, right: float, top: float) -
     bounds["top"] = max(bounds["top"], top)
 
 
-def add_geometry(geometry: str, coords: coords, bounds: bounds) -> edges:
+def add_geometry(geometry: str, coords: coords, bounds: EdgeDict) -> edges:
     "Updates bounds in-place to include a geometry"
     if geometry == "point":
         edges = _from_point

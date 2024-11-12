@@ -15,22 +15,28 @@ Shape and Type:
     broadcastable   - Checks two shapes can be broadcasted
 """
 
-from typing import Any, Optional
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 
 from pfdf._utils import aslist, astuple, real
 from pfdf.errors import DimensionError, EmptyArrayError, ShapeError
-from pfdf.typing.core import (
-    MatrixArray,
-    RealArray,
-    ScalarArray,
-    VectorArray,
-    dtypes,
-    shape,
-    shape2d,
-    strs,
-)
+
+if typing.TYPE_CHECKING:
+    from typing import Any, Optional
+
+    from pfdf.typing.core import (
+        MatrixArray,
+        RealArray,
+        ScalarArray,
+        VectorArray,
+        dtypes,
+        shape,
+        shape2d,
+        strs,
+    )
 
 #####
 # Low Level
@@ -142,7 +148,7 @@ def nonsingleton(array: np.ndarray) -> list[bool]:
 #####
 
 
-def array(input: Any, name: str, dtype=None) -> RealArray:
+def array(input: Any, name: str, dtype=None, copy: bool = False) -> RealArray:
     """
     array  Validates an input numpy array
     ----------
@@ -152,11 +158,15 @@ def array(input: Any, name: str, dtype=None) -> RealArray:
 
     array(input, name, dtype)
     Also checks the input is derived from one of the listed dtypes.
+
+    array(..., copy=True)
+    Returns a copy of the input array. Default is to not copy
     ----------
     Inputs:
         input: The input being checked
         name: The name of the input for use in error messages.
         dtype: A list of allowed dtypes
+        copy: True to return a copy of the input array. False (default) to not copy
 
     Outputs:
         numpy array (at least 1D): The input as a numpy array
@@ -166,7 +176,7 @@ def array(input: Any, name: str, dtype=None) -> RealArray:
     """
 
     # Convert to array with minimum of 1D
-    input = np.array(input, copy=False)
+    input = np.array(input, copy=copy)
     input = np.atleast_1d(input)
 
     # Can't be empty. Optionally check dtype
@@ -199,7 +209,7 @@ def scalar(input: Any, name: str, dtype: Optional[dtypes] = None) -> ScalarArray
         DimensionError: If the input has more than one element
     """
 
-    input = array(input, name, dtype)
+    input = array(input, name, dtype, copy=False)
     if input.size != 1:
         raise DimensionError(
             f"{name} must have exactly 1 element, but it has {input.size} elements instead."
@@ -243,7 +253,7 @@ def vector(
     """
 
     # Initial validation
-    input = array(input, name, dtype)
+    input = array(input, name, dtype, copy=False)
 
     # Only 1 non-singleton dimension is allowed
     nonsingletons = nonsingleton(input)
@@ -263,6 +273,7 @@ def matrix(
     *,
     dtype: Optional[dtypes] = None,
     shape: Optional[shape2d] = None,
+    copy: bool = False,
 ) -> MatrixArray:
     """
     matrix  Validate input represents a 2D numpy array
@@ -279,6 +290,9 @@ def matrix(
     matrix(..., *, shape)
     Also checks that the array matches the requested shape. Raises a ShapeError
     if not. Use -1 to disable shape checking for a particular axis.
+
+    matrix(..., *, copy=True)
+    Returns a validated array that is a copy of the input.
     ----------
     Inputs:
         input: The input being checked
@@ -288,6 +302,7 @@ def matrix(
             first element is the number of rows, and the second is the number
             of columns. Setting an element to -1 disables the shape checking for
             that axis.
+        copy: True to return a copy of the input array. False (default) to not copy
 
     Outputs:
         numpy 2D array: The input as a 2D numpy array
@@ -300,7 +315,7 @@ def matrix(
     """
 
     # Initial validation. Handle vector shapes
-    input = array(input, name, dtype)
+    input = array(input, name, dtype, copy=copy)
     if input.ndim == 1:
         input = input.reshape(input.size, 1)
 
@@ -323,7 +338,7 @@ def broadcastable(shape1: shape, name1: str, shape2: shape, name2: str) -> shape
     """
     broadcastable  Checks that two array shapes can be broadcasted
     ----------
-    broadcastable(shape1, name1, shape2, name2
+    broadcastable(shape1, name1, shape2, name2)
     Checks that the input arrays have broadcastable shapes. Raises a ValueError
     if not. If the shapes are compatible, returns the broadcasted shape.
     ----------

@@ -48,17 +48,24 @@ Utilities:
     update_raster      - Updates the final basin raster using the rasters from a group
 """
 
+from __future__ import annotations
+
+import typing
 from multiprocessing import Pool
-from typing import Optional
 
 import numpy as np
 from pysheds.grid import Grid
 
 import pfdf.segments._validate as validate
 from pfdf import watershed
-from pfdf.raster import Raster
-from pfdf.typing.core import MatrixArray, VectorArray, scalar, shape2d
-from pfdf.typing.segments import Outlets
+
+if typing.TYPE_CHECKING:
+    from typing import Optional
+
+    from pfdf.raster import Raster
+    from pfdf.typing.core import MatrixArray, VectorArray, scalar, shape2d
+    from pfdf.typing.segments import Outlets
+
 
 #####
 # Raster Builders

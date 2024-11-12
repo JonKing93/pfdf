@@ -3,9 +3,10 @@ Type hints used throughout the pfdf package
 """
 
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Any, Callable, Literal, Sequence
 
 from numpy import dtype, ndarray
+from pyproj import CRS
 
 # Paths
 Pathlike = str | Path
@@ -40,9 +41,19 @@ BooleanArray = ndarray
 BooleanMatrix = ndarray
 
 # Projections
+CRSlike = CRS | Any
 Quadrant = Literal[1, 2, 3, 4]
 XY = Literal["x", "y"]
 Units = Literal["base", "meters", "metres", "kilometers", "kilometres", "feet", "miles"]
+
+# Buffers
+EdgeDict = dict[str, float]
 BufferUnits = Literal[
     "pixels", "base", "meters", "metres", "kilometers", "kilometres", "feet", "miles"
 ]
+
+# Features
+operation = Callable[[scalar], scalar]
+value = float | int | bool
+geometry = dict[str, Any]
+GeometryValues = list[tuple[geometry, value]]

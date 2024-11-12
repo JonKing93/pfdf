@@ -5,24 +5,32 @@ Class:
     BoundingBox - Implements a bounding box
 """
 
+from __future__ import annotations
+
+import typing
 from math import isfinite
-from typing import Any, Callable, Optional, Self
 
 import numpy as np
 import rasterio.warp
-from pyproj import CRS
 
 import pfdf._validate.core as validate
+from pfdf import projection
+from pfdf._utils import buffers as _buffers
 from pfdf._utils import real
 from pfdf.errors import MissingCRSError
-from pfdf.projection import CRSInput, _crs, _Locator, transform
-from pfdf.typing.core import Quadrant, Units, scalar
+from pfdf.projection import crs
+from pfdf.projection._locator import Locator
 
-# Type aliases
-limits = tuple[float, float]
+if typing.TYPE_CHECKING:
+    from typing import Any, Callable, Optional
+
+    from pfdf.projection import CRS, Transform
+    from pfdf.typing.core import CRSlike, Quadrant, Units, scalar
+
+    limits = tuple[float, float]
 
 
-class BoundingBox(_Locator):
+class BoundingBox(Locator):
     """
     Implements a bounding box
     ----------
@@ -132,6 +140,10 @@ class BoundingBox(_Locator):
         to_utm          - Returns a copy of the box projected into the best UTM zone
         to_4326         - Returns a copy of the box projected into EPSG:4326
 
+    CRS Operations:
+        match_crs       - Returns a copy of the box compatible with an input CRS
+        remove_crs      - Returns a copy of the BoundingBox without a CRS
+
     Transform Conversion:
         dx              - Pixel dx given a number of columns
         dy              - Pixel dy given a number of rows
@@ -162,7 +174,7 @@ class BoundingBox(_Locator):
         bottom: scalar,
         right: scalar,
         top: scalar,
-        crs: Optional[CRSInput] = None,
+        crs: Optional[CRSlike] = None,
     ) -> None:
         """
         Creates a new bounding box object
@@ -244,7 +256,8 @@ class BoundingBox(_Locator):
     @property
     def x_units_per_m(self) -> float | None:
         "The number of X axis units per meter"
-        return _crs.x_units_per_m(self.crs, self.center_y)
+        value = crs.x_units_per_m(self.crs, self.center_y)
+        return self._parse_unit(value)
 
     @property
     def units_per_m(self) -> tuple[float, float] | tuple[None, None]:
@@ -355,7 +368,7 @@ class BoundingBox(_Locator):
         "True if an axis will require inversion"
         return (quadrant in inverted) != (self.orientation in inverted)
 
-    def orient(self, quadrant: Quadrant = 1) -> Self:
+    def orient(self, quadrant: Quadrant = 1) -> BoundingBox:
         """
         Returns a copy of the BoundingBox in the requested orientation
         ----------
@@ -420,7 +433,7 @@ class BoundingBox(_Locator):
         bottom: Optional[scalar] = None,
         right: Optional[scalar] = None,
         top: Optional[scalar] = None,
-    ) -> Self:
+    ) -> BoundingBox:
         """
         Buffers the edges of a BoundingBox
         ----------
@@ -458,7 +471,7 @@ class BoundingBox(_Locator):
         units = self._validate_units(units, "buffering distances", "from")
         buffers = validate.buffers(distance, left, bottom, right, top)
         if units != "base":
-            buffers = _crs.buffers_to_base(self, buffers, units)
+            buffers = _buffers.buffers_to_base(self, buffers, units)
 
         # Build the buffered box
         left, right = self._buffer_edges(
@@ -472,6 +485,39 @@ class BoundingBox(_Locator):
     #####
     # Reprojection
     #####
+
+    def reproject(self, crs: CRSlike) -> BoundingBox:
+        """
+        reproject  Returns a copy of a BoundingBox projected into the indicated CRS
+        ----------
+        self.reproject(crs)
+        Returns a copy of the bounding box reprojected into a new CRS. Note that
+        this method is only available when a BoundingBox has a CRS.
+        ----------
+        Inputs:
+            crs: The CRS of the reprojected BoundingBox
+
+        Outputs:
+            BoundingBox: The reprojected box
+        """
+
+        # Validate reprojection. Just exit if it's the same CRS
+        crs = self._validate_reprojection(crs)
+        if crs == self.crs:
+            return self.copy()
+
+        # Reproject the bounds. Use oriented box to avoid rasterio errors
+        bounds = self.orient(1)
+        reprojected = rasterio.warp.transform_bounds(self.crs, crs, *bounds.bounds)
+        finite = [isfinite(edge) for edge in reprojected]
+        if not all(finite):
+            raise RuntimeError(
+                "Cannot reproject the BoundingBox because it contains points "
+                "outside the domain of its CRS."
+            )
+
+        # Build the new object. Ensure correct orientation
+        return BoundingBox(*reprojected, crs).orient(self.orientation)
 
     def utm_zone(self) -> CRS | None:
         """
@@ -493,34 +539,9 @@ class BoundingBox(_Locator):
                 f"Cannot determine the UTM zone for the BoundingBox "
                 "because it does not have a CRS."
             )
-        return _crs.utm_zone(self.crs, *self.center)
+        return crs.utm_zone(self.crs, *self.center)
 
-    def reproject(self, crs: CRSInput) -> Self:
-        """
-        reproject  Returns a copy of a BoundingBox projected into the indicated CRS
-        ----------
-        self.reproject(crs)
-        Returns a copy of the bounding box reprojected into a new CRS. Note that
-        this method is only available when a BoundingBox has a CRS.
-        ----------
-        Inputs:
-            crs: The CRS of the reprojected BoundingBox
-
-        Outputs:
-            BoundingBox: The reprojected box
-        """
-
-        crs = self._validate_reprojection(crs)
-        reprojected = rasterio.warp.transform_bounds(self.crs, crs, *self.bounds)
-        finite = [isfinite(edge) for edge in reprojected]
-        if not all(finite):
-            raise RuntimeError(
-                "Cannot reproject the BoundingBox because it contains points "
-                "outside the domain of its CRS."
-            )
-        return BoundingBox(*reprojected, crs)
-
-    def to_utm(self) -> Self:
+    def to_utm(self) -> BoundingBox:
         """
         to_utm  Returns a copy of the BoundingBox in the best UTM zone
         ----------
@@ -540,7 +561,7 @@ class BoundingBox(_Locator):
             )
         return self.reproject(utm)
 
-    def to_4326(self) -> Self:
+    def to_4326(self) -> BoundingBox:
         """
         to_4326  Returns a copy of the BoundingBox in EPSG:4326
         ----------
@@ -559,7 +580,8 @@ class BoundingBox(_Locator):
 
     def _delta(self, N: Any, name: str, delta: Callable, units: Units) -> float:
         "Returns pixel spacing"
-        N = self._validate_N(N, name)
+
+        N = self._validate_N(N, name, allow_zero=False)
         return delta(units) / N
 
     def dx(self, ncols: int, units: Units = "base") -> float:
@@ -608,7 +630,7 @@ class BoundingBox(_Locator):
         """
         return -self._delta(nrows, "nrows", self.ydisp, units)
 
-    def transform(self, nrows: int, ncols: int) -> "transform.Transform":
+    def transform(self, nrows: int, ncols: int) -> Transform:
         """
         Returns a Transform object derived from the BoundingBox
         ----------
@@ -625,4 +647,4 @@ class BoundingBox(_Locator):
         """
         dx = self.dx(ncols)
         dy = self.dy(nrows)
-        return transform.Transform(dx, dy, self.left, self.top, self.crs)
+        return projection.Transform(dx, dy, self.left, self.top, self.crs)

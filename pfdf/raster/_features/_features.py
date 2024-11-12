@@ -7,17 +7,25 @@ Functions:
     _require_features   - Raises an error if there are no features
 """
 
-from pathlib import Path
-from typing import Callable
+from __future__ import annotations
+
+import typing
 
 import shapely.geometry
-from numpy import dtype
 
 from pfdf.errors import NoFeaturesError
-from pfdf.projection import CRS, BoundingBox
+from pfdf.projection import BoundingBox
 from pfdf.raster._features import _bounds, _validate
-from pfdf.raster._features._ffile import FeatureFile
-from pfdf.raster._features.typing import GeometryValues, value
+
+if typing.TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Callable
+
+    from numpy import dtype
+
+    from pfdf.projection import CRS
+    from pfdf.raster._features._ffile import FeatureFile
+    from pfdf.typing.core import GeometryValues, value
 
 
 def parse(
@@ -35,8 +43,7 @@ def parse(
 ) -> tuple[GeometryValues, BoundingBox]:
     """
     Checks that input features have valid geometries. Returns features as
-    (geometry, value) tuples. Also returns the spatial bounds needed to fully
-    contain the features.
+    (geometry, value) tuples. Also returns the spatial bounds of the final data array.
     """
 
     # Get the allowed geometries and coordinate array validator
@@ -44,17 +51,21 @@ def parse(
     geometries = geotype.capitalize()
     geometries = [geometries, f"Multi{geometries}"]
 
-    # Initialize the final bounds and geometry-value tuples.
-    bounds = _bounds.unbounded(crs)
-    geometry_values = []
+    # If there's no window, track the bounds of the file's features
+    if window is None:
+        track_bounds = True
+        bounds = _bounds.unbounded(crs)
 
-    # Build a shapely box from the load window
-    if window is not None:
-        window = window.reproject(crs).orient()
-        window = window.tolist(crs=False)
+    # Otherwise, build a shapely box from the load window
+    else:
+        track_bounds = False
+        window = window.match_crs(crs)
+        bounds = window.todict()
+        window = window.orient().tolist(crs=False)
         window = shapely.geometry.box(*window)
 
     # Validate each feature's geometry and get the coordinate array
+    geometry_values = []
     for f, feature in enumerate(list(ffile.file)):
         geometry = feature["geometry"]
         multicoordinates = _validate.geometry(f, geometry, geometries)
@@ -72,17 +83,17 @@ def parse(
                 keep = True
             _bounds.add_geometry(geotype, coordinates, fbounds)
 
-        # Skip the feature if not being kept. Otherwise, update the final bounds
-        # to include the feature.
+        # Skip the feature if not being kept. Update final bounds if tracking
         if not keep:
             continue
-        _bounds.update(bounds, **fbounds)
+        if track_bounds:
+            _bounds.update(bounds, **fbounds)
 
         # Associate each geometry with a value, and record the geometry-value tuple
         value = _parse_value(f, feature, field, dtype, casting, operation)
         geometry_values.append((geometry, value))
 
-    # Require at least one feature. Return geometry-value tuples and feature bounds
+    # Require at least one feature. Return geometry-value tuples and feature array bounds
     _require_features(geotype, geometry_values, window, ffile.path)
     return geometry_values, BoundingBox.from_dict(bounds)
 
@@ -109,7 +120,7 @@ def _parse_value(
         except Exception as error:
             raise RuntimeError('The "operation" function caused an error.') from error
 
-    # Check the value is a numeric scalar that can be cast to the raster dtype
+    # Check the value is a numeric scalar that can be casted to the raster dtype
     name = f"the value for feature {f}"
     if operation is not None:
         name = name + ' output by "operation"'

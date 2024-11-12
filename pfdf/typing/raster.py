@@ -10,7 +10,7 @@ import rasterio
 from affine import Affine
 
 from pfdf.projection import CRS, BoundingBox, Transform
-from pfdf.raster import Raster
+from pfdf.raster import Raster, RasterMetadata
 from pfdf.typing.core import matrix, scalar, vector
 
 # Raster
@@ -19,7 +19,8 @@ RasterInput = (
 )
 
 # Raster metadata
-CRSInput = CRS | Raster | int | str | dict | Any
-BoundsInput = BoundingBox | Raster | dict | list | tuple
-TransformInput = Transform | Raster | dict | list | tuple | Affine
+Template = Raster | RasterMetadata
+CRSInput = CRS | Template | int | str | dict | Any
+BoundsInput = BoundingBox | Template | dict | list | tuple
+TransformInput = Transform | Template | dict | list | tuple | Affine
 ResolutionInput = TransformInput | scalar | vector

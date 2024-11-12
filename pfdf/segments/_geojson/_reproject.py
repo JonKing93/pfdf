@@ -9,17 +9,23 @@ Functions:
     _line       - Reprojects a line in-place
 """
 
-from pyproj import CRS, Transformer
+from __future__ import annotations
 
-from pfdf.typing.segments import ExportType
+import typing
 
-# Type aliases
-XY = tuple[float, float]
-Line = list[XY]
-GeomIDs = list[tuple[dict, float]]
-Segments = list[Line]
-Outlets = list[XY]
-Geometries = GeomIDs | Segments | Outlets
+from pyproj import Transformer
+
+if typing.TYPE_CHECKING:
+    from pyproj import CRS
+
+    from pfdf.typing.segments import ExportType
+
+    XY = tuple[float, float]
+    Line = list[XY]
+    GeomIDs = list[tuple[dict, float]]
+    Segments = list[Line]
+    Outlets = list[XY]
+    Geometries = GeomIDs | Segments | Outlets
 
 
 def _point(point: XY, transform: Transformer) -> XY:

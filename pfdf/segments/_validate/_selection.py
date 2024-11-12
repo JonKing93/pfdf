@@ -8,14 +8,20 @@ Functions:
     selection           - Checks a filtering selection is valid and returns boolean indices
 """
 
-from typing import Any
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 
 import pfdf._validate.core as validate
 from pfdf._utils import real
-from pfdf.typing.core import VectorArray
-from pfdf.typing.segments import BooleanIndices
+
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from pfdf.typing.core import VectorArray
+    from pfdf.typing.segments import BooleanIndices
 
 
 def _check_in_network(segments, ids: VectorArray, name: str) -> None:

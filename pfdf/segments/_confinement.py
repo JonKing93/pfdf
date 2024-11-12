@@ -16,24 +16,28 @@ Class:
     Kernel          - Implements irregular focal statistics for confinement angle slopes
 """
 
+from __future__ import annotations
+
+import typing
 from math import nan, sqrt
 
 import numpy as np
 
 import pfdf._validate.core as validate
 from pfdf._utils import limits, nodata, real
-from pfdf.raster import Raster
 from pfdf.segments._validate import raster as validate_raster
-from pfdf.typing.core import ScalarArray, scalar
-from pfdf.typing.segments import (
-    ConfinementSlopes,
-    FlowNumber,
-    NetworkIndices,
-    SegmentValues,
-)
 
-# Type aliases
-KernelIndices = tuple[list[int], list[int]]
+if typing.TYPE_CHECKING:
+    from pfdf.raster import Raster
+    from pfdf.typing.core import ScalarArray, scalar
+    from pfdf.typing.segments import (
+        ConfinementSlopes,
+        FlowNumber,
+        NetworkIndices,
+        SegmentValues,
+    )
+
+    KernelIndices = tuple[list[int], list[int]]
 
 
 def angles(

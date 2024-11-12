@@ -38,17 +38,14 @@ class TestRaster:
         assert_contains(error, "test name")
 
     def test_bad_crs(_, segments, flow, assert_contains):
-        flow._crs = CRS.from_epsg(4000)
+        flow.override(crs=26910)
         with pytest.raises(RasterCRSError) as error:
             _misc.raster(segments, flow, "test name")
         assert_contains(error, "test name")
 
     @pytest.mark.parametrize(
         "input, error",
-        (
-            (5, TypeError),
-            (np.ones((3, 3, 3)), DimensionError),
-        ),
+        ((5, TypeError),),
     )
     def test_invalid_raster(_, segments, input, error, assert_contains):
         with pytest.raises(error) as e:

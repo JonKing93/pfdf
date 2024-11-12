@@ -33,7 +33,9 @@ Internal:
     _validate_descriptions  - Checks that burn severity descriptions are recognized
 """
 
-from typing import Any
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 
@@ -41,11 +43,14 @@ import pfdf._validate.core as validate
 from pfdf._utils import aslist, real
 from pfdf._utils.classify import classify
 from pfdf.raster import Raster
-from pfdf.typing.core import strs, vector
-from pfdf.typing.raster import RasterInput
 
-# Type hints
-Thresholds = tuple[float, float, float] | vector
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from pfdf.typing.core import strs, vector
+    from pfdf.typing.raster import RasterInput
+
+    Thresholds = tuple[float, float, float] | vector
 
 # The classification scheme used in the module
 _classification = {

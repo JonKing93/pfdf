@@ -6,23 +6,34 @@ Functions:
     _distance   - Checks a buffering distance is a positive scalar
 """
 
+from __future__ import annotations
+
+import typing
+
 from pfdf._utils import all_nones
 from pfdf._validate.core._array import scalar
 from pfdf._validate.core._elements import positive
+
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from pfdf.typing.core import EdgeDict, ScalarArray
 
 #####
 # Buffers
 #####
 
 
-def _distance(distance, name):
+def _distance(distance: Any, name: str) -> ScalarArray:
     "Checks that a buffering distance is a positive scalar"
     distance = scalar(distance, name)
     positive(distance, name, allow_zero=True)
     return distance
 
 
-def buffers(distance, left, bottom, right, top):
+def buffers(distance: Any, left: Any, bottom: Any, right: Any, top: Any) -> EdgeDict:
+    "Checks that buffering distances are valid"
+
     # Require a buffer
     if all_nones(distance, left, right, top, bottom):
         raise ValueError("You must specify at least one buffering distance.")

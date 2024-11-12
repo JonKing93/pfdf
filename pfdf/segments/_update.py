@@ -11,16 +11,23 @@ Misc:
     basins          - Resets basins if terminal outlets were removed
 """
 
-import numpy as np
-import shapely
+from __future__ import annotations
 
-from pfdf.typing.core import MatrixArray, RealArray, VectorArray
-from pfdf.typing.segments import (
-    BooleanIndices,
-    NetworkIndices,
-    SegmentParents,
-    SegmentValues,
-)
+import typing
+
+import numpy as np
+
+if typing.TYPE_CHECKING:
+    import shapely
+
+    from pfdf.typing.core import MatrixArray, RealArray, VectorArray
+    from pfdf.typing.segments import (
+        BooleanIndices,
+        NetworkIndices,
+        SegmentParents,
+        SegmentValues,
+    )
+
 
 #####
 # In-place
