@@ -1,4 +1,4 @@
-from multiprocessing import Pool
+import multiprocessing as mp
 
 import numpy as np
 import pytest
@@ -127,7 +127,10 @@ class TestGroupRasters:
         ids, outlets = _basins.get_outlets(segments)
         ids = ids[0:2]
         outlets = [outlets[0], outlets[1]]
-        with Pool(nprocess, initializer=_basins.initializer, initargs=[flow]) as pool:
+        spawn = mp.get_context("spawn")
+        with spawn.Pool(
+            nprocess, initializer=_basins.initializer, initargs=[flow]
+        ) as pool:
             output = _basins.group_rasters(pool, nprocess, ids, outlets)
 
         assert isinstance(output, list)
@@ -141,7 +144,10 @@ class TestGroupRasters:
         ids, outlets = _basins.get_outlets(segments)
         ids = ids[0:2]
         outlets = [outlets[0], outlets[1]]
-        with Pool(nprocess, initializer=_basins.initializer, initargs=[flow]) as pool:
+        spawn = mp.get_context("spawn")
+        with spawn.Pool(
+            nprocess, initializer=_basins.initializer, initargs=[flow]
+        ) as pool:
             output = _basins.group_rasters(pool, nprocess, ids, outlets)
 
         assert isinstance(output, list)

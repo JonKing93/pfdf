@@ -50,8 +50,8 @@ Utilities:
 
 from __future__ import annotations
 
+import multiprocessing as mp
 import typing
-from multiprocessing import Pool
 
 import numpy as np
 from pysheds.grid import Grid
@@ -125,7 +125,8 @@ def built_in_parallel(segments, nprocess: int) -> MatrixArray:
         groups.append(group)
 
     # Process each group in parallel. Initialize processes with flow directions
-    with Pool(nprocess, initializer, initargs=[segments.flow]) as pool:
+    spawn = mp.get_context("spawn")
+    with spawn.Pool(nprocess, initializer, initargs=[segments.flow]) as pool:
         for ids, outlets in groups:
             output = group_rasters(pool, nprocess, ids, outlets)
             update_raster(final, output)
@@ -133,7 +134,7 @@ def built_in_parallel(segments, nprocess: int) -> MatrixArray:
 
 
 def group_rasters(
-    pool: Pool, nprocess: int, ids: VectorArray, outlets: Outlets
+    pool, nprocess: int, ids: VectorArray, outlets: Outlets
 ) -> list[MatrixArray]:
     "Builds the rasters for a basin group in parallel chunks"
 
