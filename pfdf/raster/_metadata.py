@@ -505,8 +505,8 @@ class RasterMetadata:
         self.update(*, bounds)
         Returns an object with updated spatial metadata. Note that you may only provide
         one of the "transform" and "bounds" options - these two inputs are mutually
-        exclusive. If the updated object has a CRS that differs from the transform/bounds, 
-        then the transform/bounds will be reprojected. If the updated object does not 
+        exclusive. If the updated object has a CRS that differs from the transform/bounds,
+        then the transform/bounds will be reprojected. If the updated object does not
         have a crs, then it will inherit any CRS from the transform/bounds.
 
         self.update(*, shape)
@@ -1030,7 +1030,7 @@ class RasterMetadata:
         or float type. By default, the dtype of the output raster will be int32 or
         float64, as appropriate for the data field type. Use the "dtype" option to
         specify a different dtype instead. In this case, the data field values will be
-        cast to the indicated dtype before being used to build the metadata. By default, 
+        cast to the indicated dtype before being used to build the metadata. By default,
         field values must be safely castable to the indicated dtype. Use the
         "field_casting" option to select different casting rules. The "dtype" and
         "field_casting" options are ignored if you do not specify a field.
