@@ -102,7 +102,7 @@ class RasterMetadata:
         ncols           - The number of columns in the data array
         width           - An alias for ncols
 
-    Data array:
+    Data Array:
         dtype           - The numpy dtype of the data array
         nodata          - The NoData value
         name            - An identifying name for the raster dataset
@@ -136,11 +136,11 @@ class RasterMetadata:
         from_pysheds    - Creates a RasterMetadata object for a pysheds.sgrid.Raster object
         from_array      - Creates a RasterMetadata object for a numpy array
 
-    Vector features:
+    Vector Features:
         from_points     - Creates a RasterMetadata object for a Point or MultiPoint feature file
         from_polygons   - Creates a RasterMetadata object for a Polygon or MultiPolygon feature file
 
-    Pixel geometries:
+    Pixel Geometries:
         dx              - Returns the change in X coordinate when moving one pixel right
         dy              - Returns the change in Y coordinate when moving one pixel down
         resolution      - Returns pixel resolution along the X and Y axes
@@ -233,7 +233,7 @@ class RasterMetadata:
         ----------
         Inputs:
             shape: The shape of the raster's data array. A vector of 2 positive
-                integers. Defaults to (0,0) if not set.
+                integers. Defaults to (0,0) if not set
             dtype: The dtype of a raster data array
             nodata: A NoData value. Will be cast to the dtype if a dtype is provided
             casting: The casting rule to use when casting the NoData value to the dtype.
@@ -325,11 +325,11 @@ class RasterMetadata:
         test as equal.
         ----------
         Inputs:
-            other: A second input being compared to the RasterMetadata object.
+            other: A second input being compared to the RasterMetadata object
 
         Outputs:
             bool: True if the second input is a RasterMetadata object with matching
-                metadata. Otherwise False.
+                metadata. Otherwise False
         """
         return (
             isinstance(other, RasterMetadata)
@@ -505,9 +505,9 @@ class RasterMetadata:
         self.update(*, bounds)
         Returns an object with updated spatial metadata. Note that you may only provide
         one of the "transform" and "bounds" options - these two inputs are mutually
-        exclusive. If the updated object has a CRS that differs from the transform /
-        bounds, then the transform/bounds will be reprojected. If the updated object
-        does not have a crs, then it will inherit any CRS from the transform / bounds.
+        exclusive. If the updated object has a CRS that differs from the transform/bounds, 
+        then the transform/bounds will be reprojected. If the updated object does not 
+        have a crs, then it will inherit any CRS from the transform/bounds.
 
         self.update(*, shape)
         self.update(*, shape, keep_bounds=True)
@@ -525,14 +525,14 @@ class RasterMetadata:
             dtype: A new data dtype
             nodata: A new NoData value
             casting: The casting rule when casting a NoData value to the dtype. Options
-                are "safe" (default), "same_kind", "no", "equiv", and "unsafe".
+                are "safe" (default), "same_kind", "no", "equiv", and "unsafe"
             crs: A new coordinate reference system
             transform: A new affine transform
             bounds: A new bounding box
             shape: A new data array shape
             keep_bounds: True to keep the original BoundingBox when the shape is
                 updated. False (default) to keep the original transform. Ignored if a
-                new transform or bounds is provided.
+                new transform or bounds is provided
             name: A new identifying name
 
         Outputs:
@@ -1030,8 +1030,8 @@ class RasterMetadata:
         or float type. By default, the dtype of the output raster will be int32 or
         float64, as appropriate for the data field type. Use the "dtype" option to
         specify a different dtype instead. In this case, the data field values will be
-        casted to the indicated dtype before being used to build the metadata. By
-        default, field values must be safely castable to the indicated dtype. Use the
+        cast to the indicated dtype before being used to build the metadata. By default, 
+        field values must be safely castable to the indicated dtype. Use the
         "field_casting" option to select different casting rules. The "dtype" and
         "field_casting" options are ignored if you do not specify a field.
 
@@ -1393,14 +1393,14 @@ class RasterMetadata:
             top: A buffer for the top of the raster
             bottom: A buffer for the bottom of the raster
             return_buffers: True to also return a pixel buffers dict. False (default) to
-                only return the updated metadata.
+                only return the updated metadata
 
         Outputs:
             RasterMetadata: The metadata object for the buffered raster
             dict[str, float] (Optional): A dict with the following keys: "left", "bottom",
                 "right", and "top". The value for each key is the number of buffering
                 pixels that  would be applied to each side of the data array. Only
-                returned if return_buffers=True.
+                returned if return_buffers=True
         """
 
         # Validate buffers and units
@@ -1475,15 +1475,15 @@ class RasterMetadata:
         Inputs:
             bounds: The bounds of the clipped raster
             return_limits: True to also return pixel index limits. False (default) to
-                only return the updated array.
+                only return the updated array
 
         Outputs:
             RasterMetadata: The RasterMetadata object for the raster that would occur
                 if the current metadata's raster were clipped to the bounds
             (int, int) (Optional): The index limits of the clipped array's rows. Only
-                returned if return_limits=True.
+                returned if return_limits=True
             (int, int) (Optional): The index limits of the clipped array's columns. Only
-                returned if return_limits=True.
+                returned if return_limits=True
         """
 
         # Require a transform
@@ -1765,7 +1765,7 @@ class RasterMetadata:
         ----------
         Inputs:
             units: The units to return dx in. Options include: "base" (CRS/Transform
-                base units), "meters" (default), "kilometers", "feet", and "miles".
+                base units), "meters" (default), "kilometers", "feet", and "miles"
 
         Outputs:
             float: The change in X coordinate when moving one pixel right
@@ -1785,7 +1785,7 @@ class RasterMetadata:
         ----------
         Inputs:
             units: The units to return dy in. Options include: "base" (CRS/Transform
-                base units), "meters" (default), "kilometers", "feet", and "miles".
+                base units), "meters" (default), "kilometers", "feet", and "miles"
 
         Outputs:
             float: The change in Y coordinate when moving one pixel down
@@ -1808,7 +1808,7 @@ class RasterMetadata:
         Inputs:
             units: The units to return resolution in. Options include:
                 "base" (CRS/Transform base units), "meters" (default), "kilometers",
-                "feet", and "miles".
+                "feet", and "miles"
 
         Outputs:
             float, float: The X and Y axis pixel resolution
@@ -1829,7 +1829,7 @@ class RasterMetadata:
         Inputs:
             units: The units to return resolution in. Options include:
                 "base" (CRS/Transform base units), "meters" (default), "kilometers",
-                "feet", and "miles".
+                "feet", and "miles"
 
         Outputs:
             float: The area of a raster pixel
@@ -1850,7 +1850,7 @@ class RasterMetadata:
         Inputs:
             units: The units in which to return the length of a pixel diagonal.
                 Options include: "base" (CRS/Transform base units), "meters" (default),
-                "kilometers", "feet", and "miles".
+                "kilometers", "feet", and "miles"
 
         Outputs:
             float: The area of a raster pixel
