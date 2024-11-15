@@ -4,27 +4,43 @@ _utils  Low-level utilities used throughout the package
 Type hint:
     real        - A list of numpy dtypes considered to be real-valued numbers
 
-Functions:
+IO Functions:
     aslist      - Returns an input as a list
     astuple     - Returns an input as a tuple
-    clean_dims  - Optionally removes trailing singleton dimensions from an array
     all_nones   - True if every input is None
     no_nones    - True if every input is not None
-    limits      - Trims limits to valid indices
+
+Misc Functions:
+    clean_dims  - Optionally removes trailing singleton dimensions from an array
+    limits      - Trims index limits to valid indices
+    rowcol      - Converts spatial coordinates to pixel indices
 
 Modules:
+    buffers     - Function to standardize buffer units
     classify    - Function for classifying arrays using thresholds
     nodata      - Utilities for working with NoData values
 """
 
-from typing import Any
+from __future__ import annotations
+
+import typing
 
 import numpy as np
+import rasterio.transform
 
-from pfdf.typing.core import RealArray
+if typing.TYPE_CHECKING:
+    from typing import Any, Callable
+
+    from affine import Affine
+
+    from pfdf.typing.core import RealArray, vector
 
 # Combination numpy dtype for real-valued data
 real = [np.integer, np.floating, np.bool_]
+
+#####
+# IO
+#####
 
 
 def aslist(input: Any) -> list:
@@ -36,7 +52,7 @@ def aslist(input: Any) -> list:
     the input is a list, returns it unchanged. Otherwise, places the input within
     a new list.
     """
-    if isinstance(input, tuple):
+    if isinstance(input, (tuple, np.ndarray)):
         input = list(input)
     elif not isinstance(input, list):
         input = [input]
@@ -52,18 +68,11 @@ def astuple(input: Any) -> tuple:
     the input is a tuple, returns it unchanged. Otherwise, places the input within
     a new tuple.
     """
-    if isinstance(input, list):
+    if isinstance(input, (list, np.ndarray)):
         input = tuple(input)
     elif not isinstance(input, tuple):
         input = (input,)
     return input
-
-
-def clean_dims(X: RealArray, keepdims: bool) -> RealArray:
-    "Optionally removes trailing singleton dimensions"
-    if not keepdims:
-        X = np.atleast_1d(np.squeeze(X))
-    return X
 
 
 def all_nones(*args: Any) -> bool:
@@ -83,7 +92,31 @@ def no_nones(*args: Any) -> bool:
     return True
 
 
-def limits(start, stop, length):
+#####
+# Misc Functions
+#####
+
+
+def clean_dims(X: RealArray, keepdims: bool) -> RealArray:
+    "Optionally removes trailing singleton dimensions"
+    if not keepdims:
+        X = np.atleast_1d(np.squeeze(X))
+    return X
+
+
+def limits(start: int, stop: int, length: int) -> tuple[int, int]:
+    "Trims index limits to valid indices"
     start = max(start, 0)
     stop = min(stop, length)
     return (start, stop)
+
+
+def rowcol(
+    affine: Affine, xs: vector, ys: vector, op: Callable
+) -> tuple[list[int], list[int]]:
+    "Converts spatial coordinates to pixel indices"
+
+    rows, cols = rasterio.transform.rowcol(affine, xs, ys, op=op)
+    rows = np.array(rows).astype(int).tolist()
+    cols = np.array(cols).astype(int).tolist()
+    return rows, cols

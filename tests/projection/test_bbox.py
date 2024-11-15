@@ -3,7 +3,8 @@ import pytest
 from pyproj import CRS
 
 from pfdf.errors import CRSError, MissingCRSError
-from pfdf.projection import BoundingBox, Transform, _crs
+from pfdf.projection import BoundingBox, Transform
+from pfdf.projection import crs as _crs
 
 
 def check(bounds, crs):
@@ -553,6 +554,12 @@ class TestReproject:
             error, "Cannot reproject the BoundingBox because it does not have a CRS"
         )
 
+    def test_same(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        b = a.reproject(4326)
+        assert a == b
+        assert a is not b
+
     def test_none_crs(_, assert_contains):
         a = BoundingBox(1, 2, 3, 4, 26911)
         with pytest.raises(CRSError) as error:
@@ -578,6 +585,12 @@ class TestReproject:
             error,
             "Cannot reproject the BoundingBox because it contains points outside the domain of its CRS",
         )
+
+    def test_preserve_orientation(_):
+        a = BoundingBox(0, 2, 4, 0, 26911)
+        assert a.orientation == 4
+        b = a.reproject(4326)
+        assert b.orientation == 4
 
 
 class TestToUtm:
@@ -616,6 +629,55 @@ class TestTo4326:
 
 
 #####
+# CRS Operations
+#####
+
+
+class TestMatchCRS:
+    def test_both_none(_):
+        a = BoundingBox(1, 2, 3, 4)
+        b = a.match_crs(None)
+        assert a == b
+
+    def test_crs_none(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        b = a.match_crs(None)
+        assert a == b
+
+    def test_self_none(_):
+        a = BoundingBox(1, 2, 3, 4)
+        b = a.match_crs(4326)
+        assert a.bounds == b.bounds
+        assert b.crs == 4326
+        assert a.crs is None
+
+    def test_reproject(_):
+        a = BoundingBox(0, 10, 50, 100, 26911)
+        b = a.match_crs(4326)
+        expected = BoundingBox(
+            left=-121.48874388494063,
+            bottom=9.019375809670199e-05,
+            right=-121.48829593442018,
+            top=0.0009019381382659413,
+            crs="WGS 84",
+        )
+        assert b.isclose(expected)
+
+
+class TestRemoveCRS:
+    def test_none(_):
+        a = BoundingBox(1, 2, 3, 4)
+        b = a.remove_crs()
+        assert a == b
+
+    def test(_):
+        a = BoundingBox(1, 2, 3, 4, 4326)
+        b = a.remove_crs()
+        assert a.crs == 4326
+        assert b.crs is None
+
+
+#####
 # Transform Conversion
 #####
 
@@ -631,6 +693,12 @@ class TestDelta:
             a._delta(2.2, "dx", a.xdisp, "base")
         assert_contains(error, "dx", "integer")
 
+    def test_zero(_, assert_contains):
+        a = BoundingBox(1, 2, 3, 4)
+        with pytest.raises(ValueError) as error:
+            a._delta(0, "ncols", a.xdisp, "base")
+        assert_contains(error, "ncols must be greater than 0")
+
 
 class TestDx:
     def test(_):
@@ -641,6 +709,12 @@ class TestDx:
         a = BoundingBox(0, 10, 50, 100, 26911)
         assert a.dx(10, units="kilometers") == 0.005
 
+    def test_zero(_, assert_contains):
+        a = BoundingBox(0, 10, 50, 100)
+        with pytest.raises(ValueError) as error:
+            a.dx(0)
+        assert_contains(error, "ncols must be greater than 0")
+
 
 class TestDy:
     def test(_):
@@ -650,6 +724,12 @@ class TestDy:
     def test_units(_):
         a = BoundingBox(0, 10, 50, 100, 26911)
         assert a.dy(5, units="kilometers") == -0.018
+
+    def test_zero(_, assert_contains):
+        a = BoundingBox(0, 10, 50, 100)
+        with pytest.raises(ValueError) as error:
+            a.dy(0)
+        assert_contains(error, "nrows must be greater than 0")
 
 
 class TestTransform:
@@ -662,6 +742,12 @@ class TestTransform:
         a = BoundingBox(50, 100, 0, 10)
         b = a.transform(10, 10)
         assert b == Transform(-5, 9, 50, 10)
+
+    def test_zero(_, assert_contains):
+        a = BoundingBox(0, 10, 50, 100)
+        with pytest.raises(ValueError) as error:
+            a.transform(0, 0)
+        assert_contains(error, "ncols must be greater than 0")
 
 
 #####

@@ -28,14 +28,20 @@ Internal validaters:
     _validate_volumes       - Checks that input sediment volumes are valid
 """
 
-from typing import Any, Tuple
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 
 import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf._utils.classify import classify
-from pfdf.typing.core import RealArray, VectorArray, scalar, vector
+
+if typing.TYPE_CHECKING:
+    from typing import Any, Tuple
+
+    from pfdf.typing.core import RealArray, VectorArray, scalar, vector
 
 #####
 # User Functions

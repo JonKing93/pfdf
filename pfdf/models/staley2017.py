@@ -35,9 +35,11 @@ Internal:
     _validate           - Validates parameters/variables and reshapes for broadcasting
 """
 
+from __future__ import annotations
+
+import typing
 from abc import ABC, abstractmethod
 from math import nan
-from typing import Any, Optional
 
 import numpy as np
 
@@ -48,21 +50,26 @@ from pfdf.errors import DurationsError, ShapeError
 from pfdf.raster import Raster
 from pfdf.segments import Segments
 from pfdf.segments._validate import raster as validate_raster
-from pfdf.typing.core import BooleanMatrix, scalar
-from pfdf.typing.models import (
-    Accumulations,
-    AccumulationVector,
-    Durations,
-    Likelihoods,
-    Parameter,
-    Parameters,
-    Probabilities,
-    Variable,
-    Variables,
-)
-from pfdf.typing.raster import RasterInput
-from pfdf.typing.segments import CatchmentValues, SegmentValues
 from pfdf.utils import slope
+
+if typing.TYPE_CHECKING:
+    from typing import Any, Optional
+
+    from pfdf.typing.core import BooleanMatrix, scalar
+    from pfdf.typing.models import (
+        Accumulations,
+        AccumulationVector,
+        Durations,
+        Likelihoods,
+        Parameter,
+        Parameters,
+        Probabilities,
+        Variable,
+        Variables,
+    )
+    from pfdf.typing.raster import RasterInput
+    from pfdf.typing.segments import CatchmentValues, SegmentValues
+
 
 # Type hint
 OmitnanDict = dict[str, bool]

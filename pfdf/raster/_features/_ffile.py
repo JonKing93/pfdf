@@ -8,13 +8,17 @@ Class:
     FeatureFile - Context manager with informative errors for opening feature files
 """
 
-from typing import Self
+from __future__ import annotations
+
+import typing
 
 import fiona
 
 from pfdf.errors import FeatureFileError
-from pfdf.raster._features.typing import driver, encoding, layer
-from pfdf.typing.core import Pathlike
+
+if typing.TYPE_CHECKING:
+    from pfdf.raster._features.typing import driver, encoding, layer
+    from pfdf.typing.core import Pathlike
 
 
 class FeatureFile:
@@ -43,7 +47,7 @@ class FeatureFile:
         self.file = None
         self.crs = None
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> FeatureFile:
         """Opens vector feature file upon entry into a "with" block. Also provides
         informative error if file opening fails"""
 

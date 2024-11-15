@@ -5,10 +5,16 @@ Functions:
     classify    - Classify array values based on thresholds
 """
 
+from __future__ import annotations
+
+import typing
+
 from numpy import digitize, inf, nan
 
 from pfdf._utils.nodata import NodataMask
-from pfdf.typing.core import RealArray, VectorArray, scalar
+
+if typing.TYPE_CHECKING:
+    from pfdf.typing.core import RealArray, VectorArray, scalar
 
 
 def classify(

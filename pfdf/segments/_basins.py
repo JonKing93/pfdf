@@ -48,17 +48,24 @@ Utilities:
     update_raster      - Updates the final basin raster using the rasters from a group
 """
 
-from multiprocessing import Pool
-from typing import Optional
+from __future__ import annotations
+
+import multiprocessing as mp
+import typing
 
 import numpy as np
 from pysheds.grid import Grid
 
 import pfdf.segments._validate as validate
 from pfdf import watershed
-from pfdf.raster import Raster
-from pfdf.typing.core import MatrixArray, VectorArray, scalar, shape2d
-from pfdf.typing.segments import Outlets
+
+if typing.TYPE_CHECKING:
+    from typing import Optional
+
+    from pfdf.raster import Raster
+    from pfdf.typing.core import MatrixArray, VectorArray, scalar, shape2d
+    from pfdf.typing.segments import Outlets
+
 
 #####
 # Raster Builders
@@ -118,7 +125,8 @@ def built_in_parallel(segments, nprocess: int) -> MatrixArray:
         groups.append(group)
 
     # Process each group in parallel. Initialize processes with flow directions
-    with Pool(nprocess, initializer, initargs=[segments.flow]) as pool:
+    spawn = mp.get_context("spawn")
+    with spawn.Pool(nprocess, initializer, initargs=[segments.flow]) as pool:
         for ids, outlets in groups:
             output = group_rasters(pool, nprocess, ids, outlets)
             update_raster(final, output)
@@ -126,7 +134,7 @@ def built_in_parallel(segments, nprocess: int) -> MatrixArray:
 
 
 def group_rasters(
-    pool: Pool, nprocess: int, ids: VectorArray, outlets: Outlets
+    pool, nprocess: int, ids: VectorArray, outlets: Outlets
 ) -> list[MatrixArray]:
     "Builds the rasters for a basin group in parallel chunks"
 

@@ -1,5 +1,5 @@
 """
-A class and type hint for working with raster datasets
+A class for working with raster datasets
 ----------
 This module provides the "Raster" class, which pfdf uses to manage raster datasets.
 The class can acquire raster values and metadata from a variety of formats,
@@ -10,47 +10,59 @@ Class:
     Raster      - Class that manages raster datasets and metadata
 """
 
-from math import ceil
+from __future__ import annotations
+
+import typing
+from math import floor
 from pathlib import Path
-from typing import Any, Callable, Optional, Self
 
 import numpy as np
 import rasterio
 import rasterio.features
 import rasterio.transform
-from affine import Affine
 from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
 
 import pfdf._validate.core as cvalidate
-import pfdf._validate.projection as pvalidate
-import pfdf.raster._validate as rvalidate
-from pfdf._utils import all_nones, nodata, real
+import pfdf.raster._utils.validate as rvalidate
+from pfdf import raster as _raster
+from pfdf._utils import nodata, real, rowcol
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import (
-    MissingCRSError,
     MissingNoDataError,
-    MissingTransformError,
     RasterCRSError,
     RasterShapeError,
     RasterTransformError,
 )
-from pfdf.projection import CRS, BoundingBox, Transform, _crs
-from pfdf.raster import _align, _clip, _features, _merror, _parse, _window
-from pfdf.typing.core import (
-    BooleanArray,
-    BufferUnits,
-    Casting,
-    MatrixArray,
-    Pathlike,
-    RealArray,
-    ScalarArray,
-    Units,
-    scalar,
-    shape2d,
-    vector,
-)
-from pfdf.utils.nodata import default as default_nodata
+from pfdf.raster._utils import clip, factory, merror
+
+if typing.TYPE_CHECKING:
+    from typing import Any, Optional, Self
+
+    from affine import Affine
+
+    from pfdf.projection import CRS, BoundingBox, Transform
+    from pfdf.raster import Raster, RasterMetadata
+    from pfdf.typing.core import (
+        BooleanArray,
+        BufferUnits,
+        Casting,
+        MatrixArray,
+        Pathlike,
+        RealArray,
+        ScalarArray,
+        Units,
+        operation,
+        scalar,
+    )
+    from pfdf.typing.raster import (
+        BoundsInput,
+        CRSInput,
+        RasterInput,
+        ResolutionInput,
+        Template,
+        TransformInput,
+    )
 
 
 class Raster:
@@ -136,6 +148,7 @@ class Raster:
         as_pysheds      - Returns a Raster as a pysheds.sview.Raster object
 
     Preprocessing:
+        __getitem__     - Returns a Raster object for the indexed portion of a data array
         fill            - Fills a raster's NoData pixels with the indicated data value
         find            - Returns a boolean raster indicating pixels that match specified values
         set_range       - Forces a raster's data pixels to fall within the indicated range
@@ -165,423 +178,52 @@ class Raster:
         _from_features      - Creates Raster from a feature array, clipping bounds as needed
     """
 
-    # User input type hints
-    # (Not using derived type hints to avoid circular import)
-    CRSInput = CRS | Self | int | str | dict | Any
-    TransformInput = Transform | Self | dict | list | tuple | Affine
-    BoundsInput = BoundingBox | Self | dict | list | tuple
-    RasterInput = (
-        Self | str | Path | rasterio.DatasetReader | MatrixArray | PyshedsRaster
-    )
-    ResolutionInput = TransformInput | scalar | vector
-    operation = Callable[[scalar], scalar]
-
-    #####
-    # Properties
-    #####
-
-    ##### Data
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @name.setter
-    def name(self, name: str) -> None:
-        cvalidate.type(name, "raster name", str, "string")
-        self._name = name
-
-    @property
-    def values(self) -> np.ndarray:
-        if self._values is None:
-            return None
-        else:
-            return self._values.view()
-
-    @property
-    def dtype(self) -> np.dtype:
-        if self._values is None:
-            return None
-        else:
-            return self._values.dtype
-
-    @property
-    def nodata(self) -> scalar:
-        return self._nodata
-
-    @nodata.setter
-    def nodata(self, nodata: scalar) -> None:
-        if self._nodata is not None:
-            raise ValueError(
-                "Cannot set the NoData value because the raster already has a NoData value."
-            )
-        self._nodata = rvalidate.nodata(nodata, casting_="safe", dtype=self.dtype)
-
-    @property
-    def nodata_mask(self) -> BooleanArray:
-        return nodata.mask(self.values, self.nodata)
-
-    @property
-    def data_mask(self) -> BooleanArray:
-        return ~self.nodata_mask
-
-    ##### Shape
-
-    @property
-    def shape(self) -> shape2d:
-        if self._values is None:
-            return (0, 0)
-        else:
-            return self._values.shape
-
-    @property
-    def height(self) -> int:
-        return self.shape[0]
-
-    @property
-    def width(self) -> int:
-        return self.shape[1]
-
-    @property
-    def size(self) -> int:
-        height, width = self.shape
-        return height * width
-
-    ##### CRS
-
-    @property
-    def crs(self) -> CRS:
-        return self._crs
-
-    @crs.setter
-    def crs(self, crs: CRSInput) -> None:
-        if self._crs is not None:
-            raise ValueError(
-                "Cannot set the CRS because the raster already has a CRS. "
-                "See the 'reproject' method to change a raster's CRS."
-            )
-        self._crs = pvalidate.crs(crs)
-
-    @property
-    def crs_units(self):
-        return _crs.units(self.crs)
-
-    @property
-    def crs_units_per_m(self):
-        return _crs.units_per_m(self.crs, self.center_y)
-
-    @property
-    def utm_zone(self):
-        "Returns UTM zone CRS that contains the raster's center point"
-        if self.crs is None or self.bounds is None:
-            return None
-        else:
-            return self.bounds.utm_zone()
-
-    ##### Transform
-
-    @property
-    def transform(self) -> Transform:
-        if self._transform is None:
-            return None
-        else:
-            transform = self._transform.todict()
-            transform["crs"] = self.crs
-            return Transform.from_dict(transform)
-
-    @transform.setter
-    def transform(self, transform: TransformInput) -> None:
-        "Sets the Raster Transform if there is none"
-
-        # Setter only allowed for missing metadata
-        if self.transform is not None:
-            raise ValueError(
-                "Cannot set the transform because the raster already has a transform. "
-                "See the 'reproject' method to change a raster's transform."
-            )
-
-        # Validate and set. Reproject as needed.
-        transform = pvalidate.transform(transform)
-        crs, transform = _parse.projection(self.crs, transform, self.shape)
-        self._finalize(crs=crs, transform=transform)
-
-    def _pixel(self, method: str, units: str, needs_y: bool = True):
-        "Returns a pixel geometry property"
-
-        # None if there isn't a transform
-        if self.transform is None:
-            return None
-
-        # Informative error if conversion to meters is not possible
-        units = cvalidate.units(units)
-        if self.crs is None and units != "base":
-            raise MissingCRSError(
-                f"Cannot convert {self.name} {method} to {units} because the raster does "
-                f'not have a CRS. Set units="base" to return {method} in the '
-                f"base units of the affine Transform instead."
-            )
-
-        # Return the property
-        kwargs = {"units": units}
-        if needs_y:
-            kwargs["y"] = self.center_y
-        return getattr(self.transform, method)(**kwargs)
-
-    def dx(self, units: Units = "meters") -> float:
-        """
-        Returns the change in the X-axis spatial coordinate when moving one pixel right
-        ----------
-        self.dx()
-        self.dx(units)
-        Returns the change in X-axis spatial coordinate when moving one pixel to
-        the right. By default, returns dx in meters. Use the "units" option to
-        return dx in other units. Supported units include: "base" (base unit of
-        the CRS/Transform), "kilometers", "feet", and "miles".
-        ----------
-        Inputs:
-            units: The units to return dx in. Options include: "base" (CRS/Transform
-                base units), "meters" (default), "kilometers", "feet", and "miles".
-
-        Outputs:
-            float: The change in X coordinate when moving one pixel right
-        """
-        return self._pixel("dx", units)
-
-    def dy(self, units: Units = "meters") -> float:
-        """
-        Returns the change in the Y-axis spatial coordinate when moving one pixel down
-        ----------
-        self.dy()
-        self.dy(units)
-        Returns the change in Y-axis spatial coordinate when moving one pixel
-        down. By default, returns dy in meters. Use the "units" option to
-        return dy in other units. Supported units include: "base" (base unit of
-        the CRS/Transform), "kilometers", "feet", and "miles".
-        ----------
-        Inputs:
-            units: The units to return dy in. Options include: "base" (CRS/Transform
-                base units), "meters" (default), "kilometers", "feet", and "miles".
-
-        Outputs:
-            float: The change in Y coordinate when moving one pixel down
-        """
-        return self._pixel("dy", units, needs_y=False)
-
-    def resolution(self, units: Units = "meters") -> tuple[float, float]:
-        """
-        Returns the raster resolution
-        ----------
-        self.resolution()
-        self.resolution(units)
-        Returns the raster resolution as a tuple with two elements. The first
-        element is the X resolution, and the second element is Y resolution. Note
-        that resolution is strictly positive. By default, returns resolution in
-        meters. Use the "units" option to return resolution in other units. Supported
-        units include: "base" (base unit of the CRS/Transform), "kilometers",
-        "feet", and "miles".
-        ----------
-        Inputs:
-            units: The units to return resolution in. Options include:
-                "base" (CRS/Transform base units), "meters" (default), "kilometers",
-                "feet", and "miles".
-
-        Outputs:
-            float, float: The X and Y axis pixel resolution
-        """
-        return self._pixel("resolution", units)
-
-    def pixel_area(self, units: Units = "meters") -> float:
-        """
-        Returns the area of one pixel
-        ----------
-        self.pixel_area()
-        self.pixel_area(units)
-        Returns the area of a raster pixel. By default, returns area in meters^2.
-        Use the "units" option to return area in a different unit (squared).
-        Supported units include: "base" (CRS/Transform base unit), "kilometers",
-        "feet", and "miles".
-        ----------
-        Inputs:
-            units: The units to return resolution in. Options include:
-                "base" (CRS/Transform base units), "meters" (default), "kilometers",
-                "feet", and "miles".
-
-        Outputs:
-            float: The area of a raster pixel
-        """
-        return self._pixel("pixel_area", units)
-
-    def pixel_diagonal(self, units: Units = "meters") -> float:
-        """
-        Returns the length of a pixel diagonal
-        ----------
-        self.pixel_diagonal()
-        self.pixel_diagonal(units)
-        Returns the length of a pixel diagonal. By default, returns length in
-        meters. Use the "units" option to return length in other units. Supported
-        units include: "base" (base unit of the CRS/Transform), "kilometers",
-        "feet", and "miles".
-        ----------
-        Inputs:
-            units: The units in which to return the length of a pixel diagonal.
-                Options include: "base" (CRS/Transform base units), "meters" (default),
-                "kilometers", "feet", and "miles".
-
-        Outputs:
-            float: The area of a raster pixel
-        """
-        return self._pixel("pixel_diagonal", units)
-
-    @property
-    def affine(self) -> Affine | None:
-        if self.transform is None:
-            return None
-        else:
-            return self.transform.affine
-
-    ##### Bounds
-
-    @property
-    def bounds(self) -> BoundingBox:
-        if self.transform is None:
-            return None
-        else:
-            bounds = self.transform.bounds(*self.shape).todict()
-            bounds["crs"] = self.crs
-            return BoundingBox.from_dict(bounds)
-
-    @bounds.setter
-    def bounds(self, bounds: BoundsInput) -> None:
-        # Setter only allowed for no transform
-        if self.transform is not None:
-            raise ValueError(
-                "Cannot set the bounds because the raster already has bounds. See "
-                "the 'clip' method to change a raster's bounds."
-            )
-
-        # Validate and convert to transform. Reproject as needed.
-        bounds = pvalidate.bounds(bounds)
-        crs, transform = _parse.projection(self.crs, bounds, self.shape)
-        self._finalize(crs=crs, transform=transform)
-
-    def _bound(self, name):
-        if self.bounds is None:
-            return None
-        else:
-            return getattr(self.bounds, name)
-
-    @property
-    def left(self):
-        return self._bound("left")
-
-    @property
-    def right(self):
-        return self._bound("right")
-
-    @property
-    def top(self):
-        return self._bound("top")
-
-    @property
-    def bottom(self):
-        return self._bound("bottom")
-
-    @property
-    def center(self):
-        return self._bound("center")
-
-    @property
-    def center_x(self):
-        return self._bound("center_x")
-
-    @property
-    def center_y(self):
-        return self._bound("center_y")
-
-    @property
-    def orientation(self):
-        return self._bound("orientation")
-
     #####
     # Low-level initialization
     #####
 
     @staticmethod
     def _create(
-        name: Any,
-        values: Any,
-        crs: Any,
-        transform: Any,
-        nodata: Any,
-        casting: Any,
+        values: MatrixArray,
+        metadata: RasterMetadata,
         isbool: bool,
+        ensure_nodata: bool,
+        default_nodata: Optional[Any] = None,
+        casting: Optional[Any] = None,
     ) -> Self:
-        "Creates a new raster from the provided values and metadata"
+        """Creates a new raster for a factory function. Implements isbool and
+        ensure_nodata options before finalizing the object"""
 
-        raster = Raster(None, name)
-        raster._finalize(values, crs, transform, nodata, casting, isbool)
+        # Initialize empty object
+        raster = Raster(None)
+
+        # Optionally convert values to boolean. Update metadata for isbool and ensure_nodata
+        if isbool:
+            values = cvalidate.boolean(
+                values, "a boolean raster", ignore=metadata.nodata
+            )
+            metadata = metadata.as_bool()
+        elif ensure_nodata:
+            metadata = metadata.ensure_nodata(default_nodata, casting)
+
+        # Update and finalize the object
+        raster._update(values, metadata)
         return raster
 
-    def _finalize(
-        self,
-        values: Optional[Any] = None,
-        crs: Optional[Any] = None,
-        transform: Optional[Any] = None,
-        nodata: Optional[Any] = None,
-        casting: Any = "safe",
-        isbool: bool = False,
-    ) -> None:
-        """Validates and sets array values and metadata. Casts NoData to the dtype
-        of the raster. Strips CRS from Transform object. Optionally converts
-        array boolean (after validating bool conversion). Locks array values as
-        read-only
-        """
+    def _update(self, values: MatrixArray, metadata: RasterMetadata) -> None:
+        """Updates object with new data values. Ensures that metadata matches the array,
+        then locks array values as read-only"""
 
-        # Use current values for any unset fields
-        if values is None:
-            values = self._values
-        if crs is None:
-            crs = self._crs
-        if transform is None:
-            transform = self.transform
-        if nodata is None:
-            nodata = self.nodata
-
-        # Validate array values, metadata, and NoData casting
-        values = cvalidate.matrix(values, self.name, dtype=real)
-        crs, transform, nodata = rvalidate.metadata(
-            crs, transform, None, nodata, casting, values.dtype
-        )
-
-        # Optionally convert to boolean
-        if isbool:
-            values = cvalidate.boolean(values, "a boolean raster", ignore=nodata)
-            nodata = np.bool_(False)
-
-        # Strip CRS from the transform
-        if transform is not None:
-            transform = transform.todict()
-            transform["crs"] = None
-            transform = Transform.from_dict(transform)
-
-        # Set values and metadata. Lock the values to prevent users from altering
-        # the base array when working with views of the values.
+        metadata = metadata.update(shape=values.shape, dtype=values.dtype)
         values.setflags(write=False)
         self._values = values
-        self._set_metadata(crs, transform, nodata)
+        self._metadata = metadata
 
-    def _match(self, template: Self) -> None:
+    def _copy(self, template: Self) -> None:
         "Copies the attributes from a template raster to the current raster"
-        self._values = template._values
-        self._set_metadata(template._crs, template._transform, template._nodata)
 
-    def _set_metadata(
-        self, crs: CRS, transform: Transform, nodata: ScalarArray
-    ) -> None:
-        "Sets the CRS, transform, and NoData attributes"
-        self._crs = crs
-        self._transform = transform
-        self._nodata = nodata
+        self._values = template._values
+        self._metadata = template._metadata
 
     #####
     # Object Creation
@@ -662,16 +304,8 @@ class Raster:
         """
 
         # Initialize attributes
-        self._name: str = None
-        self._values: Optional[MatrixArray] = None
-        self._nodata: Optional[ScalarArray] = None
-        self._crs: Optional[CRS] = None
-        self._transform: Optional[Transform] = None
-
-        # Set name
-        if name is None:
-            name = "raster"
-        self.name = name
+        self._values: MatrixArray = None
+        self._metadata: RasterMetadata = _raster.RasterMetadata(name=name)
 
         # If no inputs were provided, just return the empty object
         if raster is None:
@@ -717,23 +351,21 @@ class Raster:
             )
 
         # Set attributes to the values from the factory object
-        self._match(raster)
-        self._finalize(
-            raster._values, raster._crs, raster._transform, raster._nodata, "unsafe"
-        )
+        self._copy(raster)
+        self.override(name=name)
 
     @staticmethod
     def from_file(
         path: Pathlike,
         name: Optional[str] = None,
         *,
-        driver: Optional[str] = None,
+        bounds: Optional[BoundsInput] = None,
         band: int = 1,
         isbool: bool = False,
-        bounds: Optional[BoundsInput] = None,
         ensure_nodata: bool = True,
         default_nodata: Optional[scalar] = None,
         casting: str = "safe",
+        driver: Optional[str] = None,
     ) -> Self:
         """
         Builds a Raster object from a file-based dataset
@@ -830,39 +462,29 @@ class Raster:
             Raster: A Raster object for the file-based dataset
         """
 
-        # Validate inputs
-        path = cvalidate.input_path(path, "path")
-        if driver is not None:
-            cvalidate.type(driver, "driver", str, "string")
-        cvalidate.type(band, "band", int, "int")
-        if bounds is not None:
-            bounds = pvalidate.bounds(bounds)
-
-        # Open file. Get metadata
+        # Validate inputs. Open file and get full-file metadata
+        path, bounds = rvalidate.file(path, driver, band, bounds, casting)
         with rasterio.open(path) as file:
-            crs = file.crs
-            transform = file.transform
-            nodata = file.nodata
+            metadata = factory.file(file, band, name)
 
-            # Build window if available. Load values
+            # Build window as needed. Load values
             if bounds is not None:
-                bounds, crs, transform = _window.build(file, bounds)
+                metadata, bounds = factory.window(metadata, bounds)
             values = file.read(band, window=bounds)
 
-        # Return Raster, optionally converting to boolean and adding nodata
-        raster = Raster._create(name, values, crs, transform, nodata, "unsafe", isbool)
-        if ensure_nodata:
-            raster.ensure_nodata(default_nodata, casting)
-        return raster
+        # Return Raster. Optionally convert to boolean and ensure nodata
+        return Raster._create(
+            values, metadata, isbool, ensure_nodata, default_nodata, casting
+        )
 
     @staticmethod
     def from_rasterio(
         reader: rasterio.DatasetReader,
         name: Optional[str] = None,
         *,
+        bounds: Optional[BoundsInput] = None,
         band: int = 1,
         isbool: bool = False,
-        bounds: Optional[BoundsInput] = None,
         ensure_nodata: bool = True,
         default_nodata: Optional[scalar] = None,
         casting: str = "safe",
@@ -941,31 +563,17 @@ class Raster:
             Raster: The new Raster object
         """
 
-        # Validate and get linked path. Informative error if file is missing
-        cvalidate.type(
-            reader,
-            "input raster",
-            rasterio.DatasetReader,
-            "rasterio.DatasetReader object",
-        )
-        path = Path(reader.name)
-        if not path.exists():
-            raise FileNotFoundError(
-                f"The file associated with the input rasterio.DatasetReader "
-                f"object no longer exists.\nFile: {path}"
-            )
-
-        # Use the file factory with the recorded driver
+        path = rvalidate.reader(reader)
         return Raster.from_file(
             path,
             name,
-            isbool=isbool,
-            driver=reader.driver,
-            band=band,
             bounds=bounds,
+            band=band,
+            isbool=isbool,
             ensure_nodata=ensure_nodata,
             default_nodata=default_nodata,
             casting=casting,
+            driver=reader.driver,
         )
 
     @staticmethod
@@ -1002,14 +610,9 @@ class Raster:
             Raster: The new Raster object
         """
 
-        cvalidate.type(
-            sraster, "input raster", PyshedsRaster, "pysheds.sview.Raster object"
-        )
-        crs = CRS.from_wkt(sraster.crs.to_wkt())
+        metadata = factory.pysheds(sraster, name)
         values = np.array(sraster, copy=True)
-        return Raster._create(
-            name, values, crs, sraster.affine, sraster.nodata, "unsafe", isbool
-        )
+        return Raster._create(values, metadata, isbool, ensure_nodata=False)
 
     @staticmethod
     def from_array(
@@ -1017,17 +620,17 @@ class Raster:
         name: Optional[str] = None,
         *,
         nodata: Optional[scalar] = None,
+        casting: Casting = "safe",
         crs: Optional[CRSInput] = None,
         transform: Optional[TransformInput] = None,
         bounds: Optional[BoundsInput] = None,
         spatial: Optional[Self] = None,
-        casting: Casting = "safe",
         isbool: bool = False,
         ensure_nodata: bool = True,
         copy: bool = True,
     ) -> Self:
         """
-        Add raster metadata to a raw numpy array
+        Create a Raster from a numpy array
         ----------
         Raster.from_array(array, name)
         Initializes a Raster object from a raw numpy array. Infers a NoData value
@@ -1050,9 +653,10 @@ class Raster:
         'unsafe': Any data conversions may be done
 
         Raster.from_array(..., *, spatial)
-        Specifies a Raster object to use as a default spatial metadata template.
-        By default, transform and crs properties from the template will be copied
-        to the new raster. However, see below for a syntax to override this behavior.
+        Specifies a Raster or RasterMetadata object to use as a default spatial metadata
+        template. By default, transform and crs properties from the template will be
+        copied to the new raster. However, see below for a syntax to override this
+        behavior.
 
         Raster.from_array(..., *, crs)
         Raster.from_array(..., *, transform)
@@ -1062,7 +666,7 @@ class Raster:
         any keyword options will take precedence over the metadata in the spatial
         template. You may only provide one of the transform/bounds inputs - raises
         an error if both are provided. If the CRS of a Transform or BoundingBox
-        differs from the spatial/keyword CRS, then the Transform or BoundingBox
+        differs from the template/keyword CRS, then the Transform or BoundingBox
         is reprojected to match the other CRS.
 
         Raster.from_array(..., *, isbool=True)
@@ -1090,8 +694,8 @@ class Raster:
             casting: The type of data casting allowed to occur when converting a
                 NoData value to the dtype of the Raster. Options are "no", "equiv",
                 "safe" (default), "same_kind", and "unsafe".
-            spatial: A Raster object to use as a default spatial metadata template
-                for the new Raster.
+            spatial: A Raster or RasterMetadata object to use as a default spatial
+                metadata template for the new Raster.
             crs: A coordinate reference system for the raster
             transform: An affine transformation for the raster. Mutually exclusive
                 with the "bounds" input
@@ -1110,21 +714,10 @@ class Raster:
             Raster: A raster object for the array-based raster dataset
         """
 
-        # Validate metadata. Copy array as needed
-        crs, projection, nodata = rvalidate.metadata(
-            crs, transform, bounds, nodata, casting
+        metadata, values = factory.array(
+            array, name, nodata, casting, crs, transform, bounds, spatial, copy
         )
-        values = np.array(array, copy=copy)
-
-        # Parse CRS and transform
-        crs, projection = _parse.template(spatial, "spatial template", crs, projection)
-        crs, transform = _parse.projection(crs, projection, values.shape)
-
-        # Build the Raster object. Optionally ensure nodata
-        raster = Raster._create(name, values, crs, transform, nodata, casting, isbool)
-        if ensure_nodata:
-            raster.ensure_nodata()
-        return raster
+        return Raster._create(values, metadata, isbool, ensure_nodata, nodata, casting)
 
     #####
     # From vector features
@@ -1187,7 +780,8 @@ class Raster:
         NoData value instead.
 
         The indicated data field must exist in the data properties, and must have an int
-        or float type. By default, the dtype of the output raster will match this type.
+        or float type. By default, the dtype of the output raster will be int32 or
+        float64, as appropriate for the data field type.
         Use the "dtype" option to specify the type of the output raster instead. In this
         case, the data field values will be cast to the indicated dtype before being
         used to build the raster. By default, field values must be safely castable to
@@ -1227,8 +821,8 @@ class Raster:
         Raster.from_points(path, *, resolution)
         Raster.from_points(path, *, resolution, units)
         Specifies the resolution of the output raster. The resolution may be a
-        scalar positive number, a 2-tuple of such numbers, a Transform, or a Raster
-        object. If a scalar, indicates the resolution of the output raster for both
+        scalar positive number, a 2-tuple of such numbers, a Transform, a Raster, or a
+        RasterMetadata object. If a scalar, indicates the resolution of the output raster for both
         the X and Y axes. If a 2-tuple, the first element is the X-axis resolution
         and the second element is the Y-axis. If a Raster or a Transform, uses
         the associated resolution. Raises an error if a Raster object does not
@@ -1292,52 +886,47 @@ class Raster:
                 are NoData.
         """
 
-        # Process the point feature file
-        geometry = "point"
-        features, crs, transform, shape, dtype, nodata = _features.parse_file(
-            # General
-            geometry,
+        # Parse the features and metadata
+        features, metadata = factory.points(
             path,
             field,
-            # Field options
             dtype,
             field_casting,
             nodata,
             casting,
             operation,
-            # Spatial
             bounds,
             resolution,
             units,
-            # File IO
             layer,
             driver,
             encoding,
         )
 
-        # Pad shape by 1 to account for edge points
-        nrows, ncols = shape
-        shape = (nrows + 1, ncols + 1)
-
         # Initialize the raster array
         try:
-            raster = np.full(shape, nodata, dtype)
+            values = np.full(metadata.shape, metadata.nodata, metadata.dtype)
         except Exception as error:
-            _merror.features(error, geometry)
+            merror.features(error, "point")
 
         # Get the GIS coordinates for each point
         for geometry, value in features:
             coords = geometry["coordinates"]
             coords = np.array(coords).reshape(-1, 2)
 
-            # Determine the raster index and set the index to the point's value
-            rows, cols = rasterio.transform.rowcol(
-                transform.affine, xs=coords[:, 0], ys=coords[:, 1]
+            # Determine the raster index and set the index to the point's value.
+            # Skip any points that fall outside the array (this can occur when a point
+            # falls exactly on the right or bottom edge during windowed reading)
+            rows, cols = rowcol(
+                metadata.affine, xs=coords[:, 0], ys=coords[:, 1], op=floor
             )
-            rows = np.array(rows).astype(int).tolist()
-            cols = np.array(cols).astype(int).tolist()
-            raster[rows, cols] = value
-        return Raster._from_features(raster, crs, transform, nodata, bounds)
+            if max(rows) < metadata.nrows and max(cols) < metadata.ncols:
+                values[rows, cols] = value
+
+        # Build the final raster
+        return Raster.from_array(
+            values, copy=False, nodata=metadata.nodata, spatial=metadata
+        )
 
     @staticmethod
     def from_polygons(
@@ -1396,10 +985,15 @@ class Raster:
         for options to specify the NoData value instead.
 
         The indicated data field must exist in the data properties, and must have an int
-        or float type. By default, the dtype of the output raster will match this type.
+        or float type. By default, the dtype of the output raster will be int32 or
+        float64, as appropriate..
         Use the "dtype" option to specify the type of the output raster instead. In this
         case, the data field values will be cast to the indicated dtype before being
-        used to build the raster. By default, field values must be safely castable to
+        used to build the raster. Note that only some numpy dtypes are supported for
+        building a raster from polygons. Supported dtypes are: bool, int16, int32,
+        uint8, uint16, uint32, float32, and float64. Raises an error if you select a
+        different dtype.
+        By default, field values must be safely castable to
         the indicated dtype. Use the "field_casting" option to select different casting
         rules. The "dtype" and "field_casting" options are ignored if you do not specify
         a field.
@@ -1501,67 +1095,48 @@ class Raster:
                 All other pixels are NoData.
         """
 
-        # Process the polygon feature file
-        geometry = "polygon"
-        features, crs, transform, shape, dtype, nodata = _features.parse_file(
-            # General
-            geometry,
+        # Parse the features and metadata
+        features, metadata = factory.polygons(
             path,
             field,
-            # Field options
             dtype,
             field_casting,
             nodata,
             casting,
             operation,
-            # Spatial
             bounds,
             resolution,
             units,
-            # File IO
             layer,
             driver,
             encoding,
         )
 
         # Use uint8 for bool as needed (rasterio does not support bool dtype)
+        dtype = metadata.dtype
         if dtype == bool:
             dtype = "uint8"
 
         # Rasterize
         try:
-            raster = rasterio.features.rasterize(
+            values = rasterio.features.rasterize(
                 features,
-                out_shape=shape,
-                transform=transform.affine,
-                fill=nodata,
+                out_shape=metadata.shape,
+                transform=metadata.affine,
+                fill=metadata.nodata,
                 dtype=dtype,
             )
 
         # Informative error for memory errors
         except Exception as error:
-            _merror.features(error, geometry)
+            merror.features(error, "polygon")
 
         # Revert to boolean as needed and build final Raster
         if field is None:
-            raster = raster.astype(bool)
-        return Raster._from_features(raster, crs, transform, nodata, bounds)
-
-    @staticmethod
-    def _from_features(
-        values: MatrixArray,
-        crs: CRS,
-        transform: Transform,
-        nodata: scalar,
-        bounds: BoundingBox | None,
-    ) -> Self:
-        "Creates Raster from feature array, clipping bounds as needed"
-        raster = Raster.from_array(
-            values, crs=crs, transform=transform, nodata=nodata, copy=False
+            values = values.astype(bool)
+        return Raster.from_array(
+            values, copy=False, nodata=metadata.nodata, spatial=metadata
         )
-        if bounds is not None:
-            raster.clip(bounds)
-        return raster
 
     #####
     # Metadata Setters
@@ -1592,16 +1167,7 @@ class Raster:
                 "safe" (default), "same_kind", and "unsafe".
         """
 
-        # Just exit is there's already a NoData value
-        if self.nodata is not None:
-            return
-
-        # Parse the default and update the NoData
-        if default is None:
-            nodata = default_nodata(self.dtype)
-        else:
-            nodata = rvalidate.nodata(default, casting, self.dtype)
-        self._finalize(nodata=nodata)
+        self._metadata = self.metadata.ensure_nodata(default, casting)
 
     def override(
         self,
@@ -1611,6 +1177,7 @@ class Raster:
         bounds: Optional[BoundsInput] = None,
         nodata: Optional[scalar] = None,
         casting: Casting = "safe",
+        name: Optional[str] = None,
     ) -> None:
         """
         Overrides current metadata values
@@ -1620,6 +1187,7 @@ class Raster:
         self.override(*, bounds)
         self.override(*, nodata)
         self.override(*, nodata, casting)
+        self.override(*, name)
         Overrides current metadata values and replaces them with new values. The
         new values must still be valid metadata. For example, the new CRS must be
         convertible to a rasterio CRS object, the nodata value must be a scalar,
@@ -1643,20 +1211,17 @@ class Raster:
             casting: The type of data casting allowed to occur when converting a
                 NoData value to the dtype of the Raster. Options are "no", "equiv",
                 "safe" (default), "same_kind", and "unsafe".
+            name: A new name for the raster
         """
 
-        # Validate
-        crs, projection, nodata = rvalidate.metadata(
-            crs, transform, bounds, nodata, casting, self.dtype
+        self._metadata = self.metadata.update(
+            name=name,
+            crs=crs,
+            transform=transform,
+            bounds=bounds,
+            nodata=nodata,
+            casting=casting,
         )
-
-        # Parse CRS and transform
-        if crs is None:
-            crs = self.crs
-        crs, transform = _parse.projection(crs, projection, self.shape)
-
-        # Update the raster's metadata
-        self._finalize(crs=crs, transform=transform, nodata=nodata, casting=casting)
 
     #####
     # Comparisons
@@ -1723,7 +1288,7 @@ class Raster:
 
         # CRS
         if raster.crs is None:
-            raster._crs = self.crs
+            raster.override(crs=self.crs)
         elif raster.crs != self.crs:
             raise RasterCRSError(
                 f"The CRS of the {raster.name} ({raster.crs}) does not "
@@ -1732,7 +1297,7 @@ class Raster:
 
         # Transform
         if raster.transform is None:
-            raster._transform = self._transform
+            raster.override(transform=self.transform)
         elif raster.transform != self.transform:
             raise RasterTransformError(
                 f"The affine transformation of the {raster.name}:\n{raster.transform}\n"
@@ -1744,7 +1309,7 @@ class Raster:
     # IO
     #####
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Returns a string summarizing the raster
         ----------
@@ -1756,31 +1321,7 @@ class Raster:
             str: A string summary of the raster
         """
 
-        # CRS
-        if self.crs is None:
-            crs = "CRS: None"
-        else:
-            crs = f'CRS("{_crs.name(self.crs)}")'
-
-        # Transform and bounds
-        if self.transform is None:
-            transform = "Transform: None"
-            bounds = "BoundingBox: None"
-        else:
-            transform = str(self.transform)
-            bounds = str(self.bounds)
-
-        # Build final string
-        return (
-            f"Raster:\n"
-            f"    Name: {self.name}\n"
-            f"    Shape: {self.shape}\n"
-            f"    Dtype: {self.dtype}\n"
-            f"    NoData: {self.nodata}\n"
-            f"    {crs}\n"
-            f"    {transform}\n"
-            f"    {bounds}\n"
-        )
+        return str(self.metadata).replace("RasterMetadata", "Raster", 1)
 
     def save(
         self,
@@ -1869,8 +1410,8 @@ class Raster:
                 current Raster
         """
 
-        copy = Raster(None, self.name)
-        copy._match(self)
+        copy = Raster(None)
+        copy._copy(self)
         return copy
 
     def as_pysheds(self) -> PyshedsRaster:
@@ -1960,8 +1501,8 @@ class Raster:
         nodatas.fill(data, value)
 
         # Update the raster object
-        self._finalize(data)
-        self._nodata = None
+        metadata = self.metadata.fill()
+        self._update(data, metadata)
 
     def find(self, values: RealArray) -> Self:
         """
@@ -2072,11 +1613,56 @@ class Raster:
         values = values.copy()
         too_large.fill(values, max)
         too_small.fill(values, min)
-        self._finalize(values)
+        self._update(values, self.metadata)
 
     #####
     # Spatial Preprocessing
     #####
+
+    def __getitem__(self, indices: tuple[int | slice, int | slice]) -> Raster:
+        """
+        Returns a Raster object for the indexed portion of a raster's data array
+        ----------
+        self[rows, cols]
+        Returns a Raster object for the indexed portion of the current object's data
+        array. The "rows" input should be an index or slice, as would be applied to the
+        first dimension of the current Raster's data array. The "cols" input is an int
+        or slice as would be applied to the second dimension. Returns an object with
+        an updated data array and spatial metadata.
+
+        Note that this method does not alter the current object. Instead, it returns
+        a new Raster object for the indexed portion of the array. The data array for the
+        new object is a view of the original array - this routine does not copy data.
+
+        This syntax has several limitations compared to numpy array indexing:
+        1. Indexing is not supported when the raster shape includes a 0,
+        2. Indices must select at least 1 pixel - empty selections are not supported,
+        3. Slices must have a step size of 1 or None,
+        4. You must provide indices for exactly 2 dimensions, and
+        5. This syntax is limited to the int and slice indices available to Python
+        lists. More advanced numpy indexing methods (such as boolean indices and
+        ellipses) are not supported.
+        ----------
+        Inputs:
+            rows: An index or slice for the first dimension of the raster's data array
+            cols: An index or slice for the second dimension of the raster's data array
+
+        Outputs:
+            Raster: A Raster object for the indexed portion of the data array
+        """
+
+        # Get the updated metadata and array slice
+        metadata, rows, cols = self.metadata.__getitem__(indices, return_slices=True)
+        values = self.values[rows, cols]
+
+        # Create the new object
+        return Raster.from_array(
+            values,
+            name=self.name,
+            nodata=self.nodata,
+            spatial=metadata,
+            copy=False,
+        )
 
     def buffer(
         self,
@@ -2150,67 +1736,35 @@ class Raster:
             bottom: A buffer for the bottom of the raster
         """
 
-        # Validate buffers and units
-        units = cvalidate.units(units, include="pixels")
+        # Compute the metadata for the buffered raster
+        edges = {"left": left, "right": right, "top": top, "bottom": bottom}
+        metadata, buffers = self.metadata.buffer(
+            distance, units, **edges, return_buffers=True
+        )
+
+        # Require NoData
         if self.nodata is None:
             raise MissingNoDataError(
-                f"Cannot buffer the {self.name} because it does not have a NoData "
+                f"Cannot buffer {self.name} because it does not have a NoData "
                 'value. See the "ensure_nodata" command to provide a NoData value '
                 "for the raster."
             )
-        elif units != "pixels" and self.transform is None:
-            raise MissingTransformError(
-                f"Cannot buffer {self.name} because it does not have an affine transform. "
-                'Note that a transform is not required when buffering with the units="pixels" option.'
-            )
-        elif units == "meters" and self.crs is None:
-            raise MissingCRSError(
-                f"Cannot convert buffering distances from meters because {self.name} "
-                "does not have a CRS. Note that a CRS is not required when buffering "
-                'with the units="base" or units="pixels" options.'
-            )
-        buffers = cvalidate.buffers(distance, left, bottom, right, top)
-
-        # Build conversion dict from axis units to pixels
-        if units != "pixels":
-            xres, yres = self.resolution("base")
-            resolution = {"left": xres, "right": xres, "top": yres, "bottom": yres}
-
-        # Convert buffers to a whole number of pixels
-        if units not in ["base", "pixels"]:
-            buffers = _crs.buffers_to_base(self, buffers, units)
-        for name, buffer in buffers.items():
-            if units != "pixels":
-                buffer = buffer / resolution[name]
-            buffers[name] = ceil(buffer)
 
         # Preallocate the buffered array
-        nrows = self.height + buffers["top"] + buffers["bottom"]
-        ncols = self.width + buffers["left"] + buffers["right"]
         try:
-            values = np.full((nrows, ncols), self.nodata, self.dtype)
+            values = np.full(metadata.shape, self.nodata, self.dtype)
         except Exception as error:
             message = (
-                f"Cannot buffer the {self.name} because the buffered array is too "
+                f"Cannot buffer {self.name} because the buffered array is too "
                 "large for memory. Try decreasing the buffering distance."
             )
-            _merror.supplement(error, message)
+            merror.supplement(error, message)
 
-        # Copy the current array into the buffered array
-        rows = slice(buffers["top"], buffers["top"] + self.height)
-        cols = slice(buffers["left"], buffers["left"] + self.width)
+        # Copy the current array into the buffered array and update the object
+        rows = slice(buffers["top"], buffers["top"] + self.nrows)
+        cols = slice(buffers["left"], buffers["left"] + self.ncols)
         values[rows, cols] = self._values
-
-        # Compute the new transform and update the object
-        if self.transform is None:
-            transform = None
-        else:
-            dx = self.dx("base")
-            dy = self.dy("base")
-            left = self.left - dx * buffers["left"]
-            top = self.top - dy * buffers["top"]
-            transform = Transform(dx, dy, left, top)
-        self._finalize(values, transform=transform)
+        self._update(values, metadata)
 
     def clip(self, bounds: BoundsInput) -> None:
         """
@@ -2231,27 +1785,13 @@ class Raster:
             bounds: A Raster or BoundingBox used to clip the current raster.
         """
 
-        # Require a transform
-        if self.transform is None:
-            raise MissingTransformError(
-                f"Cannot clip {self.name} because it does not have an affine Transform."
-            )
-
-        # Parse NoData, bounds, and CRS. Reproject bounds if needed
-        bounds = pvalidate.bounds(bounds)
-        crs = _crs.parse(self.crs, bounds.crs)
-        if _crs.different(self.crs, bounds.crs):
-            bounds = bounds.reproject(crs)
-
-        # Orient bounds, clip array, compute transform, and update raster
-        bounds = bounds.orient(self.orientation)
-        values = _clip.values(self.name, self.values, bounds, self.affine, self.nodata)
-        transform = Transform(self.dx("base"), self.dy("base"), bounds.left, bounds.top)
-        self._finalize(values, crs, transform)
+        metadata, rows, cols = self.metadata.clip(bounds, return_limits=True)
+        values = clip.values(self.values, metadata, rows, cols)
+        self._update(values, metadata)
 
     def reproject(
         self,
-        template: Optional[Self] = None,
+        template: Optional[Template] = None,
         *,
         crs: Optional[CRS] = None,
         transform: Optional[Affine] = None,
@@ -2318,35 +1858,16 @@ class Raster:
             warp_mem_limit: The working memory limit (in MB) used to reproject
         """
 
-        # Validate. Require a reprojection parameter, transform, and nodata
-        if all_nones(template, crs, transform):
-            raise ValueError(
-                "The template, crs, and transform inputs cannot all be None."
-            )
-        elif self.transform is None:
-            raise MissingTransformError(
-                f"Cannot reproject {self.name} because it does not have an affine Transform."
-            )
-        elif self.nodata is None:
+        # Compute the metadata for the reprojected raster
+        metadata = self.metadata.reproject(template, crs=crs, transform=transform)
+
+        # Require NoData and validate resampling
+        if self.nodata is None:
             raise MissingNoDataError(
                 f"Cannot reproject {self.name} because it does not have a NoData value. "
                 'See the "ensure_nodata" command to provide a NoData value for the raster.'
             )
         resampling = rvalidate.resampling(resampling)
-
-        # Parse CRS and validate transform
-        crs, transform = rvalidate.spatial(crs, transform)
-        crs, transform = _parse.template(template, "template raster", crs, transform)
-        src_crs, crs = _parse.src_dst(self.crs, crs, default=CRS(4326))
-        src_transform, transform = _parse.src_dst(
-            self.transform, transform, default=Transform(1, 1, 0, 0)
-        )
-
-        # Compute transform and shape of aligned reprojection
-        if _crs.different(crs, transform.crs):
-            y = self.bounds.reproject(transform.crs).center_y
-            transform = transform.reproject(crs, y)
-        transform, shape = _align.reprojection(src_crs, crs, self.bounds, transform)
 
         # Convert boolean data to uint8 (rasterio does not accept bools)
         source = self.values
@@ -2355,23 +1876,23 @@ class Raster:
 
         # Preallocate
         try:
-            values = np.empty(shape, dtype=source.dtype)
+            values = np.empty(metadata.shape, dtype=source.dtype)
         except Exception as error:
             message = (
-                f"Cannot reproject the {self.name} because the reprojected raster "
+                f"Cannot reproject {self.name} because the reprojected raster "
                 "is too large for memory. Try increasing the Transform's dx and dy "
                 "to coarser resolution."
             )
-            _merror.supplement(error, message)
+            merror.supplement(error, message)
 
         # Reproject the array
         rasterio.warp.reproject(
             source=source,
             destination=values,
-            src_crs=src_crs,
-            dst_crs=crs,
-            src_transform=src_transform.affine,
-            dst_transform=transform.affine,
+            src_crs=self.crs or metadata.crs,
+            dst_crs=metadata.crs,
+            src_transform=self.affine or metadata.affine,
+            dst_transform=metadata.affine,
             src_nodata=self.nodata,
             dst_nodata=self.nodata,
             resampling=resampling,
@@ -2382,4 +1903,311 @@ class Raster:
         # Restore boolean arrays and update the object
         if self.dtype == bool:
             values = values.astype(bool)
-        self._finalize(values, crs, transform)
+        self._update(values, metadata)
+
+    #####
+    # RasterMetadata
+    #####
+
+    @property
+    def metadata(self) -> RasterMetadata:
+        "Returns the metadata object for the raster"
+        return self._metadata
+
+    ##### Name
+
+    @property
+    def name(self) -> str | None:
+        "Returns the identifying name"
+        return self.metadata.name
+
+    @name.setter
+    def name(self, name: str) -> None:
+        self.override(name=name)
+
+    ##### Shape
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        "Returns the array shape"
+        return self.metadata.shape
+
+    @property
+    def nrows(self) -> int:
+        "Returns the number of array rows"
+        return self.metadata.nrows
+
+    @property
+    def height(self) -> int:
+        "Returns the number of array rows"
+        return self.metadata.height
+
+    @property
+    def ncols(self) -> int:
+        "Returns the number of array columns"
+        return self.metadata.ncols
+
+    @property
+    def width(self) -> int:
+        "Returns the number of array columns"
+        return self.metadata.width
+
+    @property
+    def size(self) -> int:
+        "Returns the number of array elements"
+        return self.metadata.size
+
+    ##### Data array
+
+    @property
+    def values(self) -> np.ndarray:
+        "Returns a view of the data array"
+        if self._values is None:
+            return None
+        else:
+            return self._values.view()
+
+    @property
+    def dtype(self) -> np.dtype | None:
+        "Returns the array dtype"
+        return self.metadata.dtype
+
+    @property
+    def nodata(self) -> ScalarArray | None:
+        "Returns the NoData value"
+        return self.metadata.nodata
+
+    @nodata.setter
+    def nodata(self, nodata: scalar) -> None:
+        "Sets the NoData value is there is None"
+        if self.nodata is not None:
+            raise ValueError(
+                "Cannot set the NoData value because the raster already has a NoData value."
+            )
+        self.override(nodata=nodata)
+
+    @property
+    def nodata_mask(self) -> BooleanArray:
+        "A boolean array whose True elements are NoData pixels"
+        return nodata.mask(self.values, self.nodata)
+
+    @property
+    def data_mask(self) -> BooleanArray:
+        "A boolean array whose True elements are data pixels"
+        return ~self.nodata_mask
+
+    ##### CRS
+
+    @property
+    def crs(self) -> CRS | None:
+        "Returns the coordinate reference system"
+        return self.metadata.crs
+
+    @crs.setter
+    def crs(self, crs: CRSInput) -> None:
+        "Sets the raster CRS if there is None"
+        if self.crs is not None:
+            raise ValueError(
+                f"Cannot set the CRS because the raster already has a CRS. "
+                "See the 'reproject' method to change a raster's CRS."
+            )
+        self.override(crs=crs)
+
+    @property
+    def crs_units(self) -> tuple[str, str] | tuple[None, None]:
+        "Returns the units along the CRS's X and Y axes"
+        return self.metadata.crs_units
+
+    @property
+    def crs_units_per_m(self) -> tuple[float, float] | tuple[None, None]:
+        "Returns the number of CRS units per meter along the CRS's X and Y axes"
+        return self.metadata.crs_units_per_m
+
+    @property
+    def utm_zone(self) -> CRS | None:
+        "Returns the UTM zone CRS that contains the raster's center point"
+        return self.metadata.utm_zone
+
+    ##### Transform
+
+    @property
+    def transform(self) -> Transform:
+        "Returns the affine Transform"
+        return self.metadata.transform
+
+    @transform.setter
+    def transform(self, transform: TransformInput) -> None:
+        "Sets the Raster Transform if there is none"
+        if self.transform is not None:
+            raise ValueError(
+                "Cannot set the transform because the raster already has a transform. "
+                "See the 'reproject' method to change a raster's transform."
+            )
+        self.override(transform=transform)
+
+    def dx(self, units: Units = "meters") -> float | None:
+        """
+        Returns the change in the X-axis spatial coordinate when moving one pixel right
+        ----------
+        self.dx()
+        self.dx(units)
+        Returns the change in X-axis spatial coordinate when moving one pixel to
+        the right. By default, returns dx in meters. Use the "units" option to
+        return dx in other units. Supported units include: "base" (base unit of
+        the CRS/Transform), "kilometers", "feet", and "miles".
+        ----------
+        Inputs:
+            units: The units to return dx in. Options include: "base" (CRS/Transform
+                base units), "meters" (default), "kilometers", "feet", and "miles".
+
+        Outputs:
+            float: The change in X coordinate when moving one pixel right
+        """
+        return self.metadata.dx(units)
+
+    def dy(self, units: Units = "meters") -> float | None:
+        """
+        Returns the change in the Y-axis spatial coordinate when moving one pixel down
+        ----------
+        self.dy()
+        self.dy(units)
+        Returns the change in Y-axis spatial coordinate when moving one pixel
+        down. By default, returns dy in meters. Use the "units" option to
+        return dy in other units. Supported units include: "base" (base unit of
+        the CRS/Transform), "kilometers", "feet", and "miles".
+        ----------
+        Inputs:
+            units: The units to return dy in. Options include: "base" (CRS/Transform
+                base units), "meters" (default), "kilometers", "feet", and "miles".
+
+        Outputs:
+            float: The change in Y coordinate when moving one pixel down
+        """
+        return self.metadata.dy(units)
+
+    def resolution(self, units: Units = "meters") -> tuple[float, float] | None:
+        """
+        Returns the raster resolution
+        ----------
+        self.resolution()
+        self.resolution(units)
+        Returns the raster resolution as a tuple with two elements. The first
+        element is the X resolution, and the second element is Y resolution. Note
+        that resolution is strictly positive. By default, returns resolution in
+        meters. Use the "units" option to return resolution in other units. Supported
+        units include: "base" (base unit of the CRS/Transform), "kilometers",
+        "feet", and "miles".
+        ----------
+        Inputs:
+            units: The units to return resolution in. Options include:
+                "base" (CRS/Transform base units), "meters" (default), "kilometers",
+                "feet", and "miles".
+
+        Outputs:
+            float, float: The X and Y axis pixel resolution
+        """
+        return self.metadata.resolution(units)
+
+    def pixel_area(self, units: Units = "meters") -> float | None:
+        """
+        Returns the area of one pixel
+        ----------
+        self.pixel_area()
+        self.pixel_area(units)
+        Returns the area of a raster pixel. By default, returns area in meters^2.
+        Use the "units" option to return area in a different unit (squared).
+        Supported units include: "base" (CRS/Transform base unit), "kilometers",
+        "feet", and "miles".
+        ----------
+        Inputs:
+            units: The units to return resolution in. Options include:
+                "base" (CRS/Transform base units), "meters" (default), "kilometers",
+                "feet", and "miles".
+
+        Outputs:
+            float: The area of a raster pixel
+        """
+        return self.metadata.pixel_area(units)
+
+    def pixel_diagonal(self, units: Units = "meters") -> float | None:
+        """
+        Returns the length of a pixel diagonal
+        ----------
+        self.pixel_diagonal()
+        self.pixel_diagonal(units)
+        Returns the length of a pixel diagonal. By default, returns length in
+        meters. Use the "units" option to return length in other units. Supported
+        units include: "base" (base unit of the CRS/Transform), "kilometers",
+        "feet", and "miles".
+        ----------
+        Inputs:
+            units: The units in which to return the length of a pixel diagonal.
+                Options include: "base" (CRS/Transform base units), "meters" (default),
+                "kilometers", "feet", and "miles".
+
+        Outputs:
+            float: The area of a raster pixel
+        """
+        return self.metadata.pixel_diagonal(units)
+
+    @property
+    def affine(self) -> Affine | None:
+        "Returns the affine matrix"
+        return self.metadata.affine
+
+    ##### Bounds
+
+    @property
+    def bounds(self) -> BoundingBox | None:
+        "Returns the bounding box"
+        return self.metadata.bounds
+
+    @bounds.setter
+    def bounds(self, bounds: BoundsInput) -> None:
+        "Sets the bounding box if there is none"
+        if self.bounds is not None:
+            raise ValueError(
+                "Cannot set the bounds because the raster already has bounds. See "
+                "the 'clip' method to change a raster's bounds."
+            )
+        self.override(bounds=bounds)
+
+    @property
+    def left(self) -> float | None:
+        "Returns the spatial coordinate of the left edge"
+        return self.metadata.left
+
+    @property
+    def right(self) -> float | None:
+        "Returns the spatial coordinate of the right edge"
+        return self.metadata.right
+
+    @property
+    def top(self) -> float | None:
+        "Returns the spatial coordinate of the top edge"
+        return self.metadata.top
+
+    @property
+    def bottom(self) -> float | None:
+        "Returns the spatial coordinate of the bottom edge"
+        return self.metadata.bottom
+
+    @property
+    def center(self) -> tuple[float, float] | None:
+        "Returns the X,Y coordinate at the center of the bounding box"
+        return self.metadata.center
+
+    @property
+    def center_x(self) -> float | None:
+        "Returns the X coordinate at the center of the bounding box"
+        return self.metadata.center_x
+
+    @property
+    def center_y(self) -> float | None:
+        "Returns the Y coordinate at the center of the bounding box"
+        return self.metadata.center_y
+
+    @property
+    def orientation(self) -> int | None:
+        "Returns the Cartesian orientation of the bounding box"
+        return self.metadata.orientation

@@ -47,12 +47,12 @@ optional = true
 [tool.poetry.group.dev.dependencies]
 # Code
 poethepoet = "*"
-pytest = "^7.3.1"
+safety = "3.2.7"
 black = ">=24.3.0"
 isort = "^5.12.0"
+pytest = "^7.3.1"
 pytest-cov = "*"
 coverage = "*"
-safety = "^2.1.1"
 twine = "*"
 
 # Docs
@@ -66,9 +66,19 @@ filterwarnings = [
     "ignore::DeprecationWarning:pysheds.sgrid",
     "ignore::DeprecationWarning:pysheds.sview",
     "ignore::DeprecationWarning:numba.core.typing.context",
+    "ignore::DeprecationWarning:pyproj.transformer",
 ]
 markers = [
     "slow: marks tests as slow (deselect with: -m \"not slow\")",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if typing.TYPE_CHECKING",
+]
+omit = [
+    "pfdf/typing/*",
+    "pfdf/raster/_features/typing.py",
 ]
 
 [tool.isort]
@@ -97,6 +107,11 @@ cmd = "pytest tests -m \"not slow\""
 help = "Prints the coverage report for the tests"
 cmd = "coverage report"
 
+[tool.poe.tasks._rmtree]
+help = "Deletes a folder and its contents"
+expr = "shutil.rmtree(sys.argv[1]) if pathlib.Path(sys.argv[1]).exists() else None"
+imports = ["shutil", "pathlib"]
+
 [tool.poe.tasks._open]
 help = "Opens an HTML index page in a browser"
 expr = "webbrowser.open(pathlib.Path.cwd() / sys.argv[1] / 'index.html')"
@@ -105,6 +120,7 @@ imports = ["webbrowser", "pathlib"]
 [tool.poe.tasks.htmlcov]
 help = "Builds an HTML coverage report and opens in browser"
 sequence = [
+  { ref = "_rmtree htmlcov" },
   { cmd = "coverage html --skip-covered" },
   { ref = "_open htmlcov" },
 ]
@@ -128,15 +144,10 @@ default_item_type = "cmd"
 help = "Mimics the Gitlab pipeline. Runs safety check, tests, and lint"
 sequence = ["safety", "lint", "tests"]
 
-[tool.poe.tasks._delete_docs]
-help = "Deletes the docs if they exist"
-expr = "shutil.rmtree('public') if pathlib.Path('public').exists() else None"
-imports = ["shutil", "pathlib"]
-
 [tool.poe.tasks.docs]
 help = "Deletes and then rebuilds the documentation"
 sequence = [
-  { ref = "_delete_docs" },
+  { ref = "_rmtree public" },
   { cmd = "sphinx-build -qa docs public" },
 ]
 

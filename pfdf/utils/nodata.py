@@ -10,13 +10,19 @@ Functions:
     mask    - Returns the NoData/data mask for an array
 """
 
+from __future__ import annotations
+
+import typing
+
 import numpy as np
 from numpy import floating, issubdtype, signedinteger, unsignedinteger
 
 import pfdf._utils.nodata as _nodata
 import pfdf._validate.core as validate
 from pfdf._utils import real
-from pfdf.typing.core import BooleanArray, RealArray, scalar
+
+if typing.TYPE_CHECKING:
+    from pfdf.typing.core import BooleanArray, RealArray, scalar
 
 
 def default(dtype: type) -> float | int | bool | None:

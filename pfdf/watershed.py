@@ -50,13 +50,13 @@ Internal:
     _split              - Splits a stream segment into pieces shorter than a specified length
 """
 
+from __future__ import annotations
+
+import typing
 from math import ceil, inf, nan
-from typing import Any, Optional
 
 import numpy as np
-from geojson.feature import FeatureCollection
 from pysheds.grid import Grid
-from pysheds.sview import Raster as PyshedsRaster
 from shapely import LineString
 from shapely.ops import substring
 
@@ -64,10 +64,18 @@ import pfdf._validate.core as validate
 from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import MissingCRSError, MissingTransformError
-from pfdf.projection import _crs
+from pfdf.projection import crs
 from pfdf.raster import Raster
-from pfdf.typing.core import Units, scalar
-from pfdf.typing.raster import RasterInput
+
+if typing.TYPE_CHECKING:
+    from typing import Any, Optional
+
+    from geojson.feature import FeatureCollection
+    from pysheds.sview import Raster as PyshedsRaster
+
+    from pfdf.typing.core import Units, scalar
+    from pfdf.typing.raster import RasterInput
+
 
 # Flow direction options - D8 and TauDEM style directions
 _FLOW_OPTIONS = {"routing": "d8", "dirmap": (3, 2, 1, 8, 7, 6, 5, 4)}
@@ -246,7 +254,7 @@ def slopes(
     if dem_per_m is not None:
         slopes = slopes / dem_per_m
     if dem.crs_units[1] != "metre":
-        crs_per_m = _crs.y_units_per_m(dem.crs)
+        crs_per_m = crs.y_units_per_m(dem.crs)
         slopes = slopes * crs_per_m
     return Raster.from_array(slopes, nodata=nan, **metadata, copy=False)
 
@@ -563,7 +571,8 @@ def network(
                     "does not have a CRS."
                 )
             else:
-                max_length = _crs.units_to_base(flow.crs, "y", max_length, units)
+                max_length = crs.units_to_base(flow.crs, "y", max_length, units)
+                max_length = float(max_length[0])
 
     # Validate mask and flow values
     mask = flow.validate(mask, "mask")

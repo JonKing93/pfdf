@@ -3,10 +3,9 @@ from pathlib import Path
 import fiona
 import pytest
 import rasterio
-from affine import Affine
 from geojson import Feature, MultiPoint, MultiPolygon, Point, Polygon
 
-from pfdf.projection import CRS, Transform
+from pfdf.raster import RasterMetadata
 
 #####
 # File-based raster
@@ -31,6 +30,13 @@ def fraster(tmp_path, araster, affine, crs):
     ) as file:
         file.write(araster, 1)
     return path
+
+
+@pytest.fixture
+def fmetadata():
+    return RasterMetadata(
+        (2, 4), dtype=float, nodata=-999, crs=26911, transform=(0.03, 0.03, -4, -3)
+    )
 
 
 #####

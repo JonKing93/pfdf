@@ -1,7 +1,5 @@
-from typing import Any
-
 from pfdf.projection import Transform
-from pfdf.typing.core import VectorArray
+from pfdf.typing.core import VectorArray, value
 
 # Spatial
 Transform_CRS = Transform
@@ -14,9 +12,4 @@ driver = str | None
 encoding = str | None
 
 # Data values
-value = float | int | bool
 nodata = value
-
-# Features
-geometry = dict[str, Any]
-GeometryValues = list[tuple[geometry, value]]

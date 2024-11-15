@@ -19,18 +19,23 @@ Utilities:
     _first_failure  - Returns the index and value of the first failed element
 """
 
-from typing import Optional
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 from numpy import integer, issubdtype, unsignedinteger
 
 from pfdf._utils import aslist
 from pfdf._utils.nodata import NodataMask
-from pfdf.typing.core import BooleanArray, RealArray, ScalarArray, ignore, scalar
 
-# Type alias
-index = tuple[int, ...]
-DataMask = NodataMask  # More clear for when invert=True
+if typing.TYPE_CHECKING:
+    from typing import Optional
+
+    from pfdf.typing.core import BooleanArray, RealArray, ScalarArray, ignore, scalar
+
+    index = tuple[int, ...]
+    DataMask = NodataMask  # More clear for when invert=True
 
 
 #####

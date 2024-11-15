@@ -6,7 +6,8 @@ from affine import Affine
 from pyproj import CRS
 
 from pfdf.errors import CRSError, DimensionError, MissingCRSError, TransformError
-from pfdf.projection import BoundingBox, Transform, _crs
+from pfdf.projection import BoundingBox, Transform
+from pfdf.projection import crs as _crs
 
 
 def check(transform, crs):
@@ -524,11 +525,19 @@ class TestEdge:
             a._edge(2.2, "dx", 1, 14)
         assert_contains(error, "dx", "integer")
 
+    def test_zero(_):
+        a = Transform(1, 2, 3, 4)
+        assert a._edge(0, "dx", 1, 14) == 1
+
 
 class TestRight:
     def test(_):
         a = Transform(1, 2, 3, 4)
         assert a.right(5) == 8
+
+    def test_zero(_):
+        a = Transform(1, 2, 3, 4)
+        assert a.right(0) == 3
 
 
 class TestBottom:
@@ -536,12 +545,21 @@ class TestBottom:
         a = Transform(1, 2, 3, 4)
         assert a.bottom(6) == 16
 
+    def test_zero(_):
+        a = Transform(1, 2, 3, 4)
+        assert a.bottom(0) == 4
+
 
 class TestBounds:
     def test(_):
         a = Transform(1, 2, 3, 4)
         b = a.bounds(6, 5)
         assert b == BoundingBox(3, 16, 8, 4)
+
+    def test_zero(_):
+        a = Transform(1, 2, 3, 4)
+        b = a.bounds(0, 0)
+        assert b == BoundingBox(3, 4, 3, 4)
 
 
 #####
@@ -631,7 +649,7 @@ class TestToDict:
 
 
 #####
-# Reprojection
+# Reprojection / CRS operations
 #####
 
 
@@ -647,6 +665,12 @@ class TestReproject:
             3.989045184176652,
         )
         assert b.isclose(expected)
+
+    def test_same(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        b = a.reproject(4326)
+        assert a == b
+        assert a is not b
 
     def test_angular(_):
         a = Transform(1, 2, 3, 4, 4326)
@@ -666,6 +690,50 @@ class TestReproject:
         assert_contains(
             error, "Cannot reproject the Transform because it does not have a CRS"
         )
+
+
+class TestMatchCRS:
+    def test_both_none(_):
+        a = Transform(1, 2, 3, 4)
+        b = a.match_crs(None)
+        assert a == b
+
+    def test_crs_none(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        b = a.match_crs(None)
+        assert a == b
+
+    def test_self_none(_):
+        a = Transform(1, 2, 3, 4)
+        b = a.match_crs(4326)
+        assert a.tolist(crs=False) == b.tolist(crs=False)
+        assert b.crs == 4326
+        assert a.crs is None
+
+    def test_reproject(_):
+        a = Transform(1, 2, 3, 4, 26911)
+        b = a.reproject(26910)
+        assert b.crs == CRS("NAD83 / UTM zone 10N")
+        expected = Transform(
+            0.997261140611954,
+            1.9945226908862739,
+            668187.5941248297,
+            3.989045184176652,
+        )
+        assert b.isclose(expected)
+
+
+class TestRemoveCRS:
+    def test_none(_):
+        a = Transform(1, 2, 3, 4)
+        b = a.remove_crs()
+        assert a == b
+
+    def test(_):
+        a = Transform(1, 2, 3, 4, 4326)
+        b = a.remove_crs()
+        assert a.crs == 4326
+        assert b.crs is None
 
 
 #####

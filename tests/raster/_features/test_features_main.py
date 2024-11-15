@@ -1,10 +1,9 @@
-from math import isnan
+from math import nan
 
 import fiona
-import numpy as np
 import pytest
 
-from pfdf.projection import Transform
+from pfdf.raster import RasterMetadata
 from pfdf.raster._features import _main
 
 
@@ -106,7 +105,7 @@ class TestParseFile:
         assert_contains(error, "nodata", "not an allowed dtype")
 
     def test_polygons(_, polygons, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             polygons,
@@ -129,14 +128,12 @@ class TestParseFile:
         with fiona.open(polygons) as file:
             features = list(file)
         assert geomvals == [(feature["geometry"], True) for feature in features]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 90)
-        assert shape == (7, 7)
-        assert dtype == bool
-        assert nodata == False
+        assert metadata == RasterMetadata(
+            (7, 7), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 20, 90)
+        )
 
     def test_multipolygons(_, multipolygons, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             multipolygons,
@@ -159,14 +156,12 @@ class TestParseFile:
         with fiona.open(multipolygons) as file:
             features = list(file)
         assert geomvals == [(feature["geometry"], True) for feature in features]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 90)
-        assert shape == (7, 7)
-        assert dtype == bool
-        assert nodata == False
+        assert metadata == RasterMetadata(
+            (7, 7), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 20, 90)
+        )
 
     def test_points(_, points, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "point",
             points,
@@ -189,14 +184,12 @@ class TestParseFile:
         with fiona.open(points) as file:
             features = list(file)
         assert geomvals == [(feature["geometry"], True) for feature in features]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 10, 60)
-        assert shape == (4, 4)
-        assert dtype == bool
-        assert nodata == False
+        assert metadata == RasterMetadata(
+            (4, 4), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 10, 60)
+        )
 
     def test_multipoints(_, multipoints, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "point",
             multipoints,
@@ -219,15 +212,13 @@ class TestParseFile:
         with fiona.open(multipoints) as file:
             features = list(file)
         assert geomvals == [(feature["geometry"], True) for feature in features]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 10, 90)
-        assert shape == (7, 7)
-        assert dtype == bool
-        assert nodata == False
+        assert metadata == RasterMetadata(
+            (7, 7), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 10, 90)
+        )
 
-    def test_windowed(_, polygons, crs):
-        window = (0, 0, 30, 30, crs)
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+    def test_bounded(_, polygons, crs):
+        bounds = (30, 10, 50, 30, crs)
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             polygons,
@@ -239,7 +230,7 @@ class TestParseFile:
             "safe",
             None,
             # Spatial
-            window,
+            bounds,
             10,
             "meters",
             # File IO
@@ -250,14 +241,12 @@ class TestParseFile:
         with fiona.open(polygons) as file:
             features = list(file)
         assert geomvals == [(features[0]["geometry"], True)]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 70)
-        assert shape == (5, 4)
-        assert dtype == bool
-        assert nodata == False
+        assert metadata == RasterMetadata(
+            (2, 2), dtype=bool, nodata=False, crs=crs, bounds=(30, 10, 50, 30)
+        )
 
     def test_int_field(_, polygons, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             polygons,
@@ -282,14 +271,15 @@ class TestParseFile:
         assert geomvals == [
             (feature["geometry"], f) for f, feature in enumerate(features)
         ]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 90)
-        assert shape == (7, 7)
-        assert dtype == int
-        assert nodata == np.iinfo(int).min
+        assert (
+            metadata
+            == RasterMetadata(
+                (7, 7), dtype="int32", crs=crs, transform=(10, -10, 20, 90)
+            ).ensure_nodata()
+        )
 
     def test_float_field(_, polygons, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             polygons,
@@ -314,14 +304,12 @@ class TestParseFile:
         assert geomvals == [
             (feature["geometry"], f + 1.2) for f, feature in enumerate(features)
         ]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 90)
-        assert shape == (7, 7)
-        assert dtype == float
-        assert isnan(nodata)
+        assert metadata == RasterMetadata(
+            (7, 7), dtype=float, nodata=nan, crs=crs, transform=(10, -10, 20, 90)
+        )
 
     def test_nodata(_, polygons, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             polygons,
@@ -346,14 +334,12 @@ class TestParseFile:
         assert geomvals == [
             (feature["geometry"], f) for f, feature in enumerate(features)
         ]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 90)
-        assert shape == (7, 7)
-        assert dtype == int
-        assert nodata == 5
+        assert metadata == RasterMetadata(
+            (7, 7), dtype="int32", nodata=5, crs=crs, transform=(10, -10, 20, 90)
+        )
 
     def test_nodata_casting(_, polygons, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             polygons,
@@ -378,14 +364,12 @@ class TestParseFile:
         assert geomvals == [
             (feature["geometry"], f) for f, feature in enumerate(features)
         ]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 90)
-        assert shape == (7, 7)
-        assert dtype == int
-        assert nodata == 5
+        assert metadata == RasterMetadata(
+            (7, 7), dtype="int32", nodata=5, crs=crs, transform=(10, -10, 20, 90)
+        )
 
     def test_dtype_casting(_, polygons, crs):
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             polygons,
@@ -411,17 +395,18 @@ class TestParseFile:
         assert geomvals == [
             (feature["geometry"], int(f + 1.2)) for f, feature in enumerate(features)
         ]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 90)
-        assert shape == (7, 7)
-        assert dtype == np.dtype("int32")
-        assert nodata == np.iinfo("int32").min
+        assert (
+            metadata
+            == RasterMetadata(
+                (7, 7), dtype="int32", crs=crs, transform=(10, -10, 20, 90)
+            ).ensure_nodata()
+        )
 
     def test_operation(_, polygons, crs):
         def plus_one(value):
             return value + 1
 
-        geomvals, outcrs, transform, shape, dtype, nodata = _main.parse_file(
+        geomvals, metadata = _main.parse_file(
             # General
             "polygon",
             polygons,
@@ -446,8 +431,6 @@ class TestParseFile:
         assert geomvals == [
             (feature["geometry"], f + 1.2 + 1) for f, feature in enumerate(features)
         ]
-        assert outcrs == crs
-        assert transform == Transform(10, -10, 20, 90)
-        assert shape == (7, 7)
-        assert dtype == float
-        assert isnan(nodata)
+        assert metadata == RasterMetadata(
+            (7, 7), dtype=float, nodata=nan, crs=crs, transform=(10, -10, 20, 90)
+        )

@@ -122,6 +122,17 @@ class TestArray:
             validate.array(a, "test name", dtype=int)
         assert_contains(error, "test name")
 
+    def test_copy(_):
+        a = np.arange(10)
+        output = validate.array(a, "", copy=True)
+        assert output is not a
+        assert output.base is None
+
+    def test_no_copy(_):
+        a = np.arange(10)
+        output = validate.array(a, "", copy=False)
+        assert output is a
+
 
 class TestScalar:
     name = "test name"
@@ -321,6 +332,17 @@ class TestMatrix:
         with pytest.raises(ShapeError) as error:
             validate.matrix(a, self.name, shape=shape)
         assert_contains(error, self.name, axis)
+
+    def test_copy(_):
+        a = np.ones((5, 5))
+        output = validate.matrix(a, "", copy=True)
+        assert output is not a
+        assert output.base is not a
+
+    def test_no_copy(_):
+        a = np.ones((5, 5))
+        output = validate.matrix(a, "")
+        assert output.base is a
 
 
 class TestBroadcastable:

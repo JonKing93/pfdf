@@ -6,12 +6,18 @@ Functions:
     nprocess    - Validates the number of parallel processes for locating basins
 """
 
+from __future__ import annotations
+
+import typing
 from multiprocessing import cpu_count
-from typing import Any
 
 import pfdf._validate.core as validate
 from pfdf._utils import real
-from pfdf.raster import Raster
+
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from pfdf.raster import Raster
 
 
 def raster(segments, raster: Any, name: str) -> Raster:

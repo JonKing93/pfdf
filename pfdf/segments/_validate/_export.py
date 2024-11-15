@@ -6,14 +6,20 @@ Functions:
     export      - Checks export type and properties
 """
 
-from typing import Any
+from __future__ import annotations
+
+import typing
 
 import numpy as np
 
 import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf.errors import ShapeError
-from pfdf.typing.segments import ExportType, PropertyDict, PropertySchema
+
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from pfdf.typing.segments import ExportType, PropertyDict, PropertySchema
 
 
 def _properties(

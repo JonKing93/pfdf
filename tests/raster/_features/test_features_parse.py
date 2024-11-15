@@ -20,7 +20,7 @@ class TestDtype:
     def test_int_schema(_):
         props = {"test": "int32"}
         output = _parse.dtype("test", props, None)
-        assert output == np.dtype(int)
+        assert output == np.dtype("int32")
 
     def test_float_schema(_):
         props = {"test": "float32"}

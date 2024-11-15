@@ -2,11 +2,13 @@
 Base class for BoundingBox and Transform objects
 ----------
 Class:
-    _Locator    - Base class for BoundingBox and Transform objects
+    Locator    - Base class for BoundingBox and Transform objects
 """
 
+from __future__ import annotations
+
+import typing
 from abc import ABC, abstractmethod
-from typing import Any, Self
 
 import numpy as np
 from pyproj import CRS
@@ -14,11 +16,16 @@ from pyproj import CRS
 import pfdf._validate.core as validate
 from pfdf._utils import real
 from pfdf.errors import CRSError, MissingCRSError
-from pfdf.projection import CRSInput, _crs
-from pfdf.typing.core import XY, Quadrant, Units, scalar
+from pfdf.projection import crs as _crs
+
+# Typing
+if typing.TYPE_CHECKING:
+    from typing import Any
+
+    from pfdf.typing.core import XY, CRSlike, Quadrant, ScalarArray, Units, scalar
 
 
-class _Locator(ABC):
+class Locator(ABC):
     """
     Base class for BoundingBox and Transform objects
     ----------
@@ -76,9 +83,11 @@ class _Locator(ABC):
         __repr__    - String representation using class name, float values, and CRS name
         __eq__      - True if the other object is the same class and has matching floats/CRS
 
-    Validation:
-        _validate_reprojection  - Checks there are two CRSs for reprojection
+    CRS:
         _validate_units         - Checks that unit conversion is supported
+        _validate_reprojection  - Checks there are two CRSs for reprojection
+        match_crs               - Returns an object compatible with an input CRS
+        remove_crs              - Returns an object without a CRS
 
     Class Conversion:
         _validate_N     - Checks that nrows or ncols is valid
@@ -141,10 +150,17 @@ class _Locator(ABC):
     def x_units_per_m(self, *args) -> float | None:
         "The number of units per meter along the X axis"
 
+    @staticmethod
+    def _parse_unit(value: ScalarArray | None) -> float | None:
+        if value is not None:
+            value = float(value[0])
+        return value
+
     @property
     def y_units_per_m(self) -> float | None:
         "The number of Y axis units per meter"
-        return _crs.y_units_per_m(self.crs)
+        value = _crs.y_units_per_m(self.crs)
+        return self._parse_unit(value)
 
     @abstractmethod
     def units_per_m(self, *args) -> tuple[float, float] | tuple[None, None]:
@@ -174,7 +190,7 @@ class _Locator(ABC):
     #####
 
     def __init__(
-        self, floats: tuple[scalar, scalar, scalar, scalar], crs: CRSInput
+        self, floats: tuple[scalar, scalar, scalar, scalar], crs: CRSlike
     ) -> None:
         "Initializes object from 4 floats and an optional CRS"
 
@@ -185,7 +201,7 @@ class _Locator(ABC):
         self._crs = _crs.validate(crs)
 
     @classmethod
-    def from_dict(cls, input: dict) -> Self:
+    def from_dict(cls, input: dict) -> Locator:
         """
         Builds a projection class from a keyword dict
         ----------
@@ -215,7 +231,7 @@ class _Locator(ABC):
         return cls(**input)
 
     @classmethod
-    def from_list(cls, input: tuple | list) -> Self:
+    def from_list(cls, input: tuple | list) -> Locator:
         """
         Creates a Transform or BoundingBox from a list or tuple
         ----------
@@ -241,7 +257,7 @@ class _Locator(ABC):
             )
         return cls(*input)
 
-    def copy(self) -> Self:
+    def copy(self) -> Locator:
         """
         Returns a copy of a projection class
         ----------
@@ -272,23 +288,17 @@ class _Locator(ABC):
         return isinstance(other, type(self)) and (self.tolist() == other.tolist())
 
     #####
-    # Orientation
+    # CRS
     #####
 
-    @staticmethod
-    def _orientation(xinverted: bool, yinverted: bool) -> Quadrant:
-        if xinverted and yinverted:
-            return 3
-        elif xinverted:
-            return 2
-        elif yinverted:
-            return 4
-        else:
-            return 1
-
-    #####
-    # CRS Validation
-    #####
+    def _validate_units(self, units: Any, name: str, direction: str = "to"):
+        units = validate.units(units)
+        if units != "base" and self.crs is None:
+            raise MissingCRSError(
+                f"Cannot convert {name} {direction} {units} because the {self._class} "
+                "does not have a CRS."
+            )
+        return units
 
     def _validate_reprojection(self, crs: Any) -> CRS:
         "Checks there are two valid CRSs for reprojection"
@@ -300,24 +310,61 @@ class _Locator(ABC):
             raise CRSError("The 'crs' input cannot be None")
         return _crs.validate(crs)
 
-    def _validate_units(self, units: Any, name: str, direction: str = "to"):
-        units = validate.units(units)
-        if units != "base" and self.crs is None:
-            raise MissingCRSError(
-                f"Cannot convert {name} {direction} {units} because the {self._class} "
-                "does not have a CRS."
-            )
-        return units
+    def match_crs(self, crs: Any) -> Locator:
+        """
+        Returns a copy of the current object whose CRS is compatible with a CRS-like input
+        ----------
+        self.match_crs(crs)
+        Returns an object whose CRS is compatible with a CRS-like input. If the "crs"
+        input is None, returns the current object. If the current object does not have
+        a CRS, returns an object whose CRS has been updated to match the input.
+        Otherwise, reprojects the object to match the input CRS.
+        ----------
+        Inputs:
+            crs: A CRS-like input or None
+
+        Outputs:
+            Transform | BoundingBox: An object compatible with the input CRS
+        """
+
+        # If there's no CRS, then the object is compatible by default
+        if crs is None:
+            return self.copy()
+
+        # If the object has no CRS, update the metadata
+        elif self.crs is None:
+            kwargs = self.todict()
+            kwargs["crs"] = crs
+            return type(self)(**kwargs)
+
+        # Otherwise, reproject to match the input
+        else:
+            return self.reproject(crs)
+
+    def remove_crs(self) -> Locator:
+        """
+        Returns a copy of the current object that does not have a CRS
+        ----------
+        self.remove_crs()
+        Returns a copy of the current object whose CRS is set to None.
+        ----------
+        Outputs:
+            Transform | BoundingBox: A copy of the current object without a CRS
+        """
+
+        copy = self.copy()
+        copy._crs = None
+        return copy
 
     #####
     # Class conversion
     #####
 
     @staticmethod
-    def _validate_N(N: Any, name: str) -> int:
+    def _validate_N(N: Any, name: str, allow_zero: bool) -> int:
         "Checks that nrows or ncols is valid"
         N = validate.scalar(N, name, real)
-        validate.positive(N, name, allow_zero=True)
+        validate.positive(N, name, allow_zero=allow_zero)
         validate.integers(N, name)
         return int(N)
 
@@ -359,12 +406,32 @@ class _Locator(ABC):
         return {name: value for name, value in zip(self._args(), self.tolist())}
 
     #####
-    # Testing
+    # Misc
     #####
+
+    @staticmethod
+    def _orientation(xinverted: bool, yinverted: bool) -> Quadrant:
+        if xinverted and yinverted:
+            return 3
+        elif xinverted:
+            return 2
+        elif yinverted:
+            return 4
+        else:
+            return 1
+
+    def _length(
+        self, axis: XY, length: float, name: str, units: Units, y: float | None = None
+    ) -> float:
+        units = self._validate_units(units, name)
+        if units != "base":
+            length = _crs.base_to_units(self.crs, axis, length, units, y)
+            length = float(length[0])
+        return length
 
     def isclose(
         self,
-        other: Self,
+        other: Locator,
         rtol: scalar = 1e-5,
         atol: scalar = 1e-8,
     ) -> bool:
@@ -397,22 +464,10 @@ class _Locator(ABC):
             raise TypeError(f"Other object must also be a {self._class} object.")
 
         # False if different CRS
-        if _crs.different(self.crs, other.crs):
+        if not _crs.compatible(self.crs, other.crs):
             return False
 
         # Collect floats and compare
         selfs = self.tolist(crs=False)
         others = other.tolist(crs=False)
         return np.allclose(selfs, others, rtol=rtol, atol=atol)
-
-    #####
-    # Axis length units
-    #####
-
-    def _length(
-        self, axis: XY, length: float, name: str, units: Units, y: float | None = None
-    ) -> float:
-        units = self._validate_units(units, name)
-        if units != "base":
-            length = _crs.base_to_units(self.crs, axis, length, units, y)
-        return length

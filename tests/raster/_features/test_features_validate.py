@@ -12,7 +12,7 @@ from pfdf.errors import (
     ShapeError,
 )
 from pfdf.projection import CRS, BoundingBox, Transform
-from pfdf.raster import Raster
+from pfdf.raster import Raster, RasterMetadata
 from pfdf.raster._features import _validate
 
 #####
@@ -83,7 +83,10 @@ class TestSpatial:
     def test_invalid_bounds(_, assert_contains):
         with pytest.raises(TypeError) as error:
             _validate.spatial("invalid", 10, "base")
-        assert_contains(error, "bounds must be a dict, list, tuple, BoundingBox")
+        assert_contains(
+            error,
+            "bounds must be a BoundingBox, Raster, RasterMetadata, dict, list, or tuple",
+        )
 
     def test_invalid_resolution(_, assert_contains):
         with pytest.raises(TypeError) as error:
@@ -133,14 +136,25 @@ class TestFileIO:
 
 class TestResolution:
     def test_valid_raster(_, araster):
-        raster = Raster.from_array(araster, transform=(10, 0, 0, 0, -10, 0))
-        output = _validate.resolution(raster)
+        input = Raster.from_array(araster, transform=(10, -10, 0, 0))
+        output = _validate.resolution(input)
         assert output == (10, 10)
 
     def test_invalid_raster(_, araster, assert_contains):
-        raster = Raster.from_array(araster)
+        input = Raster.from_array(araster)
         with pytest.raises(MissingTransformError) as error:
-            _validate.resolution(raster)
+            _validate.resolution(input)
+        assert_contains(error, "does not have an affine transform")
+
+    def test_valid_metadata(_, araster):
+        input = RasterMetadata(araster.shape, transform=(10, -10, 0, 0))
+        output = _validate.resolution(input)
+        assert output == (10, 10)
+
+    def test_invalid_metadata(_, araster, assert_contains):
+        input = RasterMetadata(araster.shape)
+        with pytest.raises(MissingTransformError) as error:
+            _validate.resolution(input)
         assert_contains(error, "does not have an affine transform")
 
     def test_transform_no_crs(_):

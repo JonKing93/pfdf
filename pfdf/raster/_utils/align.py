@@ -7,38 +7,38 @@ Functions:
     _npixels        - Computes the number of pixels along an aligned axis
 """
 
+from __future__ import annotations
+
+import typing
 from math import ceil, floor
 
-import rasterio.warp
+from pfdf.projection import BoundingBox, Transform
 
-from pfdf.projection import CRS, BoundingBox, Transform
-from pfdf.typing.core import shape2d
+if typing.TYPE_CHECKING:
+    from pfdf.raster import RasterMetadata
+    from pfdf.typing.core import shape2d
 
 
 def reprojection(
-    src_crs: CRS, dst_crs: CRS, bounds: BoundingBox, transform: Transform
+    bounds: BoundingBox, template: RasterMetadata
 ) -> tuple[Transform, shape2d]:
-    """
-    Computes transform and shape for aligned reprojection
-    ----------
-    src_crs: The current CRS
-    dst_crs: The CRS of the reprojected dataset
-    bounds: The raster's bounds in the source CRS
-    transform: The template transform for the reprojection
-    """
+    "Computes the transform and shape for an aligned reprojection"
 
-    # Reproject the bounding box, then orient to match the template transform
-    bounds = rasterio.warp.transform_bounds(src_crs, dst_crs, *bounds.bounds)
-    bounds = BoundingBox.from_list(bounds)
-    bounds = bounds.orient(transform.orientation)
+    # Get the current bounds in the template CRS and orientation. The reprojected
+    # raster must fully contain these bounds
+    bounds = bounds.match_crs(template.crs)
+    bounds = bounds.orient(template.orientation)
 
-    # Build an affine transform with aligned top-left corner
+    # Build the new transform. The new transform must align with the template --
+    # i.e. the left and top edges must be an integer number of pixels away from the
+    # template's left and top edges
+    transform = template.transform
     dx, dy = transform.dx(), transform.dy()
     left = _edge(dx, transform.left, bounds.left)
     top = _edge(dy, transform.top, bounds.top)
-    transform = Transform(dx, dy, left, top)
+    transform = Transform(dx, dy, left, top, template.crs)
 
-    # Compute the shape of the realigned raster
+    # Compute the new shape. Return updated metadata
     nrows = _npixels(top, bounds.bottom, transform.yres())
     ncols = _npixels(left, bounds.right, transform.xres())
     shape = (nrows, ncols)

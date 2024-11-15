@@ -29,18 +29,24 @@ Internal:
     _table          - Formats a pandas data frame with summary information
 """
 
+from __future__ import annotations
+
+import typing
 from pathlib import Path
-from typing import Literal, Optional
 
 from pandas import DataFrame
 
 import pfdf._validate.core as validate
-from pfdf.typing.core import Pathlike
 
-# Type aliases
-Driver = tuple[str, str, str]
-Drivers = tuple[Driver, ...]
-FileType = Literal["raster", "vector"]
+# Type hints
+if typing.TYPE_CHECKING:
+    from typing import Literal, Optional
+
+    from pfdf.typing.core import Pathlike
+
+    Driver = tuple[str, str, str]
+    Drivers = tuple[Driver, ...]
+    FileType = Literal["raster", "vector"]
 
 # Official summaries of drivers expected to work without external libraries
 _FIELDS = ("Driver", "Description", "Extensions")

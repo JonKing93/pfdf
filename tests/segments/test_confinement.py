@@ -41,7 +41,7 @@ class TestAngles:
         assert np.allclose(output, expected, equal_nan=True)
 
     def test_nan_dem_center(_, segments, dem):
-        dem._nodata = 41
+        dem.override(nodata=41)
         output = _confinement.angles(segments, dem, 2, None)
         expected = np.array(
             [nan, 264.20279455, 175.71489195, 258.69006753, 93.94635581, 21.80295443]
@@ -49,7 +49,7 @@ class TestAngles:
         assert np.allclose(output, expected, equal_nan=True)
 
     def test_nan_dem_adjacent(_, segments, dem):
-        dem._nodata = 19
+        dem.override(nodata=19)
         output = _confinement.angles(segments, dem, 2, None)
         expected = np.array(
             [nan, 264.20279455, 175.71489195, 258.69006753, 93.94635581, nan]
@@ -71,7 +71,8 @@ class TestAngles:
         assert np.allclose(output, expected)
 
     def test_crs_not_meters(_, segments, dem):
-        segments._flow.override(crs=4326)
+        flow = segments.flow
+        segments._flow.override(crs=4326, transform=flow.transform.remove_crs())
         output = _confinement.angles(segments, dem, 2, None)
         expected = np.array(
             [
@@ -409,7 +410,7 @@ class TestOrthogonalSlopes:
         expected = np.array([1.4, np.nan]).reshape(1, 2)
         assert np.array_equal(output, expected, equal_nan=True)
 
-        kdem._nodata = 16
+        kdem.override(nodata=16)
         output = kernel2.orthogonal_slopes(flow=8, length=10, dem=kdem)
         expected = np.array([np.nan, 2.4]).reshape(1, 2)
         assert np.array_equal(output, expected, equal_nan=True)

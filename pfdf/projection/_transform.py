@@ -5,19 +5,29 @@ Class:
     Transform   - Class to represent a Raster affine transform
 """
 
+from __future__ import annotations
+
+import typing
 from math import sqrt
-from typing import Any, Optional, Self
 
 from affine import Affine
 
 import pfdf._validate.core as validate
+from pfdf import projection
 from pfdf._utils import real
 from pfdf.errors import TransformError
-from pfdf.projection import CRSInput, _crs, _Locator, bbox
-from pfdf.typing.core import Units, scalar
+from pfdf.projection import crs as _crs
+from pfdf.projection._locator import Locator
+
+# Type hints
+if typing.TYPE_CHECKING:
+    from typing import Any, Optional
+
+    from pfdf.projection import BoundingBox
+    from pfdf.typing.core import CRSlike, Quadrant, Units, scalar
 
 
-class Transform(_Locator):
+class Transform(Locator):
     """
     Implements a raster affine transform
     ----------
@@ -84,8 +94,10 @@ class Transform(_Locator):
         bottom          - Computes the bottom edge, given a number of rows
         bounds          - Converts Transform to BoundingBox, given the number of raster columns and rows
 
-    Reprojection:
+    Reprojection and CRS:
         reproject       - Returns a copy of a Transform in a new CRS
+        match_crs       - Returns a copy of a Transform compatible with an input CRS
+        remove_crs      - Returns a copy of the Transform without a CRS
 
     As built-in:
         tolist          - Returns a transform as a list
@@ -110,7 +122,7 @@ class Transform(_Locator):
         dy: scalar,
         left: scalar,
         top: scalar,
-        crs: Optional[CRSInput] = None,
+        crs: Optional[CRSlike] = None,
     ) -> None:
         """
         Creates a new Transform object
@@ -135,7 +147,7 @@ class Transform(_Locator):
         super().__init__([dx, dy, left, top], crs)
 
     @staticmethod
-    def from_affine(input: Affine, crs: Optional[CRSInput] = None) -> Self:
+    def from_affine(input: Affine, crs: Optional[CRSlike] = None) -> Transform:
         """
         Creates a Transform from an affine.Affine object
         ----------
@@ -177,7 +189,7 @@ class Transform(_Locator):
         return Transform(dx=input.a, dy=input.e, left=input.c, top=input.f, crs=crs)
 
     @staticmethod
-    def from_list(input: list | tuple) -> Self:
+    def from_list(input: list | tuple) -> Transform:
         """
         Creates a Transform from a list or tuple
         ----------
@@ -212,7 +224,7 @@ class Transform(_Locator):
         return Affine(self.dx(), 0, self.left, 0, self.dy(), self.top)
 
     @property
-    def orientation(self):
+    def orientation(self) -> Quadrant:
         "The Cartesian quadrant associated with the Transform"
         xinverted = self.dx() < 0
         yinverted = self.dy() > 0
@@ -442,7 +454,7 @@ class Transform(_Locator):
         self.x_units_per_m()
         self.x_units_per_m(y)
         Returns the number of X axis units per meter. None if the Transform does
-        not have a CRS. If the Transofrm uses an angular (geographic) CRS, converts
+        not have a CRS. If the Transform uses an angular (geographic) CRS, converts
         units to meters as if along the equator. Use the "y" input to specify a
         different latitude for meters conversion. Note that y should be in the
         base units of the CRS.
@@ -456,7 +468,8 @@ class Transform(_Locator):
             float | None: The number of X axis units per meter
         """
         y = self._validate_y(y)
-        return _crs.x_units_per_m(self.crs, y)
+        value = _crs.x_units_per_m(self.crs, y)
+        return self._parse_unit(value)
 
     def y_units_per_m(self) -> float | None:
         """
@@ -507,7 +520,7 @@ class Transform(_Locator):
 
     def _edge(self, N: int, name: str, min: float, delta: float) -> float:
         "Locates a bounding box edge given the number of rows or columns"
-        N = self._validate_N(N, name)
+        N = self._validate_N(N, name, allow_zero=True)
         return min + N * delta
 
     def right(self, ncols: int) -> float:
@@ -515,7 +528,7 @@ class Transform(_Locator):
         Compute the right edge of a bounding box
         ----------
         self.right(ncols)
-        Computes the locates of the right edge of a raster with the given number
+        Computes the location of the right edge of a raster with the given number
         of columns for the Transform.
         ----------
         Inputs:
@@ -531,7 +544,7 @@ class Transform(_Locator):
         Compute the bottom edge of a bounding box
         ----------
         self.bottom(nrows)
-        Computes the locates of the bottom edge of a raster with the given number
+        Computes the location of the bottom edge of a raster with the given number
         of rows for the Transform.
         ----------
         Inputs:
@@ -542,7 +555,7 @@ class Transform(_Locator):
         """
         return self._edge(nrows, "nrows", self.top, self.dy())
 
-    def bounds(self, nrows: int, ncols: int) -> "bbox.BoundingBox":
+    def bounds(self, nrows: int, ncols: int) -> BoundingBox:
         """
         bounds  Returns a BoundingBox object derived from the Transform
         ----------
@@ -559,38 +572,39 @@ class Transform(_Locator):
         """
         right = self.right(ncols)
         bottom = self.bottom(nrows)
-        return bbox.BoundingBox(self.left, bottom, right, self.top, self.crs)
+        return projection.BoundingBox(self.left, bottom, right, self.top, self.crs)
 
     #####
     # Reprojection
     #####
 
-    def reproject(self, crs: CRSInput, y: Optional[float] = None) -> Self:
+    def reproject(self, crs: CRSlike) -> Transform:
         """
         Reprojects the Transform into a different CRS
         ----------
         self.reproject(crs)
-        self.reproject(crs, y)
-        Reprojects the Transform into a different CRS. By default, reprojects the
-        Transform as for a dataset located at the equator. Use the "y" input to
-        specify a different latitude for reprojection. Note that y should be in
-        the base unit of the current CRS.
+        Reprojects the Transform into a different CRS. Note that Transform reprojections
+        are often less accurate than BoundingBox reprojections. As such, this method is
+        not recommended when a raster shape is also available. In this case, you can
+        achieve a more accurate reprojection by: (1) converting the Transform to a
+        BoundingBox, (2) reprojecting the BoundingBox, and (3) converting the
+        reprojected box back to a Transform.
         ----------
         Inputs:
             crs: The CRS in which to reproject the Transform
-            y: The Y coordinate at which to perform the reprojection. Defaults to
-                the equator.
 
         Outputs:
             Transform: The reprojected Transform
         """
 
-        # Validate. Reproject left and top coordinates
+        # Validate. Just exit if it's the same CRS
         crs = self._validate_reprojection(crs)
-        left, top = _crs.reproject(self.crs, crs, self.left, self.top)
+        if crs == self.crs:
+            return self.copy()
 
         # Reproject coordinates of next pixel. Use to compute dx and dy
-        right = self.left + self.dx(y=y)
+        left, top = _crs.reproject(self.crs, crs, self.left, self.top)
+        right = self.left + self.dx()
         bottom = self.top + self.dy()
         right, bottom = _crs.reproject(self.crs, crs, right, bottom)
         dx = right - left

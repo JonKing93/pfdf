@@ -9,13 +9,13 @@ Classes:
     Segments    - Builds and manages a stream segment network
 """
 
+from __future__ import annotations
+
+import typing
 from math import inf, nan
-from typing import Literal, Optional, Self
 
 import fiona
 import numpy as np
-import shapely
-from geojson import FeatureCollection
 from rasterio.transform import rowcol
 
 import pfdf._validate.core as validate
@@ -24,38 +24,47 @@ from pfdf import watershed
 from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import MissingCRSError, MissingTransformError
-from pfdf.projection import CRS, BoundingBox, Transform, _crs
+from pfdf.projection import crs
 from pfdf.raster import Raster
 from pfdf.segments import _basins, _confinement, _geojson, _update
-from pfdf.typing.core import (
-    BooleanMatrix,
-    MatrixArray,
-    Pathlike,
-    RealArray,
-    ScalarArray,
-    Units,
-    VectorArray,
-    scalar,
-    shape2d,
-    vector,
-)
-from pfdf.typing.raster import RasterInput
-from pfdf.typing.segments import (
-    BooleanIndices,
-    CatchmentValues,
-    ExportType,
-    NetworkIndices,
-    Outlets,
-    PixelIndices,
-    PropertyDict,
-    SegmentParents,
-    SegmentValues,
-    Selection,
-    SelectionType,
-    StatFunction,
-    Statistic,
-    TerminalValues,
-)
+
+if typing.TYPE_CHECKING:
+    from typing import Literal, Optional, Self
+
+    import shapely
+    from geojson import FeatureCollection
+
+    from pfdf.projection import CRS, BoundingBox, Transform
+    from pfdf.typing.core import (
+        BooleanMatrix,
+        MatrixArray,
+        Pathlike,
+        RealArray,
+        ScalarArray,
+        Units,
+        VectorArray,
+        scalar,
+        shape2d,
+        vector,
+    )
+    from pfdf.typing.raster import RasterInput
+    from pfdf.typing.segments import (
+        BooleanIndices,
+        CatchmentValues,
+        ExportType,
+        NetworkIndices,
+        Outlets,
+        PixelIndices,
+        PropertyDict,
+        SegmentParents,
+        SegmentValues,
+        Selection,
+        SelectionType,
+        StatFunction,
+        Statistic,
+        TerminalValues,
+    )
+
 
 # Supported statistics -- name: (function, description)
 _STATS = {
@@ -286,7 +295,7 @@ class Segments:
         pixel_diagonal = flow.pixel_diagonal(units=units)
         if max_length < pixel_diagonal:
             if units == "base":
-                units = _crs.yunit(flow.crs)
+                units = crs.yunit(flow.crs)
             raise ValueError(
                 f"max_length (value = {max_length} {units}) must be at least as "
                 f"long as the diagonals of the pixels in the flow direction raster "
@@ -1606,7 +1615,7 @@ class Segments:
         if terminal:
             lengths = lengths[self.isterminal()]
         if units != "base":
-            lengths = _crs.base_to_units(self.crs, "y", lengths, units, array=True)
+            lengths = crs.base_to_units(self.crs, "y", lengths, units)
         return lengths
 
     def scaled_dnbr(
@@ -2146,7 +2155,9 @@ class Segments:
         self.geojson(..., *, crs)
         Specifies the CRS of the output geometries. By default, returns geometries
         in the CRS of the flow direction raster used to derive the network. Use
-        this option to return geometries in a different CRS instead.
+        this option to return geometries in a different CRS instead. The "crs" input
+        may be a pyproj.CRS, any input convertible to a pyproj.CRS, or a Raster /
+        RasterMetadata object with a defined CRS.
         ----------
         Inputs:
             type: A string indicating the type of feature to export. Options are
@@ -2230,7 +2241,9 @@ class Segments:
         self.geojson(..., *, crs)
         Specifies the CRS of the output file. By default, uses the CRS of the flow
         direction raster used to derive the network. Use this option to export
-        results in a different CRS instead.
+        results in a different CRS instead. The "crs" input may be a pyproj.CRS, any
+        input convertible to a pyproj.CRS, or a Raster/RasterMetadata object with a
+        defined CRS.
 
         save(..., *, driver)
         Specifies the file format driver to used to write the vector feature file.
