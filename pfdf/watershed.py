@@ -63,6 +63,7 @@ from shapely.ops import substring
 import pfdf._validate.core as validate
 from pfdf._utils import all_nones, real
 from pfdf._utils.nodata import NodataMask
+from pfdf._utils.patches import NodataPatch, RidgePatch
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import crs
 from pfdf.raster import Raster
@@ -180,7 +181,8 @@ def flow(dem: RasterInput) -> Raster:
 
     # Compute flow directions
     grid = Grid.from_raster(dem, nodata=nan)
-    flow = grid.flowdir(dem, flats=0, pits=0, nodata_out=0, **_FLOW_OPTIONS)
+    with NodataPatch():
+        flow = grid.flowdir(dem, flats=0, pits=0, nodata_out=0, **_FLOW_OPTIONS)
     flow = flow.astype("int8")
     return Raster.from_array(flow, nodata=0, **metadata, copy=False)
 
@@ -248,7 +250,8 @@ def slopes(
     demsheds, metadata = _to_pysheds(dem)
     flow = flow.as_pysheds()
     grid = Grid.from_raster(flow, nodata=nan)
-    slopes = grid.cell_slopes(demsheds, flow, nodata_out=nan, **_FLOW_OPTIONS)
+    with NodataPatch():
+        slopes = grid.cell_slopes(demsheds, flow, nodata_out=nan, **_FLOW_OPTIONS)
 
     # Ensure slopes are unitless gradients and return raster
     if dem_per_m is not None:
@@ -309,10 +312,12 @@ def relief(
     # Compute vertical drops. Relief is the vertical distance to the ridge cells
     # Preserve NoData pixels (sometimes distance_to_ridge neglects them)
     grid = Grid.from_raster(flow, nodata=nan)
-    drops = grid.cell_dh(dem, flow, nodata_out=nan, **_FLOW_OPTIONS)
-    relief = grid.distance_to_ridge(
-        flow, weights=drops, nodata_out=nan, **_FLOW_OPTIONS
-    )
+    with RidgePatch():
+        with NodataPatch():
+            drops = grid.cell_dh(dem, flow, nodata_out=nan, **_FLOW_OPTIONS)
+            relief = grid.distance_to_ridge(
+                flow, weights=drops, nodata_out=nan, **_FLOW_OPTIONS
+            )
     nodatas.fill(relief, nan)
     return Raster.from_array(relief, nodata=nan, **metadata, copy=False)
 
@@ -437,7 +442,8 @@ def accumulation(
 
     # Compute accumulation
     grid = Grid.from_raster(flow)
-    accumulation = grid.accumulation(flow, weights, nodata_out=nan, **_FLOW_OPTIONS)
+    with NodataPatch():
+        accumulation = grid.accumulation(flow, weights, nodata_out=nan, **_FLOW_OPTIONS)
 
     # Apply multiplicative factor if provided
     if times is not None and times != 1:
@@ -491,9 +497,10 @@ def catchment(
     # Get the catchment mask
     flow, metadata = _to_pysheds(flow)
     grid = Grid.from_raster(flow)
-    catchment = grid.catchment(
-        fdir=flow, x=column, y=row, xytype="index", **_FLOW_OPTIONS
-    )
+    with NodataPatch():
+        catchment = grid.catchment(
+            fdir=flow, x=column, y=row, xytype="index", **_FLOW_OPTIONS
+        )
     return Raster.from_array(catchment, nodata=False, **metadata, copy=False)
 
 
@@ -587,7 +594,8 @@ def network(
     # Get the geojson river network. Shift coordinates to pixel centers and
     # convert to shapely linestrings
     grid = Grid.from_raster(flow)
-    segments = grid.extract_river_network(flow, mask, **_FLOW_OPTIONS)
+    with NodataPatch():
+        segments = grid.extract_river_network(flow, mask, **_FLOW_OPTIONS)
     segments = _geojson_to_shapely(flow, segments)
 
     # Optionally enforce a max length
