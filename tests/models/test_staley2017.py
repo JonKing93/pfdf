@@ -42,10 +42,10 @@ class TestValidate:
         F = np.ones((7, 1))
         S = np.ones((7, 1, 1, 1, 1))
 
-        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, B, Ct, Cf, Cs, T, F, S)
 
-        queries = np.ones((1, 1, 4))
-        parameters = np.ones((1, 6, 1))
+        queries = np.ones((1, 4, 1))
+        parameters = np.ones((1, 1, 6))
         variables = np.ones((7, 1, 1))
 
         assert np.array_equal(PR, queries)
@@ -68,11 +68,11 @@ class TestValidate:
         F = np.ones((7, 6, 1))
         S = np.ones((7, 6, 1, 1, 1))
 
-        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, B, Ct, Cf, Cs, T, F, S)
 
-        queries = np.ones((1, 1, 4))
-        parameters = np.ones((1, 6, 1))
-        variables = np.ones((7, 6, 1))
+        queries = np.ones((1, 4, 1))
+        parameters = np.ones((1, 1, 6))
+        variables = np.ones((7, 1, 6))
 
         assert np.array_equal(PR, queries)
         assert np.array_equal(B, parameters)
@@ -95,7 +95,7 @@ class TestValidate:
         S = np.ones(7)
 
         with pytest.raises(DimensionError) as error:
-            s17._validate(PR, "PR", B, Ct, Cf, Cs, T, F, S)
+            s17._validate(PR, B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "PR")
 
     def test_invalid_matrix(_, assert_contains):
@@ -110,7 +110,7 @@ class TestValidate:
         S = np.ones(7)
 
         with pytest.raises(DimensionError) as error:
-            s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+            s17._validate(PR, B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "T")
 
     def test_different_nruns(_, assert_contains):
@@ -124,7 +124,7 @@ class TestValidate:
         F = np.ones(7)
         S = np.ones(7)
         with pytest.raises(ShapeError) as error:
-            s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+            s17._validate(PR, B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "B has 6", "Ct has 7")
 
     def test_different_nsegments(_, assert_contains):
@@ -139,7 +139,7 @@ class TestValidate:
         S = np.ones(7)
 
         with pytest.raises(ShapeError) as error:
-            s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+            s17._validate(PR, B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "T has 7", "F has 6")
 
     def test_bad_ncols(_, assert_contains):
@@ -153,7 +153,7 @@ class TestValidate:
         F = np.ones(7)
         S = np.ones(7)
         with pytest.raises(ShapeError) as error:
-            s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
+            s17._validate(PR, B, Ct, Cf, Cs, T, F, S)
         assert_contains(error, "T has 4 columns")
 
     def test_variable_sets_runs(_):
@@ -166,8 +166,8 @@ class TestValidate:
         F = np.ones((1, 4))
         S = 1
 
-        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, "", B, Ct, Cf, Cs, T, F, S)
-        assert F.shape == (1, 4, 1)
+        PR, B, Ct, Cf, Cs, T, F, S = s17._validate(PR, B, Ct, Cf, Cs, T, F, S)
+        assert F.shape == (1, 1, 4)
         for array in (PR, B, Ct, Cf, Cs, T, S):
             assert array.shape == (1, 1, 1)
 
@@ -226,6 +226,7 @@ class TestAccumulation:
             ]
         )
         expected = np.stack((expected1, expected2), axis=2)
+        expected = np.permute_dims(expected, (0, 2, 1))
         output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
         assert np.allclose(output, expected)
 
@@ -246,11 +247,8 @@ class TestAccumulation:
             ]
         )
         expected = np.stack((expected1, expected2), axis=2)
+        expected = np.permute_dims(expected, (0, 2, 1))
         output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
-
-        print(T.shape)
-        print(output.shape)
-        print(expected.shape)
         assert np.allclose(output, expected)
 
     def test_keep_trailing(_):
@@ -269,6 +267,7 @@ class TestAccumulation:
                 [3.33333333, 5.28550512, 8.53723404],
             ]
         ).reshape(5, 3, 1)
+        expected = np.permute_dims(expected, (0, 2, 1))
         output = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S, keepdims=True)
         assert output.shape == expected.shape
         assert np.allclose(output, expected)
@@ -369,6 +368,7 @@ class TestLikelihood:
             ]
         )
         expected = np.stack((expected1, expected2), axis=2)
+        expected = np.permute_dims(expected, (0, 2, 1))
 
         output = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         assert np.allclose(output, expected)
@@ -387,6 +387,7 @@ class TestLikelihood:
             [[0.30682605, 0.21517654, 0.18130959], [0.52622591, 0.35778291, 0.27788039]]
         )
         expected = np.stack((expected1, expected2), axis=2)
+        expected = np.permute_dims(expected, (0, 2, 1))
 
         output = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
         assert np.allclose(output, expected)
@@ -407,6 +408,7 @@ class TestLikelihood:
                 [0.67392689, 0.2935924, 0.15368325],
             ]
         ).reshape(5, 3, 1)
+        expected = np.permute_dims(expected, (0, 2, 1))
 
         output = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S, keepdims=True)
         assert output.shape == expected.shape

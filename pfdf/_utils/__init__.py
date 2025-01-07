@@ -18,7 +18,10 @@ Misc Functions:
 Modules:
     buffers     - Function to standardize buffer units
     classify    - Function for classifying arrays using thresholds
+    merror      - Functions to supplement memory-related error messages
     nodata      - Utilities for working with NoData values
+    patches     - Context managers for patching pysheds
+    units       - Functions to facilitate unit conversion
 """
 
 from __future__ import annotations
@@ -34,6 +37,9 @@ if typing.TYPE_CHECKING:
     from affine import Affine
 
     from pfdf.typing.core import RealArray, vector
+
+    indices = list[int]
+    start_stop = tuple[int, int]
 
 # Combination numpy dtype for real-valued data
 real = [np.integer, np.floating, np.bool_]
@@ -104,19 +110,32 @@ def clean_dims(X: RealArray, keepdims: bool) -> RealArray:
     return X
 
 
-def limits(start: int, stop: int, length: int) -> tuple[int, int]:
+def limits(start: int, stop: int, length: int) -> start_stop:
     "Trims index limits to valid indices"
     start = max(start, 0)
     stop = min(stop, length)
     return (start, stop)
 
 
+#####
+# Pixel indices
+#####
+
+
 def rowcol(
     affine: Affine, xs: vector, ys: vector, op: Callable
-) -> tuple[list[int], list[int]]:
+) -> tuple[indices, indices]:
     "Converts spatial coordinates to pixel indices"
 
     rows, cols = rasterio.transform.rowcol(affine, xs, ys, op=op)
     rows = np.array(rows).astype(int).tolist()
     cols = np.array(cols).astype(int).tolist()
+    return rows, cols
+
+
+def pixel_limits(affine: Affine, bounds) -> tuple[start_stop, start_stop]:
+
+    rows, cols = rowcol(affine, bounds.xs, bounds.ys, op=round)
+    rows = (min(rows), max(rows))
+    cols = (min(cols), max(cols))
     return rows, cols

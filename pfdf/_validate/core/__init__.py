@@ -2,22 +2,20 @@
 Validation functions used throughout pfdf
 ----------
 This subpackage contains functions used to validate user inputs throughout pfdf.
-The recommended import syntax is:
+The recommended import style is:
 
-import pfdf._validate as validate
-
-Broadly, most of these functions ensure that inputs are representable as various
-types of numpy arrays. However, a few misc functions are also included.
+import pfdf._validate.core as validate
 ----------
-Misc:
+Low level:
     type            - Checks input has the specified type
+    string          - Checks an input is a string
     option          - Checks input is a recognized string option
     callable        - Checks input is a callable object
-    buffers         - Checks inputs represent buffering distances for a rectangle
 
 Paths:
-    input_path      - Checks input is a path to an existing file
-    output_path     - Checks output is a path, and optionally prevents overwriting
+    input_file      - Checks input is an existing path
+    output_file     - Checks output is a file path, and optionally prevents overwriting
+    output_folder   - Checks output is the path to an empty or non-existent folder
 
 Unit Conversion:
     units           - Checks units are supported
@@ -46,11 +44,22 @@ Array Elements:
     sorted          - Checks elements are in sorted order
     flow            - Checks elements represents TauDEM-style flow directions (integers 1 to 8)
 
+URLs:
+    url             - Checks input is a string with a URL scheme
+    http            - Checks an http(s) connection using requests.head
+    timeout         - Checks a connection timeout option is valid
+
+Buffers:
+    buffers         - Checks inputs represent buffering distances for a rectangle
+
 Internal Modules:
     _array      - Functions that validate array shapes and dtypes
     _buffers    - Function to validate buffers for a rectangle
     _elements   - Functions that check the values of array elements
-    _misc       - Miscellaneous validation functions
+    _low        - Low level validators that only rely on the standard library
+    _path       - Functions to validate file paths
+    _units      - Functions to validate unit conversion options
+    _url        - Functions to validate URLs
 """
 
 from pfdf._validate.core._array import (
@@ -75,12 +84,8 @@ from pfdf._validate.core._elements import (
     positive,
     sorted,
 )
-from pfdf._validate.core._misc import callable_ as callable
-from pfdf._validate.core._misc import (
-    conversion,
-    input_path,
-    option,
-    output_path,
-    type,
-    units,
-)
+from pfdf._validate.core._low import callable_ as callable
+from pfdf._validate.core._low import option, string, type
+from pfdf._validate.core._path import input_file, output_file, output_folder
+from pfdf._validate.core._units import conversion, units
+from pfdf._validate.core._url import http, timeout, url

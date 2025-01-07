@@ -250,11 +250,13 @@ class TestCopy:
 class TestRepr:
     def test_crs(_):
         a = Transform(1, 2, 3, 4, 4326)
-        assert a.__repr__() == 'Transform(dx=1, dy=2, left=3, top=4, crs="WGS 84")'
+        assert (
+            a.__repr__() == 'Transform(dx=1.0, dy=2.0, left=3.0, top=4.0, crs="WGS 84")'
+        )
 
     def test_nocrs(_):
         a = Transform(1, 2, 3, 4)
-        assert a.__repr__() == "Transform(dx=1, dy=2, left=3, top=4, crs=None)"
+        assert a.__repr__() == "Transform(dx=1.0, dy=2.0, left=3.0, top=4.0, crs=None)"
 
 
 class TestEq:

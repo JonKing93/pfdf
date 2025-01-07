@@ -291,12 +291,15 @@ class TestRepr:
         a = BoundingBox(1, 2, 3, 4, 4326)
         assert (
             a.__repr__()
-            == 'BoundingBox(left=1, bottom=2, right=3, top=4, crs="WGS 84")'
+            == 'BoundingBox(left=1.0, bottom=2.0, right=3.0, top=4.0, crs="WGS 84")'
         )
 
     def test_nocrs(_):
         a = BoundingBox(1, 2, 3, 4)
-        assert a.__repr__() == "BoundingBox(left=1, bottom=2, right=3, top=4, crs=None)"
+        assert (
+            a.__repr__()
+            == "BoundingBox(left=1.0, bottom=2.0, right=3.0, top=4.0, crs=None)"
+        )
 
 
 class TestEq:
