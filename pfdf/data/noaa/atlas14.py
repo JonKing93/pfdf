@@ -114,9 +114,9 @@ def download(
     precipitation intensity for partial duration time series. See below for alternative
     options.
 
-    Returns the path to the downloaded csv file as output. By default, this command will 
-    download the dataset to the current folder, and the data file will be named 
-    "noaa-atlas14-mean-pds-intensity.csv". Raises an error if the file already exists. 
+    Returns the path to the downloaded csv file as output. By default, this command will
+    download the dataset to the current folder, and the data file will be named
+    "noaa-atlas14-mean-pds-intensity.csv". Raises an error if the file already exists.
     (And see the following syntax for additional file options).
 
     download(..., path)

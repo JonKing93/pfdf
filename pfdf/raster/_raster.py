@@ -1463,16 +1463,16 @@ class Raster:
         *,
         driver: Optional[str] = None,
         overwrite: bool = False,
-    ) -> None:
+    ) -> Path:
         """
-        save  Save a raster dataset to file
+        Save a raster dataset to file
         ----------
         self.save(path)
         self.save(path, * overwrite=True)
-        Saves the Raster to the indicated path. Boolean rasters will be saved as
-        "int8" to accommodate common file format requirements. In the default state,
-        the method will raise a FileExistsError if the file already exists. Set
-        overwrite=True to enable the replacement of existing files.
+        Saves the Raster to the indicated path. Returns the absolute path to the saved
+        file as output. Boolean rasters will be saved as "int8" to accommodate common
+        file format requirements. By default, raises an error if the file already exists.
+        Set overwrite=True to allow the command to replace existing files.
 
         This syntax will attempt to guess the intended file format based on the
         path extension, and raises an Exception if the file format cannot be
@@ -1499,6 +1499,9 @@ class Raster:
             overwrite: False (default) to prevent the output from replacing
                 existing file. True to allow replacement.
             driver: The name of the file format driver to use to write the file
+
+        Outputs:
+            Path: The path to the saved file
         """
 
         # Validate and resolve path
@@ -1529,6 +1532,7 @@ class Raster:
             crs=self.crs,
         ) as file:
             file.write(self._values, 1)
+        return path
 
     def copy(self) -> Self:
         """

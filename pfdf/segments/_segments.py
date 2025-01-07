@@ -29,6 +29,7 @@ from pfdf.raster import Raster
 from pfdf.segments import _basins, _confinement, _geojson, _update
 
 if typing.TYPE_CHECKING:
+    from pathlib import Path
     from typing import Literal, Optional, Self
 
     import shapely
@@ -2184,7 +2185,7 @@ class Segments:
         crs: Optional[CRS] = None,
         driver: Optional[str] = None,
         overwrite: bool = False,
-    ) -> None:
+    ) -> Path:
         """
         Saves the network to a vector feature file
         ----------
@@ -2196,7 +2197,7 @@ class Segments:
         to downstream. The vector features will not have any data properties. In
         the default state, the method will raise a FileExistsError if the file
         already exists. Set overwrite=True to enable the replacement of existing
-        files.
+        files. Returns the absolute path to the saved file as output.
 
         By default, the method will attempt to guess the intended file format based
         on the path extensions, and will raise an Exception if the file format
@@ -2238,14 +2239,14 @@ class Segments:
         one outlet per terminal segment in the network. If using one element per
         segment, extracts the values for the terminal segments prior to saving.
 
-        self.geojson(..., *, crs)
+        self.save(..., *, crs)
         Specifies the CRS of the output file. By default, uses the CRS of the flow
         direction raster used to derive the network. Use this option to export
         results in a different CRS instead. The "crs" input may be a pyproj.CRS, any
         input convertible to a pyproj.CRS, or a Raster/RasterMetadata object with a
         defined CRS.
 
-        save(..., *, driver)
+        self.save(..., *, driver)
         Specifies the file format driver to used to write the vector feature file.
         Uses this format regardless of the file extension. You can call:
             >>> pfdf.utils.driver.vectors()
@@ -2274,6 +2275,9 @@ class Segments:
                 to prevent overwriting.
             driver: The name of the file-format driver to use when writing the
                 vector feature file. Uses this driver regardless of file extension.
+
+        Outputs:
+            Path: The path to the saved file
         """
 
         # Validate and get features as geojson
@@ -2298,3 +2302,4 @@ class Segments:
         records = collection["features"]
         with fiona.open(path, "w", driver=driver, crs=crs, schema=schema) as file:
             file.writerecords(records)
+        return path

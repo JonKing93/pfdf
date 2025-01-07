@@ -1573,7 +1573,8 @@ class TestSave:
     def test_standard(_, fraster, tmp_path, araster, transform, crs):
         path = Path(tmp_path) / "output.tif"
         raster = Raster(fraster)
-        raster.save(path)
+        output = raster.save(path)
+        assert output == path
         assert path.is_file()
         with rasterio.open(path) as file:
             values = file.read(1)
@@ -1586,7 +1587,8 @@ class TestSave:
         path = Path(tmp_path) / "output.tif"
         araster = araster.astype(bool)
         raster = Raster.from_array(araster, transform=transform, crs=crs)
-        raster.save(path)
+        output = raster.save(path)
+        assert output == path
         assert path.is_file()
         with rasterio.open(path) as file:
             values = file.read(1)
@@ -1599,7 +1601,8 @@ class TestSave:
     def test_overwrite(_, fraster, tmp_path, araster, transform, crs):
         path = Path(tmp_path) / "output.tif"
         raster = Raster(fraster)
-        raster.save(path)
+        output = raster.save(path)
+        assert output == path
         assert path.is_file()
 
         araster = araster + 1

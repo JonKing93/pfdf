@@ -2138,7 +2138,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         segments.keep([2, 4, 5], "ids")
         assert not path.is_file()
-        segments.save(path)
+        output = segments.save(path)
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2177,7 +2178,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         segments.keep(np.zeros(segments.size))
         assert not path.is_file()
-        segments.save(path)
+        output = segments.save(path)
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2188,7 +2190,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
 
-        segments.save(path, type="outlets")
+        output = segments.save(path, type="outlets")
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2214,7 +2217,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
 
-        segments.save(path, type="segment outlets")
+        output = segments.save(path, type="segment outlets")
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2260,7 +2264,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
 
-        bsegments.save(path, type="basins")
+        output = bsegments.save(path, type="basins")
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2324,7 +2329,8 @@ class TestSave:
         }
         assert not path.is_file()
 
-        segments.save(path, "segments", properties)
+        output = segments.save(path, "segments", properties)
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2378,7 +2384,8 @@ class TestSave:
         assert path.is_file()
 
         segments.keep([2, 4, 5], "ids")
-        segments.save(path, overwrite=True)
+        output = segments.save(path, overwrite=True)
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
