@@ -26,7 +26,7 @@ import pfdf._validate.projection as pvalidate
 import pfdf.raster._utils.validate as rvalidate
 from pfdf._utils import all_nones
 from pfdf._utils import buffers as _buffers
-from pfdf._utils import no_nones, real, rowcol
+from pfdf._utils import no_nones, pixel_limits, real
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import CRS, BoundingBox, Transform
 from pfdf.projection import crs as _crs
@@ -34,6 +34,7 @@ from pfdf.raster._utils import align, factory, parse
 from pfdf.utils.nodata import default as default_nodata
 
 if typing.TYPE_CHECKING:
+    from pathlib import Path
     from typing import Any, Optional
 
     import numpy as np
@@ -52,6 +53,7 @@ if typing.TYPE_CHECKING:
         operation,
         scalar,
         shape2d,
+        timeout,
     )
     from pfdf.typing.raster import (
         BoundsInput,
@@ -106,6 +108,7 @@ class RasterMetadata:
         dtype           - The numpy dtype of the data array
         nodata          - The NoData value
         name            - An identifying name for the raster dataset
+        nbytes          - Total number of bytes required by the data array
 
     CRS:
         crs             - The coordinate reference system
@@ -131,10 +134,11 @@ class RasterMetadata:
     METHODS:
     Object Creation:
         __init__        - Creates a RasterMetadata object for input values
-        from_file       - Creates a RasterMetadata object for a file-based raster dataset
-        from_rasterio   - Creates a RasterMetadata object for a rasterio.DatasetReader
-        from_pysheds    - Creates a RasterMetadata object for a pysheds.sgrid.Raster object
-        from_array      - Creates a RasterMetadata object for a numpy array
+        from_file       - Returns a RasterMetadata object for a file-based raster dataset
+        from_url        - Returns a RasterMetadata object for the raster at the indicated URL
+        from_rasterio   - Returns a RasterMetadata object for a rasterio.DatasetReader
+        from_pysheds    - Returns a RasterMetadata object for a pysheds.sgrid.Raster object
+        from_array      - Returns a RasterMetadata object for a numpy array
 
     Vector Features:
         from_points     - Creates a RasterMetadata object for a Point or MultiPoint feature file
@@ -169,6 +173,7 @@ class RasterMetadata:
         reproject       - Returns updated metadata for a reprojected raster
 
     Internal:
+        _from_file      - Builds metadata for a file-based raster from a path or URL
         _create         - Updates metadata for isbool and ensure_nodata factory options
         _get_locator    - Returns a finalized BoundingBox or Transform
         _pixel          - Returns a pixel geometry property
@@ -258,7 +263,7 @@ class RasterMetadata:
         # Parse name and shape from defaults and user inputs
         if name is None:
             name = "raster"
-        cvalidate.type(name, "name", str, "string")
+        cvalidate.string(name, "name")
         if shape is None:
             shape = (0, 0)
         shape = rvalidate.shape2d(shape, "shape")
@@ -660,8 +665,106 @@ class RasterMetadata:
         return self.update(nodata=nodata, casting=casting)
 
     #####
-    # Factories
+    # File Factories
     #####
+
+    @staticmethod
+    def from_url(
+        url: str,
+        name: Optional[str] = None,
+        *,
+        # URL option
+        check_status: bool = True,
+        timeout: Optional[timeout] = 10,
+        # File options
+        bounds: Optional[BoundsInput] = None,
+        band: int = 1,
+        isbool: bool = False,
+        ensure_nodata: bool = True,
+        default_nodata: Optional[scalar] = None,
+        casting: str = "safe",
+        driver: Optional[str] = None,
+    ) -> RasterMetadata:
+        """
+        Returns a RasterMetadata object for the raster at the indicated URL
+        ----------
+        RasterMetadata.from_url(url)
+        Builds a RasterMetadata object for the file at the given URL. Ultimately, this
+        method uses rasterio (and thereby GDAL) to open URLs. As such, many common
+        URL schemes are supported, including: http(s), ftp, s3, (g)zip, tar, etc. Note
+        that although the local "file" URL scheme is theoretically supported, we
+        recommend instead using "RasterMetadata.from_file" to build metadata from local
+        file paths.
+
+        If a URL follows an http(s) scheme, uses the "requests" library to check the
+        URL before loading metadata. This check is optional (see below to disable), but
+        typically provides more informative error messages when connection problems
+        occur. Note that the check assumes the URL supports HEAD requests, as is the
+        case for most http(s) URLs. All other URL schemes are passed directly to
+        rasterio.
+
+        After loading the URL, this method behaves nearly identically to the
+        "RasterMetadata.from_file" command. Please see that command's documentation for
+        details on the following options: name, bounds, band, isbool, ensure_nodata,
+        default_nodata, casting, and driver.
+
+        RasterMetadata.from_url(..., *, timeout)
+        RasterMetadata.from_url(..., *, check_status=False)
+        Options that affect the checking of http(s) URLs. Ignored if the URL does not
+        have an http(s) scheme. The "timeout" option specifies a maximum time in
+        seconds for connecting to the remote server. This option is typically a scalar,
+        but may also use a vector with two elements. In this case, the first value is
+        the timeout to connect with the server, and the second value is the time for the
+        server to return the first byte. You can also set timeout to None, in
+        which case the URL check will never timeout. This may be useful for some slow
+        connections, but is generally not recommended as your code may hang indefinitely
+        if the server fails to respond.
+
+        You can disable the http(s) URL check by setting check_status=False. In this
+        case, the URL is passed directly to rasterio, as like all other URL schemes.
+        This can be useful if the URL does not support HEAD requests, or to limit server
+        queries when you are certain the URL and connection are valid.
+        ----------
+        Inputs:
+            url: The URL for a file-based raster dataset
+            name: An optional name for the metadata. Defaults to "raster"
+            timeout: A maximum time in seconds to establish a connection with
+                an http(s) server
+            check_status: True (default) to use "requests.head" to validate http(s) URLs.
+                False to disable this check.
+            bounds: A BoundingBox-like object indicating a subset of the saved raster
+                whose metadata should be determined
+            band: The raster band from which to read the dtype. Uses 1-indexing and
+                defaults to 1
+            isbool: True to set dtype to bool and NoData to False. If False (default),
+                preserves the original dtype and NoData.
+            ensure_nodata: True (default) to assign a default NoData value based
+                on the raster dtype if the file does not record a NoData value.
+                False to leave missing NoData as None.
+            default_nodata: The default NoData value to use if the raster file is
+                missing one. Overrides any default determined from the raster's dtype.
+            casting: The casting rule to use when converting the default NoData
+                value to the raster's dtype.
+            driver: A file format to use to read the raster, regardless of extension
+
+        Outputs:
+            RasterMetadata: The metadata object for the raster
+        """
+
+        url, bounds = rvalidate.url(
+            url, check_status, timeout, driver, band, bounds, casting
+        )
+        return RasterMetadata._from_file(
+            url,
+            driver,
+            band,
+            name,
+            bounds,
+            isbool,
+            ensure_nodata,
+            default_nodata,
+            casting,
+        )
 
     @staticmethod
     def from_file(
@@ -758,9 +861,35 @@ class RasterMetadata:
             RasterMetadata: The metadata object for the raster
         """
 
-        # Validate inputs. Open file and get full-file metadata
         path, bounds = rvalidate.file(path, driver, band, bounds, casting)
-        with rasterio.open(path) as file:
+        return RasterMetadata._from_file(
+            path,
+            driver,
+            band,
+            name,
+            bounds,
+            isbool,
+            ensure_nodata,
+            default_nodata,
+            casting,
+        )
+
+    @staticmethod
+    def _from_file(
+        path_or_url: Path | str,
+        driver: str | None,
+        band: int,
+        name: str,
+        bounds: BoundingBox | None,
+        isbool: bool,
+        ensure_nodata: bool,
+        default_nodata: Any,
+        casting: str,
+    ) -> RasterMetadata:
+        "Build metadata for a file-based dataset from a path or URL"
+
+        # Open file and build full-file metadata
+        with rasterio.open(path_or_url, driver=driver) as file:
             metadata = factory.file(file, band, name)
 
         # Update metadata for windowed reading, isbool, and/or ensure_nodata
@@ -853,6 +982,10 @@ class RasterMetadata:
             casting=casting,
             driver=reader.driver,
         )
+
+    #####
+    # Array factories
+    #####
 
     @staticmethod
     def from_pysheds(
@@ -969,12 +1102,12 @@ class RasterMetadata:
         """
 
         metadata, _ = factory.array(
-            array, name, nodata, casting, crs, transform, bounds, spatial, copy=False
+            array, name, nodata, casting, crs, transform, bounds, spatial, copy=None
         )
         return metadata._create(isbool, ensure_nodata, nodata, casting)
 
     #####
-    # Vector features
+    # Vector factories
     #####
 
     @staticmethod
@@ -1497,12 +1630,8 @@ class RasterMetadata:
         bounds = bounds.match_crs(self.crs)
         bounds = bounds.orient(self.orientation)
 
-        # Get index limits. Order from min to max
-        rows, cols = rowcol(self.affine, bounds.xs, bounds.ys, op=round)
-        rows = (min(rows), max(rows))
-        cols = (min(cols), max(cols))
-
         # Compute new shape and transform
+        rows, cols = pixel_limits(self.affine, bounds)
         shape = (rows[1] - rows[0], cols[1] - cols[0])
         transform = Transform(
             self.dx("base"), self.dy("base"), bounds.left, bounds.top, bounds.crs
@@ -1669,6 +1798,14 @@ class RasterMetadata:
     def name(self) -> str | None:
         "Returns the identifying name"
         return self._name
+
+    @property
+    def nbytes(self) -> int | None:
+        "Total number of bytes required by the data array"
+        if self.dtype is None:
+            return None
+        else:
+            return self.dtype.itemsize * self.size
 
     #####
     # CRS

@@ -17,8 +17,8 @@ import typing
 
 import numpy as np
 
+from pfdf._utils import merror
 from pfdf.errors import MissingNoDataError
-from pfdf.raster._utils import merror
 
 if typing.TYPE_CHECKING:
     from pfdf.raster import RasterMetadata
@@ -35,11 +35,6 @@ def values(
 ) -> MatrixArray:
     "Returns the data array for a clipped raster"
 
-    # Order the row and column indices
-    rows = (min(rows), max(rows))
-    cols = (min(cols), max(cols))
-
-    # Clips to a view (interior) or filled array (exterior) as appropriate
     height, width = values.shape
     if min(rows) >= 0 and max(rows) <= height and min(cols) >= 0 and max(cols) <= width:
         return _interior(values, rows, cols)

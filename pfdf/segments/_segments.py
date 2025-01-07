@@ -490,7 +490,7 @@ class Segments:
         "Converts segment indices to (user-facing) IDs"
 
         # If empty, just return directly
-        indices = np.array(indices, copy=False)
+        indices = np.array(indices, copy=None)
         if indices.size == 0:
             return indices
 
@@ -2277,7 +2277,7 @@ class Segments:
         """
 
         # Validate and get features as geojson
-        path = validate.output_path(path, overwrite)
+        path = validate.output_file(path, overwrite)
         collection, property_schema, crs = _geojson.features(
             self, type, properties, crs
         )

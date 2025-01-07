@@ -3,6 +3,7 @@ from math import inf
 import numpy as np
 import pytest
 import rasterio
+from requests.exceptions import HTTPError
 
 from pfdf.errors import DimensionError
 from pfdf.projection import BoundingBox
@@ -327,11 +328,43 @@ class TestDataBound:
 #####
 
 
-class TestValidateFile:
+class TestValidateUrl:
+    def test_valid(_):
+        url = "https://www.example.com"
+        output, bounds = validate.url(url, False, None, None, 1, (1, 2, 3, 4), "safe")
+        assert output == url
+        assert bounds == BoundingBox(1, 2, 3, 4)
+
+    def test_invalid_http(_, assert_contains):
+        url = "https://ghsc.code-pages.usgs.gov/lhp/pfdf/not-a-valid-page"
+        with pytest.raises(HTTPError) as error:
+            validate.url(url, True, 10, None, 1, None, "safe")
+        assert_contains(
+            error,
+            "There was a problem connecting to the URL. See the above error for more details",
+        )
+
+    def test_invalid_timeout(_, assert_contains):
+        url = "https://www.example.com"
+        with pytest.raises(ValueError) as error:
+            validate.url(url, True, 0, None, 1, None, "safe")
+        assert_contains(
+            error,
+            "The data elements of timeout must be greater than 0, but element [0] (value=0) is not",
+        )
+
+    def test_invalid_file_option(_, assert_contains):
+        url = "https://www.example.com"
+        with pytest.raises(TypeError) as error:
+            validate.url(url, False, None, 5, 1, None, None)
+        assert_contains(error, "driver must be a string")
+
+
+class TestFile:
     def test_string(_, fraster):
-        path, bounds = validate.file(str(fraster), None, 1, None, "safe")
+        path, bounds = validate.file(str(fraster), None, 1, (1, 2, 3, 4), "safe")
         assert path == fraster
-        assert bounds is None
+        assert bounds == BoundingBox(1, 2, 3, 4)
 
     def test_path(_, fraster):
         path, bounds = validate.file(fraster, None, 1, None, "safe")
@@ -347,50 +380,56 @@ class TestValidateFile:
         with pytest.raises(FileNotFoundError):
             validate.file(fraster, None, 1, None, "safe")
 
-    def test_invalid_driver(_, fraster, assert_contains):
+    def test_invalid_file_option(_, fraster, assert_contains):
         with pytest.raises(TypeError) as error:
-            validate.file(fraster, 5, 1, None, "safe")
+            validate.file(fraster, 5, 1, "safe", None)
         assert_contains(error, "driver must be a string")
 
-    def test_invalid_band(_, fraster, assert_contains):
+
+class TestFileOptions:
+    def test_invalid_driver(_, assert_contains):
         with pytest.raises(TypeError) as error:
-            validate.file(fraster, None, "invalid", None, "safe")
+            validate.file_options(5, 1, "safe", None)
+        assert_contains(error, "driver must be a string")
+
+    def test_invalid_band(_, assert_contains):
+        with pytest.raises(TypeError) as error:
+            validate.file_options(None, "invalid", "safe", None)
         assert_contains(error, "band must be a int")
 
-    def test_missing_band(_, fraster, assert_contains):
+    def test_missing_band(_, assert_contains):
         with pytest.raises(TypeError) as error:
-            validate.file(fraster, None, None, None, "safe")
+            validate.file_options(None, None, "safe", None)
         assert_contains(error, "band must be a int")
 
-    def test_invalid_bounds(_, fraster, assert_contains):
+    def test_invalid_bounds(_, assert_contains):
         with pytest.raises(TypeError) as error:
-            validate.file(fraster, None, 1, "invalid", "safe")
+            validate.file_options(None, 1, "safe", "invalid")
         assert_contains(
             error,
             "bounds must be a BoundingBox, Raster, RasterMetadata, dict, list, or tuple",
         )
 
-    def test_bounds(_, fraster):
-        path, bounds = validate.file(fraster, None, 1, (1, 2, 3, 4), "safe")
-        assert path == fraster
+    def test_bounds(_):
+        bounds = validate.file_options(None, 1, "safe", (1, 2, 3, 4))
         assert isinstance(bounds, BoundingBox)
         assert bounds == BoundingBox(1, 2, 3, 4)
 
-    def test_invalid_casting_option(_, fraster, assert_contains):
+    def test_invalid_casting_option(_, assert_contains):
         with pytest.raises(ValueError) as error:
-            validate.file(fraster, None, 1, None, "invalid")
+            validate.file_options(None, 1, "invalid", None)
         assert_contains(
             error,
             "casting (invalid) is not a recognized option. Supported options are: no, equiv, safe, same_kind, unsafe",
         )
 
-    def test_missing_casting_option(_, fraster, assert_contains):
+    def test_missing_casting_option(_, assert_contains):
         with pytest.raises(TypeError) as error:
-            validate.file(fraster, None, 1, None, None)
+            validate.file_options(None, 1, None, None)
         assert_contains(error, "casting must be a string")
 
 
-class TestValidateReader:
+class TestReader:
     @staticmethod
     def reader(path):
         with rasterio.open(path) as reader:

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import fiona
+import numpy as np
 import pytest
 import rasterio
 from geojson import Feature, MultiPoint, MultiPolygon, Point, Polygon
@@ -10,6 +11,37 @@ from pfdf.raster import RasterMetadata
 #####
 # File-based raster
 #####
+
+
+@pytest.fixture
+def MockReader():
+    class MockReader:
+        def __init__(self):
+            self.height = 4
+            self.width = 5
+            self.dtypes = ["int16"]
+            self.nodata = -1
+            self.crs = 26911
+            self.transform = (10, -10, 0, 0)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args, **kwargs):
+            pass
+
+        def read(*args, **kwargs):
+            return np.array(
+                [
+                    [1, 1, 1, 1, 1],
+                    [2, 2, 2, 2, 2],
+                    [3, 3, 3, 3, 3],
+                    [4, 4, 4, 4, 4],
+                ],
+                "int16",
+            )
+
+    return MockReader()
 
 
 @pytest.fixture

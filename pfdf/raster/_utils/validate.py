@@ -15,7 +15,9 @@ Preprocessing:
     data_bound  - Checks that a data bound is castable, or provides a default if missing
 
 Factories:
-    file            - Validates options used to build an object from a file-based dataset
+    url             - Validates URL and file reading options
+    file            - Validates path and file reading options
+    file_options    - Validates file reading options
     reader          - Validates a rasterio.DatasetReader
 """
 
@@ -226,19 +228,53 @@ def data_bound(value: Any, bound: Literal["min", "max"], dtype: type) -> ScalarA
 #####
 
 
+def url(
+    url: Any,
+    check_status: bool,
+    timeout: Any,
+    driver: Any,
+    band: Any,
+    bounds: Any,
+    casting: Any,
+) -> tuple[str, BoundingBox | None]:
+    "Validates URL and file-reading options"
+
+    # Validate URL. Optionally check http(s) using requests.head
+    scheme = cvalidate.url(url)
+    if scheme in ["http", "https"] and check_status:
+        timeout = cvalidate.timeout(timeout)
+        cvalidate.http(url, timeout)
+
+    # Also validate file options
+    bounds = file_options(driver, band, casting, bounds)
+    return url, bounds
+
+
 def file(
     path: Any, driver: Any, band: Any, bounds: Any, casting: Any
 ) -> tuple[Path, BoundingBox | None]:
-    "Validate inputs for a file-based raster"
+    "Validate path and file-reading options"
 
-    path = cvalidate.input_path(path, "path")
+    path = cvalidate.input_file(path)
+    bounds = file_options(driver, band, casting, bounds)
+    return path, bounds
+
+
+def file_options(
+    driver: Any, band: Any, casting: Any, bounds: Any
+) -> BoundingBox | None:
+    "Validates read-options for a file-based raster"
+
+    # Driver, band, and casting option
     if driver is not None:
-        cvalidate.type(driver, "driver", str, "string")
+        cvalidate.string(driver, "driver")
     cvalidate.type(band, "band", int, "int")
+    casting_option(casting, "casting")
+
+    # Parse bounds
     if bounds is not None:
         bounds = pvalidate.bounds(bounds)
-    casting_option(casting, "casting")
-    return path, bounds
+    return bounds
 
 
 def reader(reader: Any) -> Path:

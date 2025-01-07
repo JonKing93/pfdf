@@ -46,7 +46,7 @@ def _properties(
     dtypes = real + [str]
     validate.type(properties, "properties", dict, "dict")
     for k, key in enumerate(properties.keys()):
-        validate.type(key, f"properties key {k}", str, "string")
+        validate.string(key, f"properties key {k}")
 
         # Values must be numpy 1D arrays with either one element per segment,
         # or one element per exported feature

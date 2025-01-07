@@ -98,7 +98,7 @@ class TestWindow:
 class TestPysheds:
     def test_valid(_, araster, transform, crs):
         view = ViewFinder(
-            affine=transform.affine, crs=crs, nodata=-999, shape=araster.shape
+            affine=transform.affine, crs=crs, nodata=np.array(-999), shape=araster.shape
         )
         input = PyshedsRaster(araster, view)
         output = factory.pysheds(input, "test")

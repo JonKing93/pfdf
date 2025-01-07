@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import typing
 
-import numpy as np
 from pysheds.sview import Raster as PyshedsRaster
 from rasterio import DatasetReader
 from rasterio.windows import Window
