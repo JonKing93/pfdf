@@ -66,7 +66,7 @@ def parse(
 
     # Validate each feature's geometry and get the coordinate array
     geometry_values = []
-    for f, feature in enumerate(list(ffile.file)):
+    for f, feature in enumerate(ffile.file):
         geometry = feature["geometry"]
         multicoordinates = _validate.geometry(f, geometry, geometries)
 
