@@ -11,8 +11,8 @@ recommend HUC10s as a good starting point for many pfdf analyses. To obtain data
 HUC10 boundary, first download the data bundle for the associated HU8 code. Then, open
 the HU10 dataset from the data bundle, and extract the data for the relevant HUC10.
 
-This module also includes a "product" function, which returns product info for a queried 
-HU4 or HU8 code. Advanced users may find this useful for designing custom data
+This module also includes the "produc" function, which returns product info for a 
+queried HU4 or HU8 code. Advanced users may find this useful for designing custom data
 acquisition routines.
 ----------
 Data:
@@ -20,7 +20,7 @@ Data:
 
 TNM API:
     dataset     - Returns the fully-qualified TNM name for the NHD dataset
-    products    - Returns product info for a HUC4 or HUC8
+    product     - Returns product info for a HUC4 or HUC8
 
 Internal:
     _no_huc_error   - Raises an informative error when a matching HUC cannot be found
@@ -139,8 +139,9 @@ def download(
     Downloads the data bundle for a HU4 or HU8 code to the local filesystem. Raises an
     error if a matching HUC cannot be found. By default, downloads a Shapefile data
     bundle into a folder named "huc4-<code>" or "huc8-<code>" in the current directory,
-    but see below for oath path options. Note that `huc` should be a string
-    representing a HUC, rather than an int. This is to preserve leading zeros in the HUC.
+    but see below for other path options. Note that `huc` should be a string
+    representing a HUC, rather than an int. This is to preserve leading zeros in the 
+    HUC. Returns the path to the downloaded data folder as output.
 
     download(..., path)
     Specifies the path for the downloaded data bundle. If a relative path, then the path
@@ -169,6 +170,9 @@ def download(
         format: The file format that should be download. Options are "Shapefile",
             "GeoPackage", and "FileGDB"
         timeout: The maximum number of seconds to connect to the TNM server
+
+    Outputs:
+        Path: The path to the downloaded data folder
     """
 
     # Validate

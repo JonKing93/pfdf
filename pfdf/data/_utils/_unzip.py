@@ -2,7 +2,7 @@
 Function to extract zip archives downloaded via a HTTP request
 ----------
 Function:
-    unzip   - Extracts a downloaded zip archive 
+    unzip   - Extracts a zip archive represented as a byte string
 """
 
 from __future__ import annotations

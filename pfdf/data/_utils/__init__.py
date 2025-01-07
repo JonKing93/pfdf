@@ -2,7 +2,7 @@
 Utilities used to support data acquisition
 ----------
 Functions:
-    unzip   - Extracts a zip archive downloaded via a HTTP request
+    unzip       - Extracts a zip archive represented as a byte string
 
 Modules:
     _unzip      - Implements the "unzip" function

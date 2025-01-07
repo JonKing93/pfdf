@@ -1,11 +1,6 @@
 """
 Validation functions used throughout pfdf
 ----------
-This subpackage contains functions used to validate user inputs throughout pfdf.
-The recommended import style is:
-
-import pfdf._validate.core as validate
-----------
 Low level:
     type            - Checks input has the specified type
     string          - Checks an input is a string

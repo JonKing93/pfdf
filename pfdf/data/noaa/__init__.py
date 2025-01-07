@@ -2,7 +2,7 @@
 Acquire datasets released by NOAA
 ----------
 This package provides routines to access datasets provided by NOAA (https://www.noaa.gov/).
-Currently, this package is limited to the NOAA Atlas 14 datasets, but additional datasets
+Currently, this package is limited to the NOAA Atlas 14 dataset, but additional datasets
 may be added upon request.
 ----------
 Modules:

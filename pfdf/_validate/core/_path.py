@@ -5,7 +5,7 @@ Functions:
     _path           - Checks an input represents a Path. Returns the resolved path
     input_file      - Checks an input is an existing path. Note that folders are permitted
     output_file     - Checks an output is a path, optionally allowed overwriting
-    output_folder   - Checks output is the path to a non-existent or empty folder
+    output_folder   - Checks output is the path to a non-existent folder
 """
 
 from __future__ import annotations
@@ -49,8 +49,7 @@ def output_file(path: Any, overwrite: bool) -> Path:
 
 
 def output_folder(path: Any, default: str) -> Path:
-    """Checks an input represents a path for an output folder. If the path exists,
-    then it must be empty. Overwriting contents is not permitted."""
+    "Checks input represents the path to a non-existent folder"
 
     # Default if unset
     if path is None:

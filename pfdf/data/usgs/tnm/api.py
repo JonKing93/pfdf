@@ -139,6 +139,9 @@ def query(
         strict: True (default) to raise an error if the response JSON contains error
             messages. False to not raise an error and return the JSON dict.
         timeout: The maximum number of seconds to connect with the TNM server
+
+    Outputs:
+        dict: TNM product info as a JSON dict
     """
 
     # Validate and build parameter dict
@@ -249,7 +252,7 @@ def products(
     max_per_query: int = 500,
     offset: int = 0,
     timeout: Optional[timeout] = 60,
-):
+) -> list[dict]:
     """
     Returns info on TNM products meeting the search criteria
     ----------
@@ -326,6 +329,7 @@ def products(
         datasets: The fully qualified names of TNM datasets that should be searched
         bounds: A bounding box in which to search for products
         huc: A hydrologic unit code in which to search for products
+        formats: The file formats to search for
         max_per_query: The maximum number of products that should be retrieved per API query
         max_queries: The maximum allowed number of API queries
         max_products: The maximum number of products whose info should be retrieved

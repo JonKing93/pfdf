@@ -181,6 +181,9 @@ def job_status(id: str, *, timeout: Optional[timeout] = 10) -> str:
     Inputs:
         id: The ID of the job whose status should be queried
         timeout: The maximum number of seconds to connect to the LFPS server
+
+    Outputs:
+        str: The status of the queried job
     """
     response = query_job(id, timeout=timeout)
     return _api.status(response)

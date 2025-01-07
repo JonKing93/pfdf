@@ -66,7 +66,7 @@ def query_url(statistic: Statistic = "mean") -> str:
     Returns the URL used to query a NOAA Atlas 14 PFE statistic. Supported statistics
     include:
 
-    "mean": The mean PFE
+    "mean": The mean PFE (default)
     "upper": Upper bound of the 90% confidence interval
     "lower": Lower bound of the 90% confidence interval
     "all": Mean, upper and lower PFE
@@ -114,9 +114,10 @@ def download(
     precipitation intensity for partial duration time series. See below for alternative
     options.
 
-    By default, this command will download the dataset to the current folder, and the
-    data file will be named "noaa-atlas14-mean-pds-intensity.csv". Raises an error if
-    the file already exists. (And see the following syntax for additional file options).
+    Returns the path to the downloaded csv file as output. By default, this command will 
+    download the dataset to the current folder, and the data file will be named 
+    "noaa-atlas14-mean-pds-intensity.csv". Raises an error if the file already exists. 
+    (And see the following syntax for additional file options).
 
     download(..., path)
     download(..., *, overwrite=True)

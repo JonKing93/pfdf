@@ -44,7 +44,7 @@ def download(
     timeout: Optional[timeout] = 10,
     max_job_time: Optional[float] = 60,
     refresh_rate: float = 15,
-) -> Path | tuple[Path, str]:
+) -> Path:
     """
     Download a product from LANDFIRE LFPS
     ----------
@@ -69,7 +69,7 @@ def download(
     download(..., *, max_job_time)
     download(..., *, refresh_rate)
     download(..., *, timeout)
-    Timing parameters for the download. When you request from LFPS, the system creates
+    Timing parameters for the download. When you request a product from LFPS, the system creates
     a job for the product, and then processes the job before the data can be downloaded.
     Use `max_job_time` to specify the maximum number of seconds that this command should
     wait for the job to finish (default = 60 seconds). Raises a LFPSJobTimeoutError if
@@ -188,7 +188,7 @@ def read(
         timeout: The maximum time in seconds to establish a connection with the LFPS server
 
     Outputs:
-        Path: The path to the downloaded data folder
+        Raster: The queried LANDFIRE raster dataset
     """
 
     # Download the data layer into a temp folder
