@@ -24,15 +24,21 @@ packages = [
     { include = "pfdf" },
 ]
 
+#####
+# Dependencies
+#####
+
 [tool.poetry.dependencies]
 # Core dependencies
 python = ">=3.11, <3.13"
-numpy = "<2"
-pysheds = "0.3.5"
+numpy = "*"
+pysheds = "0.4"
 rasterio = "*"
 affine = "*"
 shapely = "*"
 fiona = "*"
+numba = ">=0.57"
+requests = "*"
 
 # Tutorial plots
 cartopy = { version = ">=0.22", optional = true }
@@ -61,20 +67,27 @@ sphinx-rtd-theme = ">=1.3.0"
 sphinx_design = ">=0.5"
 sphinx-copybutton = "*"
 
+#####
+# Dev tool configurations
+#####
+
 [tool.pytest.ini_options]
 filterwarnings = [
     "ignore::DeprecationWarning:pysheds.sgrid",
-    "ignore::DeprecationWarning:pysheds.sview",
-    "ignore::DeprecationWarning:numba.core.typing.context",
     "ignore::DeprecationWarning:pyproj.transformer",
 ]
 markers = [
     "slow: marks tests as slow (deselect with: -m \"not slow\")",
+    "web: tests that make a real request over an internet connection" 
+]
+addopts = [
+    "-m not web",
 ]
 
 [tool.coverage.report]
-exclude_lines = [
+exclude_also = [
     "if typing.TYPE_CHECKING",
+    "@pytest.mark.web",
 ]
 omit = [
     "pfdf/typing/*",
@@ -93,15 +106,19 @@ help = "Checks package dependencies for security issues"
 cmd = "safety check"
 
 [tool.poe.tasks.tests]
-help = "Runs the tests and requires 100% coverage"
+help = "Runs the tests and requires 100% coverage. Excludes live web tests"
 sequence = [
   { cmd = "pytest tests --cov=pfdf --cov=tests --cov-fail-under=100 --cov-report xml:coverage.xml" },
   { ref = "coverage" },
 ]
 
 [tool.poe.tasks.quicktest]
-help = "Runs the tests, but skips any slow tests"
-cmd = "pytest tests -m \"not slow\""
+help = "Runs the tests, but skips slow tests (and live web request tests)"
+cmd = "pytest tests -m \"not slow and not web\""
+
+[tool.poe.tasks.webtest]
+help = "Runs tests that make live web requests. DO NOT automate these tests."
+cmd = "pytest tests -m web"
 
 [tool.poe.tasks.coverage]
 help = "Prints the coverage report for the tests"
