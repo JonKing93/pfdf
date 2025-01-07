@@ -140,3 +140,48 @@ class PointError(CoordinateError):
 
 class DurationsError(Exception):
     "When queried rainfall durations are not reported in Table 4 of Staley et al., 2017"
+
+
+#####
+# Data Acquisition
+#####
+
+
+class DataAPIError(Exception):
+    "When an API response is not valid"
+
+
+class MissingAPIFieldError(DataAPIError, KeyError):
+    "When an API JSON response is missing a required field"
+
+
+class TNMError(DataAPIError):
+    "Errors unique to the TNM API"
+
+
+class TooManyTNMProductsError(TNMError):
+    "When a TNM query has too many search results"
+
+
+class NoTNMProductsError(TNMError):
+    "When there are no TNM products in the search results"
+
+
+class InvalidJSONError(DataAPIError):
+    "When API JSON is not valid"
+
+
+class LFPSError(DataAPIError):
+    "Errors unique to the LANDFIRE LFPS API"
+
+    def __init__(self, message, id=None):
+        super().__init__(message)
+        self.id = id
+
+
+class InvalidLFPSJobError(LFPSError):
+    "When a LANDFIRE LFPS job cannot be used for a data read"
+
+
+class LFPSJobTimeoutError(LFPSError):
+    "When a LANDFIRE LFPS job takes too long to execute"
