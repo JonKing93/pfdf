@@ -126,8 +126,10 @@ class TestParseFile:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+            expected = [
+                (feature.__geo_interface__["geometry"], True) for feature in file
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 20, 90)
         )
@@ -153,9 +155,17 @@ class TestParseFile:
             None,
             None,
         )
+
         with fiona.open(multipolygons) as file:
             features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+        expected = []
+        for feature in features:
+            multicoords = feature.__geo_interface__["geometry"]["coordinates"]
+            for coords in multicoords:
+                geoval = ({"type": "Polygon", "coordinates": coords}, True)
+                expected.append(geoval)
+
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 20, 90)
         )
@@ -182,8 +192,10 @@ class TestParseFile:
             None,
         )
         with fiona.open(points) as file:
-            features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+            expected = [
+                (feature.__geo_interface__["geometry"], True) for feature in file
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (4, 4), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 10, 60)
         )
@@ -209,9 +221,17 @@ class TestParseFile:
             None,
             None,
         )
+
         with fiona.open(multipoints) as file:
             features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+        expected = []
+        for feature in features:
+            multicoords = feature.__geo_interface__["geometry"]["coordinates"]
+            for coords in multicoords:
+                geoval = ({"type": "Point", "coordinates": coords}, True)
+                expected.append(geoval)
+
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 10, 90)
         )
@@ -239,8 +259,12 @@ class TestParseFile:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [(features[0]["geometry"], True)]
+            expected = [
+                (feature.__geo_interface__["geometry"], True)
+                for f, feature in enumerate(file)
+                if f == 0
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (2, 2), dtype=bool, nodata=False, crs=crs, bounds=(30, 10, 50, 30)
         )
@@ -267,10 +291,11 @@ class TestParseFile:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [
-            (feature["geometry"], f) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], f)
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert (
             metadata
             == RasterMetadata(
@@ -300,10 +325,11 @@ class TestParseFile:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [
-            (feature["geometry"], f + 1.2) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], f + 1.2)
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype=float, nodata=nan, crs=crs, transform=(10, -10, 20, 90)
         )
@@ -330,10 +356,11 @@ class TestParseFile:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [
-            (feature["geometry"], f) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], f)
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype="int32", nodata=5, crs=crs, transform=(10, -10, 20, 90)
         )
@@ -360,10 +387,11 @@ class TestParseFile:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [
-            (feature["geometry"], f) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], f)
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype="int32", nodata=5, crs=crs, transform=(10, -10, 20, 90)
         )
@@ -390,11 +418,11 @@ class TestParseFile:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        print(geomvals)
-        assert geomvals == [
-            (feature["geometry"], int(f + 1.2)) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], int(f + 1.2))
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert (
             metadata
             == RasterMetadata(
@@ -427,10 +455,11 @@ class TestParseFile:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [
-            (feature["geometry"], f + 1.2 + 1) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], f + 1.2 + 1)
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype=float, nodata=nan, crs=crs, transform=(10, -10, 20, 90)
         )

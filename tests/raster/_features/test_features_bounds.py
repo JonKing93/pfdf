@@ -22,18 +22,6 @@ class TestUnbounded:
         }
 
 
-class TestUpdate:
-    def test_mins(_):
-        bounds = {"left": -100, "right": 100, "bottom": -100, "top": 100}
-        _bounds.update(bounds, 200, 200, 200, 200)
-        assert bounds == {"left": -100, "right": 200, "bottom": -100, "top": 200}
-
-    def test_maxs(_):
-        bounds = {"left": -100, "right": 100, "bottom": -100, "top": 100}
-        _bounds.update(bounds, -200, -200, -200, -200)
-        assert bounds == {"left": -200, "right": 100, "bottom": -200, "top": 100}
-
-
 class TestAddGeometry:
     def test_no_updates(_):
         coords = [[(1, 2), (3, 4), (5, 6), (1, 2)]]
@@ -43,7 +31,7 @@ class TestAddGeometry:
             "bottom": -10,
             "top": 10,
         }
-        _bounds.add_geometry("polygon", coords, bounds)
+        _bounds.add_geometry("Polygon", coords, bounds)
         assert bounds["left"] == -10
         assert bounds["right"] == 10
         assert bounds["bottom"] == -10
@@ -57,7 +45,7 @@ class TestAddGeometry:
             "bottom": 0,
             "top": 0,
         }
-        _bounds.add_geometry("polygon", coords, bounds)
+        _bounds.add_geometry("Polygon", coords, bounds)
         assert bounds["left"] == -10
         assert bounds["right"] == 10
         assert bounds["bottom"] == -10
@@ -71,7 +59,7 @@ class TestAddGeometry:
             "bottom": 0,
             "top": 20,
         }
-        _bounds.add_geometry("polygon", coords, bounds)
+        _bounds.add_geometry("Polygon", coords, bounds)
         assert bounds["left"] == -20
         assert bounds["right"] == 10
         assert bounds["bottom"] == -10
@@ -85,7 +73,7 @@ class TestAddGeometry:
             "bottom": 0,
             "top": 0,
         }
-        _bounds.add_geometry("polygon", coords, bounds)
+        _bounds.add_geometry("Polygon", coords, bounds)
         assert bounds["left"] == -10
         assert bounds["right"] == 10
         assert bounds["bottom"] == -10
@@ -99,7 +87,7 @@ class TestAddGeometry:
             "bottom": 0,
             "top": 0,
         }
-        _bounds.add_geometry("point", coords, bounds)
+        _bounds.add_geometry("Point", coords, bounds)
         assert bounds["left"] == 0
         assert bounds["right"] == 10
         assert bounds["bottom"] == 0

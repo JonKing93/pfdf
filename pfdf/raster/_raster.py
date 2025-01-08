@@ -1045,17 +1045,11 @@ class Raster:
 
         # Get the GIS coordinates for each point
         for geometry, value in features:
-            coords = geometry["coordinates"]
-            coords = np.array(coords).reshape(-1, 2)
-
-            # Determine the raster index and set the index to the point's value.
-            # Skip any points that fall outside the array (this can occur when a point
-            # falls exactly on the right or bottom edge during windowed reading)
-            rows, cols = rowcol(
-                metadata.affine, xs=coords[:, 0], ys=coords[:, 1], op=floor
-            )
-            if max(rows) < metadata.nrows and max(cols) < metadata.ncols:
-                values[rows, cols] = value
+            x, y = geometry["coordinates"]
+            row, col = rowcol(metadata.affine, x, y, op=floor)
+            if row < metadata.nrows and col < metadata.ncols:
+                values[row, col] = value
+            values[row, col] = value
 
         # Build the final raster
         return Raster.from_array(
