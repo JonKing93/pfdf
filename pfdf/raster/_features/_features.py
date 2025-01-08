@@ -48,50 +48,38 @@ def parse(
 
     # Get the allowed geometries and coordinate array validator
     validate_coordinates = getattr(_validate, geotype)
-    geometries = geotype.capitalize()
-    geometries = [geometries, f"Multi{geometries}"]
+    geotype = geotype.capitalize()
+    geometries = [geotype, f"Multi{geotype}"]
 
-    # If there's no window, track the bounds of the file's features
+    # If there's no window, track the bounds of the file's features. Otherwise, convert
+    # the load window to a shapely box
     if window is None:
-        track_bounds = True
         bounds = _bounds.unbounded(crs)
-
-    # Otherwise, build a shapely box from the load window
     else:
-        track_bounds = False
         window = window.match_crs(crs)
         bounds = window.todict()
         window = window.orient().tolist(crs=False)
         window = shapely.geometry.box(*window)
 
-    # Validate each feature's geometry and get the coordinate array
+    # Get the value for each feature. Validate geometry and convert to multicoordinate
     geometry_values = []
     for f, feature in enumerate(ffile.file):
+        value = _parse_value(f, feature, field, dtype, casting, operation)
         geometry = feature["geometry"]
         multicoordinates = _validate.geometry(f, geometry, geometries)
 
-        # Record feature bounds, and track whether to keep. By default, keep
-        # everything. But if a window is provided, only keep intersecting features
-        fbounds = _bounds.unbounded()
-        keep = window is None
-
-        # Validate geometry coordinates. Check if the feature should be kept and
-        # record the bounds
+        # Validate geometry coordinates. Track bounds if there's no window. Otherwise,
+        # skip any geometries that don't intersect the window
         for c, coordinates in enumerate(multicoordinates):
             shape = validate_coordinates(f, c, coordinates)
-            if (not keep) and window.intersects(shape):
-                keep = True
-            _bounds.add_geometry(geotype, coordinates, fbounds)
+            if window is None:
+                _bounds.add_geometry(geotype, coordinates, bounds)
+            elif not window.intersects(shape):
+                continue
 
-        # Skip the feature if not being kept. Update final bounds if tracking
-        if not keep:
-            continue
-        if track_bounds:
-            _bounds.update(bounds, **fbounds)
-
-        # Associate each geometry with a value, and record the geometry-value tuple
-        value = _parse_value(f, feature, field, dtype, casting, operation)
-        geometry_values.append((geometry, value))
+            # Record the geometry-value tuple
+            geometry = {"type": geotype, "coordinates": coordinates}
+            geometry_values.append((geometry, value))
 
     # Require at least one feature. Return geometry-value tuples and feature array bounds
     _require_features(geotype, geometry_values, window, ffile.path)

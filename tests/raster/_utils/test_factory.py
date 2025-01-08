@@ -227,8 +227,10 @@ class TestPoints:
             None,
         )
         with fiona.open(points) as file:
-            features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+            expected = [
+                (feature.__geo_interface__["geometry"], True) for feature in file
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (5, 5), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 10, 60)
         )
@@ -253,15 +255,23 @@ class TestPoints:
             None,
             None,
         )
+
         with fiona.open(multipoints) as file:
             features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+        expected = []
+        for feature in features:
+            multicoords = feature.__geo_interface__["geometry"]["coordinates"]
+            for coords in multicoords:
+                geoval = ({"type": "Point", "coordinates": coords}, True)
+                expected.append(geoval)
+
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (8, 8), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 10, 90)
         )
 
     def test_bounded(_, points, crs):
-        bounds = BoundingBox(0, 0, 30, 30)
+        bounds = BoundingBox(0, 0, 30, 30, crs)
         geomvals, metadata = factory.points(
             # General
             points,
@@ -282,8 +292,12 @@ class TestPoints:
             None,
         )
         with fiona.open(points) as file:
-            features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features][0:1]
+            expected = [
+                (feature.__geo_interface__["geometry"], True)
+                for f, feature in enumerate(file)
+                if f == 0
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (3, 3), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 0, 30)
         )
@@ -337,8 +351,10 @@ class TestPolygons:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+            expected = [
+                (feature.__geo_interface__["geometry"], True) for feature in file
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 20, 90)
         )
@@ -363,9 +379,17 @@ class TestPolygons:
             None,
             None,
         )
+
         with fiona.open(multipolygons) as file:
             features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+        expected = []
+        for feature in features:
+            multicoords = feature.__geo_interface__["geometry"]["coordinates"]
+            for coords in multicoords:
+                geoval = ({"type": "Polygon", "coordinates": coords}, True)
+                expected.append(geoval)
+
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (7, 7), dtype=bool, nodata=False, crs=crs, transform=(10, -10, 20, 90)
         )
@@ -392,8 +416,12 @@ class TestPolygons:
             None,
         )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [(features[0]["geometry"], True)]
+            expected = [
+                (feature.__geo_interface__["geometry"], True)
+                for f, feature in enumerate(file)
+                if f == 0
+            ]
+        assert geomvals == expected
         assert metadata == RasterMetadata(
             (2, 2), dtype=bool, nodata=False, crs=crs, bounds=(30, 10, 50, 30)
         )

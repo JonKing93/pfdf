@@ -140,7 +140,7 @@ def download(
     error if a matching HUC cannot be found. By default, downloads a Shapefile data
     bundle into a folder named "huc4-<code>" or "huc8-<code>" in the current directory,
     but see below for other path options. Note that `huc` should be a string
-    representing a HUC, rather than an int. This is to preserve leading zeros in the 
+    representing a HUC, rather than an int. This is to preserve leading zeros in the
     HUC. Returns the path to the downloaded data folder as output.
 
     download(..., path)
