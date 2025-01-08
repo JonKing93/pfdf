@@ -127,7 +127,7 @@ class Segments:
 
     Dunders:
         __len__             - The number of segments in the network
-        __str__             - A string representing the network
+        __repr__            - A string summarizing key info about the network
         __geo_interface__   - A geojson-like dict of the network
 
     Outlets:
@@ -384,18 +384,28 @@ class Segments:
         """
         return len(self._segments)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """
-        Returns a string with info about the Segments object
+        A string summarizing the Segments object
         ----------
-        str(self)
-        Returns a string that reports (1) the total number of segments, and (2)
-        the total number of local drainage networks.
+        repr(self)
+        Returns a string summarizing key info about the Segments object.
         ----------
         Outputs:
             str: A string summarizing the Segments object
         """
-        return f"A set of {self.size} stream segments in {self.nlocal} local drainage networks."
+
+        return (
+            f"Segments:\n"
+            f"    Total Segments: {len(self)}\n"
+            f"    Local Networks: {self.nlocal}\n"
+            f"    Located Basins: {self.located_basins}\n"
+            f"    Raster Metadata:\n"
+            f"        Shape: {self.raster_shape}\n"
+            f'        CRS("{self.crs.name}")\n'
+            f"        {self.transform}\n"
+            f"        {self.bounds}\n"
+        )
 
     @property
     def __geo_interface__(self) -> FeatureCollection:

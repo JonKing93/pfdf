@@ -195,8 +195,18 @@ def test_len(segments):
     assert len(segments) == 6
 
 
-def test_str(segments):
-    assert str(segments) == "A set of 6 stream segments in 2 local drainage networks."
+def test_repr(segments):
+    assert repr(segments) == (
+        "Segments:\n"
+        "    Total Segments: 6\n"
+        "    Local Networks: 2\n"
+        "    Located Basins: False\n"
+        "    Raster Metadata:\n"
+        "        Shape: (7, 7)\n"
+        '        CRS("NAD83 / UTM zone 11N")\n'
+        '        Transform(dx=1.0, dy=1.0, left=0.0, top=0.0, crs="NAD83 / UTM zone 11N")\n'
+        '        BoundingBox(left=0.0, bottom=7.0, right=7.0, top=0.0, crs="NAD83 / UTM zone 11N")\n'
+    )
 
 
 def test_geo_interface(segments):
