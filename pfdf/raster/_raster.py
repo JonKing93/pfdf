@@ -35,6 +35,7 @@ from pfdf.errors import (
     RasterTransformError,
 )
 from pfdf.raster._utils import clip, factory
+from pfdf.raster._utils.writeable import WriteableArray
 
 if typing.TYPE_CHECKING:
     from typing import Any, Optional, Self
@@ -1593,38 +1594,53 @@ class Raster:
     # Numeric Preprocessing
     #####
 
-    def fill(self, value: ScalarArray) -> None:
+    def fill(self, value: ScalarArray, *, copy: bool = True) -> None:
         """
         Replaces NoData pixels with the indicated value
         ----------
         self.fill(value)
         Locates NoData pixels in the raster and replaces them with the indicated
-        value. The fill value must be safely castable to the dtype of the raster.
-        Note that this method creates a copy of the raster's data array before
-        replacing NoData values. As such, other copies of the raster will not be
-        affected. Also note that the updated raster will no longer have a NoData
-        value, as all NoData pixels will have been replaced.
+        value. The fill value must be safely castable to the dtype of the raster. The
+        updated raster will no longer have a NoData value, as all NoData pixels will
+        have been replaced. By default, this method creates a copy of the raster's data
+        array before replacing NoData values. As such, other copies of the raster will
+        not be affected (although see below to fill values wihout copying).
+
+        self.fill(..., *, copy=False)
+        Does not copy the raster's data array before replacing NoData values. This can
+        be useful when processing large arrays, but users should note that any objects
+        that derive from the raster's data array (such as copied Raster objects) will
+        also be altered. As such, we recommend only using this option when the array is
+        exclusively used by the current object. Also note that this option is only
+        available when the raster can set the write permissions of its data array.
+        Although this is usually true, it may not be the case if the Raster object was
+        built using an array factory with copy=False.
         ----------
         Inputs:
             value: The fill value that NoData pixels will be replaced with
+            copy: True (default) to create a copy of the data array before replacing
+                values. False to alter the data array directly.
         """
 
         # Validate the fill value
-        value = cvalidate.scalar(value, "fill value", dtype=real)
-        value = rvalidate.casting(value, "fill value", self.dtype, casting="safe")
+        fill = cvalidate.scalar(value, "fill value", dtype=real)
+        fill = rvalidate.casting(fill, "fill value", self.dtype, casting="safe")
 
         # Just exit if there's not a NoData Value
         if self.nodata is None:
             return
 
-        # Locate NoData values, copy the array, then fill the copy
+        # Locate NoData values. Get the data array and optionally copy
         nodatas = NodataMask(self.values, self.nodata)
-        data = self.values.copy()
-        nodatas.fill(data, value)
+        values = self._values
+        if copy:
+            values = values.copy()
 
-        # Update the raster object
+        # Fill the NoData values, and update the Raster
+        with WriteableArray(values):
+            nodatas.fill(values, value)
         metadata = self.metadata.fill()
-        self._update(data, metadata)
+        self._update(values, metadata)
 
     def find(self, values: RealArray) -> Self:
         """
@@ -1661,6 +1677,8 @@ class Raster:
         max: Optional[scalar] = None,
         fill: bool = False,
         exclude_bounds: bool = False,
+        *,
+        copy: bool = True,
     ) -> None:
         """
         Forces a raster's data values to fall within specified bounds
@@ -1675,10 +1693,10 @@ class Raster:
         are set to equal that bound. If a bound is None, does not enforce that bound.
         Raises an error if both bounds are None.
 
-        This method creates a copy of the raster's data values before replacing
-        out-of-bounds pixels, so copies of the raster are not affected. Also, the
-        method does not alter NoData pixels, even if the NoData value is outside
-        of the indicated bounds.
+        This method does not alter NoData pixels, even if the NoData value is outside
+        the indicated bounds. By default, this method creates a copy of the raster's
+        data array before replacing out-of-bounds pixels, so copies of the raster are
+        not affected. See below to alter this behavior.
 
         self.set_range(..., fill=True)
         Indicates that pixels outside the bounds should be replaced with the
@@ -1689,6 +1707,16 @@ class Raster:
         Indicates that the bounds should be excluded from the valid range. In this
         case, data values exactly equal to a bound are also set to NoData. This
         option is only available when fill=True.
+
+        self.set_range(..., *, copy=False)
+        Does not copy the raster's data array before replacing out-of-bounds pixels. This
+        can be useful when processing large arrays, but users should note that any objects
+        that derive from the raster's data array (such as copied Raster objects) will
+        also be altered. As such, we recommend only using this option when the array is
+        exclusively used by the current object. Also note that this option is only
+        available when the raster can set the write permissions of its data array.
+        Although this is usually true, it may not be the case if the Raster object was
+        built using an array factory with copy=False.
         ----------
         Inputs:
             min: A lower bound for the raster
@@ -1698,6 +1726,8 @@ class Raster:
             exclude_bounds: True to consider the min and max data values as outside of
                 the valid data range. False (default) to consider the min/max as
                 within the valid data range. Only available when fill=True.
+            copy: True (default) to create a copy of the data array before replacing
+                values. False to alter the data array directly.
         """
 
         # Validate
@@ -1721,7 +1751,7 @@ class Raster:
             too_small = np.less
 
         # Locate out-of-bounds data pixels
-        values = self.values
+        values = self._values
         data = NodataMask(values, self.nodata, invert=True)
         too_large = data & too_large(values, max)
         too_small = data & too_small(values, min)
@@ -1731,10 +1761,14 @@ class Raster:
             min = self.nodata
             max = self.nodata
 
+        # Optionally copy the data array.
+        if copy:
+            values = values.copy()
+
         # Replace out-of-bounds values with either the closest bound, or NoData
-        values = values.copy()
-        too_large.fill(values, max)
-        too_small.fill(values, min)
+        with WriteableArray(values):
+            too_large.fill(values, max)
+            too_small.fill(values, min)
         self._update(values, self.metadata)
 
     #####

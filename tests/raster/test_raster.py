@@ -1775,6 +1775,47 @@ class TestFill:
             raster.fill(value=2.2)
         assert_contains(error, "fill value", "cast", "safe")
 
+    def test_copy(_, araster):
+        raster = Raster.from_array(araster, copy=False, nodata=1)
+        copy = raster.copy()
+        initial = araster.copy()
+        expected = araster.copy()
+        expected[expected == 1] = 50
+
+        assert raster.values.base is araster
+        assert copy.values.base is araster
+        raster.fill(value=50)
+
+        assert raster.values.base is not araster
+        assert np.array_equal(raster.values, expected)
+        assert copy.values.base is araster
+        assert np.array_equal(copy.values, initial)
+
+    def test_no_copy(_, araster):
+        raster = Raster.from_array(araster, copy=False, nodata=1)
+        copy = raster.copy()
+        expected = araster.copy()
+        expected[expected == 1] = 50
+
+        assert raster.values.base is araster
+        assert copy.values.base is araster
+        raster.fill(value=50, copy=False)
+
+        assert raster.values.base is araster
+        assert np.array_equal(raster.values, expected)
+        assert copy.values.base is araster
+        assert np.array_equal(copy.values, expected)
+
+    def test_invalid_nocopy(_, araster, assert_contains):
+        araster.setflags(write=False)
+        raster = Raster.from_array(araster, nodata=1, copy=False)
+        with pytest.raises(ValueError) as error:
+            raster.fill(value=-999, copy=False)
+        assert_contains(
+            error,
+            "You cannot set copy=False because the raster cannot set the write permissions of its data array.",
+        )
+
 
 class TestFind:
     def test_numeric(_, fraster, araster):
@@ -1873,6 +1914,47 @@ class TestSetRange:
         expected[expected >= 6] = -999
         assert np.array_equal(raster.values, expected)
         assert raster.nodata == -999
+
+    def test_copy(_, araster):
+        raster = Raster.from_array(araster, copy=False, nodata=-999)
+        copy = raster.copy()
+        initial = araster.copy()
+        expected = araster.copy()
+        expected[expected < 3] = 3
+
+        assert raster.values.base is araster
+        assert copy.values.base is araster
+        raster.set_range(min=3)
+
+        assert raster.values.base is not araster
+        assert np.array_equal(raster.values, expected)
+        assert copy.values.base is araster
+        assert np.array_equal(copy.values, initial)
+
+    def test_no_copy(_, araster):
+        raster = Raster.from_array(araster, copy=False, nodata=-999)
+        copy = raster.copy()
+        expected = araster.copy()
+        expected[expected < 3] = 3
+
+        assert raster.values.base is araster
+        assert copy.values.base is araster
+        raster.set_range(min=3, copy=False)
+
+        assert raster.values.base is araster
+        assert np.array_equal(raster.values, expected)
+        assert copy.values.base is araster
+        assert np.array_equal(copy.values, expected)
+
+    def test_invalid_nocopy(_, araster, assert_contains):
+        araster.setflags(write=False)
+        raster = Raster.from_array(araster, nodata=-999, copy=False)
+        with pytest.raises(ValueError) as error:
+            raster.set_range(min=3, copy=False)
+        assert_contains(
+            error,
+            "You cannot set copy=False because the raster cannot set the write permissions of its data array.",
+        )
 
 
 #####
