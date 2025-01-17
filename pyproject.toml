@@ -182,6 +182,10 @@ sequence = [
 help = "Opens the docs in a webbrowser"
 ref = "_open public"
 
+[tool.poe.tasks.tutorials]
+help = "Opens the tutorials in Jupyter lab"
+cmd = "jupyter lab --notebook-dir tutorials"
+
 [tool.poe.tasks.download-tutorials]
 help = "Downloads data for the tutorials"
 script = "scripts.docs:download_tutorials"

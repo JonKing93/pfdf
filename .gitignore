@@ -19,5 +19,7 @@ docs/images/*
 public
 
 # Tutorial data
+tutorials/*
+!tutorials/*.ipynb
 docs/tutorial-resources
 docs/tutorial-resources.zip
