@@ -270,42 +270,32 @@ class Raster:
         if raster is None:
             return
 
-        # Otherwise, build an object using a factory
+        # Otherwise, collect the factory args...
+        kwargs = {
+            "isbool": isbool,
+            "ensure_nodata": ensure_nodata,
+            "default_nodata": default_nodata,
+            "casting": casting,
+        }
+
+        # ...and build the raster from the appropriate factory
+        if isinstance(raster, str) and raster.startswith(("http://", "https://")):
+            raster = Raster.from_url(raster, name, **kwargs)
         elif isinstance(raster, (str, Path)):
-            raster = Raster.from_file(
-                raster,
-                name,
-                isbool=isbool,
-                ensure_nodata=ensure_nodata,
-                default_nodata=default_nodata,
-                casting=casting,
-            )
+            raster = Raster.from_file(raster, name, **kwargs)
         elif isinstance(raster, rasterio.DatasetReader):
-            raster = Raster.from_rasterio(
-                raster,
-                name,
-                isbool=isbool,
-                ensure_nodata=ensure_nodata,
-                default_nodata=default_nodata,
-                casting=casting,
-            )
+            raster = Raster.from_rasterio(raster, name, **kwargs)
         elif isinstance(raster, PyshedsRaster):
             raster = Raster.from_pysheds(raster, name, isbool=isbool)
         elif isinstance(raster, np.ndarray):
-            raster = Raster.from_array(
-                raster,
-                name,
-                isbool=isbool,
-                nodata=default_nodata,
-                ensure_nodata=ensure_nodata,
-                casting=casting,
-            )
+            kwargs["nodata"] = kwargs.pop("default_nodata")
+            raster = Raster.from_array(raster, name, **kwargs)
 
-        # Error if the input is not recognized
+        # Informative error if unrecognized
         elif not isinstance(raster, Raster):
             raise TypeError(
                 f"{self.name} is not a recognized type. Allowed types are: "
-                "str, pathlib.Path, rasterio.DatasetReader, 2d numpy.ndarray, "
+                "str, pathlib.Path, rasterio.DatasetReader, numpy.ndarray, "
                 "pfdf.raster.Raster, and pysheds.sview.Raster objects."
             )
 

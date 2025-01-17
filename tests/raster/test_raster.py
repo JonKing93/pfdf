@@ -9,6 +9,7 @@ import rasterio
 from affine import Affine
 from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
+from requests.exceptions import HTTPError
 
 from pfdf.errors import (
     CRSError,
@@ -91,6 +92,12 @@ class TestInitUser:
     def test_file(_, fraster, araster, transform, crs):
         raster = Raster(fraster, "test")
         check(raster, "test", araster, transform, crs)
+
+    def test_url(_, assert_contains):
+        # Just checking that the from_url function was entered
+
+        with pytest.raises(HTTPError):
+            Raster("https://www.usgs.gov/not-a-real-raster.tif")
 
     def test_rasterio(_, fraster, araster, transform, crs):
         with rasterio.open(fraster) as reader:

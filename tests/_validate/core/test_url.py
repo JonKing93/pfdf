@@ -41,7 +41,7 @@ class TestHttp:
         )
 
     def test_invalid_connection(_, assert_contains):
-        url = "https://ghsc.code-pages.usgs.gov/lhp/pfdf/not-a-valid-page"
+        url = "https://www.usgs.gov/this-is-not-a-valid-page"
         with pytest.raises(HTTPError) as error:
             validate.http(url, 5)
         assert_contains(
@@ -50,7 +50,7 @@ class TestHttp:
         )
 
     def test_valid(_):
-        url = "https://ghsc.code-pages.usgs.gov/lhp/pfdf/index.html"
+        url = "https://www.usgs.gov"
         validate.http(url, 5)
 
     @patch("requests.head")

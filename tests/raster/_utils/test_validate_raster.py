@@ -336,7 +336,7 @@ class TestValidateUrl:
         assert bounds == BoundingBox(1, 2, 3, 4)
 
     def test_invalid_http(_, assert_contains):
-        url = "https://ghsc.code-pages.usgs.gov/lhp/pfdf/not-a-valid-page"
+        url = "https://www.usgs.gov/this-is-not-a-valid-page"
         with pytest.raises(HTTPError) as error:
             validate.url(url, True, 10, None, 1, None, "safe")
         assert_contains(
