@@ -128,7 +128,7 @@ class RidgePatch:
         dirmap=(64, 128, 1, 2, 4, 8, 16, 32),
         algorithm="iterative",
         nodata_out=np.nan,
-        **kwargs
+        **kwargs,
     ):
         "A patched version of pysheds.sgrid.sGrid._d8_distance_to_ridge"
         # Find nodata cells and invalid cells

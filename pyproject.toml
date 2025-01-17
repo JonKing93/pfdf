@@ -1,18 +1,17 @@
-[build-system]
-requires = ["poetry-core>=1.5.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
+[project]
 name = "pfdf"
 version = "3.0.0a1"
 description = "A package to facilitate post-wildfire debris-flow hazard assessments and research"
-authors = [
-    "Jonathan King <jking@usgs.gov>",
-    "Dennis Staley <dstaley@usgs.gov>"
-]
-readme = "README.md"
 license = "GPL-3.0-only"
-repository = "https://code.usgs.gov/ghsc/lhp/pfdf"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+authors = [
+    {name = "Jonathan King", email = "jking@usgs.gov"},
+    {name = "Dennis Staley", email = "dstaley@usgs.gov"},
+]
+maintainers = [
+    {name = "Jonathan King", email = "jking@usgs.gov"},
+]
 keywords = ["wildfire", "debris flow", "hazard", "usgs"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -20,46 +19,56 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering"
 ]
+dependencies = [
+    "numpy",
+    "affine",
+    "rasterio",
+    "fiona",
+    "shapely",
+    "pysheds==0.4",
+    "numba>=0.57",
+    "pandas",
+    "requests",
+]
+
+[project.optional-dependencies]
+tutorials = ["cartopy>=0.22", "matplotlib>=3.8.2", "jupyter"]
+
+[project.urls]
+repository = "https://code.usgs.gov/ghsc/lhp/pfdf"
+documentation = "https://ghsc.code-pages.usgs.gov/lhp/pfdf"
+
+#####
+# Poetry / Dev dependencies
+#####
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
 packages = [
     { include = "pfdf" },
 ]
-
-#####
-# Dependencies
-#####
-
-[tool.poetry.dependencies]
-# Core dependencies
-python = ">=3.11, <3.13"
-numpy = "*"
-pysheds = "0.4"
-rasterio = "*"
-affine = "*"
-shapely = "*"
-fiona = "*"
-numba = ">=0.57"
-requests = "*"
-pandas = "*"
-
-# Tutorial plots
-cartopy = { version = ">=0.22", optional = true }
-matplotlib = { version = ">=3.8.2", optional = true }
-
-[tool.poetry.extras]
-tutorials = ["cartopy", "matplotlib"]
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-# Code
+# Dev tasks
 poethepoet = "*"
-safety = "3.2.7"
+
+# Formatting
 black = ">=24.3.0"
-isort = "^5.12.0"
-pytest = "^7.3.1"
+isort = ">=5.12.0"
+
+# Testing
+safety = "3.2.7"
+pytest = ">=7.3.1"
 pytest-cov = "*"
 coverage = "*"
+
+# Deploy
 twine = "*"
 
 # Docs
@@ -99,7 +108,7 @@ omit = [
 profile = "black"
 
 #####
-# Developer scripts
+# Dev scripts
 #####
 
 [tool.poe.tasks.safety]
