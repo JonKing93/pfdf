@@ -538,7 +538,9 @@ def _tile_metadata(tiles: TileInfo, bounds: BoundingBox) -> TileMetadata:
     metadatas = {}
     for t, tile in enumerate(tiles):
         url = tile["download_url"]
-        metadata = RasterMetadata.from_url(url, bounds=bounds, check_status=False)
+        metadata = RasterMetadata.from_url(
+            url, bounds=bounds, check_status=False, require_overlap=False
+        )
 
         # Skip tiles with no overlapping pixels
         if 0 in metadata.shape:
