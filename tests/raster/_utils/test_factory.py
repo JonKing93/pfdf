@@ -56,21 +56,21 @@ class TestWindow:
     def test_interior(_):
         metadata = RasterMetadata((10, 10), bounds=(0, 0, 100, 100))
         bounds = BoundingBox(14, 14, 79, 89)
-        metadata, window = factory.window(metadata, bounds)
+        metadata, window = factory.window(metadata, bounds, True)
         assert metadata == RasterMetadata((8, 7), bounds=(10, 10, 80, 90))
         assert window == Window.from_slices(rows=[1, 9], cols=[1, 8])
 
     def test_exterior(_):
         metadata = RasterMetadata((10, 10), bounds=(0, 0, 100, 100))
         bounds = BoundingBox(-200, -200, 200, 200)
-        output, window = factory.window(metadata, bounds)
+        output, window = factory.window(metadata, bounds, True)
         assert output == metadata
         assert window == Window.from_slices(rows=[0, 10], cols=[0, 10])
 
     def test_mixed(_):
         metadata = RasterMetadata((10, 10), bounds=(0, 0, 100, 100))
         bounds = BoundingBox(-200, 14, 79, 200)
-        metadata, window = factory.window(metadata, bounds)
+        metadata, window = factory.window(metadata, bounds, True)
         assert metadata == RasterMetadata((9, 8), bounds=(0, 10, 80, 100))
         assert window == Window.from_slices(rows=[0, 9], cols=[0, 8])
 
@@ -83,16 +83,23 @@ class TestWindow:
             (10, -200, 80, -100),
         ),
     )
-    def test_no_overlap(_, bounds, assert_contains):
+    def test_no_overlap_invalid(_, bounds, assert_contains):
         metadata = RasterMetadata((10, 10), bounds=(0, 0, 100, 100))
         bounds = BoundingBox(*bounds)
         for quadrant in [1, 2, 3, 4]:
             bounds = bounds.orient(quadrant)
             with pytest.raises(ValueError) as error:
-                factory.window(metadata, bounds)
+                factory.window(metadata, bounds, True)
             assert_contains(
-                error, "bounds must overlap the file dataset for at least 1 pixel"
+                error, "bounds must overlap the raster dataset for at least 1 pixel"
             )
+
+    def test_no_overlap_valid(_):
+        metadata = RasterMetadata((10, 10), bounds=(0, 0, 100, 100))
+        bounds = BoundingBox(-100, 20, -50, 80)
+        metadata, window = factory.window(metadata, bounds, require_overlap=False)
+        assert 0 in metadata.shape
+        assert window is None
 
 
 class TestPysheds:

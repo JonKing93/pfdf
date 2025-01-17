@@ -588,7 +588,9 @@ class Raster:
 
             # Build window as needed. Load values
             if bounds is not None:
-                metadata, bounds = factory.window(metadata, bounds)
+                metadata, bounds = factory.window(
+                    metadata, bounds, require_overlap=True
+                )
             values = file.read(band, window=bounds)
 
         # Return Raster. Optionally convert to boolean and ensure nodata

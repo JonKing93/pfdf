@@ -678,6 +678,7 @@ class RasterMetadata:
         timeout: Optional[timeout] = 10,
         # File options
         bounds: Optional[BoundsInput] = None,
+        require_overlap: bool = True,
         band: int = 1,
         isbool: bool = False,
         ensure_nodata: bool = True,
@@ -734,6 +735,8 @@ class RasterMetadata:
                 False to disable this check.
             bounds: A BoundingBox-like object indicating a subset of the saved raster
                 whose metadata should be determined
+            require_overlap: True (default) to raise an error if the bounds do not
+                overlap the raster by at least one pixel. False to not raise an error.
             band: The raster band from which to read the dtype. Uses 1-indexing and
                 defaults to 1
             isbool: True to set dtype to bool and NoData to False. If False (default),
@@ -760,6 +763,7 @@ class RasterMetadata:
             band,
             name,
             bounds,
+            require_overlap,
             isbool,
             ensure_nodata,
             default_nodata,
@@ -772,6 +776,7 @@ class RasterMetadata:
         name: Optional[str] = None,
         *,
         bounds: Optional[BoundsInput] = None,
+        require_overlap: bool = True,
         band: int = 1,
         isbool: bool = False,
         ensure_nodata: bool = True,
@@ -799,7 +804,8 @@ class RasterMetadata:
         to return a summary of supported file format drivers, and their associated
         extensions.
 
-        Raster.from_file(..., *, bounds)
+        RasterMetadata.from_file(..., *, bounds)
+        RasterMetadata.from_file(..., *, bounds, require_overlap=False)
         Returns the RasterMetadata object for a bounded subset of the saved dataset.
         The "bounds" input indicates a rectangular portion of the saved dataset
         whose metadata should be determined. If the window extends beyond the bounds of
@@ -807,19 +813,24 @@ class RasterMetadata:
         further. The window may be a BoundingBox, Raster, RasterMetadata, or a
         list/tuple/dict convertible to a BoundingBox object.
 
-        Raster.from_file(..., *, band)
+        By default, raises a ValueError if the bounds do not overlap the dataset for at
+        least one pixel. Set require_overlap=False to disable this error. In this case,
+        the shape metadata for non-overlapping bounds will contain zeros. We caution
+        that the Transform and BoundingBox are ill-defined when this occurs.
+
+        RasterMetadata.from_file(..., *, band)
         Specify the raster band to use to determine the dtype. Raster bands use
         1-indexing (and not the 0-indexing common to Python). Raises an error if the
         band does not exist.
 
-        Raster.from_file(..., *, isbool=True)
+        RasterMetadata.from_file(..., *, isbool=True)
         Indicates that the raster represents a boolean array, regardless of the
         dtype of the file data values. The output metadata object will have a bool
         dtype, and its NoData value will be set to False.
 
-        Raster.from_file(..., *, default_nodata)
-        Raster.from_file(..., *, default_nodata, casting)
-        Raster.from_file(..., *, ensure_nodata=False)
+        RasterMetadata.from_file(..., *, default_nodata)
+        RasterMetadata.from_file(..., *, default_nodata, casting)
+        RasterMetadata.from_file(..., *, ensure_nodata=False)
         Specifies additional options for NoData values. By default, if the raster
         file does not have a NoData value, then this routine will set a default
         NoData value based on the dtype of the raster. Set ensure_nodata=False to
@@ -828,7 +839,7 @@ class RasterMetadata:
         be safely castable to the raster dtype, or use the "casting" option to
         specify other casting rules.
 
-        Raster.from_file(..., *, driver)
+        RasterMetadata.from_file(..., *, driver)
         Specify the file format driver to use for reading the file. Uses this
         driver regardless of the file extension. You can also call:
             >>> pfdf.utils.driver.rasters()
@@ -844,6 +855,8 @@ class RasterMetadata:
             name: An optional name for the metadata. Defaults to "raster"
             bounds: A BoundingBox-like object indicating a subset of the saved raster
                 whose metadata should be determined
+            require_overlap: True (default) to raise an error if the bounds do not
+                overlap the raster by at least one pixel. False to not raise an error.
             band: The raster band from which to read the dtype. Uses 1-indexing and
                 defaults to 1
             isbool: True to set dtype to bool and NoData to False. If False (default),
@@ -868,6 +881,7 @@ class RasterMetadata:
             band,
             name,
             bounds,
+            require_overlap,
             isbool,
             ensure_nodata,
             default_nodata,
@@ -881,6 +895,7 @@ class RasterMetadata:
         band: int,
         name: str,
         bounds: BoundingBox | None,
+        require_overlap: bool,
         isbool: bool,
         ensure_nodata: bool,
         default_nodata: Any,
@@ -894,7 +909,7 @@ class RasterMetadata:
 
         # Update metadata for windowed reading, isbool, and/or ensure_nodata
         if bounds is not None:
-            metadata, _ = factory.window(metadata, bounds)
+            metadata, _ = factory.window(metadata, bounds, require_overlap)
         return metadata._create(isbool, ensure_nodata, default_nodata, casting)
 
     @staticmethod

@@ -63,7 +63,9 @@ def file(file: DatasetReader, band: int, name: str) -> RasterMetadata:
 
 
 def window(
-    metadata: RasterMetadata, bounds: BoundingBox
+    metadata: RasterMetadata,
+    bounds: BoundingBox,
+    require_overlap: bool,
 ) -> tuple[RasterMetadata, Window]:
     "Updates metadata and builds Window for windowed loading"
 
@@ -72,15 +74,19 @@ def window(
     rows = limits(rows[0], rows[1], metadata.nrows)
     cols = limits(cols[0], cols[1], metadata.ncols)
 
-    # Require the bounds to overlap the dataset for at least one pixel
-    if rows[0] >= rows[1] or cols[0] >= cols[1]:
+    # Determine the new shape
+    nrows = max(0, rows[1] - rows[0])
+    ncols = max(0, cols[1] - cols[0])
+    shape = (nrows, ncols)
+
+    # Optional error if there is no overlap
+    if require_overlap and 0 in shape:
         raise ValueError(
-            f"The bounds must overlap the file dataset for at least 1 pixel.\n"
-            f"    File dataset bounds: {metadata.bounds}"
+            f"The bounds must overlap the raster dataset for at least 1 pixel.\n"
+            f"    Raster dataset bounds: {metadata.bounds}"
         )
 
-    # Compute the new shape and transform
-    shape = (rows[1] - rows[0], cols[1] - cols[0])
+    # Compute the new transform
     dx, dy = metadata.dx("base"), metadata.dy("base")
     left = metadata.left + dx * cols[0]
     top = metadata.top + dy * rows[0]
@@ -88,7 +94,10 @@ def window(
 
     # Update metadata and build window
     metadata = metadata.update(shape=shape, transform=transform)
-    window = Window.from_slices(rows, cols)
+    if 0 in shape:
+        window = None
+    else:
+        window = Window.from_slices(rows, cols)
     return metadata, window
 
 
