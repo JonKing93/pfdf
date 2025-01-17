@@ -39,6 +39,7 @@ shapely = "*"
 fiona = "*"
 numba = ">=0.57"
 requests = "*"
+pandas = "*"
 
 # Tutorial plots
 cartopy = { version = ">=0.22", optional = true }
