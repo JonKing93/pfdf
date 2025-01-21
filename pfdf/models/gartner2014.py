@@ -126,8 +126,8 @@ def emergency(
     derive input variables.
 
     When implementing multiple runs, then the output V array will have up to three
-    dimensions (stream segments x rainfall intensities x parameter runs). The
-    Vmax and Vmin arrays will match the shape of the V array. By default, removes
+    dimensions (stream segments x rainfall intensities x parameter runs). The Vmax and
+    Vmin arrays will match the shape of the V array. By default, this function removes
     singleton dimensions from the output arrays. The first dimension is always retained,
     but the second is removed if there is a single rainfall intensity, and the third is
     removed if there is a single run. (And see the keepdims option below to return
@@ -287,8 +287,8 @@ def longterm(
     using different numbers of years of recovery.
 
     When implementing multiple runs, then the output V array will have up to three
-    dimensions (stream segments x rainfall intensities x parameter runs). The
-    Vmax and Vmin arrays will match the shape of the V array. By default, removes
+    dimensions (stream segments x rainfall intensities x parameter runs). The Vmax and
+    Vmin arrays will match the shape of the V array. By default, this function removes
     singleton dimensions from the output arrays. The first dimension is always retained,
     but the second is removed if there is a single rainfall intensity, and the third is
     removed if there is a single run. (And see the keepdims option below to return

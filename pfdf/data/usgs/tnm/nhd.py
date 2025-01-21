@@ -11,7 +11,7 @@ recommend HUC10s as a good starting point for many pfdf analyses. To obtain data
 HUC10 boundary, first download the data bundle for the associated HU8 code. Then, open
 the HU10 dataset from the data bundle, and extract the data for the relevant HUC10.
 
-This module also includes the "produc" function, which returns product info for a 
+This module also includes the "product" function, which returns product info for a 
 queried HU4 or HU8 code. Advanced users may find this useful for designing custom data
 acquisition routines.
 ----------
@@ -144,9 +144,9 @@ def download(
     HUC. Returns the path to the downloaded data folder as output.
 
     download(..., path)
-    Specifies the path for the downloaded data bundle. If a relative path, then the path
-    is interpreted relative to the current directory. Raises an error if the path
-    already exists.
+    Specifies the path where the downloaded data bundle should be saved. If a relative
+    path, then the path is interpreted relative to the current directory. Raises an
+    error if the path already exists.
 
     download(..., *, format)
     Downloads a data bundle in the indicated file format. Supported options include:
@@ -165,8 +165,8 @@ def download(
     ----------
     Inputs:
         huc: A string of the HU4 or HU8 code whose data bundle should be downloaded
-        path: The path to the downloaded data folder. Defaults to "huc4-<code>" or
-            "huc8-<code> in the current folder, as appropriate.
+        path: The path where the downloaded data folder should be saved. Defaults to
+            "huc4-<code>" or "huc8-<code> in the current folder, as appropriate.
         format: The file format that should be download. Options are "Shapefile",
             "GeoPackage", and "FileGDB"
         timeout: The maximum number of seconds to connect to the TNM server

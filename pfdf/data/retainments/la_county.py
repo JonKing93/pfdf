@@ -55,9 +55,9 @@ def download(
     on the file system.
 
     download(path)
-    Specifies the path for the downloaded dataset. If a relative path, then the path is
-    interpreted relative to the current directory. Raises an error if the path already
-    exists.
+    Specifies the path where the downloaded geodatabase should be saved. If a relative
+    path, then the path is interpreted relative to the current directory. Raises an
+    error if the path already exists.
 
     download(..., *, timeout)
     Specifies a maximum time in seconds for connecting to the LA County data
@@ -69,7 +69,7 @@ def download(
     your code may hang indefinitely if the server fails to respond.
     ----------
     Inputs:
-        path: The path for the downloaded geodatabase. Defaults to
+        path: The path where the downloaded geodatabase should be saved. Defaults to
             "la-county-retainments.gdb" in the current folder.
         timeout: A maximum number of seconds to connect with the LA County data server
 

@@ -1,5 +1,5 @@
 """
-Context manager class for making numpy array's temporarily writeable
+Context manager class for making a numpy array temporarily writeable
 ----------
 The Writeable class provides a context manager to temporarily makes an array writeable.
 This is useful for ensuring that Raster data arrays remain read-only, even after

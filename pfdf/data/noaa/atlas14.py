@@ -121,8 +121,8 @@ def download(
 
     download(..., path)
     download(..., *, overwrite=True)
-    Options for the downloaded file. Use the `path` input to specify an alternative
-    file path for the downloaded file. By default, raises an error if this path already
+    Options for downloading the file. Use the `path` input to specify the path where the
+    downloaded file should be saved. By default, raises an error if this path already
     exists. Set overwrite=True to allow the downloaded file to overwrite existing files.
 
     download(..., *, statistic)
@@ -159,7 +159,7 @@ def download(
     Inputs:
         lat: The latitude of the query point in decimal degrees
         lon: The longitude of the query point in decimal degrees on the interval [-180, 180]
-        path: The file path for the downloaded data file
+        path: The path where the downloaded data file should be saved.
         overwrite: True to allow the downloaded file to replace an existing file.
             False (default) to not allow overwriting
         statistic: The type of PFE statistic to download. Options are "mean", "upper",

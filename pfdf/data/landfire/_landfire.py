@@ -57,14 +57,14 @@ def download(
     domain.
 
     By default, this command will download data into a folder named "landfire-<layer>"
-    within the current directory, but see below for other naming options. If the data
-    folder already exists, then it must be empty. Returns the path to the data folder
-    upon successful completion of a download.
+    within the current directory, but see below for other naming options. Raises an
+    error if the path already exists. Returns the path to the data folder upon
+    successful completion of a download.
 
     download(..., path)
-    Specifies the path for the downloaded dataset. If a relative path, then the path is
-    interpreted relative to the current directory. Raises an error if the path already
-    exists.
+    Specifies the path where the downloaded data folder should be saved. If a relative
+    path, then the path is interpreted relative to the current directory. Raises an
+    error if the path already exists.
 
     download(..., *, max_job_time)
     download(..., *, refresh_rate)
@@ -93,8 +93,8 @@ def download(
     Inputs:
         layer: The name of a LFPS data layer
         bounds: The bounding box in which data should be downloaded
-        path: The path for the downloaded data folder. Defaults to "landfire-<layer>" in
-            the current directory.
+        path: The path where the downloaded data folder should be saved. Defaults to
+            "landfire-<layer>" in the current directory.
         max_job_time: A maximum allowed time (in seconds) for a job to complete processing
         refresh_rate: The frequency (in seconds) at which this command should check the
             status of a submitted job.

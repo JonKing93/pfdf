@@ -9,7 +9,7 @@ We recommend the 1/3 arc-second as a good starting point for most pfdf users.
 Most users should use the `read` function to acquire DEM data. This function will read
 data from a DEM dataset within a bounding box and return the dataset as a Raster object.
 Although DEMs are often distributed as tiles, the `read` function handles all tiling
-and mosaiking steps automatically. As such, users do not need to know whether their area 
+and mosaicing steps automatically. As such, users do not need to know whether their area 
 of interest spans one or more tiles - instead, you can simply provide a bounding box, 
 and the `read` routine will handle the rest.
 
@@ -71,13 +71,21 @@ from pfdf.projection import BoundingBox
 from pfdf.raster import Raster, RasterMetadata
 
 if typing.TYPE_CHECKING:
-    from typing import Any, Optional
+    from typing import Any, Literal, Optional
 
     from pfdf.typing.core import MatrixArray, timeout
     from pfdf.typing.raster import BoundsInput
 
     TileInfo = dict[str, Any]
     TileMetadata = dict[str, RasterMetadata]
+    Resolution = Literal[
+        "1/3 arc-second",
+        "1 arc-second",
+        "1 meter",
+        "1/9 arc-second",
+        "2 arc-second",
+        "5 meter",
+    ]
 
 #####
 # Supported resolutions
@@ -106,12 +114,14 @@ def resolutions():
     }
 
 
-def dataset(resolution: Any) -> str:
+def dataset(resolution: Resolution) -> str:
     """
     Returns the fully-qualified TNM name for a resolution string.
     ----------
     dataset(resolution)
-    Returns the fully-qualified TNM name for the provided resolution string.
+    Returns the fully-qualified TNM name for the provided resolution string. Supported
+    resolution strings include: 1/3 arc-second, 1 arc-second, 1 meter, 1/9 arc-second,
+    2 arc-second, and 5 meter.
     ----------
     Inputs:
         resolution: A supported DEM resolution string
@@ -132,7 +142,7 @@ def dataset(resolution: Any) -> str:
 
 def query(
     bounds: Optional[BoundsInput] = None,
-    resolution: str = "1/3 arc-second",
+    resolution: Resolution = "1/3 arc-second",
     *,
     huc: Optional[str] = None,
     max: Optional[int] = None,
@@ -146,8 +156,10 @@ def query(
     query(bounds, resolution)
     Performs a single API query for the indicated DEM dataset and bounding box and
     returns the response as a JSON dict. `bounds` is optional - if provided, it should
-    be a BoundingBox-like input with a CRS. `resolution` should be a supported DEM
-    resolution string. Defaults to "1/3 arc-second" if unspecified.
+    be a BoundingBox-like input with a CRS. By default, queries the 1/3 arc-second DEM
+    dataset. Use the `resolution` input to query a different DEM instead. Supported
+    resolutions include: 1/3 arc-second, 1 arc-second, 1 meter, 1/9 arc-second,
+    2 arc-second, and 5 meter.
 
     query(..., *, huc)
     Queries DEM tiles that intersect a provided 2, 4, or 8-digit hydrologic unit code.
@@ -200,7 +212,7 @@ def query(
 
 def ntiles(
     bounds: Optional[BoundsInput] = None,
-    resolution: str = "1/3 arc-second",
+    resolution: Resolution = "1/3 arc-second",
     *,
     huc: Optional[str] = None,
     timeout: Optional[timeout] = 60,
@@ -213,7 +225,9 @@ def ntiles(
     Returns the number of DEM tiles that intersect the indicated bounding box. `bounds`
     should be a BoundingBox-like input with a CRS. If unspecified, returns all tiles
     in the queried dataset. By default, returns the number of tiles in the 1/3 arc-second
-    dataset. Use `resolution` to specify a different DEM dataset instead.
+    DEM dataset. Use `resolution` to specify a different DEM dataset instead. Supported
+    resolutions include: 1/3 arc-second, 1 arc-second, 1 meter, 1/9 arc-second,
+    2 arc-second, and 5 meter.
 
     ntiles(..., *, huc)
     Returns the number of DEM tiles that intersect the indicated hydrologic unit code.
@@ -246,7 +260,7 @@ def ntiles(
 
 def tiles(
     bounds: Optional[BoundsInput] = None,
-    resolution: str = "1/3 arc-second",
+    resolution: Resolution = "1/3 arc-second",
     *,
     huc: Optional[str] = None,
     max_queries: Optional[int] = 1,
@@ -263,7 +277,9 @@ def tiles(
     Returns info on DEM tiles that intersect the provided bounding box. The `bounds`
     should be a BoundingBox-like input with a CRS. If no bounding box is provided,
     returns info on all DEM tiles in the dataset. By default, queries the 1/3 arc-second
-    dataset, but use `resolution` to specify a different dataset.
+    dataset, but use `resolution` to specify a different dataset. Supported resolutions
+    include: 1/3 arc-second, 1 arc-second, 1 meter, 1/9 arc-second, 2 arc-second, and
+    5 meter.
 
     Returns a list with one element per queried DEM tile. Each element is a dict with
     the following keys:
@@ -412,7 +428,7 @@ def _tile_info(tile: dict) -> TileInfo:
 
 def read(
     bounds: BoundsInput,
-    resolution: str = "1/3 arc-second",
+    resolution: Resolution = "1/3 arc-second",
     *,
     max_tiles: int = 10,
     timeout: Optional[timeout] = 60,
@@ -421,19 +437,20 @@ def read(
     Reads data from a DEM dataset into memory as a Raster object
     ----------
     read(bounds)
+    read(bounds, resolution)
     Reads data within the bounding box from the current 1/3 arc-second DEM and returns
-    the results as a Raster object. Automatically mosaiks raster data spread across
+    the results as a Raster object. Automatically mosaics raster data spread across
     multiple DEM tiles. The `bounds` should be a BoundingBox-like object with a CRS.
     Raises an error if the bounding box intersects more than 10 DEM tiles, but see
     the `max_tiles` option below to raise this limit.
 
-    read(..., resolution)
-    Reads data from the indicated DEM dataset. Please see the `resolutions` function
-    for supported resolutions. Note that all tiles being read must use the same CRS.
-    Raises an error if this is not the case. This restriction is usually most relevant
-    for the 1 meter dataset, which uses different CRS for data in different UTM zones.
-    If you are reading data from the 1 meter dataset, then check that your bounding
-    box does not span more than 1 UTM zone.
+    By default, reads data from the 1/3 arc-second DEM dataset. Use the `resolution`
+    option to read from a different dataset instead. Supported resolutions include:
+    1/3 arc-second, 1 arc-second, 1 meter, 1/9 arc-second, 2 arc-second, and 5 meter.
+    Note that all tiles being read must use the same CRS. Raises an error if this is not
+    the case. This restriction is usually most relevant for the 1 meter dataset, which
+    uses different CRS for data in different UTM zones. If you are reading data from the
+    1 meter dataset, then check that your bounding box does not span more than 1 UTM zone.
 
     read(..., *, max_tiles)
     Specifies the maximum number of tiles allowed to intersect with the BoundingBox.

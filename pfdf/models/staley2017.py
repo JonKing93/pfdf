@@ -4,8 +4,8 @@ staley2017  Implements the logistic regression models presented in Staley et al.
 This module implements the logistic regression models presented in Staley et al., 2017 
 (see citation below). These models describe debris-flow likelihood as a function 
 of terrain (T), fire burn severity (F), soil (S), and rainfall accumulation (R).
-The models can also be inverted to solve for rainfall accumulation given debris-flow
-probability.
+The models can also be inverted to solve for rainfall accumulation given design
+probability levels for debris-flow events.
 
 The module also provides classes to implement the M1-4 models presented in the
 paper. These classes provide methods to return the parameters, and compute the
@@ -94,7 +94,7 @@ def accumulation(
     screen: bool = True,
 ) -> Accumulations:
     """
-    accumulation  Computes rainfall accumulations needed for specified debris-flow probability levels
+    Computes rainfall accumulations needed for specified debris-flow probability levels
     ----------
     accumulation(p, B, Ct, T, Cf, F, Cs, S)
     Returns the rainfall accumulations required to achieve the specified p-values.
@@ -103,10 +103,10 @@ def accumulation(
     model following the form of Equation 1).
 
     All of the inputs to this function should be real-valued numpy arrays.
-    The p-values - p - are the probabilities for which the model should be solved.
-    For example, p=0.5 solves for the rainfall accumulations that cause a 50%
-    likelihood of a debris-flow. p should be a 1D array listing all the
-    probabilities that should be solved for.
+    The p-values - p - are the design probabilities for which the model should be solved.
+    For example, p=0.5 estimates the rainfall accumulation that would result in a 50%
+    probability of a debris flow event. Here, `p` should be a 1D array listing all the
+    design probabilities that should be solved for.
 
     The three variables - T, F, and S - represent the terrain steepness,
     wildfire severity, and surface properties variables for the model. In
@@ -141,7 +141,7 @@ def accumulation(
     dimension is stream segments, second dimension is p-values, and third dimension is
     parameter runs. By default, this command will remove singleton dimensions from the
     output array. The first dimension is always retained, but the second is removed if
-    there is a single probability, and the third is removed if there is a single
+    there is a single design probability, and the third is removed if there is a single
     parameter run. Alternatively, set keepdims=True to always return a 3D array.
 
     As mentioned, one or more variable can also be a 2D array. In this case
@@ -161,7 +161,7 @@ def accumulation(
     by nan.
     ----------
     Inputs:
-        p: The probabilities for which to solve the model
+        p: The design probabilities for which to solve the model
         B: The intercepts of the link equation
         Ct: The coefficients for the terrain steepness variable
         T: The terrain steepness variable
@@ -222,7 +222,7 @@ def likelihood(
 
     All of the inputs to this function should be real-valued numpy arrays.
     The R values are the rainfall accumulations for which the model should be solved.
-    For example, R = 6 solves for debris-flow probability when rainfall accumulation
+    For example, R = 6 solves for debris-flow likelihood when rainfall accumulation
     is 6 mm/duration. R should be a 1D array listing all the accumulations that should
     be solved for.
 
