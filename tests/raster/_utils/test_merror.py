@@ -1,6 +1,6 @@
 import pytest
 
-from pfdf.raster._utils import merror
+from pfdf._utils import merror
 
 
 class TestFeatures:

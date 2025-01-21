@@ -26,7 +26,7 @@ from pysheds.sview import ViewFinder
 import pfdf._validate.core as cvalidate
 import pfdf.raster._utils.validate as rvalidate
 from pfdf import raster as _raster
-from pfdf._utils import nodata, real, rowcol
+from pfdf._utils import merror, nodata, real, rowcol
 from pfdf._utils.nodata import NodataMask
 from pfdf.errors import (
     MissingNoDataError,
@@ -34,7 +34,8 @@ from pfdf.errors import (
     RasterShapeError,
     RasterTransformError,
 )
-from pfdf.raster._utils import clip, factory, merror
+from pfdf.raster._utils import clip, factory
+from pfdf.raster._utils.writeable import WriteableArray
 
 if typing.TYPE_CHECKING:
     from typing import Any, Optional, Self
@@ -54,6 +55,7 @@ if typing.TYPE_CHECKING:
         Units,
         operation,
         scalar,
+        timeout,
     )
     from pfdf.typing.raster import (
         BoundsInput,
@@ -83,6 +85,9 @@ class Raster:
         name            - An optional name to identify the raster
         values          - The data values associated with a raster
         dtype           - The dtype of the raster array
+        nbytes          - Total number of bytes used by the data array
+
+    NoData Value:
         nodata          - The NoData value associated with the raster
         nodata_mask     - The NoData mask for the raster
         data_mask       - The valid data mask for the raster
@@ -118,6 +123,7 @@ class Raster:
     Object Creation:
         __init__        - Returns a raster object for a supported raster input
         from_file       - Creates a Raster from a file-based dataset
+        from_url        - Creates a Raster for the dataset at the indicated URL
         from_rasterio   - Creates a Raster from a rasterio.DatasetReader object
         from_array      - Creates a Raster object from a numpy array
         from_pysheds    - Creates a Raster from a pysheds.sview.Raster object
@@ -179,54 +185,7 @@ class Raster:
     """
 
     #####
-    # Low-level initialization
-    #####
-
-    @staticmethod
-    def _create(
-        values: MatrixArray,
-        metadata: RasterMetadata,
-        isbool: bool,
-        ensure_nodata: bool,
-        default_nodata: Optional[Any] = None,
-        casting: Optional[Any] = None,
-    ) -> Self:
-        """Creates a new raster for a factory function. Implements isbool and
-        ensure_nodata options before finalizing the object"""
-
-        # Initialize empty object
-        raster = Raster(None)
-
-        # Optionally convert values to boolean. Update metadata for isbool and ensure_nodata
-        if isbool:
-            values = cvalidate.boolean(
-                values, "a boolean raster", ignore=metadata.nodata
-            )
-            metadata = metadata.as_bool()
-        elif ensure_nodata:
-            metadata = metadata.ensure_nodata(default_nodata, casting)
-
-        # Update and finalize the object
-        raster._update(values, metadata)
-        return raster
-
-    def _update(self, values: MatrixArray, metadata: RasterMetadata) -> None:
-        """Updates object with new data values. Ensures that metadata matches the array,
-        then locks array values as read-only"""
-
-        metadata = metadata.update(shape=values.shape, dtype=values.dtype)
-        values.setflags(write=False)
-        self._values = values
-        self._metadata = metadata
-
-    def _copy(self, template: Self) -> None:
-        "Copies the attributes from a template raster to the current raster"
-
-        self._values = template._values
-        self._metadata = template._metadata
-
-    #####
-    # Object Creation
+    # Object creation
     #####
 
     def __init__(
@@ -311,48 +270,182 @@ class Raster:
         if raster is None:
             return
 
-        # Otherwise, build an object using a factory
+        # Otherwise, collect the factory args...
+        kwargs = {
+            "isbool": isbool,
+            "ensure_nodata": ensure_nodata,
+            "default_nodata": default_nodata,
+            "casting": casting,
+        }
+
+        # ...and build the raster from the appropriate factory
+        if isinstance(raster, str) and raster.startswith(("http://", "https://")):
+            raster = Raster.from_url(raster, name, **kwargs)
         elif isinstance(raster, (str, Path)):
-            raster = Raster.from_file(
-                raster,
-                name,
-                isbool=isbool,
-                ensure_nodata=ensure_nodata,
-                default_nodata=default_nodata,
-                casting=casting,
-            )
+            raster = Raster.from_file(raster, name, **kwargs)
         elif isinstance(raster, rasterio.DatasetReader):
-            raster = Raster.from_rasterio(
-                raster,
-                name,
-                isbool=isbool,
-                ensure_nodata=ensure_nodata,
-                default_nodata=default_nodata,
-                casting=casting,
-            )
+            raster = Raster.from_rasterio(raster, name, **kwargs)
         elif isinstance(raster, PyshedsRaster):
             raster = Raster.from_pysheds(raster, name, isbool=isbool)
         elif isinstance(raster, np.ndarray):
-            raster = Raster.from_array(
-                raster,
-                name,
-                isbool=isbool,
-                nodata=default_nodata,
-                ensure_nodata=ensure_nodata,
-                casting=casting,
-            )
+            kwargs["nodata"] = kwargs.pop("default_nodata")
+            raster = Raster.from_array(raster, name, **kwargs)
 
-        # Error if the input is not recognized
+        # Informative error if unrecognized
         elif not isinstance(raster, Raster):
             raise TypeError(
                 f"{self.name} is not a recognized type. Allowed types are: "
-                "str, pathlib.Path, rasterio.DatasetReader, 2d numpy.ndarray, "
+                "str, pathlib.Path, rasterio.DatasetReader, numpy.ndarray, "
                 "pfdf.raster.Raster, and pysheds.sview.Raster objects."
             )
 
         # Set attributes to the values from the factory object
         self._copy(raster)
         self.override(name=name)
+
+    @staticmethod
+    def _create(
+        values: MatrixArray,
+        metadata: RasterMetadata,
+        isbool: bool,
+        ensure_nodata: bool,
+        default_nodata: Optional[Any] = None,
+        casting: Optional[Any] = None,
+    ) -> Self:
+        """Creates a new raster for a factory function. Implements isbool and
+        ensure_nodata options before finalizing the object"""
+
+        # Initialize empty object
+        raster = Raster(None)
+
+        # Optionally convert values to boolean. Update metadata for isbool and ensure_nodata
+        if isbool:
+            values = cvalidate.boolean(
+                values, "a boolean raster", ignore=metadata.nodata
+            )
+            metadata = metadata.as_bool()
+        elif ensure_nodata:
+            metadata = metadata.ensure_nodata(default_nodata, casting)
+
+        # Update and finalize the object
+        raster._update(values, metadata)
+        return raster
+
+    def _update(self, values: MatrixArray, metadata: RasterMetadata) -> None:
+        """Updates object with new data values. Ensures that metadata matches the array,
+        then locks array values as read-only"""
+
+        metadata = metadata.update(shape=values.shape, dtype=values.dtype)
+        values.setflags(write=False)
+        self._values = values
+        self._metadata = metadata
+
+    def _copy(self, template: Self) -> None:
+        "Copies the attributes from a template raster to the current raster"
+
+        self._values = template._values
+        self._metadata = template._metadata
+
+    #####
+    # File factories
+    #####
+
+    @staticmethod
+    def from_url(
+        url: str,
+        name: Optional[str] = None,
+        *,
+        # URL option
+        check_status: bool = True,
+        timeout: Optional[timeout] = 10,
+        # File options
+        bounds: Optional[BoundsInput] = None,
+        band: int = 1,
+        isbool: bool = False,
+        ensure_nodata: bool = True,
+        default_nodata: Optional[scalar] = None,
+        casting: str = "safe",
+        driver: Optional[str] = None,
+    ) -> Raster:
+        """
+        Creates a Raster object for the dataset at the indicated URL
+        ----------
+        Raster.from_url(url)
+        Builds a Raster object for the file at the given URL. Ultimately, this
+        method uses rasterio (and thereby GDAL) to open URLs. As such, many common
+        URL schemes are supported, including: http(s), ftp, s3, (g)zip, tar, etc. Note
+        that although the local "file" URL scheme is theoretically supported, we
+        recommend instead using "Raster.from_file" to build metadata from local
+        file paths.
+
+        If a URL follows an http(s) scheme, uses the "requests" library to check the
+        URL before loading data. This check is optional (see below to disable), but
+        typically provides more informative error messages when connection problems
+        occur. Note that the check assumes the URL supports HEAD requests, as is the
+        case for most http(s) URLs. All other URL schemes are passed directly to
+        rasterio.
+
+        After loading the URL, this method behaves nearly identically to the
+        "Raster.from_file" command. Please see that command's documentation for
+        details on the following options: name, bounds, band, isbool, ensure_nodata,
+        default_nodata, casting, and driver.
+
+        Raster.from_url(..., *, timeout)
+        Raster.from_url(..., *, check_status=False)
+        Options that affect the checking of http(s) URLs. Ignored if the URL does not
+        have an http(s) scheme. The "timeout" option specifies a maximum time in
+        seconds for connecting to the remote server. This option is typically a scalar,
+        but may also use a vector with two elements. In this case, the first value is
+        the timeout to connect with the server, and the second value is the time for the
+        server to return the first byte. You can also set timeout to None, in
+        which case the URL check will never timeout. This may be useful for some slow
+        connections, but is generally not recommended as your code may hang indefinitely
+        if the server fails to respond.
+
+        You can disable the http(s) URL check by setting check_status=False. In this
+        case, the URL is passed directly to rasterio, as like all other URL schemes.
+        This can be useful if the URL does not support HEAD requests, or to limit server
+        queries when you are certain the URL and connection are valid.
+        ----------
+        Inputs:
+            url: The URL for a file-based raster dataset
+            name: An optional name for the metadata. Defaults to "raster"
+            timeout: A maximum time in seconds to establish a connection with
+                an http(s) server
+            check_status: True (default) to use "requests.head" to validate http(s) URLs.
+                False to disable this check.
+            bounds: A BoundingBox-like input indicating a subset of the raster
+                that should be loaded.
+            band: The raster band to read. Uses 1-indexing and defaults to 1
+            driver: A file format to use to read the raster, regardless of extension
+            isbool: True to convert the raster to a boolean array, with nodata=False.
+                False (default) to leave the raster as the original dtype.
+            ensure_nodata: True (default) to assign a default NoData value based
+                on the raster dtype if the file does not record a NoData value.
+                False to leave missing NoData as None.
+            default_nodata: The default NoData value to use if the raster file is
+                missing one. Overrides any default determined from the raster's dtype.
+            casting: The casting rule to use when converting the default NoData
+                value to the raster's dtype.
+
+        Outputs:
+            RasterMetadata: The metadata object for the raster
+        """
+
+        url, bounds = rvalidate.url(
+            url, check_status, timeout, driver, band, bounds, casting
+        )
+        return Raster._from_file(
+            url,
+            driver,
+            band,
+            name,
+            bounds,
+            isbool,
+            ensure_nodata,
+            default_nodata,
+            casting,
+        )
 
     @staticmethod
     def from_file(
@@ -444,12 +537,12 @@ class Raster:
         Inputs:
             path: A path to a file-based raster dataset
             name: An optional name for the raster
+            bounds: A BoundingBox-like input indicating a subset of the raster
+                that should be loaded.
             band: The raster band to read. Uses 1-indexing and defaults to 1
             driver: A file format to use to read the raster, regardless of extension
             isbool: True to convert the raster to a boolean array, with nodata=False.
                 False (default) to leave the raster as the original dtype.
-            bounds: A Raster or BoundingBox indicating a subset of the saved raster
-                that should be loaded.
             ensure_nodata: True (default) to assign a default NoData value based
                 on the raster dtype if the file does not record a NoData value.
                 False to leave missing NoData as None.
@@ -462,14 +555,42 @@ class Raster:
             Raster: A Raster object for the file-based dataset
         """
 
-        # Validate inputs. Open file and get full-file metadata
         path, bounds = rvalidate.file(path, driver, band, bounds, casting)
-        with rasterio.open(path) as file:
+        return Raster._from_file(
+            path,
+            driver,
+            band,
+            name,
+            bounds,
+            isbool,
+            ensure_nodata,
+            default_nodata,
+            casting,
+        )
+
+    @staticmethod
+    def _from_file(
+        path_or_url: Path | str,
+        driver: str | None,
+        band: int,
+        name: str,
+        bounds: BoundingBox | None,
+        isbool: bool,
+        ensure_nodata: bool,
+        default_nodata: Any,
+        casting: str,
+    ) -> Raster:
+        "Builds a Raster from a file-based dataset at a path or URL"
+
+        # Open file and get full-file metadata
+        with rasterio.open(path_or_url, driver=driver) as file:
             metadata = factory.file(file, band, name)
 
             # Build window as needed. Load values
             if bounds is not None:
-                metadata, bounds = factory.window(metadata, bounds)
+                metadata, bounds = factory.window(
+                    metadata, bounds, require_overlap=True
+                )
             values = file.read(band, window=bounds)
 
         # Return Raster. Optionally convert to boolean and ensure nodata
@@ -575,6 +696,10 @@ class Raster:
             casting=casting,
             driver=reader.driver,
         )
+
+    #####
+    # Array factories
+    #####
 
     @staticmethod
     def from_pysheds(
@@ -682,9 +807,11 @@ class Raster:
         value will be None unless the "nodata" option is specified.
 
         Raster.from_array(..., *, copy=False)
-        Does not copy the input array when possible. This syntax can save memory
-        when initializing a raster from a very large in-memory array. However,
-        changes to the base array will propagate into the Raster's data value
+        By default, this command will create the Raster object from a copy of the input
+        array. Set copy=False to disable copying whenever possible. (Note that a copy
+        will still occur if the input is not already a numpy array). This syntax can
+        save memory when initializing a raster from a very large in-memory array.
+        However, changes to the base array will propagate into the Raster's data value
         matrix. As such, this syntax is not recommended for most users.
         ----------
         Inputs:
@@ -707,8 +834,8 @@ class Raster:
                 raster's dtype when a NoData value is not provided. False to
                 disable this behavior.
             copy: True (default) to build the Raster's data matrix from a copy
-                of the input array. False to build the data matrix from the input
-                array directly.
+                of the input array. False to avoid copying whenever possible.
+
 
         Outputs:
             Raster: A raster object for the array-based raster dataset
@@ -720,7 +847,7 @@ class Raster:
         return Raster._create(values, metadata, isbool, ensure_nodata, nodata, casting)
 
     #####
-    # From vector features
+    # Vector factories
     #####
 
     @staticmethod
@@ -911,17 +1038,11 @@ class Raster:
 
         # Get the GIS coordinates for each point
         for geometry, value in features:
-            coords = geometry["coordinates"]
-            coords = np.array(coords).reshape(-1, 2)
-
-            # Determine the raster index and set the index to the point's value.
-            # Skip any points that fall outside the array (this can occur when a point
-            # falls exactly on the right or bottom edge during windowed reading)
-            rows, cols = rowcol(
-                metadata.affine, xs=coords[:, 0], ys=coords[:, 1], op=floor
-            )
-            if max(rows) < metadata.nrows and max(cols) < metadata.ncols:
-                values[rows, cols] = value
+            x, y = geometry["coordinates"]
+            row, col = rowcol(metadata.affine, x, y, op=floor)
+            if row < metadata.nrows and col < metadata.ncols:
+                values[row, col] = value
+            values[row, col] = value
 
         # Build the final raster
         return Raster.from_array(
@@ -1329,16 +1450,16 @@ class Raster:
         *,
         driver: Optional[str] = None,
         overwrite: bool = False,
-    ) -> None:
+    ) -> Path:
         """
-        save  Save a raster dataset to file
+        Save a raster dataset to file
         ----------
         self.save(path)
         self.save(path, * overwrite=True)
-        Saves the Raster to the indicated path. Boolean rasters will be saved as
-        "int8" to accommodate common file format requirements. In the default state,
-        the method will raise a FileExistsError if the file already exists. Set
-        overwrite=True to enable the replacement of existing files.
+        Saves the Raster to the indicated path. Returns the absolute path to the saved
+        file as output. Boolean rasters will be saved as "int8" to accommodate common
+        file format requirements. By default, raises an error if the file already exists.
+        Set overwrite=True to allow the command to replace existing files.
 
         This syntax will attempt to guess the intended file format based on the
         path extension, and raises an Exception if the file format cannot be
@@ -1365,10 +1486,13 @@ class Raster:
             overwrite: False (default) to prevent the output from replacing
                 existing file. True to allow replacement.
             driver: The name of the file format driver to use to write the file
+
+        Outputs:
+            Path: The path to the saved file
         """
 
         # Validate and resolve path
-        path = cvalidate.output_path(path, overwrite)
+        path = cvalidate.output_file(path, overwrite)
 
         # Rasterio does not accept boolean dtype, so convert to int8 instead
         if self.dtype == bool:
@@ -1395,10 +1519,11 @@ class Raster:
             crs=self.crs,
         ) as file:
             file.write(self._values, 1)
+        return path
 
     def copy(self) -> Self:
         """
-        copy  Returns a copy of the current Raster
+        Returns a copy of the current Raster
         ----------
         self.copy()
         Returns a copy of the current Raster. Note that data values are not duplicated
@@ -1441,22 +1566,12 @@ class Raster:
         if self.crs is not None:
             metadata["crs"] = self.crs
 
-        # Get nodata or default. Pysheds crashes when using its default NoData 0
-        # for boolean rasters, so need to set this explicitly to False
+        # Get nodata or use 0 as default
         if self.nodata is None:
-            if self.dtype == bool:
-                nodata = np.zeros(1, bool)
-            else:
-                nodata = np.zeros(1, self.dtype)
+            nodata = np.zeros(1, self.dtype)
         else:
             nodata = self.nodata
-
-        # Get viewfinder nodata. Pysheds crashes for certain positive NoData values
-        # when using a signed integer raster, so set these initially to -1
-        if np.issubdtype(self.dtype, np.signedinteger):
-            metadata["nodata"] = -1
-        else:
-            metadata["nodata"] = nodata
+        metadata["nodata"] = nodata
 
         # Initialize viewfinder and build raster
         view = ViewFinder(**metadata)
@@ -1471,38 +1586,53 @@ class Raster:
     # Numeric Preprocessing
     #####
 
-    def fill(self, value: ScalarArray) -> None:
+    def fill(self, value: ScalarArray, *, copy: bool = True) -> None:
         """
         Replaces NoData pixels with the indicated value
         ----------
         self.fill(value)
         Locates NoData pixels in the raster and replaces them with the indicated
-        value. The fill value must be safely castable to the dtype of the raster.
-        Note that this method creates a copy of the raster's data array before
-        replacing NoData values. As such, other copies of the raster will not be
-        affected. Also note that the updated raster will no longer have a NoData
-        value, as all NoData pixels will have been replaced.
+        value. The fill value must be safely castable to the dtype of the raster. The
+        updated raster will no longer have a NoData value, as all NoData pixels will
+        have been replaced. By default, this method creates a copy of the raster's data
+        array before replacing NoData values. As such, other copies of the raster will
+        not be affected (although see below to fill values wihout copying).
+
+        self.fill(..., *, copy=False)
+        Does not copy the raster's data array before replacing NoData values. This can
+        be useful when processing large arrays, but users should note that any objects
+        that derive from the raster's data array (such as copied Raster objects) will
+        also be altered. As such, we recommend only using this option when the array is
+        exclusively used by the current object. Also note that this option is only
+        available when the raster can set the write permissions of its data array.
+        Although this is usually true, it may not be the case if the Raster object was
+        built using an array factory with copy=False.
         ----------
         Inputs:
             value: The fill value that NoData pixels will be replaced with
+            copy: True (default) to create a copy of the data array before replacing
+                values. False to alter the data array directly.
         """
 
         # Validate the fill value
-        value = cvalidate.scalar(value, "fill value", dtype=real)
-        value = rvalidate.casting(value, "fill value", self.dtype, casting="safe")
+        fill = cvalidate.scalar(value, "fill value", dtype=real)
+        fill = rvalidate.casting(fill, "fill value", self.dtype, casting="safe")
 
         # Just exit if there's not a NoData Value
         if self.nodata is None:
             return
 
-        # Locate NoData values, copy the array, then fill the copy
+        # Locate NoData values. Get the data array and optionally copy
         nodatas = NodataMask(self.values, self.nodata)
-        data = self.values.copy()
-        nodatas.fill(data, value)
+        values = self._values
+        if copy:
+            values = values.copy()
 
-        # Update the raster object
+        # Fill the NoData values, and update the Raster
+        with WriteableArray(values):
+            nodatas.fill(values, value)
         metadata = self.metadata.fill()
-        self._update(data, metadata)
+        self._update(values, metadata)
 
     def find(self, values: RealArray) -> Self:
         """
@@ -1539,6 +1669,8 @@ class Raster:
         max: Optional[scalar] = None,
         fill: bool = False,
         exclude_bounds: bool = False,
+        *,
+        copy: bool = True,
     ) -> None:
         """
         Forces a raster's data values to fall within specified bounds
@@ -1553,10 +1685,10 @@ class Raster:
         are set to equal that bound. If a bound is None, does not enforce that bound.
         Raises an error if both bounds are None.
 
-        This method creates a copy of the raster's data values before replacing
-        out-of-bounds pixels, so copies of the raster are not affected. Also, the
-        method does not alter NoData pixels, even if the NoData value is outside
-        of the indicated bounds.
+        This method does not alter NoData pixels, even if the NoData value is outside
+        the indicated bounds. By default, this method creates a copy of the raster's
+        data array before replacing out-of-bounds pixels, so copies of the raster are
+        not affected. See below to alter this behavior.
 
         self.set_range(..., fill=True)
         Indicates that pixels outside the bounds should be replaced with the
@@ -1567,6 +1699,16 @@ class Raster:
         Indicates that the bounds should be excluded from the valid range. In this
         case, data values exactly equal to a bound are also set to NoData. This
         option is only available when fill=True.
+
+        self.set_range(..., *, copy=False)
+        Does not copy the raster's data array before replacing out-of-bounds pixels. This
+        can be useful when processing large arrays, but users should note that any objects
+        that derive from the raster's data array (such as copied Raster objects) will
+        also be altered. As such, we recommend only using this option when the array is
+        exclusively used by the current object. Also note that this option is only
+        available when the raster can set the write permissions of its data array.
+        Although this is usually true, it may not be the case if the Raster object was
+        built using an array factory with copy=False.
         ----------
         Inputs:
             min: A lower bound for the raster
@@ -1576,6 +1718,8 @@ class Raster:
             exclude_bounds: True to consider the min and max data values as outside of
                 the valid data range. False (default) to consider the min/max as
                 within the valid data range. Only available when fill=True.
+            copy: True (default) to create a copy of the data array before replacing
+                values. False to alter the data array directly.
         """
 
         # Validate
@@ -1599,7 +1743,7 @@ class Raster:
             too_small = np.less
 
         # Locate out-of-bounds data pixels
-        values = self.values
+        values = self._values
         data = NodataMask(values, self.nodata, invert=True)
         too_large = data & too_large(values, max)
         too_small = data & too_small(values, min)
@@ -1609,10 +1753,14 @@ class Raster:
             min = self.nodata
             max = self.nodata
 
+        # Optionally copy the data array.
+        if copy:
+            values = values.copy()
+
         # Replace out-of-bounds values with either the closest bound, or NoData
-        values = values.copy()
-        too_large.fill(values, max)
-        too_small.fill(values, min)
+        with WriteableArray(values):
+            too_large.fill(values, max)
+            too_small.fill(values, min)
         self._update(values, self.metadata)
 
     #####
@@ -1971,6 +2119,13 @@ class Raster:
     def dtype(self) -> np.dtype | None:
         "Returns the array dtype"
         return self.metadata.dtype
+
+    @property
+    def nbytes(self) -> int | None:
+        "Total number of bytes used by the data array"
+        return self.metadata.nbytes
+
+    ##### NoData
 
     @property
     def nodata(self) -> ScalarArray | None:

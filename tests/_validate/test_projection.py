@@ -75,6 +75,11 @@ class TestBounds:
             error, "must be a BoundingBox, Raster, RasterMetadata, dict, list, or tuple"
         )
 
+    def test_missing_crs(_, assert_contains):
+        with pytest.raises(MissingCRSError) as error:
+            validate.bounds([1, 2, 3, 4], require_crs=True)
+        assert_contains(error, "bounds must have a CRS")
+
 
 class TestTransform:
     def test_transform(_):
@@ -116,3 +121,8 @@ class TestTransform:
             error,
             "must be a Transform, Raster, RasterMetadata, dict, list, tuple, or affine.Affine",
         )
+
+    def test_missing_crs(_, assert_contains):
+        with pytest.raises(MissingCRSError) as error:
+            validate.transform([10, -10, 0, 0], require_crs=True)
+        assert_contains(error, "transform must have a CRS")

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import typing
 from math import isfinite
+from statistics import mean
 
-import numpy as np
 import rasterio.warp
 
 import pfdf._validate.core as validate
@@ -232,12 +232,12 @@ class BoundingBox(Locator):
     @property
     def center_x(self) -> float:
         "The X coordinate of the BoundingBox's center"
-        return np.mean(self.xs)
+        return mean(self.xs)
 
     @property
     def center_y(self) -> float:
         "The Y coordinate of the BoundingBox's center"
-        return np.mean(self.ys)
+        return mean(self.ys)
 
     @property
     def center(self) -> tuple[float, float]:

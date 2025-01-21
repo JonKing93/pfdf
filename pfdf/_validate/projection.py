@@ -58,12 +58,12 @@ def crs(crs: Any) -> CRS:
         return _crs.validate(crs)
 
 
-def bounds(bounds: Any) -> BoundingBox:
+def bounds(bounds: Any, require_crs: bool = False) -> BoundingBox:
     "Checks that bounds represent a BoundingBox object"
 
     # Already a BoundingBox
     if isinstance(bounds, BoundingBox):
-        return bounds.copy()
+        bounds = bounds.copy()
 
     # Extract from Raster or RasterMetadata
     elif isinstance(bounds, (raster.Raster, raster.RasterMetadata)):
@@ -72,13 +72,13 @@ def bounds(bounds: Any) -> BoundingBox:
                 f"Cannot use {_name(bounds)} to specify bounds because it does not "
                 "have an affine Transform."
             )
-        return bounds.bounds
+        bounds = bounds.bounds
 
     # Factories
     elif isinstance(bounds, dict):
-        return BoundingBox.from_dict(bounds)
+        bounds = BoundingBox.from_dict(bounds)
     elif isinstance(bounds, (list, tuple)):
-        return BoundingBox.from_list(bounds)
+        bounds = BoundingBox.from_list(bounds)
 
     # Error for anything else
     else:
@@ -87,13 +87,18 @@ def bounds(bounds: Any) -> BoundingBox:
             "dict, list, or tuple."
         )
 
+    # Optionally require CRS
+    if require_crs and bounds.crs is None:
+        raise MissingCRSError("bounds must have a CRS")
+    return bounds
 
-def transform(transform: Any) -> Transform:
+
+def transform(transform: Any, require_crs: bool = False) -> Transform:
     "Checks that input represents a Transform object"
 
     # Already a Transform
     if isinstance(transform, Transform):
-        return transform.copy()
+        transform = transform.copy()
 
     # Extract from Raster
     elif isinstance(transform, (raster.Raster, raster.RasterMetadata)):
@@ -102,15 +107,15 @@ def transform(transform: Any) -> Transform:
                 f"Cannot use {_name(transform)} to specify an affine Transform because "
                 "it does not have an affine Transform."
             )
-        return transform.transform
+        transform = transform.transform
 
     # Transform factories
     elif isinstance(transform, Affine):
-        return Transform.from_affine(transform)
+        transform = Transform.from_affine(transform)
     elif isinstance(transform, dict):
-        return Transform.from_dict(transform)
+        transform = Transform.from_dict(transform)
     elif isinstance(transform, (list, tuple)):
-        return Transform.from_list(transform)
+        transform = Transform.from_list(transform)
 
     # Error if anything else
     else:
@@ -118,3 +123,8 @@ def transform(transform: Any) -> Transform:
             "transform must be a Transform, Raster, RasterMetadata, "
             "dict, list, tuple, or affine.Affine."
         )
+
+    # Optionally require crs
+    if require_crs and transform.crs is None:
+        raise MissingCRSError("transform must have a CRS")
+    return transform

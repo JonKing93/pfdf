@@ -26,13 +26,12 @@ import typing
 import numpy as np
 from numpy import integer, issubdtype, unsignedinteger
 
-from pfdf._utils import aslist
 from pfdf._utils.nodata import NodataMask
 
 if typing.TYPE_CHECKING:
     from typing import Optional
 
-    from pfdf.typing.core import BooleanArray, RealArray, ScalarArray, ignore, scalar
+    from pfdf.typing.core import BooleanArray, RealArray, ignore, scalar
 
     index = tuple[int, ...]
     DataMask = NodataMask  # More clear for when invert=True
@@ -366,7 +365,7 @@ def _check(
         index, value = _first_failure(passed, array, mask)
         raise ValueError(
             f"The data elements of {name} must be {description}, "
-            f"but element {index} ({value=}) is not."
+            f"but element {index} (value={value}) is not."
         )
 
 
@@ -374,7 +373,7 @@ def _first_failure(
     passed: BooleanArray,
     array: RealArray = None,
     mask: Optional[DataMask] = None,
-) -> tuple[index, ScalarArray]:
+) -> tuple[index, str]:
     "Returns the index and data value of the first failed element"
 
     # Get data indices
@@ -383,8 +382,12 @@ def _first_failure(
     else:
         indices = mask.indices()
 
-    # Locate the index and value of the first failed element
+    # Locate the index of the first failed element
     first = np.argmin(passed)
     first = indices[first]
     first = np.unravel_index(first, array.shape)
-    return aslist(first), array[first]
+
+    # Return indices and associated value
+    value = str(array[first])
+    first = list(int(index) for index in first)
+    return first, value

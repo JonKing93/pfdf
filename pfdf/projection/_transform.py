@@ -242,7 +242,7 @@ class Transform(Locator):
         else:
             y = validate.scalar(y, "y", dtype=real)
             validate.finite(y, "y")
-            return y
+            return float(y)
 
     def dx(self, units: Units = "base", y: Optional[float] = None) -> float:
         """

@@ -1,18 +1,17 @@
-[build-system]
-requires = ["poetry-core>=1.5.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
+[project]
 name = "pfdf"
 version = "3.0.0a1"
 description = "A package to facilitate post-wildfire debris-flow hazard assessments and research"
-authors = [
-    "Jonathan King <jking@usgs.gov>",
-    "Dennis Staley <dstaley@usgs.gov>"
-]
-readme = "README.md"
 license = "GPL-3.0-only"
-repository = "https://code.usgs.gov/ghsc/lhp/pfdf"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+authors = [
+    {name = "Jonathan King", email = "jking@usgs.gov"},
+    {name = "Dennis Staley", email = "dstaley@usgs.gov"},
+]
+maintainers = [
+    {name = "Jonathan King", email = "jking@usgs.gov"},
+]
 keywords = ["wildfire", "debris flow", "hazard", "usgs"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -20,39 +19,56 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering"
 ]
+dependencies = [
+    "numpy",
+    "affine",
+    "rasterio",
+    "fiona",
+    "shapely",
+    "pysheds==0.4",
+    "numba>=0.57",
+    "pandas",
+    "requests",
+]
+
+[project.optional-dependencies]
+tutorials = ["cartopy>=0.22", "matplotlib>=3.8.2", "jupyter"]
+
+[project.urls]
+repository = "https://code.usgs.gov/ghsc/lhp/pfdf"
+documentation = "https://ghsc.code-pages.usgs.gov/lhp/pfdf"
+
+#####
+# Poetry / Dev dependencies
+#####
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
 packages = [
     { include = "pfdf" },
 ]
-
-[tool.poetry.dependencies]
-# Core dependencies
-python = ">=3.11, <3.13"
-numpy = "<2"
-pysheds = "0.3.5"
-rasterio = "*"
-affine = "*"
-shapely = "*"
-fiona = "*"
-
-# Tutorial plots
-cartopy = { version = ">=0.22", optional = true }
-matplotlib = { version = ">=3.8.2", optional = true }
-
-[tool.poetry.extras]
-tutorials = ["cartopy", "matplotlib"]
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-# Code
+# Dev tasks
 poethepoet = "*"
-safety = "3.2.7"
+
+# Formatting
 black = ">=24.3.0"
-isort = "^5.12.0"
-pytest = "^7.3.1"
+isort = ">=5.12.0"
+
+# Testing
+safety = "3.2.7"
+pytest = ">=7.3.1"
 pytest-cov = "*"
 coverage = "*"
+
+# Deploy
 twine = "*"
 
 # Docs
@@ -61,20 +77,27 @@ sphinx-rtd-theme = ">=1.3.0"
 sphinx_design = ">=0.5"
 sphinx-copybutton = "*"
 
+#####
+# Dev tool configurations
+#####
+
 [tool.pytest.ini_options]
 filterwarnings = [
     "ignore::DeprecationWarning:pysheds.sgrid",
-    "ignore::DeprecationWarning:pysheds.sview",
-    "ignore::DeprecationWarning:numba.core.typing.context",
     "ignore::DeprecationWarning:pyproj.transformer",
 ]
 markers = [
     "slow: marks tests as slow (deselect with: -m \"not slow\")",
+    "web: tests that make a real request over an internet connection" 
+]
+addopts = [
+    "-m not web",
 ]
 
 [tool.coverage.report]
-exclude_lines = [
+exclude_also = [
     "if typing.TYPE_CHECKING",
+    "@pytest.mark.web",
 ]
 omit = [
     "pfdf/typing/*",
@@ -85,7 +108,7 @@ omit = [
 profile = "black"
 
 #####
-# Developer scripts
+# Dev scripts
 #####
 
 [tool.poe.tasks.safety]
@@ -93,15 +116,19 @@ help = "Checks package dependencies for security issues"
 cmd = "safety check"
 
 [tool.poe.tasks.tests]
-help = "Runs the tests and requires 100% coverage"
+help = "Runs the tests and requires 100% coverage. Excludes live web tests"
 sequence = [
   { cmd = "pytest tests --cov=pfdf --cov=tests --cov-fail-under=100 --cov-report xml:coverage.xml" },
   { ref = "coverage" },
 ]
 
 [tool.poe.tasks.quicktest]
-help = "Runs the tests, but skips any slow tests"
-cmd = "pytest tests -m \"not slow\""
+help = "Runs the tests, but skips slow tests (and live web request tests)"
+cmd = "pytest tests -m \"not slow and not web\""
+
+[tool.poe.tasks.webtest]
+help = "Runs tests that make live web requests. DO NOT automate these tests."
+cmd = "pytest tests -m web"
 
 [tool.poe.tasks.coverage]
 help = "Prints the coverage report for the tests"
@@ -154,6 +181,10 @@ sequence = [
 [tool.poe.tasks.open-docs]
 help = "Opens the docs in a webbrowser"
 ref = "_open public"
+
+[tool.poe.tasks.tutorials]
+help = "Opens the tutorials in Jupyter lab"
+cmd = "jupyter lab --notebook-dir tutorials"
 
 [tool.poe.tasks.download-tutorials]
 help = "Downloads data for the tutorials"

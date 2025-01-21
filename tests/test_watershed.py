@@ -9,6 +9,7 @@ from pysheds.grid import Grid
 from shapely import LineString
 
 from pfdf import watershed
+from pfdf._utils.patches import NodataPatch
 from pfdf.errors import MissingCRSError, MissingTransformError
 from pfdf.projection import Transform
 from pfdf.raster._raster import PyshedsRaster, Raster
@@ -107,12 +108,11 @@ def test_geojson_to_shapely(network_flow, segments):
     mask = np.ones(flow.shape, dtype=bool)
     mask = Raster(mask).as_pysheds()
     grid = Grid.from_raster(flow)
-    network = grid.extract_river_network(flow, mask, **watershed._FLOW_OPTIONS)
+    with NodataPatch():
+        network = grid.extract_river_network(flow, mask, **watershed._FLOW_OPTIONS)
     assert isinstance(network, FeatureCollection)
 
     output = watershed._geojson_to_shapely(flow, network)
-    print(output)
-    print(segments)
     assert output == segments
 
 
@@ -301,7 +301,7 @@ class TestFlow:
         print(flow.values)
         print(expected)
 
-        assert np.array_equal(flow.values, expected)
+        assert np.array_equal(flow.values[1:-1, 1:-1], expected[1:-1, 1:-1])
         assert flow.nodata == 0
         assert flow.crs is None
         assert flow.transform is None

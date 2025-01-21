@@ -70,7 +70,7 @@ def field_options(
 ) -> tuple[np.dtype | None, str, nodata | None]:
     "Validates options for building a raster from a data attribute field"
 
-    validate.type(field, "field", str, "str")
+    validate.string(field, "field")
     if dtype is not None:
         dtype = validate.real_dtype(dtype, 'the "dtype" input')
     field_casting = rvalidate.casting_option(field_casting, "field_casting")
@@ -101,10 +101,10 @@ def file_io(
     if layer is not None:
         validate.type(layer, "layer", (int, str), "int or string")
     if driver is not None:
-        validate.type(driver, "driver", str, "string")
+        validate.string(driver, "driver")
     if encoding is not None:
-        validate.type(encoding, "encoding", str, "string")
-    path = validate.input_path(path, "path")
+        validate.string(encoding, "encoding")
+    path = validate.input_file(path)
     return path, layer, driver, encoding
 
 

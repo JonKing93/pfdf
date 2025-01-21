@@ -35,6 +35,9 @@ variables:
 build:
   stage: build
   extends: .multiple-python-versions
+  before_script:
+    # Forces daily tests to install from the latest repositories
+    - if [ "$CI_PIPELINE_SOURCE" == "schedule" ]; then rm poetry.lock; fi
   script:
     - pip install virtualenv
     - virtualenv "venv-$VERSION"

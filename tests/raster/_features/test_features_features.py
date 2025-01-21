@@ -30,8 +30,10 @@ class TestParse:
                 "point", ffile, None, None, None, None, crs, None
             )
         with fiona.open(points) as file:
-            features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+            expected = [
+                (feature.__geo_interface__["geometry"], True) for feature in file
+            ]
+        assert geomvals == expected
         assert bounds == BoundingBox(10, 20, 50, 60, crs)
 
     def test_multipoints(_, multipoints, crs):
@@ -39,9 +41,17 @@ class TestParse:
             geomvals, bounds = _features.parse(
                 "point", ffile, None, None, None, None, crs, None
             )
+
         with fiona.open(multipoints) as file:
             features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+        expected = []
+        for feature in features:
+            multicoords = feature.__geo_interface__["geometry"]["coordinates"]
+            for coords in multicoords:
+                geoval = ({"type": "Point", "coordinates": coords}, True)
+                expected.append(geoval)
+
+        assert geomvals == expected
         assert bounds == BoundingBox(10, 20, 80, 90, crs)
 
     def test_polygons(_, polygons, crs):
@@ -50,8 +60,10 @@ class TestParse:
                 "polygon", ffile, None, None, None, None, crs, None
             )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+            expected = [
+                (feature.__geo_interface__["geometry"], True) for feature in file
+            ]
+        assert geomvals == expected
         assert bounds == BoundingBox(20, 20, 90, 90, crs)
 
     def test_multipolygons(_, multipolygons, crs):
@@ -59,9 +71,17 @@ class TestParse:
             geomvals, bounds = _features.parse(
                 "polygon", ffile, None, None, None, None, crs, None
             )
+
         with fiona.open(multipolygons) as file:
             features = list(file)
-        assert geomvals == [(feature["geometry"], True) for feature in features]
+        expected = []
+        for feature in features:
+            multicoords = feature.__geo_interface__["geometry"]["coordinates"]
+            for coords in multicoords:
+                geoval = ({"type": "Polygon", "coordinates": coords}, True)
+                expected.append(geoval)
+
+        assert geomvals == expected
         assert bounds == BoundingBox(20, 20, 90, 90, crs)
 
     def test_field(_, polygons):
@@ -70,10 +90,11 @@ class TestParse:
                 "polygon", ffile, "test", None, None, None, None, None
             )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [
-            (feature["geometry"], f) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], f)
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert bounds == BoundingBox(20, 20, 90, 90)
 
     def test_polygon_window(_, polygons, crs):
@@ -83,8 +104,12 @@ class TestParse:
                 "polygon", ffile, None, None, None, None, crs, window
             )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [(features[0]["geometry"], True)]
+            expected = [
+                (feature.__geo_interface__["geometry"], True)
+                for f, feature in enumerate(file)
+                if f == 0
+            ]
+        assert geomvals == expected
         assert bounds == window
 
     def test_point_window(_, points, crs):
@@ -94,11 +119,12 @@ class TestParse:
                 "point", ffile, None, None, None, None, crs, window
             )
         with fiona.open(points) as file:
-            features = list(file)
-        assert geomvals == [
-            (features[0]["geometry"], True),
-            (features[1]["geometry"], True),
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], True)
+                for f, feature in enumerate(file)
+                if f in [0, 1]
+            ]
+        assert geomvals == expected
         assert bounds == window
 
     def test_no_features(_, polygons, crs, assert_contains):
@@ -107,7 +133,7 @@ class TestParse:
             with pytest.raises(NoFeaturesError) as error:
                 _features.parse("polygon", ffile, None, None, None, None, crs, window)
             assert_contains(
-                error, "None of the polygon features intersect the input bounds"
+                error, "None of the Polygon features intersect the input bounds"
             )
 
     def test_cast_dtype(_, polygons):
@@ -116,10 +142,11 @@ class TestParse:
                 "polygon", ffile, "test", np.dtype(int), "unsafe", None, None, None
             )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [
-            (feature["geometry"], int(f)) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], int(f))
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert bounds == BoundingBox(20, 20, 90, 90)
 
     def test_operation(_, polygons):
@@ -131,10 +158,11 @@ class TestParse:
                 "polygon", ffile, "test", None, None, plus_one, None, None
             )
         with fiona.open(polygons) as file:
-            features = list(file)
-        assert geomvals == [
-            (feature["geometry"], f + 1) for f, feature in enumerate(features)
-        ]
+            expected = [
+                (feature.__geo_interface__["geometry"], f + 1)
+                for f, feature in enumerate(file)
+            ]
+        assert geomvals == expected
         assert bounds == BoundingBox(20, 20, 90, 90)
 
 

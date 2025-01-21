@@ -57,3 +57,7 @@ operation = Callable[[scalar], scalar]
 value = float | int | bool
 geometry = dict[str, Any]
 GeometryValues = list[tuple[geometry, value]]
+
+# URLs
+url = str
+timeout = None | scalar | tuple[scalar, scalar]

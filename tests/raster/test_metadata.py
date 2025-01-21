@@ -1,6 +1,7 @@
 import os
 from math import nan
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -12,6 +13,11 @@ from pfdf.errors import CRSError, DimensionError, MissingCRSError, MissingTransf
 from pfdf.projection import CRS, BoundingBox, Transform
 from pfdf.raster import RasterMetadata
 from pfdf.utils.nodata import default as default_nodata
+
+#####
+# Testing fixtures
+#####
+
 
 #####
 # Dunders / built-ins
@@ -320,8 +326,8 @@ class TestRepr:
             "    Dtype: int8\n"
             "    NoData: 2\n"
             '    CRS("NAD83 / UTM zone 10N")\n'
-            '    Transform(dx=10, dy=-10, left=0, top=100, crs="NAD83 / UTM zone 10N")\n'
-            '    BoundingBox(left=0, bottom=0, right=200, top=100, crs="NAD83 / UTM zone 10N")\n'
+            '    Transform(dx=10.0, dy=-10.0, left=0.0, top=100.0, crs="NAD83 / UTM zone 10N")\n'
+            '    BoundingBox(left=0.0, bottom=0.0, right=200.0, top=100.0, crs="NAD83 / UTM zone 10N")\n'
         )
 
 
@@ -890,6 +896,37 @@ class TestCreate:
 #####
 
 
+class TestFromUrl:
+    @patch("rasterio.open")
+    def test_local(_, mock, MockReader):
+        mock.return_value = MockReader
+        url = "https://www.usgs.gov/example/test.tif"
+        output = RasterMetadata.from_url(url, check_status=False)
+        assert output == RasterMetadata(
+            (4, 5), dtype="int16", nodata=-1, crs=26911, transform=(10, -10, 0, 0)
+        )
+
+    @pytest.mark.web
+    def test_web(_):
+        url = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/historical/n38w108/USGS_13_n38w108_20220720.tif"
+        output = RasterMetadata.from_url(url)
+        bounds = BoundingBox(
+            left=-108.00055555609346,
+            bottom=36.99944444370705,
+            right=-106.99944444390533,
+            top=38.00055555589506,
+            crs="NAD83",
+        )
+        expected = RasterMetadata(
+            shape=(10812, 10812),
+            dtype="float32",
+            nodata=-999999,
+            crs="NAD83",
+            bounds=bounds,
+        )
+        assert output.isclose(expected)
+
+
 class TestFromFile:
     def test(_, fraster, fmetadata):
         assert RasterMetadata.from_file(fraster) == fmetadata
@@ -1005,7 +1042,9 @@ class TestFromRasterio:
 
 class TestFromPysheds:
     def test(_, araster, affine, crs):
-        view = ViewFinder(affine=affine, crs=crs, nodata=-999, shape=araster.shape)
+        view = ViewFinder(
+            affine=affine, crs=crs, nodata=np.array(-999), shape=araster.shape
+        )
         input = PyshedsRaster(araster, view)
         output = RasterMetadata.from_pysheds(input)
         expected = RasterMetadata(
@@ -1029,7 +1068,9 @@ class TestFromPysheds:
         assert output == expected
 
     def test_isbool(_, araster, affine, crs):
-        view = ViewFinder(affine=affine, crs=crs, nodata=-999, shape=araster.shape)
+        view = ViewFinder(
+            affine=affine, crs=crs, nodata=np.array(-999), shape=araster.shape
+        )
         input = PyshedsRaster(araster, view)
         output = RasterMetadata.from_pysheds(input, isbool=True)
         expected = RasterMetadata(
@@ -1811,6 +1852,14 @@ class TestDtype:
     def test(_):
         assert RasterMetadata(dtype="int32").dtype == "int32"
         assert RasterMetadata().dtype is None
+
+
+class TestNbytes:
+    def test(_):
+        assert RasterMetadata().nbytes is None
+        assert RasterMetadata(dtype="float64").nbytes == 0
+        assert RasterMetadata((10, 10), dtype="int8").nbytes == 100
+        assert RasterMetadata((10, 10), dtype="uint16").nbytes == 200
 
 
 class TestNodata:

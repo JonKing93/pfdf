@@ -197,7 +197,7 @@ class Locator(ABC):
         for attr, value in zip(self._atts[:-1], floats):
             value = validate.scalar(value, attr[1:], dtype=real)
             validate.finite(value, attr[1:])
-            setattr(self, attr, value)
+            setattr(self, attr, float(value))
         self._crs = _crs.validate(crs)
 
     @classmethod
@@ -291,7 +291,8 @@ class Locator(ABC):
     # CRS
     #####
 
-    def _validate_units(self, units: Any, name: str, direction: str = "to"):
+    def _validate_units(self, units: Any, name: str, direction: str = "to") -> str:
+        "Checks that CRS unit conversion is supported"
         units = validate.units(units)
         if units != "base" and self.crs is None:
             raise MissingCRSError(
@@ -423,6 +424,7 @@ class Locator(ABC):
     def _length(
         self, axis: XY, length: float, name: str, units: Units, y: float | None = None
     ) -> float:
+        "Convert a length along an axis to the requested units"
         units = self._validate_units(units, name)
         if units != "base":
             length = _crs.base_to_units(self.crs, axis, length, units, y)

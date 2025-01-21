@@ -1,6 +1,7 @@
 import os
 from math import isnan, nan
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -8,6 +9,7 @@ import rasterio
 from affine import Affine
 from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
+from requests.exceptions import HTTPError
 
 from pfdf.errors import (
     CRSError,
@@ -91,6 +93,12 @@ class TestInitUser:
         raster = Raster(fraster, "test")
         check(raster, "test", araster, transform, crs)
 
+    def test_url(_, assert_contains):
+        # Just checking that the from_url function was entered
+
+        with pytest.raises(HTTPError):
+            Raster("https://www.usgs.gov/not-a-real-raster.tif")
+
     def test_rasterio(_, fraster, araster, transform, crs):
         with rasterio.open(fraster) as reader:
             pass
@@ -99,7 +107,7 @@ class TestInitUser:
 
     def test_pysheds(_, araster, transform, crs):
         view = ViewFinder(
-            affine=transform.affine, crs=crs, nodata=-999, shape=araster.shape
+            affine=transform.affine, crs=crs, nodata=np.array(-999), shape=araster.shape
         )
         input = PyshedsRaster(araster, view)
         output = Raster(input, "test")
@@ -221,6 +229,174 @@ class Test_Copy:
 #####
 # Factories
 #####
+
+
+class TestFromUrl:
+    @patch("rasterio.open")
+    def test_local(_, mock, MockReader):
+        mock.return_value = MockReader
+        url = "https://www.usgs.gov/example/test.tif"
+        output = Raster.from_url(url, check_status=False)
+        print(output)
+        assert output.metadata == RasterMetadata(
+            (4, 5), dtype="int16", nodata=-1, crs=26911, transform=(10, -10, 0, 0)
+        )
+        expected = MockReader.read()
+        assert np.array_equal(output.values, expected)
+
+    @pytest.mark.web
+    def test_web(_):
+        url = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/historical/n38w108/USGS_13_n38w108_20220720.tif"
+        bounds = BoundingBox(
+            left=-107.99592592645885,
+            bottom=37.99500000033353,
+            right=-107.99500000053193,
+            top=37.995925926260455,
+            crs="NAD83",
+        )
+
+        output = Raster.from_url(url, bounds=bounds)
+        expected = RasterMetadata(
+            (10, 10),
+            dtype="float32",
+            nodata=-999999,
+            crs="NAD83",
+            bounds=BoundingBox(
+                left=-107.99592592645885,
+                bottom=37.99500000033353,
+                right=-107.99500000053193,
+                top=37.995925926260455,
+                crs="NAD83",
+            ),
+        )
+        assert output.metadata.isclose(expected)
+
+        expected = np.array(
+            [
+                [
+                    2424.425,
+                    2426.8613,
+                    2429.0857,
+                    2430.4983,
+                    2430.7708,
+                    2430.4326,
+                    2429.6692,
+                    2427.3828,
+                    2424.6758,
+                    2425.9348,
+                ],
+                [
+                    2423.425,
+                    2425.6562,
+                    2427.3677,
+                    2428.2988,
+                    2428.5188,
+                    2428.245,
+                    2427.3987,
+                    2424.9365,
+                    2421.536,
+                    2422.2327,
+                ],
+                [
+                    2421.6975,
+                    2423.4753,
+                    2424.7056,
+                    2425.323,
+                    2425.5059,
+                    2425.1182,
+                    2423.5046,
+                    2420.542,
+                    2417.7817,
+                    2419.202,
+                ],
+                [
+                    2418.0447,
+                    2419.6104,
+                    2420.815,
+                    2421.3713,
+                    2421.0576,
+                    2420.0593,
+                    2418.1467,
+                    2415.3564,
+                    2414.8352,
+                    2418.407,
+                ],
+                [
+                    2412.3633,
+                    2414.182,
+                    2415.5889,
+                    2416.3264,
+                    2416.1064,
+                    2415.1333,
+                    2413.6274,
+                    2412.109,
+                    2413.7842,
+                    2417.998,
+                ],
+                [
+                    2407.4927,
+                    2409.2444,
+                    2410.482,
+                    2411.354,
+                    2411.4846,
+                    2410.5862,
+                    2409.528,
+                    2410.541,
+                    2414.4111,
+                    2417.7456,
+                ],
+                [
+                    2404.0857,
+                    2405.6533,
+                    2406.448,
+                    2406.7715,
+                    2406.5503,
+                    2405.588,
+                    2406.4048,
+                    2410.4734,
+                    2414.805,
+                    2416.3655,
+                ],
+                [
+                    2401.228,
+                    2402.7456,
+                    2402.982,
+                    2402.4495,
+                    2402.0137,
+                    2403.1802,
+                    2406.877,
+                    2411.2993,
+                    2414.013,
+                    2414.0288,
+                ],
+                [
+                    2398.6394,
+                    2399.7883,
+                    2399.4988,
+                    2398.8896,
+                    2400.5264,
+                    2404.6196,
+                    2408.87,
+                    2411.6567,
+                    2412.5322,
+                    2411.4185,
+                ],
+                [
+                    2395.378,
+                    2396.4468,
+                    2396.3477,
+                    2397.362,
+                    2400.9202,
+                    2404.997,
+                    2408.0847,
+                    2409.8433,
+                    2410.01,
+                    2408.5737,
+                ],
+            ],
+            dtype="float32",
+        )
+        assert np.array_equal(output.values, expected)
 
 
 class TestFromFile:
@@ -457,7 +633,7 @@ class TestFromRasterio:
 class TestFromPysheds:
     def test(_, araster, transform, crs):
         view = ViewFinder(
-            affine=transform.affine, crs=crs, nodata=-999, shape=araster.shape
+            affine=transform.affine, crs=crs, nodata=np.array(-999), shape=araster.shape
         )
         input = PyshedsRaster(araster, view)
         araster = araster.astype(input.dtype)
@@ -473,7 +649,7 @@ class TestFromPysheds:
     def test_isbool(_, transform, crs):
         araster = np.array([[1, 0, -9, 1], [0, -9, 0, 1]])
         view = ViewFinder(
-            affine=transform.affine, crs=crs, nodata=-9, shape=araster.shape
+            affine=transform.affine, crs=crs, nodata=np.array(-9), shape=araster.shape
         )
         input = PyshedsRaster(araster, view)
         raster = Raster.from_pysheds(input, isbool=True)
@@ -1404,7 +1580,8 @@ class TestSave:
     def test_standard(_, fraster, tmp_path, araster, transform, crs):
         path = Path(tmp_path) / "output.tif"
         raster = Raster(fraster)
-        raster.save(path)
+        output = raster.save(path)
+        assert output == path
         assert path.is_file()
         with rasterio.open(path) as file:
             values = file.read(1)
@@ -1417,7 +1594,8 @@ class TestSave:
         path = Path(tmp_path) / "output.tif"
         araster = araster.astype(bool)
         raster = Raster.from_array(araster, transform=transform, crs=crs)
-        raster.save(path)
+        output = raster.save(path)
+        assert output == path
         assert path.is_file()
         with rasterio.open(path) as file:
             values = file.read(1)
@@ -1430,7 +1608,8 @@ class TestSave:
     def test_overwrite(_, fraster, tmp_path, araster, transform, crs):
         path = Path(tmp_path) / "output.tif"
         raster = Raster(fraster)
-        raster.save(path)
+        output = raster.save(path)
+        assert output == path
         assert path.is_file()
 
         araster = araster + 1
@@ -1511,6 +1690,28 @@ class TestAsPysheds:
         assert output.affine == transform.affine
         assert output.crs == crs
 
+    def test_float64_with_nodata(_, araster, transform, crs):
+        araster = araster.astype("float64")
+        raster = Raster.from_array(araster, nodata=5, crs=crs, transform=transform)
+        output = raster.as_pysheds()
+        assert isinstance(output, PyshedsRaster)
+        assert np.array_equal(output, araster)
+        assert output.nodata == 5
+        assert output.affine == transform.affine
+        assert output.crs == crs
+
+    def test_float64_without_nodata(_, araster, transform, crs):
+        araster = araster.astype("float64")
+        raster = Raster.from_array(
+            araster, crs=crs, transform=transform, ensure_nodata=False
+        )
+        output = raster.as_pysheds()
+        assert isinstance(output, PyshedsRaster)
+        assert np.array_equal(output, araster)
+        assert output.nodata == 0
+        assert output.affine == transform.affine
+        assert output.crs == crs
+
 
 class TestCopy:
     def test(_, fraster):
@@ -1580,6 +1781,47 @@ class TestFill:
         with pytest.raises(TypeError) as error:
             raster.fill(value=2.2)
         assert_contains(error, "fill value", "cast", "safe")
+
+    def test_copy(_, araster):
+        raster = Raster.from_array(araster, copy=False, nodata=1)
+        copy = raster.copy()
+        initial = araster.copy()
+        expected = araster.copy()
+        expected[expected == 1] = 50
+
+        assert raster.values.base is araster
+        assert copy.values.base is araster
+        raster.fill(value=50)
+
+        assert raster.values.base is not araster
+        assert np.array_equal(raster.values, expected)
+        assert copy.values.base is araster
+        assert np.array_equal(copy.values, initial)
+
+    def test_no_copy(_, araster):
+        raster = Raster.from_array(araster, copy=False, nodata=1)
+        copy = raster.copy()
+        expected = araster.copy()
+        expected[expected == 1] = 50
+
+        assert raster.values.base is araster
+        assert copy.values.base is araster
+        raster.fill(value=50, copy=False)
+
+        assert raster.values.base is araster
+        assert np.array_equal(raster.values, expected)
+        assert copy.values.base is araster
+        assert np.array_equal(copy.values, expected)
+
+    def test_invalid_nocopy(_, araster, assert_contains):
+        araster.setflags(write=False)
+        raster = Raster.from_array(araster, nodata=1, copy=False)
+        with pytest.raises(ValueError) as error:
+            raster.fill(value=-999, copy=False)
+        assert_contains(
+            error,
+            "You cannot set copy=False because the raster cannot set the write permissions of its data array.",
+        )
 
 
 class TestFind:
@@ -1679,6 +1921,47 @@ class TestSetRange:
         expected[expected >= 6] = -999
         assert np.array_equal(raster.values, expected)
         assert raster.nodata == -999
+
+    def test_copy(_, araster):
+        raster = Raster.from_array(araster, copy=False, nodata=-999)
+        copy = raster.copy()
+        initial = araster.copy()
+        expected = araster.copy()
+        expected[expected < 3] = 3
+
+        assert raster.values.base is araster
+        assert copy.values.base is araster
+        raster.set_range(min=3)
+
+        assert raster.values.base is not araster
+        assert np.array_equal(raster.values, expected)
+        assert copy.values.base is araster
+        assert np.array_equal(copy.values, initial)
+
+    def test_no_copy(_, araster):
+        raster = Raster.from_array(araster, copy=False, nodata=-999)
+        copy = raster.copy()
+        expected = araster.copy()
+        expected[expected < 3] = 3
+
+        assert raster.values.base is araster
+        assert copy.values.base is araster
+        raster.set_range(min=3, copy=False)
+
+        assert raster.values.base is araster
+        assert np.array_equal(raster.values, expected)
+        assert copy.values.base is araster
+        assert np.array_equal(copy.values, expected)
+
+    def test_invalid_nocopy(_, araster, assert_contains):
+        araster.setflags(write=False)
+        raster = Raster.from_array(araster, nodata=-999, copy=False)
+        with pytest.raises(ValueError) as error:
+            raster.set_range(min=3, copy=False)
+        assert_contains(
+            error,
+            "You cannot set copy=False because the raster cannot set the write permissions of its data array.",
+        )
 
 
 #####
@@ -2242,6 +2525,16 @@ class TestDtype:
     def test_none(_):
         raster = Raster()
         assert raster.dtype is None
+
+
+class TestNBytes:
+    def test_none(_):
+        raster = Raster()
+        assert raster.nbytes is None
+
+    def test(_, araster):
+        araster = np.arange(100).reshape(10, 10).astype("float64")
+        assert Raster(araster).nbytes == 800
 
 
 class TestNodata:

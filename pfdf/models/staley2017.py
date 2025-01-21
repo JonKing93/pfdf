@@ -4,8 +4,8 @@ staley2017  Implements the logistic regression models presented in Staley et al.
 This module implements the logistic regression models presented in Staley et al., 2017 
 (see citation below). These models describe debris-flow likelihood as a function 
 of terrain (T), fire burn severity (F), soil (S), and rainfall accumulation (R).
-The models can also be inverted to solve for rainfall accumulation given debris-flow
-probability.
+The models can also be inverted to solve for rainfall accumulation given design
+probability levels for debris-flow events.
 
 The module also provides classes to implement the M1-4 models presented in the
 paper. These classes provide methods to return the parameters, and compute the
@@ -94,7 +94,7 @@ def accumulation(
     screen: bool = True,
 ) -> Accumulations:
     """
-    accumulation  Computes rainfall accumulations needed for specified debris-flow probability levels
+    Computes rainfall accumulations needed for specified debris-flow probability levels
     ----------
     accumulation(p, B, Ct, T, Cf, F, Cs, S)
     Returns the rainfall accumulations required to achieve the specified p-values.
@@ -103,6 +103,11 @@ def accumulation(
     model following the form of Equation 1).
 
     All of the inputs to this function should be real-valued numpy arrays.
+    The p-values - p - are the design probabilities for which the model should be solved.
+    For example, p=0.5 estimates the rainfall accumulation that would result in a 50%
+    probability of a debris flow event. Here, `p` should be a 1D array listing all the
+    design probabilities that should be solved for.
+
     The three variables - T, F, and S - represent the terrain steepness,
     wildfire severity, and surface properties variables for the model. In
     most cases, these are 1D arrays with one element per stream segment
@@ -124,13 +129,8 @@ def accumulation(
     rainfall duration. Another use case for multiple runs is implementing a
     parameter sweep to validate model parameters.
 
-    The p-values - p - are the probabilities for which the model should be solved.
-    For example, p=0.5 solves for the rainfall accumulations that cause a 50%
-    likelihood of a debris-flow. p should be a 1D array listing all the
-    probabilities that should be solved for.
-
     This function solves the rainfall accumulations for all stream segments,
-    parameter runs, and p-values provided. Each accumulation describes the total
+    p-values, and parameter runs provided. Each accumulation describes the total
     rainfall required within the rainfall duration associated with its parameters.
     For example, if using parameters for a 15-minute rainfall duration, the accumulation
     describes the total rainfall required within a 15-minute window. Accumulation
@@ -138,12 +138,11 @@ def accumulation(
     For the 4 models described in the paper, accumulations are in mm.
 
     The returned output will be a numpy array with up to 3 dimensions. The first
-    dimension is stream segments, second dimension is parameter runs, and third
-    dimension is p-values. If only a single p-value is provided, the output is
-    returned as a 2D array. If there is a single parameter run and a single p-value,
-    then output is returned as a 1D array. (Or see below for an option that always
-    returns a 3D array). By default, the routine screens out unphysical negative
-    accumulations and replaces them with nan. See below to disable this screening.
+    dimension is stream segments, second dimension is p-values, and third dimension is
+    parameter runs. By default, this command will remove singleton dimensions from the
+    output array. The first dimension is always retained, but the second is removed if
+    there is a single design probability, and the third is removed if there is a single
+    parameter run. Alternatively, set keepdims=True to always return a 3D array.
 
     As mentioned, one or more variable can also be a 2D array. In this case
     each row is a stream segment, and each column is a parameter run. Each
@@ -162,7 +161,7 @@ def accumulation(
     by nan.
     ----------
     Inputs:
-        p: The probabilities for which to solve the model
+        p: The design probabilities for which to solve the model
         B: The intercepts of the link equation
         Ct: The coefficients for the terrain steepness variable
         T: The terrain steepness variable
@@ -177,12 +176,12 @@ def accumulation(
             to disable this screening.
 
     Outputs:
-        numpy 3D array (Segments x Parameter Runs x P-values): The rainfall
+        numpy 3D array (Segments x P-values x Parameter Runs): The rainfall
             accumulations required to achieve the specified p-values.
     """
 
     # Validate and reshape for broadcasting.
-    p, B, Ct, Cf, Cs, T, F, S = _validate(p, "p", B, Ct, Cf, Cs, T, F, S)
+    p, B, Ct, Cf, Cs, T, F, S = _validate(p, B, Ct, Cf, Cs, T, F, S)
     validate.inrange(p, "p", min=0, max=1, ignore=np.nan)
 
     # Solve the model
@@ -208,18 +207,25 @@ def likelihood(
     F: Variable,
     Cs: Parameter,
     S: Variable,
+    *,
     keepdims: bool = False,
 ) -> Likelihoods:
     """
     Computes debris-flow likelihood for specified rainfall accumulations
     ----------
     likelihood(R, B, Ct, T, Cf, F, Cs, S)
+    likelihood(..., keepdims=True)
     Solves the debris-flow likelihoods for the specified rainfall accumulations.
     This function is agnostic to the actual model being run, and thus can
     implement all 4 of the models presented in the paper (as well as any other
     model following the form of Equation 1).
 
     All of the inputs to this function should be real-valued numpy arrays.
+    The R values are the rainfall accumulations for which the model should be solved.
+    For example, R = 6 solves for debris-flow likelihood when rainfall accumulation
+    is 6 mm/duration. R should be a 1D array listing all the accumulations that should
+    be solved for.
+
     The three variables - T, F, and S - represent the terrain steepness,
     wildfire severity, and surface properties variables for the model. In
     most cases, these are 1D arrays with one element per stream segment
@@ -241,37 +247,29 @@ def likelihood(
     rainfall duration. Another use case for multiple runs is implementing a
     parameter sweep to validate model parameters.
 
-    The R values are the rainfall accumulations for which the model should be solved.
-    For example, R = 6 solves for debris-flow probability when rainfall accumulation
-    is 6 mm/duration. R should be a 1D array listing all the accumulations that should
-    be solved for.
-
-    This function solves the debris-flow likelihoods for all stream segments,
-    parameter runs, and rainfall accumulations provided. Note that rainfall
-    accumulations should be relative to the rainfall durations associated with
-    each set of parameters. For example, if using parameters for 15-minute and
-    30-minute rainfall durations, then input accumulations should be for 15-minute
-    and 30-minute intervals, respectively. Accumulation units are the units of the
-    rainfall values used to calibrate the model's parameters. For the 4 models
-    described in the paoer, accumulations are in mm.
+    This function solves the debris-flow likelihoods for all stream segments, rainfall
+    accumulations, and parameter runs provided. Note that rainfall accumulations should
+    be relative to the rainfall durations associated with each set of parameters. For
+    example, if using parameters for 15-minute and 30-minute rainfall durations, then
+    the input rainfall accumulations should be for 15-minute and 30-minute intervals,
+    respectively. Accumulation units are the units of the rainfall values used to
+    calibrate the model's parameters. For the 4 models described in the paoer,
+    accumulations are millimeters of accumulations per rainfall duration.
 
     The returned output will be a numpy array with up to 3 dimensions. The first
-    dimension is stream segments, second dimension is parameter runs, and third
-    dimension is queried rainfall accumulations. If only a single accumulation is
-    provided, the output is returned as a 2D array. If there is a single parameter
-    run and a single rainfall accumulation, then output is returned as a 1D array.
-    (Or see below for an option that always returns a 3D array).
+    dimension is stream segments, second dimension is rainfall accumulations, and third
+    dimension is parameter runs. By default, this command will remove singleton
+    dimensions from the output array. The first dimension is always retained, but the
+    second is removed if there is a single rainfall accumulation, and the third is
+    removed if there is a single parameter run. Alternatively, set keepdims=True to
+    always return a 3D array.
 
-    As mentioned, one or more variable can also be a 2D array. In this case
+    As mentioned, one or more variables can also be a 2D array. In this case
     each row is a stream segment, and each column is a parameter run. Each
     column will be used to solve the model for (only) the associated parameter
     run. This allows use of different values for a variable. An example use
     case could be testing the model using different datasets to derive one or
     more variables.
-
-    likelihood(..., *, keepdims = True)
-    Always returns the output as a 3D numpy array, regardless of the number
-    of R values and parameter runs.
     ----------
     Inputs:
         R: The rainfall accumulations for which to solve the model
@@ -282,31 +280,30 @@ def likelihood(
         F: The wildfire severity variable
         Cs: The coefficients for the surface properties variable
         S: The surface properties variable
-        keepdims: True to always return a 3D numpy array. If False (default),
-            returns a 2D array when there is 1 R value, and a 1D array if there
-            is 1 R value and 1 parameter run.
+        keepdims: True to always return a 3D numpy array. If False (default), removes
+            dimensions 2 and/or 3 when singleton
 
     Outputs:
-        numpy 3D array (Segments x Parameter Runs x R values): The estimated likelihoods
+        numpy 3D array (Segments x R values x Parameter Runs): The estimated likelihoods
     """
 
     # Validate and reshape for broadcasting.
-    R, B, Ct, Cf, Cs, T, F, S = _validate(R, "R", B, Ct, Cf, Cs, T, F, S)
+    R, B, Ct, Cf, Cs, T, F, S = _validate(R, B, Ct, Cf, Cs, T, F, S)
     validate.positive(R, "R", allow_zero=True, ignore=np.nan)
 
-    # Solve the model. Optionally remove trailing dimensions
+    # Solve the model. Optionally remove singleton dimensions
     eX = np.exp(B + Ct * T * R + Cf * F * R + Cs * S * R)
     likelihood = eX / (1 + eX)
     return clean_dims(likelihood, keepdims)
 
 
 def _validate(
-    PR: Any, PRname: str, B: Any, Ct: Any, Cf: Any, Cs: Any, T: Any, F: Any, S: Any
+    PR: Any, B: Any, Ct: Any, Cf: Any, Cs: Any, T: Any, F: Any, S: Any
 ) -> tuple[Parameter, Parameter, Parameter, Parameter, Variable, Variable, Variable]:
     "Validates parameters and variables and reshapes for broadcasting"
 
     # Validate parameter vectors
-    vectors = {PRname: PR, "B": B, "Ct": Ct, "Cf": Cf, "Cs": Cs}
+    vectors = {"PR": PR, "B": B, "Ct": Ct, "Cf": Cf, "Cs": Cs}
     for name, value in vectors.items():
         vectors[name] = validate.vector(value, name, dtype=real)
 
@@ -316,14 +313,14 @@ def _validate(
         variables[name] = validate.matrix(value, name, dtype=real)
 
     # Initialize sizes
-    nQueries = vectors[PRname].size
-    nRuns = 1
     nSegments = 1
+    nRuns = 1
+    nQueries = vectors["PR"].size
 
     # Process vectors. Reshape p for broadcasting....
     for name, value in vectors.items():
-        if name == PRname:
-            vectors[name] = value.reshape(1, 1, nQueries)
+        if name == "PR":
+            vectors[name] = value.reshape(1, nQueries, 1)
             continue
 
         # Update nRuns if this is the first parameter with multiple runs.
@@ -338,7 +335,7 @@ def _validate(
             )
 
         # Reshape parameters for broadcasting
-        vectors[name] = value.reshape(1, -1, 1)
+        vectors[name] = value.reshape(1, 1, -1)
 
     # Get variable shapes. Update nRuns and nSegments when appropriate
     for name, value in variables.items():
@@ -365,7 +362,7 @@ def _validate(
             )
 
         # Reshape variables for broadcasting
-        variables[name] = value.reshape(nrows, ncols, 1)
+        variables[name] = value.reshape(nrows, 1, ncols)
 
     # Return direct references to values (makes the math look nicer)
     PR, B, Ct, Cf, Cs = vectors.values()

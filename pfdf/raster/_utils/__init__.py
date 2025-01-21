@@ -8,4 +8,5 @@ Modules:
     merror      - Functions to supplement memory-related errors
     parse       - Functions to parse spatial metadata options
     validate    - Functions to validate user inputs for raster routines
+    writeable   - Context manager to set write permissions for numpy arrays
 """

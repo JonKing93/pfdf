@@ -195,8 +195,18 @@ def test_len(segments):
     assert len(segments) == 6
 
 
-def test_str(segments):
-    assert str(segments) == "A set of 6 stream segments in 2 local drainage networks."
+def test_repr(segments):
+    assert repr(segments) == (
+        "Segments:\n"
+        "    Total Segments: 6\n"
+        "    Local Networks: 2\n"
+        "    Located Basins: False\n"
+        "    Raster Metadata:\n"
+        "        Shape: (7, 7)\n"
+        '        CRS("NAD83 / UTM zone 11N")\n'
+        '        Transform(dx=1.0, dy=1.0, left=0.0, top=0.0, crs="NAD83 / UTM zone 11N")\n'
+        '        BoundingBox(left=0.0, bottom=7.0, right=7.0, top=0.0, crs="NAD83 / UTM zone 11N")\n'
+    )
 
 
 def test_geo_interface(segments):
@@ -2138,7 +2148,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         segments.keep([2, 4, 5], "ids")
         assert not path.is_file()
-        segments.save(path)
+        output = segments.save(path)
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2177,7 +2188,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         segments.keep(np.zeros(segments.size))
         assert not path.is_file()
-        segments.save(path)
+        output = segments.save(path)
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2188,7 +2200,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
 
-        segments.save(path, type="outlets")
+        output = segments.save(path, type="outlets")
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2214,7 +2227,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
 
-        segments.save(path, type="segment outlets")
+        output = segments.save(path, type="segment outlets")
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2260,7 +2274,8 @@ class TestSave:
         path = Path(tmp_path) / "output.geojson"
         assert not path.is_file()
 
-        bsegments.save(path, type="basins")
+        output = bsegments.save(path, type="basins")
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2324,7 +2339,8 @@ class TestSave:
         }
         assert not path.is_file()
 
-        segments.save(path, "segments", properties)
+        output = segments.save(path, "segments", properties)
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)
@@ -2378,7 +2394,8 @@ class TestSave:
         assert path.is_file()
 
         segments.keep([2, 4, 5], "ids")
-        segments.save(path, overwrite=True)
+        output = segments.save(path, overwrite=True)
+        assert output == path
         assert path.is_file()
 
         output = self.read(path)

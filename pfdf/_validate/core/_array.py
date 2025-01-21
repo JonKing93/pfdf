@@ -148,7 +148,9 @@ def nonsingleton(array: np.ndarray) -> list[bool]:
 #####
 
 
-def array(input: Any, name: str, dtype=None, copy: bool = False) -> RealArray:
+def array(
+    input: Any, name: str, dtype=None, *, copy: bool = False, allow_empty: bool = False
+) -> RealArray:
     """
     array  Validates an input numpy array
     ----------
@@ -160,13 +162,19 @@ def array(input: Any, name: str, dtype=None, copy: bool = False) -> RealArray:
     Also checks the input is derived from one of the listed dtypes.
 
     array(..., copy=True)
-    Returns a copy of the input array. Default is to not copy
+    Returns a copy of the input array. Default is to not copy whenever possible.
+
+    array(..., allow_empty=True)
+    Permits an empty array.
     ----------
     Inputs:
         input: The input being checked
         name: The name of the input for use in error messages.
         dtype: A list of allowed dtypes
         copy: True to return a copy of the input array. False (default) to not copy
+            whenever possible
+        allow_empty: True to treat an empty array as valid. False (default) to raise
+            an error
 
     Outputs:
         numpy array (at least 1D): The input as a numpy array
@@ -175,13 +183,17 @@ def array(input: Any, name: str, dtype=None, copy: bool = False) -> RealArray:
         EmptyArrayError - If the array is empty
     """
 
-    # Convert to array with minimum of 1D
+    # Convert to array with minimum of 1D. Copy as needed. Note that numpy 2+ uses a
+    # slightly different syntax for copying
+    copy = copy or None
     input = np.array(input, copy=copy)
     input = np.atleast_1d(input)
 
-    # Can't be empty. Optionally check dtype
-    if input.size == 0:
+    # Optionally prevent empty arrays
+    if not allow_empty and input.size == 0:
         raise EmptyArrayError(f"{name} does not have any elements.")
+
+    # Optionally check dtype
     dtype_(name, allowed=dtype, actual=input.dtype)
     return input
 
@@ -223,6 +235,7 @@ def vector(
     *,
     dtype: Optional[dtypes] = None,
     length: Optional[int] = None,
+    allow_empty: bool = False,
 ) -> VectorArray:
     """
     vector  Validate an input represents a 1D numpy array
@@ -238,12 +251,16 @@ def vector(
     vector(..., *, length)
     Also checks that the vector has the specified length. Raises a ShapeError if
     this criteria is not met.
+
+    vector(..., *, allow_empty)
+    Indicate whether the vector may be empty. Default is to not allow empty vectors.
     ----------
     Input:
         input: The input being checked
         name: A name for the input for use in error messages.
         dtype: A list of allowed dtypes
         length: A required length for the vector
+        allow_empty: True to permit empty vectors. False (default) to raise an error
 
     Outputs:
         numpy 1D array: The input as a 1D numpy array
@@ -253,7 +270,7 @@ def vector(
     """
 
     # Initial validation
-    input = array(input, name, dtype, copy=False)
+    input = array(input, name, dtype, copy=False, allow_empty=allow_empty)
 
     # Only 1 non-singleton dimension is allowed
     nonsingletons = nonsingleton(input)

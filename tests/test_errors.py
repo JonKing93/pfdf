@@ -29,7 +29,14 @@ def check(error, message, type):
 
 @pytest.mark.parametrize(
     "error",
-    (ArrayError, CRSError, TransformError, RasterError, DurationsError, FeaturesError),
+    (
+        ArrayError,
+        CRSError,
+        TransformError,
+        RasterError,
+        DurationsError,
+        FeaturesError,
+    ),
 )
 def test_base_error(error):
     message = "test message"

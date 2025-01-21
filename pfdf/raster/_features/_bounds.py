@@ -3,7 +3,6 @@ Functions used to determine the bounds of rasters built from vector features
 ----------
 Functions:
     unbounded       - Returns a bounds dict for an unbounded spatial domain
-    update          - Updates bounds in-place to add new edges
     add_geometry    - Updates bounds in-place given a new geometry
     _from_point     - Returns bbox edges for a point feature
     _from_polygon   - Returns bbox edges for a polygon feature
@@ -35,23 +34,21 @@ def unbounded(crs: Optional[CRS] = None) -> EdgeDict:
     return bounds
 
 
-def update(
-    bounds: EdgeDict, left: float, bottom: float, right: float, top: float
-) -> None:
-    "Updates bounds in-place to contain new edges"
+def add_geometry(geotype: str, coords: coords, bounds: EdgeDict) -> edges:
+    "Updates bounds in-place to include a geometry"
+
+    # Parse the edges of the new geometry
+    if geotype == "Point":
+        edges = _from_point
+    elif geotype == "Polygon":
+        edges = _from_polygon
+    left, bottom, right, top = edges(coords)
+
+    # Update bounds in-place to contain new edges
     bounds["left"] = min(bounds["left"], left)
     bounds["right"] = max(bounds["right"], right)
     bounds["bottom"] = min(bounds["bottom"], bottom)
     bounds["top"] = max(bounds["top"], top)
-
-
-def add_geometry(geometry: str, coords: coords, bounds: EdgeDict) -> edges:
-    "Updates bounds in-place to include a geometry"
-    if geometry == "point":
-        edges = _from_point
-    elif geometry == "polygon":
-        edges = _from_polygon
-    update(bounds, *edges(coords))
 
 
 def _from_point(coords: coords) -> edges:

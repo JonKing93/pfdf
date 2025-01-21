@@ -29,6 +29,7 @@ from pfdf.raster import Raster
 from pfdf.segments import _basins, _confinement, _geojson, _update
 
 if typing.TYPE_CHECKING:
+    from pathlib import Path
     from typing import Literal, Optional, Self
 
     import shapely
@@ -126,7 +127,7 @@ class Segments:
 
     Dunders:
         __len__             - The number of segments in the network
-        __str__             - A string representing the network
+        __repr__            - A string summarizing key info about the network
         __geo_interface__   - A geojson-like dict of the network
 
     Outlets:
@@ -383,18 +384,28 @@ class Segments:
         """
         return len(self._segments)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """
-        Returns a string with info about the Segments object
+        A string summarizing the Segments object
         ----------
-        str(self)
-        Returns a string that reports (1) the total number of segments, and (2)
-        the total number of local drainage networks.
+        repr(self)
+        Returns a string summarizing key info about the Segments object.
         ----------
         Outputs:
             str: A string summarizing the Segments object
         """
-        return f"A set of {self.size} stream segments in {self.nlocal} local drainage networks."
+
+        return (
+            f"Segments:\n"
+            f"    Total Segments: {len(self)}\n"
+            f"    Local Networks: {self.nlocal}\n"
+            f"    Located Basins: {self.located_basins}\n"
+            f"    Raster Metadata:\n"
+            f"        Shape: {self.raster_shape}\n"
+            f'        CRS("{self.crs.name}")\n'
+            f"        {self.transform}\n"
+            f"        {self.bounds}\n"
+        )
 
     @property
     def __geo_interface__(self) -> FeatureCollection:
@@ -490,7 +501,7 @@ class Segments:
         "Converts segment indices to (user-facing) IDs"
 
         # If empty, just return directly
-        indices = np.array(indices, copy=False)
+        indices = np.array(indices, copy=None)
         if indices.size == 0:
             return indices
 
@@ -2184,7 +2195,7 @@ class Segments:
         crs: Optional[CRS] = None,
         driver: Optional[str] = None,
         overwrite: bool = False,
-    ) -> None:
+    ) -> Path:
         """
         Saves the network to a vector feature file
         ----------
@@ -2196,7 +2207,7 @@ class Segments:
         to downstream. The vector features will not have any data properties. In
         the default state, the method will raise a FileExistsError if the file
         already exists. Set overwrite=True to enable the replacement of existing
-        files.
+        files. Returns the absolute path to the saved file as output.
 
         By default, the method will attempt to guess the intended file format based
         on the path extensions, and will raise an Exception if the file format
@@ -2238,14 +2249,14 @@ class Segments:
         one outlet per terminal segment in the network. If using one element per
         segment, extracts the values for the terminal segments prior to saving.
 
-        self.geojson(..., *, crs)
+        self.save(..., *, crs)
         Specifies the CRS of the output file. By default, uses the CRS of the flow
         direction raster used to derive the network. Use this option to export
         results in a different CRS instead. The "crs" input may be a pyproj.CRS, any
         input convertible to a pyproj.CRS, or a Raster/RasterMetadata object with a
         defined CRS.
 
-        save(..., *, driver)
+        self.save(..., *, driver)
         Specifies the file format driver to used to write the vector feature file.
         Uses this format regardless of the file extension. You can call:
             >>> pfdf.utils.driver.vectors()
@@ -2274,10 +2285,13 @@ class Segments:
                 to prevent overwriting.
             driver: The name of the file-format driver to use when writing the
                 vector feature file. Uses this driver regardless of file extension.
+
+        Outputs:
+            Path: The path to the saved file
         """
 
         # Validate and get features as geojson
-        path = validate.output_path(path, overwrite)
+        path = validate.output_file(path, overwrite)
         collection, property_schema, crs = _geojson.features(
             self, type, properties, crs
         )
@@ -2298,3 +2312,4 @@ class Segments:
         records = collection["features"]
         with fiona.open(path, "w", driver=driver, crs=crs, schema=schema) as file:
             file.writerecords(records)
+        return path

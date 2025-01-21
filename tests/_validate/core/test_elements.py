@@ -124,7 +124,7 @@ class TestFirstFailure:
         passed[-1] = False
         index, value = validate._first_failure(passed, araster, mask)
         assert np.array_equal(index, [1, 3])
-        assert value == 8
+        assert value == "8.0"
 
 
 #####

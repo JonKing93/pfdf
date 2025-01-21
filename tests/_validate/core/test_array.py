@@ -66,7 +66,7 @@ class TestDtype:
 
     @pytest.mark.parametrize(
         "allowed, string",
-        [(np.bool_, "numpy.bool_"), ([np.floating, np.bool_], "numpy.floating")],
+        [(np.bool_, "numpy.bool"), ([np.floating, np.bool_], "numpy.floating")],
     )
     def test_failed(self, allowed, string, assert_contains):
         with pytest.raises(TypeError) as error:
@@ -105,11 +105,18 @@ class TestArray:
         output = validate.array(a, "")
         assert np.array_equal(a, output)
 
-    def test_empty(_, assert_contains):
+    def test_invalid_empty(_, assert_contains):
         a = np.array([])
         with pytest.raises(EmptyArrayError) as error:
             validate.array(a, "test name")
         assert_contains(error, "test name")
+
+    def test_valid_empty(_):
+        a = np.array([])
+        assert 0 in a.shape
+        output = validate.array(a, "", allow_empty=True)
+        assert np.array_equal(output, [])
+        assert 0 in output.shape
 
     def test_dtype(_):
         a = np.arange(0, 10, dtype=float)
@@ -177,7 +184,7 @@ class TestScalar:
     def test_dtype_failed(self, assert_contains):
         a = np.array(4, dtype=int)
         allowed = np.bool_
-        string = "numpy.bool_"
+        string = "numpy.bool"
         with pytest.raises(TypeError) as error:
             validate.scalar(a, self.name, dtype=allowed)
         assert_contains(error, self.name, string)
@@ -226,15 +233,20 @@ class TestVector:
     def test_dtype_failed(self, assert_contains):
         a = np.arange(0, 5, dtype=int)
         allowed = np.bool_
-        string = "numpy.bool_"
+        string = "numpy.bool"
         with pytest.raises(TypeError) as error:
             validate.vector(a, self.name, dtype=allowed)
         assert_contains(error, self.name, string)
 
-    def test_empty(self, assert_contains):
+    def test_invalid_empty(self, assert_contains):
         with pytest.raises(EmptyArrayError) as error:
             validate.vector([], self.name)
         assert_contains(error, self.name)
+
+    def test_valid_empty(self):
+        output = validate.vector([], "", allow_empty=True)
+        assert output.shape == (0,)
+        assert np.array_equal(output, [])
 
     def test_ND_failed(self, assert_contains):
         a = np.arange(0, 10).reshape(2, 5)
@@ -305,7 +317,7 @@ class TestMatrix:
     def test_dtype_failed(self, assert_contains):
         a = np.arange(0, 10, dtype=int)
         allowed = np.bool_
-        string = "numpy.bool_"
+        string = "numpy.bool"
         with pytest.raises(TypeError) as error:
             validate.matrix(a, self.name, dtype=allowed)
         assert_contains(error, self.name, string)

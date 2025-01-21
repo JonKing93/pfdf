@@ -58,6 +58,7 @@ from pysheds.grid import Grid
 
 import pfdf.segments._validate as validate
 from pfdf import watershed
+from pfdf._utils.patches import NodataPatch
 
 if typing.TYPE_CHECKING:
     from typing import Optional
@@ -163,11 +164,12 @@ def chunk_raster(
     grid = Grid.from_raster(fdir)
 
     # Get catchment mask for each basin. Use to assign pixel values
-    for id, (row, col) in zip(ids, outlets, strict=True):
-        catchment = grid.catchment(
-            fdir=fdir, x=col, y=row, xytype="index", **watershed._FLOW_OPTIONS
-        )
-        raster[catchment] = id
+    with NodataPatch():
+        for id, (row, col) in zip(ids, outlets, strict=True):
+            catchment = grid.catchment(
+                fdir=fdir, x=col, y=row, xytype="index", **watershed._FLOW_OPTIONS
+            )
+            raster[catchment] = id
     return raster
 
 
