@@ -2,10 +2,10 @@
 A class to manage raster metadata
 ----------
 This module provides the "RasterMetadata" class, which pfdf uses to manage raster
-metadata. This metadata includes spatial information (such as the CRS, Transfrom, and 
+metadata. This metadata includes spatial information (such as the CRS, Transfrom, and
 BoundingBox), and also information on a raster's data array (shape, dtype, and
 NoData value). The class does not record the data array directly, so can be used to
-manage metadata without needing to load and/or manipulate large data arrays. Please see 
+manage metadata without needing to load and/or manipulate large data arrays. Please see
 the class docstring for additional details.
 ----------
 Class:

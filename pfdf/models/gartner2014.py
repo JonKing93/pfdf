@@ -2,11 +2,11 @@
 gartner2014  Functions that implement the debris-flow volume models of Gartner et al., 2014
 ----------
 This module contains functions that solve the two debris-flow volume models
-presented as Equations 2 and 3 in Gartner et al., 2014 (see citation below). 
+presented as Equations 2 and 3 in Gartner et al., 2014 (see citation below).
 In brief, these are an emergency assessment, and a long-term assessment model.
 
 CITATION:
-Gartner, J. E., Cannon, S. H., & Santi, P. M. (2014). Empirical models for 
+Gartner, J. E., Cannon, S. H., & Santi, P. M. (2014). Empirical models for
 predicting volumes of sediment deposited by debris flows and sediment-laden floods
  in the transverse ranges of southern California. Engineering Geology, 176, 45-56.
 https://doi.org/10.1016/j.enggeo.2014.04.008
@@ -420,7 +420,7 @@ def _validate_intensity(I, Iname):
 
 
 def _validate_parameters(
-    parameters: dict[str, Any]
+    parameters: dict[str, Any],
 ) -> tuple[ValidatedParameters, nRuns]:
     """Checks that parameters are real-valued vectors with broadcastable shapes.
     Returns the number of runs and a tuple of validated arrays"""

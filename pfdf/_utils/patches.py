@@ -2,8 +2,8 @@
 Context manager to monkey-patch pysheds 0.4 for numpy 2+
 ----------
 When numpy updated to 2.0, it changed the API for the `can_cast` function. This change
-broke the NoData dtype checks in pysheds 0.4. This module provides a context manager 
-that swaps out the affected pysheds function with a patched version until a fix can be 
+broke the NoData dtype checks in pysheds 0.4. This module provides a context manager
+that swaps out the affected pysheds function with a patched version until a fix can be
 released by pysheds.
 ----------
 Contents:

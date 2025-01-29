@@ -7,7 +7,7 @@ National Map, as well as soil KF-factors and soil thickness data from the STATSG
 characteristic archive. Additional datasets may also be added upon request.
 
 Currently, the package is organized into the `tnm` subpackage (used to access products
-from The National Map - including DEMs, HUCs, and low-level APIs), and the `statsgo` 
+from The National Map - including DEMs, HUCs, and low-level APIs), and the `statsgo`
 module (used to access the soil characteristic archive).
 ----------
 Contents:

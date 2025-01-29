@@ -2,7 +2,7 @@
 Build and manage stream segment networks
 ----------
 This subpackage contains modules used to implement the "Segments" class, which
-provides methods for managing the stream segments in a drainage network. Common 
+provides methods for managing the stream segments in a drainage network. Common
 operations include:
 
     * Building a stream segment network
@@ -10,7 +10,7 @@ operations include:
     * Calculating values for each segment in the network, and
     * Exporting the network (and associated data value) to file or GeoJSON
 
-Please see the documentation of the Segments class for details on implementing 
+Please see the documentation of the Segments class for details on implementing
 these procedures.
 ----------
 Class:

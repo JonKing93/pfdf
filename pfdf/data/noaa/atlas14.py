@@ -1,8 +1,8 @@
 """
 Acquire data from NOAA Atlas 14
 ----------
-This module provides functions to access precipitation frequency estimates (PFEs) from 
-NOAA Atlas 14. Most users will want to use the `download` command, which returns a .csv 
+This module provides functions to access precipitation frequency estimates (PFEs) from
+NOAA Atlas 14. Most users will want to use the `download` command, which returns a .csv
 file with PFEs at a given lat-lon coordinate. This module also provides commands that
 return API URLs, which advanced users may find useful for generating custom queries.
 ----------

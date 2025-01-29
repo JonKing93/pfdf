@@ -8,7 +8,7 @@ which are often used to build water and human-development masks, and see the LAN
 data portal for descriptions of additional products: https://landfire.gov/data
 
 Most users will want to start with the `read` and/or `download` functions. The read
-function can be used to stream data from one LANDFIRE raster layer within a bounding 
+function can be used to stream data from one LANDFIRE raster layer within a bounding
 box - the read data is returned as a Raster object. Alternatively, use the `download`
 command to save a product to the local file system. Unlike the `read` function, the
 `download` command can be used to acquire datasets derived from vector features. You can

@@ -2,7 +2,7 @@
 Functions that implement raster watershed analyses
 ----------
 The watershed module provides functions that implement watershed analyses using
-rasters derived from a digital elevation model (DEM) raster. Note that the 
+rasters derived from a digital elevation model (DEM) raster. Note that the
 functions in this module are for raster-wide analyses. Please see the "segments"
 module if you are instead interested in computing values for individual stream
 segments or stream segment basins.
@@ -19,7 +19,7 @@ Most workflows will require flow slopes, so we recommend using a properly
 georeferenced DEM whenever possible.
 
 NODATA VALUES:
-This module relies on the pysheds library, which will assign a default NoData 
+This module relies on the pysheds library, which will assign a default NoData
 value of 0 to any raster that does not have a NoData value. This can cause
 unexpected results when a DEM has valid 0 values and does not have a NoData value.
 
@@ -31,7 +31,7 @@ the TauDEM style. For a given raster cell, the TauDEM style is as follows:
     5 X 1
     6 7 8
 
-where X represents the raster cell, and the numbers represent flow to the 
+where X represents the raster cell, and the numbers represent flow to the
 adjacent neighbor.
 ----------
 Functions:
