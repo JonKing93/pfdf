@@ -2,8 +2,8 @@
 Type aliases for the post-wildfire debris-flow package
 ----------
 The typing subpackage holds modules with type aliases used across multiple modules in
-the pfdf package. Note that these modules do not provide *every* type alias used within 
-the package. Rather, they provides common aliases that are across multiple modules. As 
+the pfdf package. Note that these modules do not provide *every* type alias used within
+the package. Rather, they provides common aliases that are across multiple modules. As
 such, individual modules may still define aliases unique to their implementations.
 ----------
 Modules:

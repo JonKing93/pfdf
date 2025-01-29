@@ -2,7 +2,7 @@
 Utilities for acquiring common datasets
 ----------
 This package contains routines used to acquire datasets commonly used with pfdf. Users
-should not feel obligated to use these specific datasets. Instead, this package is 
+should not feel obligated to use these specific datasets. Instead, this package is
 intended to simplify the data acquisition process for certain common workflows. This
 package is by no means comprehensive, and we welcome suggestions for additional
 datasets. Please contact the developers if you'd like to see additional datasets

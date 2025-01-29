@@ -3,7 +3,7 @@ Functions for working with pyproj.CRS objects
 ----------
 The pfdf package uses pyproj.CRS objects to represent coordinate reference systems for
 raster and vector datasets. The package also allows some datasets to lack CRS
-metadata. This is to support cases where a CRS can be inferred from another dataset, 
+metadata. This is to support cases where a CRS can be inferred from another dataset,
 such as for a numpy array derived from a Raster object. This module contains utility
 functions for working with pyproj.CRS objects and for cases where CRS metadata may
 be either a pyproj.CRS object or None.
@@ -17,7 +17,7 @@ Axes:
     get_axis        - Returns the X or Y axis for a CRS
     isx             - True if a CRS axis proceeds along an east-west diration
     isy             - True if a CRS axis proceeds along a north-south direction
-    
+
 Supported Units:
     supported_linear_units  - Returns a list of supported linear (projected) unit systems
     supported_angular_units - Returns a list of supported angular (geographic) unit systems

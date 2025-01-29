@@ -5,7 +5,7 @@ Classes:
     CRS         - Coordinate reference system (alias for pyproj.CRS)
     Transform   - Affine transform
     BoundingBox - Rectangular bounding box
-    
+
 Modules:
     crs         - Utility functions for working with pyproj.CRS objects
 

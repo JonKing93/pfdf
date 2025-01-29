@@ -5,12 +5,12 @@ This module contains functions used to efficiently build a basin raster. Buildin
 a basin raster is an expensive CPU-bound operation, so the module uses the
 multiprocessing library to parallelize this operation via a process Pool when
 appropriate. Multiprocessing imposes several restrictions on user code, so the
-user must explicitly request parallelization before a process pool will be 
+user must explicitly request parallelization before a process pool will be
 activated. When multiprocess is not requested, or not possible (i.e. only 1
 available CPU), the module builds the basin raster sequentially.
 
 For the sake of parallelization, it is useful to distinguish between raster
-*groups* and *chunks*. A group is a set of basins for which each raster has 
+*groups* and *chunks*. A group is a set of basins for which each raster has
 the same number of terminal outlets flowing into it. As such, it is impossible
 for the basins in a group to flow into one another, and so the basins in a group
 may be processed in parallel. The groups themselves are processed sequentially.
@@ -22,16 +22,16 @@ By contrast, a chunk is a set of basins that are processed sequentially. When
 running in parallel, each group is split into a number of chunks equal to the
 number of parallel processes. This ensures that the number of parallel basin
 rasters matches the number of processes, rather than the (potentially very large)
-number of terminal basins. When the basin raster is not built in parallel, 
-the operation processes all the basins as a single chunk. In this context, it is 
-important to note that the final processed basins have priority over the initial 
-basins, so basins should be processed from upstream to downstream (the opposite 
+number of terminal basins. When the basin raster is not built in parallel,
+the operation processes all the basins as a single chunk. In this context, it is
+important to note that the final processed basins have priority over the initial
+basins, so basins should be processed from upstream to downstream (the opposite
 order as groups) to ensure that shared pixels are assigned to downstream basins.
 
 Each process in the parallel pool is initialized with a flow direction raster.
 This reduces communication overhead when reusing the pool for multiple groups.
 We pass pfdf.raster.Raster objects, rather than pysheds rasters, because pysheds
-objects do not appear to initialize correctly in parallel Processes (a limitation 
+objects do not appear to initialize correctly in parallel Processes (a limitation
 that may relate to picklability).
 ----------
 Raster builders:

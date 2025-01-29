@@ -4,7 +4,7 @@ Functions that validate URLs
 Functions:
     url     - Checks input is a string with a URL scheme
     http    - Checks the connection to an http(s) URL using requests.head
-    timeout - Checks that a connection timeout option is valid 
+    timeout - Checks that a connection timeout option is valid
 """
 
 from __future__ import annotations

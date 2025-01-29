@@ -5,15 +5,15 @@ This module implements the combined relative hazard classification model present
 in Cannon et al., 2010 (see citation below). This model determines a relative
 hazard class for a debris flow by considering both the likelihood and potential
 sediment volume of the debris flow. In brief, the model classifies both likelihood
-and volume hazards and assigns a score to each class. These two scores are then 
-added together, and the combined score is used to determine a final hazard 
+and volume hazards and assigns a score to each class. These two scores are then
+added together, and the combined score is used to determine a final hazard
 classification.
 
 CITATION:
-Cannon, S. H., Gartner, J. E., Rupert, M. G., Michael, J. A., Rea, A. H., 
-& Parrett, C. (2010). Predicting the probability and volume of postwildfire debris 
+Cannon, S. H., Gartner, J. E., Rupert, M. G., Michael, J. A., Rea, A. H.,
+& Parrett, C. (2010). Predicting the probability and volume of postwildfire debris
 flows in the intermountain western United States. Geological Society of America
-Bulletin, 122(1-2), 127-144. 
+Bulletin, 122(1-2), 127-144.
 https://doi.org/10.1130/B26459.1
 ----------
 User Functions:

@@ -8,12 +8,12 @@ product records, so in addition to generic API queries, this module provides fun
 to (1) return the total number of products in a query, and (2) return product info as
 JSON dicts.
 
-The TNM API uses a paging+offset system to limit the total number of products returned 
+The TNM API uses a paging+offset system to limit the total number of products returned
 per query. As such, the API will never return more than 1000 products per query, even if
 the query encompasses many more products. The paging system also inherits various quirks
 from the ScienceBase API, such as the requirement that the `max` paging be a multiple
 of 5 whenever `offset` is greater than 100. To circumvent these limitations, we
-recommend most developers work via the "products" function. This function handles most 
+recommend most developers work via the "products" function. This function handles most
 of the paging functionality under-the-hood, implementing multiple API calls as allowed
 and needed, thereby allowing developers to focus on simply acquiring needed products.
 
@@ -24,7 +24,7 @@ troubleshooting API responses, and is not recommended for general workflows.
 
 You can find additional API documentation here: https://apps.nationalmap.gov/tnmaccess/
 Note that this module specifically leverages the "Products" service. See the
-documentation of that service for lists of fully qualified dataset names, supported file 
+documentation of that service for lists of fully qualified dataset names, supported file
 formats, and other parameters.
 ----------
 Functions:

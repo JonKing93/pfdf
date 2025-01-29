@@ -3,7 +3,7 @@ Acquire locations of debris retainment features
 ----------
 This package contains modules to help acquire datasets indicating the locations of
 debris retainment features (sometimes referred to as "debris basins"). Currently, this
-package is limited to debris retainments in Los Angeles County CA, but additional 
+package is limited to debris retainments in Los Angeles County CA, but additional
 datasets may be added upon request.
 ----------
 Modules:

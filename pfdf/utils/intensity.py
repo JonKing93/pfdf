@@ -2,15 +2,15 @@
 Functions for converting between rainfall accumulations and intensities
 ----------
 This module contains functions that convert between rainfall accumulations
-and intensities. In pfdf, the models.staley2017 (s17) module works strictly with 
+and intensities. In pfdf, the models.staley2017 (s17) module works strictly with
 rainfall accumulations, defined as millimeters accumulated over a duration (typically
-15, 30, or 60 minutes). However, many users find it useful to instead work with 
-rainfall intensities, which are typically represented as mm/hour. The functions 
+15, 30, or 60 minutes). However, many users find it useful to instead work with
+rainfall intensities, which are typically represented as mm/hour. The functions
 in this module help convert between these two formats.
 
 These functions are specifically designed to support the s17 module. The
-"to_accumulation" function converts from an input vector rainfall intensities to 
-a vector of accumulations. By contrast, the "from_accumulation" function is intended 
+"to_accumulation" function converts from an input vector rainfall intensities to
+a vector of accumulations. By contrast, the "from_accumulation" function is intended
 to convert the output of the s17.likelihood fuction to intensities. This function
 broadcasts a vector of durations along the second dimension of an accumulation
 array in order to convert the array values to intensities.

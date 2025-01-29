@@ -19,8 +19,8 @@ implement the M1, M2, and M3 models from Staley et al., 2017. Users can use the
 Note that "mask" function searches for burn-severity levels by name, and users
 can inspect the supported names using the "classification" function.
 
-We recommend using field-verified BARC4-like burn severity data when possible, 
-but these maps are not always available. If this is the case, users can use the 
+We recommend using field-verified BARC4-like burn severity data when possible,
+but these maps are not always available. If this is the case, users can use the
 "estimate" function to estimate a BARC4-like burn severity raster from dNBR,
 BARC256, or other burn severity measure.
 ----------

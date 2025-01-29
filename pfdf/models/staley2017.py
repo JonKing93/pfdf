@@ -1,8 +1,8 @@
 """
 staley2017  Implements the logistic regression models presented in Staley et al., 2017
 ----------
-This module implements the logistic regression models presented in Staley et al., 2017 
-(see citation below). These models describe debris-flow likelihood as a function 
+This module implements the logistic regression models presented in Staley et al., 2017
+(see citation below). These models describe debris-flow likelihood as a function
 of terrain (T), fire burn severity (F), soil (S), and rainfall accumulation (R).
 The models can also be inverted to solve for rainfall accumulation given design
 probability levels for debris-flow events.
@@ -12,9 +12,9 @@ paper. These classes provide methods to return the parameters, and compute the
 variables specific to each model.
 
 CITATION:
-Staley, D. M., Negri, J. A., Kean, J. W., Laber, J. L., Tillery, A. C., & 
+Staley, D. M., Negri, J. A., Kean, J. W., Laber, J. L., Tillery, A. C., &
 Youberg, A. M. (2017). Prediction of spatially explicit rainfall intensity-duration
-thresholds for post-fire debris-flow generation in the western United States. 
+thresholds for post-fire debris-flow generation in the western United States.
 Geomorphology, 278, 149-162.
 https://doi.org/10.1016/j.geomorph.2016.10.019
 ----------

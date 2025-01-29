@@ -9,8 +9,8 @@ We recommend the 1/3 arc-second as a good starting point for most pfdf users.
 Most users should use the `read` function to acquire DEM data. This function will read
 data from a DEM dataset within a bounding box and return the dataset as a Raster object.
 Although DEMs are often distributed as tiles, the `read` function handles all tiling
-and mosaicing steps automatically. As such, users do not need to know whether their area 
-of interest spans one or more tiles - instead, you can simply provide a bounding box, 
+and mosaicing steps automatically. As such, users do not need to know whether their area
+of interest spans one or more tiles - instead, you can simply provide a bounding box,
 and the `read` routine will handle the rest.
 
 This module identifies DEM datasets using short resolution strings, as opposed to
