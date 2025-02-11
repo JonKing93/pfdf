@@ -1,5 +1,5 @@
-pfdf.severity module
-====================
+severity module
+===============
 
 .. _pfdf.severity:
 

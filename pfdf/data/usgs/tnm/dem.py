@@ -476,7 +476,7 @@ def read(
         timeout: The maximum number of seconds to connect to the TNM server
 
     Outputs:
-        Raster: The read data from the DEM dataset
+        Raster: The data read from the DEM dataset
     """
 
     # Validate

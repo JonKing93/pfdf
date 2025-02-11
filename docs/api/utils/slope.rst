@@ -1,5 +1,5 @@
-pfdf.utils.slope module
-=======================
+utils.slope module
+==================
 
 .. _pfdf.utils.slope:
 

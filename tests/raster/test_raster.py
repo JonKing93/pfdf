@@ -1565,7 +1565,6 @@ class TestRepr:
         output = repr(raster)
         expected = (
             "Raster:\n"
-            "    Name: raster\n"
             f"    Shape: {araster.shape}\n"
             "    Dtype: float32\n"
             "    NoData: None\n"

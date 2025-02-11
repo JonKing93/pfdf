@@ -39,8 +39,9 @@ if typing.TYPE_CHECKING:
 def download(
     layer: str,
     bounds: BoundsInput,
-    path: Optional[Pathlike] = None,
     *,
+    parent: Optional[Pathlike] = None,
+    name: Optional[str] = None,
     timeout: Optional[timeout] = 10,
     max_job_time: Optional[float] = 60,
     refresh_rate: float = 15,
@@ -57,14 +58,17 @@ def download(
     domain.
 
     By default, this command will download data into a folder named "landfire-<layer>"
-    within the current directory, but see below for other naming options. Raises an
+    within the current directory, but see below for other path options. Raises an
     error if the path already exists. Returns the path to the data folder upon
     successful completion of a download.
 
-    download(..., path)
-    Specifies the path where the downloaded data folder should be saved. If a relative
-    path, then the path is interpreted relative to the current directory. Raises an
-    error if the path already exists.
+    download(..., *, parent)
+    download(..., *, name)
+    Options for downloading the the data folder. The `parent` option is the path to the
+    parent folder where the data folder should be downloaded. If a relative path, then
+    `parent` is interpreted relative to the current folder. Use `name` to set the name
+    of the downloaded data folder. Rases an error if the path to the data folder already
+    exists.
 
     download(..., *, max_job_time)
     download(..., *, refresh_rate)
@@ -93,8 +97,9 @@ def download(
     Inputs:
         layer: The name of a LFPS data layer
         bounds: The bounding box in which data should be downloaded
-        path: The path where the downloaded data folder should be saved. Defaults to
-            "landfire-<layer>" in the current directory.
+        parent: The path to the parent folder where the data folder should be downloaded.
+            Defaults to the current folder.
+        name: The name for the downloaded data folder. Defaults to landfire-<layer>
         max_job_time: A maximum allowed time (in seconds) for a job to complete processing
         refresh_rate: The frequency (in seconds) at which this command should check the
             status of a submitted job.
@@ -107,7 +112,9 @@ def download(
     # Validate. Only a single layer is supported.
     bounds = validate.bounds(bounds, as_string=False)
     layer = _validate.layer(layer)
-    path = cvalidate.output_folder(path, default=f"landfire-{layer}")
+    path = cvalidate.download_path(
+        parent, name, default_name=f"landfire-{layer}", overwrite=False
+    )
 
     # Validate job query parameters
     max_job_time = _validate.max_job_time(max_job_time)
@@ -193,18 +200,19 @@ def read(
 
     # Download the data layer into a temp folder
     with TemporaryDirectory() as temp:
-        folder = Path(temp) / "data"
+        parent = Path(temp)
         download(
             layer,
             bounds,
-            folder,
+            parent=parent,
+            name="data",
             timeout=timeout,
             max_job_time=max_job_time,
             refresh_rate=refresh_rate,
         )
 
         # Ensure the file was a raster
-        path = folder / "data.tif"
+        path = parent / "data" / "data.tif"
         if not path.exists():
             raise FileNotFoundError(
                 f"Could not locate a raster dataset for the layer ({layer}). "

@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - tutorials
   - deploy
 
 default:
@@ -79,6 +80,34 @@ test:
         coverage_format: cobertura
         path: coverage.xml
 
+webtest:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  extends: .latest-python
+  script:
+    - poe webtest
+
+#####
+# Tutorials
+#####
+
+check-tutorials:
+  stage: tutorials
+  extends: .latest-python
+  script:
+    - poe lint-tutorials
+
+run-tutorials:
+  stage: tutorials
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == 'push'
+      when: manual
+  extends: .latest-python
+  script:
+    - poe refresh-tutorials
+
 #####
 # Deploy: Packaging and sphinx docs
 #####
@@ -88,9 +117,7 @@ pages:
   when: manual
   extends: .latest-python
   script:
-    - poe download-tutorials
-    - poe figures
-    - poe docs
+    - poe docs-all
   artifacts:
     paths:
     - public

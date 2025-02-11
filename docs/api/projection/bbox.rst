@@ -1,18 +1,14 @@
-pfdf.projection.bbox module
-===========================
+projection.BoundingBox class
+============================
 
 .. _pyproj.CRS: https://pyproj4.github.io/pyproj/stable/examples.html
 
-.. _pfdf.projection.bbox:
-
-.. py:module:: pfdf.projection.bbox
-
-.. _pfdf.projection.bbox.BoundingBox:
+.. _pfdf.projection.BoundingBox:
 
 .. py:class:: BoundingBox
-    :module: pfdf.projection.bbox
+    :module: pfdf.projection
 
-    The *BoundingBox* class implements rectangular bounding boxes. These objects are typically used to locate the edges of raster datasets. The ``left``, ``right``, ``top``, and ``bottom`` properties record the coordinates of a *BoundingBox* object's edges. A box may optionally have an associated CRS (via the ``crs`` property) which provides an absolute reference frame for the coordinates. *BoundingBox* objects also include methods to locate a box's center, measure a box's height or width, reproject the box into other coordinate systems, and convert the box to a :ref:`Transform object <pfdf.projection.transform.Transform>`.
+    The *BoundingBox* class implements rectangular bounding boxes. These objects are typically used to locate the edges of raster datasets. The ``left``, ``right``, ``top``, and ``bottom`` properties record the coordinates of a *BoundingBox* object's edges. A box may optionally have an associated CRS (via the ``crs`` property) which provides an absolute reference frame for the coordinates. *BoundingBox* objects also include methods to locate a box's center, measure a box's height or width, reproject the box into other coordinate systems, and convert the box to a :ref:`Transform object <pfdf.projection.Transform>`.
     
     .. dropdown:: Properties
 
@@ -58,7 +54,7 @@ pfdf.projection.bbox module
             * - **Orientation**
               -
             * - orientation   
-              - The Cartesian quadrant of the box's orientation. See :ref:`below <pfdf.projection.bbox.BoundingBox.orient>` for details.
+              - The Cartesian quadrant of the box's orientation. See :ref:`below <pfdf.projection.BoundingBox.orient>` for details.
             * -
               - 
             * - **CRS**
@@ -94,77 +90,85 @@ pfdf.projection.bbox module
               -
             * - **Object Creation**
               -
-            * - :ref:`__init__ <pfdf.projection.bbox.BoundingBox.__init__>`
+            * - :ref:`__init__ <pfdf.projection.BoundingBox.__init__>`
               - Creates a new BoundingBox from edge coordinates and optional CRS
-            * - :ref:`from_list <pfdf.projection.bbox.BoundingBox.from_list>`
+            * - :ref:`from_list <pfdf.projection.BoundingBox.from_list>`
               - Creates a BoundingBox from a list or tuple of edge coordinates and optional CRS
-            * - :ref:`from_dict <pfdf.projection.bbox.BoundingBox.from_dict>`
+            * - :ref:`from_dict <pfdf.projection.BoundingBox.from_dict>`
               - Creates a BoundingBox from a dict
-            * - :ref:`copy <pfdf.projection.bbox.BoundingBox.copy>`
+            * - :ref:`copy <pfdf.projection.BoundingBox.copy>`
               - Returns a copy of the current BoundingBox
             * -
               -
             * - **Dunders**
               -
-            * - :ref:`__repr__ <pfdf.projection.bbox.BoundingBox.__repr__>`
+            * - :ref:`__repr__ <pfdf.projection.BoundingBox.__repr__>`
               - A string representing the BoundingBox
-            * - :ref:`__eq__ <pfdf.projection.bbox.BoundingBox.__eq__>`
+            * - :ref:`__eq__ <pfdf.projection.BoundingBox.__eq__>`
               - True if two BoundingBox objects have the same edge coordinates and CRS
             * -
               -
             * - **Axis Lengths**
               -
-            * - :ref:`xdisp <pfdf.projection.bbox.BoundingBox.xdisp>`
+            * - :ref:`xdisp <pfdf.projection.BoundingBox.xdisp>`
               - Right minus Left
-            * - :ref:`ydisp <pfdf.projection.bbox.BoundingBox.ydisp>`
+            * - :ref:`ydisp <pfdf.projection.BoundingBox.ydisp>`
               - Top minus bottom
-            * - :ref:`width <pfdf.projection.bbox.BoundingBox.width>`
+            * - :ref:`width <pfdf.projection.BoundingBox.width>`
               - Absolute value of xdisp
-            * - :ref:`height <pfdf.projection.bbox.BoundingBox.height>`
+            * - :ref:`height <pfdf.projection.BoundingBox.height>`
               - Absolute value of ydisp
             * -
               -
             * - **Misc**
               -
-            * - :ref:`orient <pfdf.projection.bbox.BoundingBox.orient>`
+            * - :ref:`orient <pfdf.projection.BoundingBox.orient>`
               - Returns a copy of the box in the requested orientation
-            * - :ref:`buffer <pfdf.projection.bbox.BoundingBox.buffer>`
+            * - :ref:`buffer <pfdf.projection.BoundingBox.buffer>`
               - Buffers the edges of the box by the indicated distance(s)
             * -
               -
             * - **Reprojection**
               -
-            * - :ref:`utm_zone <pfdf.projection.bbox.BoundingBox.utm_zone>`
+            * - :ref:`utm_zone <pfdf.projection.BoundingBox.utm_zone>`
               - Returns the best UTM CRS for the box's center
-            * - :ref:`reproject <pfdf.projection.bbox.BoundingBox.reproject>`
+            * - :ref:`reproject <pfdf.projection.BoundingBox.reproject>`
               - Returns a copy of the box projected into a different CRS
-            * - :ref:`to_utm <pfdf.projection.bbox.BoundingBox.to_utm>`
+            * - :ref:`to_utm <pfdf.projection.BoundingBox.to_utm>`
               - Returns a copy of the box projected into the best UTM zone
-            * - :ref:`to_4326 <pfdf.projection.bbox.BoundingBox.to_4326>`
+            * - :ref:`to_4326 <pfdf.projection.BoundingBox.to_4326>`
               - Returns a copy of the box projected into EPSG:4326
             * -
               -
-            * - **To Transform**
+            * - **CRS Operations**
               -
-            * - :ref:`dx <pfdf.projection.bbox.BoundingBox.dx>`
+            * - :ref:`match_crs <pfdf.projection.BoundingBox.match_crs>`
+              - Returns a copy of the box compatible with an input CRS
+            * - :ref:`remove_crs <pfdf.projection.BoundingBox.remove_crs>`
+              - Returns a copy of the BoundingBox without a CRS
+            * -
+              -
+            * - **Transform Conversion**
+              -
+            * - :ref:`dx <pfdf.projection.BoundingBox.dx>`
               - Pixel dx given a number of columns
-            * - :ref:`dy <pfdf.projection.bbox.BoundingBox.dy>`
+            * - :ref:`dy <pfdf.projection.BoundingBox.dy>`
               - Pixel dy given a number of rows
-            * - :ref:`transform <pfdf.projection.bbox.BoundingBox.transform>`
+            * - :ref:`transform <pfdf.projection.BoundingBox.transform>`
               - Converts the box to a Transform
             * -
               -
-            * - **As built-in type**
+            * - **As built-in**
               -
-            * - :ref:`tolist <pfdf.projection.bbox.BoundingBox.tolist>`
+            * - :ref:`tolist <pfdf.projection.BoundingBox.tolist>`
               - Returns the box as a list
-            * - :ref:`todict <pfdf.projection.bbox.BoundingBox.todict>`
+            * - :ref:`todict <pfdf.projection.BoundingBox.todict>`
               - Returns the box as a dict
             * -
               -
             * - **Testing**
               -
-            * - :ref:`isclose <pfdf.projection.bbox.BoundingBox.isclose>`
+            * - :ref:`isclose <pfdf.projection.BoundingBox.isclose>`
               - True if a second BoundingBox has similar values
 
 ----
@@ -211,7 +215,7 @@ Edge Tuples
 Center
 ++++++
 
-.. _pfdf.projection.bbox.BoundingBox.center:
+.. _pfdf.projection.BoundingBox.center:
 
 .. py:property:: BoundingBox.center
   
@@ -231,7 +235,7 @@ Orientation
 
 .. py:property:: BoundingBox.orientation
   
-    The Cartesian quadrant of the box's orientation. See :ref:`below <pfdf.projection.bbox.BoundingBox.orient>` for details.
+    The Cartesian quadrant of the box's orientation. See :ref:`below <pfdf.projection.BoundingBox.orient>` for details.
 
 
 CRS
@@ -275,7 +279,7 @@ Units per meter
 Object Creation
 ---------------
 
-.. _pfdf.projection.bbox.BoundingBox.__init__:
+.. _pfdf.projection.BoundingBox.__init__:
 
 .. py:method:: BoundingBox.__init__(self, left, bottom, right, top, crs = None)
 
@@ -295,7 +299,7 @@ Object Creation
     :Outputs: *BoundingBox*: The new BoundingBox object
 
 
-.. _pfdf.projection.bbox.BoundingBox.from_dict:
+.. _pfdf.projection.BoundingBox.from_dict:
 
 .. py:method:: BoundingBox.from_dict(cls, input)
 
@@ -312,7 +316,7 @@ Object Creation
     :Outputs: *BoundingBox* -- A BoundingBox created from the input dict
 
 
-.. _pfdf.projection.bbox.BoundingBox.from_list:
+.. _pfdf.projection.BoundingBox.from_list:
 
 .. py:method:: BoundingBox.from_list(cls, input)
 
@@ -329,7 +333,7 @@ Object Creation
 
     :Outputs: *BoundingBox* -- A BoundingBox object created from the list
 
-.. _pfdf.projection.bbox.BoundingBox.copy:
+.. _pfdf.projection.BoundingBox.copy:
 
 .. py:method:: BoundingBox.copy(self)
 
@@ -349,7 +353,7 @@ Object Creation
 Dunders
 -------
 
-.. _pfdf.projection.bbox.BoundingBox.__repr__:
+.. _pfdf.projection.BoundingBox.__repr__:
 
 .. py:method::  BoundingBox.__repr__(self)
 
@@ -362,7 +366,7 @@ Dunders
 
     :Output: *str* -- String representation of the BoundingBox
 
-.. _pfdf.projection.bbox.BoundingBox.__eq__:
+.. _pfdf.projection.BoundingBox.__eq__:
 
 .. py:method:: BoundingBox.__eq__(self, other)
 
@@ -382,7 +386,7 @@ Axis Lengths
 ------------
        
   
-.. _pfdf.projection.bbox.BoundingBox.xdisp:
+.. _pfdf.projection.BoundingBox.xdisp:
 
 .. py:method:: BoundingBox.xdisp(self, units = "base")
 
@@ -402,7 +406,7 @@ Axis Lengths
         *float* -- The change in X coordinate (right - left)
 
 
-.. _pfdf.projection.bbox.BoundingBox.ydisp:
+.. _pfdf.projection.BoundingBox.ydisp:
 
 .. py:method:: BoundingBox.ydisp(self, units = "base")
 
@@ -422,7 +426,7 @@ Axis Lengths
         *float* -- The change in Y coordinate (right - left)
 
 
-.. _pfdf.projection.bbox.BoundingBox.width:
+.. _pfdf.projection.BoundingBox.width:
 
 .. py:method:: BoundingBox.width(self, units = "base")
 
@@ -442,7 +446,7 @@ Axis Lengths
         *float* -- The length of the box along the X-axis
 
 
-.. _pfdf.projection.bbox.BoundingBox.height:
+.. _pfdf.projection.BoundingBox.height:
 
 .. py:method:: BoundingBox.height(self, units = "base")
 
@@ -466,7 +470,7 @@ Axis Lengths
 Orientation
 -----------
 
-.. _pfdf.projection.bbox.BoundingBox.orient:
+.. _pfdf.projection.BoundingBox.orient:
 
 .. py:method:: BoundingBox.orient(self, quadrant = 1)
         
@@ -508,7 +512,7 @@ Orientation
 Buffering
 ---------
 
-.. _pfdf.projection.bbox.BoundingBox.buffer:
+.. _pfdf.projection.BoundingBox.buffer:
 
 .. py:method:: BoundingBox.buffer(self, distance = None, units = "base", *, left = None, bottom = None, right = None, top = None)
         
@@ -548,7 +552,7 @@ Buffering
 Reprojection
 ------------
 
-.. _pfdf.projection.bbox.BoundingBox.utm_zone:
+.. _pfdf.projection.BoundingBox.utm_zone:
 
 .. py:method:: BoundingBox.utm_zone(self)
         
@@ -563,7 +567,7 @@ Reprojection
     :Outputs: *pyproj.CRS | None* -- The best UTM CRS for the box's center point
         
 
-.. _pfdf.projection.bbox.BoundingBox.reproject:
+.. _pfdf.projection.BoundingBox.reproject:
 
 .. py:method:: BoundingBox.reproject(self, crs)
         
@@ -581,7 +585,7 @@ Reprojection
     :Outputs: *BoundingBox* -- The reprojected box
         
 
-.. _pfdf.projection.bbox.BoundingBox.to_utm:
+.. _pfdf.projection.BoundingBox.to_utm:
 
 .. py:method:: BoundingBox.to_utm(self)
         
@@ -596,7 +600,7 @@ Reprojection
     :Outputs: *BoundingBox* -- The reprojected BoundingBox
         
 
-.. _pfdf.projection.bbox.BoundingBox.to_4326:
+.. _pfdf.projection.BoundingBox.to_4326:
 
 .. py:method:: BoundingBox.to_4326(self)
         
@@ -609,13 +613,53 @@ Reprojection
     Returns a copy of a BoundingBox reprojected into EPSG:4326 (often referred to as WGS 84). This method is only available when a BoundingBox has a CRS.
     
     :Outputs: *BoundingBox* -- The reprojected BoundingBox
-        
+
+
+----
+
+CRS Operations
+--------------
+
+.. _pfdf.projection.BoundingBox.match_crs:
+
+.. py:method:: BoundingBox.match_crs(self, crs)
+
+    Returns a copy of the BoundingBox whose CRS is compatible with a CRS-like input
+
+    ::
+
+        self.match_crs(crs)
+
+    Returns an object whose CRS is compatible with a CRS-like input. If the ``crs`` input is None, returns the current object. If the current object does not have a CRS, returns an object whose CRS has been updated to match the input. Otherwise, reprojects the object to match the input CRS.
+
+    :Inputs:
+        * **crs** (*CRS-like*) -- A CRS-like input or None
+
+    :Outputs: *BoundingBox* -- A BoundingBox compatible with the input CRS
+
+
+.. _pfdf.projection.BoundingBox.remove_crs:
+
+.. py:method:: BoundingBox.remove_crs(self)
+
+    Returns a copy of the current BoundingBox that does not have a CRS
+
+    ::
+
+        self.remove_crs()
+
+    Returns a copy of the current BoundingBox whose CRS is set to None.
+
+    :Outputs:
+        *BoundingBox* -- A copy of the current BoundingBox without a CRS
+
+
 ----
 
 Transform Conversion
 --------------------
 
-.. _pfdf.projection.bbox.BoundingBox.dx:
+.. _pfdf.projection.BoundingBox.dx:
 
 .. py:method:: BoundingBox.dx(self, ncols, units = "base")
         
@@ -635,7 +679,7 @@ Transform Conversion
     :Outputs: *float* -- The computed pixel spacing
         
 
-.. _pfdf.projection.bbox.BoundingBox.dy:
+.. _pfdf.projection.BoundingBox.dy:
 
 .. py:method:: BoundingBox.dy(self, nrows, units = "base")
         
@@ -655,7 +699,7 @@ Transform Conversion
     :Outputs: *float* -- The computed pixel spacing
         
 
-.. _pfdf.projection.bbox.BoundingBox.transform:
+.. _pfdf.projection.BoundingBox.transform:
 
 .. py:method:: BoundingBox.transform(self, nrows, ncols)
         
@@ -678,7 +722,7 @@ Transform Conversion
 As Built-In
 -----------
 
-.. _pfdf.projection.bbox.BoundingBox.tolist:
+.. _pfdf.projection.BoundingBox.tolist:
 
 .. py:method:: BoundingBox.tolist(self, crs = True)
 
@@ -696,7 +740,7 @@ As Built-In
 
     :Outputs: *list* -- The BoundingBox as a list
 
-.. _pfdf.projection.bbox.BoundingBox.todict:
+.. _pfdf.projection.BoundingBox.todict:
 
 .. py:method:: BoundingBox.todict(self)
 
@@ -716,7 +760,7 @@ As Built-In
 Testing
 -------
 
-.. _pfdf.projection.bbox.BoundingBox.isclose:
+.. _pfdf.projection.BoundingBox.isclose:
 
 .. py:method:: BoundingBox.isclose(self, other, rtol = 1e-5, atol = 1e-8)
 

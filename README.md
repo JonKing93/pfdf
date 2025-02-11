@@ -15,32 +15,25 @@ The pfdf (postfire debris-flow) package provides utilities intended to facilitat
 * Classify relative hazards using the methods of Cannon and others, 2010, and
 * Export results to common GIS formats (such as Shapefiles and GeoJSON)
 
-Please see the [User Guide](https://ghsc.code-pages.usgs.gov/lhp/pfdf/) for detailed usage instructions, tutorials, and the API.
+
+## Documentation
+
+Please see the [Documentation](https://ghsc.code-pages.usgs.gov/lhp/pfdf/) for detailed usage instructions, including [Tutorials](https://ghsc.code-pages.usgs.gov/lhp/pfdf/tutorials/index.html), a [User Guide](https://ghsc.code-pages.usgs.gov/lhp/pfdf/guide/index.html), and a complete reference [API](https://ghsc.code-pages.usgs.gov/lhp/pfdf/api/index.html). We recommend new users start with the tutorials.
 
 
 ## Installation
 
-Please see the [installation page](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/installation) for installation instructions.
-
-## Developer Guide
-
-Please read the [Developer Guide](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/dev-guide) if you plan on contributing code.
+See the [Installation Page](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/installation) for instructions on installing pfdf.
 
 
-## Suggested Citation
+## Contributing
 
-King, J., 2024, pfdf - Python library for postfire debris-flow hazard assessments and research, version 2.0.0: U.S. Geological Survey software release, https://doi.org/10.5066/P145OCNO
+Please see the [Contribution Guidelines](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/contributing.html) if you would like to contribute to pfdf.
 
 
-## DOI and IPDS Record
+## Citation, DOI, IP number
 
-The following table provides the DOI and IPDS record associated with each release:
-
-| Release        | DOI                              | IP Number |
-| -------        | ---                              | --------- |
-| 2.0.0 (latest) | https://doi.org/10.5066/P145OCNO | IP-169248 |
-| 1.1.0          | https://doi.org/10.5066/P13RSBEE | IP-163756 |
-| 1.0.0          | https://doi.org/10.5066/P9JO58MJ | IP-159652 |
+See the [Citation Page](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/citation.html) for a suggested citation, as well as the DOI and IP number associated with each release.
 
 
 ## References

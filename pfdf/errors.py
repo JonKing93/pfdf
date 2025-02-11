@@ -31,6 +31,17 @@ Vector Features:
 
 Models:
     DurationsError          - When queried rainfall durations are not recognized
+
+Data Acquisition:
+    DataAPIError            - When an API response is not valid
+    InvalidJSONError        - When an API JSON is not valid
+    MissingAPIFieldError    - When an API JSON response is missing a required field
+    TNMError                - Errors unique to the TNM API
+    TooManyTNMProductsError - When a TNM query has too many search results
+    NoTNMProductsError      - When there are no TNM products in the search results
+    LFPSError               - Errors unique to the LANDFIRE LFSP API
+    InvalidLFPSJobError     - When a LANDFIRE LFPS job cannot be used for a data read
+    LFPSJobTimeoutError     - When a LANDFIRE LFPS job takes too long to execute
 """
 
 #####
@@ -151,6 +162,10 @@ class DataAPIError(Exception):
     "When an API response is not valid"
 
 
+class InvalidJSONError(DataAPIError):
+    "When API JSON is not valid"
+
+
 class MissingAPIFieldError(DataAPIError, KeyError):
     "When an API JSON response is missing a required field"
 
@@ -165,10 +180,6 @@ class TooManyTNMProductsError(TNMError):
 
 class NoTNMProductsError(TNMError):
     "When there are no TNM products in the search results"
-
-
-class InvalidJSONError(DataAPIError):
-    "When API JSON is not valid"
 
 
 class LFPSError(DataAPIError):

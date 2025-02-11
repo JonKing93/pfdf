@@ -1,5 +1,5 @@
-pfdf.segments subpackage
-========================
+segments package
+================
 
 .. _pfdf.segments:
 
@@ -58,6 +58,8 @@ pfdf.segments subpackage
               - The affine Transform of the stream segment raster
             * - bounds
               - The BoundingBox of the stream segment raster
+            * - located_basins
+              - True when the object has pre-located outlet basins
 
 
 
@@ -80,7 +82,7 @@ pfdf.segments subpackage
               - 
             * - :ref:`__len__ <pfdf.segments.Segments.__len__>`
               - The number of segments in the network
-            * - :ref:`__str__ <pfdf.segments.Segments.__str__>`
+            * - :ref:`__repr__ <pfdf.segments.Segments.__repr__>`
               - A string representing the network
             * - :ref:`__geo_interface__ <pfdf.segments.Segments.__geo_interface__>`
               - A geojson-like dict of the network
@@ -270,6 +272,10 @@ Raster Metadata
     
     The BoundingBox of the stream segment raster
 
+.. py:property:: Segments.located_basins
+
+    True when the object has pre-located outlet basins
+
 
 ----
 
@@ -325,9 +331,9 @@ Dunders
         *int* -- The number of segments in the network
 
 
-.. _pfdf.segments.Segments.__str__:
+.. _pfdf.segments.Segments.__repr__:
 
-.. py:method:: Segments.__str__(self)
+.. py:method:: Segments.__repr__(self)
 
     Returns a string summarizing the *Segments* object
 
@@ -335,7 +341,7 @@ Dunders
 
         str(self)
 
-    Returns a string summarizing that reports (1) the total number of segments, and (2) the total number of local drainage networks.
+    Returns a string summarizing key info about the Segments object.
 
     :Outputs:
         *str* -- A string summarizing the *Segments* object
@@ -1495,7 +1501,7 @@ Export
             self.save(path, type='segments')
             self.save(..., *, overwrite=True)
 
-        Saves the network to the indicated path. Each segment is saved as a vector feature with a LineString geometry whose coordinates proceed from upstream to downstream. The vector features will not have any data properties. In the default state, the method will raise a FileExistsError if the file already exists. Set overwrite=True to enable the replacement of existing files.
+        Saves the network to the indicated path. Each segment is saved as a vector feature with a LineString geometry whose coordinates proceed from upstream to downstream. The vector features will not have any data properties. In the default state, the method will raise a FileExistsError if the file already exists. Set overwrite=True to enable the replacement of existing files. Returns the absolute path to the saved file as output.
 
         By default, the method will attempt to guess the intended file format based on the path extensions, and will raise an Exception if the file format cannot be guessed. However, see below for a syntax to specify the driver, regardless of extension. You can use::
 
@@ -1568,4 +1574,6 @@ Export
         * **overwrite** (*bool*) -- True to allow replacement of existing files. False (default) to prevent overwriting.
         * **driver** (*str*) -- The name of the file-format driver to use when writing the vector feature file. Uses this driver regardless of file extension.
 
+    :Outputs:
+        *Path* -- The path to the saved file
              

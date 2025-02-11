@@ -127,7 +127,7 @@ Note that this function requires the DEM to have both a CRS and an affine Transf
 Relief
 ------
 
-Vertical relief is often used to implement :doc:`potential sediment volume models </guide/models/g14>`. Use the :ref:`relief function <pfdf.watershed.relief>` to compute it:
+Vertical relief is often used to implement :doc:`potential sediment volume models </guide/models/g14>`. Use the :ref:`relief function <pfdf.watershed.relief>` to compute it::
 
     relief = watershed.relief(dem, flow)
 

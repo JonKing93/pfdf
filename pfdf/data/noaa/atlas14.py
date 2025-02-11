@@ -35,6 +35,7 @@ if typing.TYPE_CHECKING:
     Statistic = Literal["mean", "upper", "lower", "all"]
     Data = Literal["depth", "intensity"]
     Series = Literal["pds", "ams"]
+    Units = Literal["metric", "english"]
 
 
 def base_url() -> str:
@@ -96,12 +97,17 @@ def query_url(statistic: Statistic = "mean") -> str:
 def download(
     lat: scalar,
     lon: scalar,
-    path: Optional[Pathlike] = None,
     *,
+    # Path
+    parent: Optional[Pathlike] = None,
+    name: Optional[str] = None,
+    overwrite: bool = False,
+    # Data
     statistic: Statistic = "mean",
     data: Data = "intensity",
     series: Series = "pds",
-    overwrite: bool = False,
+    units: Units = "metric",
+    # HTTP
     timeout: Optional[timeout] = 10,
 ) -> Path:
     """
@@ -119,15 +125,20 @@ def download(
     "noaa-atlas14-mean-pds-intensity.csv". Raises an error if the file already exists.
     (And see the following syntax for additional file options).
 
-    download(..., path)
+    download(..., *, parent)
+    download(..., *, name)
     download(..., *, overwrite=True)
-    Options for downloading the file. Use the `path` input to specify the path where the
-    downloaded file should be saved. By default, raises an error if this path already
-    exists. Set overwrite=True to allow the downloaded file to overwrite existing files.
+    Options for downloading the file. Use the `parent` input to specify the the path to
+    the parent folder where the file should be saved. If a relative path, then parent is
+    interpreted relative to the current folder. Use `name` to set the name of the
+    downloaded file. By default, raises an error if the path for the downloaded file
+    already exists. Set overwrite=True to allow the download to overwrite an existing
+    file.
 
     download(..., *, statistic)
     download(..., *, data)
     download(..., *, series)
+    download(..., *, units)
     Specify the type of data that should be downloaded. Supported values are as follows:
 
     *Statistic*
@@ -144,8 +155,12 @@ def download(
     pds: PFEs estimated from partial duration time series (default)
     ams: PFEs estimated from annual maximum time series
 
+    *Units*
+    metric: PFEs returned in mm or mm/hour (default)
+    english: PFEs returned in inches or inches/hour
+
     Note that if you do not specify a path for the downloaded file, then the download
-    file will follow the naming scheme: "noaa-atlas14-<statistic>-<series>-<data>.csv"
+    file will follow the naming scheme: "noaa-atlas14-<statistic>-<series>-<data>-<units>.csv"
 
     download(..., *, timeout)
     Specifies a maximum time in seconds for connecting to the NOAA Atlas 14 data
@@ -159,7 +174,10 @@ def download(
     Inputs:
         lat: The latitude of the query point in decimal degrees
         lon: The longitude of the query point in decimal degrees on the interval [-180, 180]
-        path: The path where the downloaded data file should be saved.
+        parent: The path to the parent folder where the file should be saved. Defaults
+            to the current folder.
+        name: The name for the downloaded file. Defaults to
+            noaa-atlas14-<statistic>-<series>-<data>-<units>.csv
         overwrite: True to allow the downloaded file to replace an existing file.
             False (default) to not allow overwriting
         statistic: The type of PFE statistic to download. Options are "mean", "upper",
@@ -167,6 +185,7 @@ def download(
         data: The type of PFE values to download. Options are "intensity" and "depth"
         series: The type of time series to derive PFE values from. Options are
             "pds" (partial duration), and "ams" (annual maximum).
+        units: The units that PFE values should use. Options are "metric" and "english"
         timeout: The maximum number of seconds to connect with the data server
 
     Outputs:
@@ -180,17 +199,22 @@ def download(
     validate.inrange(lon, "lon", -180, 180)
     data = validate.option(data, "data", allowed=["depth", "intensity"])
     series = validate.option(series, "series", allowed=["pds", "ams"])
+    units = validate.option(units, "units", allowed=["metric", "english"])
 
-    # Validate the output file path
-    if path is None:
-        path = Path.cwd() / f"noaa-atlas14-{statistic}-{series}-{data}.csv"
-    path = validate.output_file(path, overwrite)
-
-    # Build the query URL and parameters
-    url = query_url(statistic)
-    params = {"lat": float(lat), "lon": float(lon), "data": data, "series": series}
+    # Validate the output path
+    path = validate.download_path(
+        parent,
+        name,
+        default_name=f"noaa-atlas14-{statistic}-{series}-{data}-{units}.csv",
+        overwrite=overwrite,
+    )
 
     # Download the dataset
-    response = requests.content(url, params, timeout, "NOAA PFDS")
-    path.write_bytes(response)
-    return path
+    params = {
+        "lat": float(lat),
+        "lon": float(lon),
+        "data": data,
+        "series": series,
+        "units": units,
+    }
+    return requests.download(path, query_url(statistic), params, timeout, "NOAA PFDS")

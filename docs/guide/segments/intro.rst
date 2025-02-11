@@ -17,7 +17,7 @@ Typical workflow is as follows:
 
 .. tip:: 
   
-    The :doc:`hazard assessment tutorial </tutorials/assessment>` demonstrates many of the commands discussed in this section.
+    The :doc:`hazard assessment tutorial </tutorials/notebooks/05_Hazard_Assessment>` demonstrates many of the commands discussed in this section.
 
 
 Terminology
@@ -46,7 +46,7 @@ In part, the mask is used to limit stream segments to watershed pixels that like
     # Create a delineation mask
     from pfdf import watershed
     flow = watershed.flow(conditioned_dem)
-    drainage_area = watershed.accumulation(flow) * flow.pixel_area
+    drainage_area = watershed.accumulation(flow) * flow.pixel_area()
     mask = drainage_area >= 100
 
     # Delineate the network

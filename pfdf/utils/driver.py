@@ -37,6 +37,7 @@ from pathlib import Path
 from pandas import DataFrame
 
 import pfdf._validate.core as validate
+from pfdf._utils import dataframe
 
 # Type hints
 if typing.TYPE_CHECKING:
@@ -172,12 +173,7 @@ def vectors() -> DataFrame:
 
 def _table(drivers: Drivers) -> DataFrame:
     "Builds a pandas DataFrame for a set of driver info records"
-    index = []
-    data = []
-    for name, description, extensions in drivers:
-        index.append(name)
-        data.append([description, extensions])
-    return DataFrame(data, index, columns=_FIELDS[1:])
+    return dataframe.table(drivers, columns=_FIELDS[1:])
 
 
 #####

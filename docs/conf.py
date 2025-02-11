@@ -13,7 +13,7 @@ project = "pfdf"
 author = "Jonathan King"
 
 # Note: Override theme copyright with public domain attribution
-# copyright = "USGS 2024, Public Domain"
+# copyright = "USGS 2025, Public Domain"
 html_static_path = ["_static"]
 html_css_files = ["copyright.css"]
 
@@ -21,21 +21,38 @@ html_css_files = ["copyright.css"]
 _pyproject = Path(__file__).parents[1] / "pyproject.toml"
 with open(_pyproject, 'rb') as file:
     _pyproject = tomllib.load(file)
-release = _pyproject['tool']['poetry']['version']
+release = _pyproject['project']['version']
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ["sphinx_rtd_theme", "sphinx_design", "sphinx_copybutton"]
-exclude_patterns = ["images","tutorials/download"]
+extensions = ["sphinx_design", "sphinx_copybutton", "myst_nb"]
 highlight_language = "python"
 pygments_style = "sphinx"
+exclude_patterns = ["images","tutorials/download"]
 
+
+
+
+#####
+# Notebook rendering
+#####
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.ipynb': 'myst-nb',
+}
+nb_execution_mode = "off"
+myst_enable_extensions = ["dollarmath"]
+myst_heading_anchors = 3
+myst_heading_slug_func = 'pfdf._utils.slug.slugify'
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_copy_source = False
-html_theme = "sphinx_rtd_theme"
-html_theme_options = {'navigation_depth': -1}
+html_theme = "furo"
+html_favicon = "_static/usgs.ico"
+html_title = f"{project} {release}"
+html_logo = "_static/usgs-logo-green.svg"
 copybutton_exclude = '.linenos, .gp, .go'

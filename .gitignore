@@ -18,8 +18,19 @@ docs/images/*
 !docs/images/guide
 public
 
-# Tutorial data
-tutorials/*
+# Tutorials source
+.ipynb_checkpoints
+tutorials/**
 !tutorials/*.ipynb
-docs/tutorial-resources
-docs/tutorial-resources.zip
+!tutorials/check_installation
+!tutorials/tools
+
+# Allow small tutorial datasets
+!tutorials/data/perimeter.geojson
+!tutorials/data/dnbr.tif
+
+# Tutorial builds
+jupyter_execute
+tutorial-builds
+docs/tutorials/tutorials.zip
+docs/tutorials/notebooks

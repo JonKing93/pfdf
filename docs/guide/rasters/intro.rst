@@ -32,7 +32,9 @@ This class includes methods to:
 * Preprocess rasters prior to assessment, and
 * Save rasters to file
 
-.. note:: See also the :doc:`raster </tutorials/rasters>` and :doc:`preprocessing </tutorials/preprocess>` tutorials for detailed examples using *Raster* commands.
+.. note:: 
+  
+    See also the :doc:`Raster Intro </tutorials/notebooks/02_Raster_Intro>` and :doc:`Preprocessing </tutorials/notebooks/04_Preprocessing>` tutorials for detailed examples using *Raster* commands.
 
 In many cases, you can create a *Raster* object by calling :ref:`the constructor <pfdf.raster.Raster.__init__>` on a file or an array-like dataset. For example, from a file:
 
@@ -41,7 +43,6 @@ In many cases, you can create a *Raster* object by calling :ref:`the constructor
     >>> # File-based dataset
     >>> dem = Raster('dem.tif')
     Raster:
-        Name: raster
         Shape: (11445, 10986)
         Dtype: float32
         NoData: -999999.0
@@ -58,7 +59,6 @@ or from a numpy array:
     >>> array = np.arange(200).reshape(20,10)
     >>> raster = Raster(array)
     Raster:
-        Name: raster
         Shape: (20, 10)
         Dtype: int32
         NoData: -2147483648
@@ -128,5 +128,5 @@ Some other useful properties include:
       - True elements indicate NoData pixels
       - 2D boolean numpy array
 
-(and see the :doc:`Raster API </api/raster>` for a complete summary of *Raster* properties). The remainder of this section will outline key *Raster* commands, and see also the :doc:`raster </tutorials/rasters>`, :doc:`preprocessing </tutorials/preprocess>`, and :doc:`projection </tutorials/projections>` tutorials for more detailed examples.
+(and see the :doc:`Raster API </api/raster/raster>` for a complete summary of *Raster* properties). The remainder of this section will outline key *Raster* commands, and see also the :doc:`Raster Intro </tutorials/notebooks/02_Raster_Intro>`, :doc:`Preprocessing </tutorials/notebooks/04_Preprocessing>`, and :doc:`Spatial Metadata </tutorials/notebooks/08_Spatial_Metadata>` tutorials for more detailed examples.
 

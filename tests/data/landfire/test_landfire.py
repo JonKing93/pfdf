@@ -317,10 +317,15 @@ class TestDownload:
         get_mock.side_effect = download_mock
         refresh_mock.return_value = 0.1
 
-        path = tmp_path / "test"
+        parent = tmp_path
+        name = "test"
+        path = parent / name
         assert not path.exists()
 
-        output = _landfire.download("240EVT", [-107.8, 32.2, -107.6, 32.4, 4326], path)
+        output = _landfire.download(
+            "240EVT", [-107.8, 32.2, -107.6, 32.4, 4326], parent=parent, name=name
+        )
+
         assert output == path
         assert path.exists()
         self.check_data(path, job_raster)
@@ -336,10 +341,15 @@ class TestDownload:
         refresh_mock.return_value = 0.1
         max_mock.return_value = 0.3
 
-        path = tmp_path / "test"
+        parent = tmp_path
+        name = "test"
+        path = parent / name
         assert not path.exists()
+
         with pytest.raises(LFPSJobTimeoutError) as error:
-            _landfire.download("240EVT", [-107.8, 32.2, -107.6, 32.4, 4326], path)
+            _landfire.download(
+                "240EVT", [-107.8, 32.2, -107.6, 32.4, 4326], parent=parent, name=name
+            )
         assert_contains(error, "LANDFIRE LFPS took too long to process job 12345")
         assert not path.exists()
 

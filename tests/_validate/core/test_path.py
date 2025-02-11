@@ -71,25 +71,58 @@ class TestOutpuFile:
         assert_contains(error, "Output file already exists")
 
 
-class TestOutputFolder:
+class TestDownloadPath:
     def test_default(_):
-        output = validate.output_folder(None, default="test")
-        assert output == Path.cwd() / "test"
+        output = validate.download_path(
+            None, None, default_name="test.tif", overwrite=False
+        )
+        assert output == Path.cwd() / "test.tif"
 
-    def test_not_exist(_):
-        path = Path.cwd() / "does-not-exist"
-        assert not path.exists()
-        output = validate.output_folder(path.name, default="test")
+    def test_not_exist(_, tmp_path):
+        parent = tmp_path
+        name = "does-not-exist.tif"
+        output = validate.download_path(
+            parent, name, default_name="other-name", overwrite=False
+        )
+        assert output == parent / name
+
+    def test_valid_overwrite(_, tmp_path):
+        parent = tmp_path
+        name = "test.tif"
+        path = parent / name
+        path.write_text("This file exists")
+
+        output = validate.download_path(parent, name, default_name="", overwrite=True)
         assert output == path
 
-    def test_exists(_, tmp_path, assert_contains):
-        path = tmp_path / "this-path-exists"
-        path.mkdir()
-        with pytest.raises(FileExistsError) as error:
-            validate.output_folder(path, default="test")
-        assert_contains(error, "`path` already exists")
+    def test_invalid_overwrite(_, tmp_path, assert_contains):
+        parent = tmp_path
+        name = "test.tif"
+        path = parent / name
+        path.write_text("This file exists")
 
-    def test_invalid(_, assert_contains):
+        with pytest.raises(FileExistsError) as error:
+            validate.download_path(parent, name, "", overwrite=False)
+        assert_contains(error, "Download path already exists")
+
+    def test_invalid_overwrite_path_type(_, tmp_path, assert_contains):
+        parent = tmp_path
+        name = "test"
+        path = parent / name
+        path.mkdir()
+
+        with pytest.raises(FileExistsError) as error:
+            validate.download_path(parent, name, "", overwrite=True)
+        assert_contains(
+            error, "Cannot overwrite because the current path is not a file"
+        )
+
+    def test_invalid_parent(_, assert_contains):
         with pytest.raises(TypeError) as error:
-            validate.output_folder(5, default="test")
-        assert_contains(error, "path must be a filepath")
+            validate.download_path(5, None, default_name="test", overwrite=False)
+        assert_contains(error, "parent must be a path")
+
+    def test_invalid_name(_, assert_contains):
+        with pytest.raises(TypeError) as error:
+            validate.download_path(None, 5, default_name="test", overwrite=False)
+        assert_contains(error, "name must be a string")

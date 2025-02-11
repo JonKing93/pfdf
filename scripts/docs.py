@@ -2,81 +2,47 @@
 Scripts used to build the documentation
 ----------
 Functions:
-    locate_docs         - Returns the Path to the docs folder
-    download_tutorials  - Downloads data for building the tutorials
-    figures             - Builds the tutorial figures
+    _docs           - Returns the Path to the docs
+    add_copyright   - Updates the copyright with today's year
 """
 
+import sys
 from pathlib import Path
-import shutil
-import subprocess
-import os
+from datetime import date
 
-import requests
-import zipfile
-import io
+def _docs():
+    "Returns the path to the docs"
 
-
-def locate_docs():
     return Path(__file__).parents[1] / "docs"
 
+def add_copyright():
+    "Updates the copyright with the current year"
 
-def download_tutorials():
+    copyright = _docs() / "_static" / "copyright.css"
+    content = (
+        "/* Removes the copyright text enforced by the read-the-docs theme */\n"
+        "div[class=copyright] {\n"
+        "    visibility: hidden;\n"
+        "    position: relative;\n"
+        "}\n"
+        "\n"
+        "/* The desired attribution text */\n"
+        "div[class=copyright]:after {\n"
+        "    visibility: visible;\n"
+        "    position: absolute;\n"
+        "    top: 0;\n"
+        "    left: 0;\n"
+        f'    content: "USGS {date.today().year}, Public Domain";\n'
+        "}\n"
+    )
+    copyright.write_text(content)
 
-    # Get URL and download path
-    URL = "https://code.usgs.gov/ghsc/lhp/pfdf/-/raw/tutorial-data-2.0.0/tutorial-resources.zip?ref_type=heads&inline=false"
-    docs = locate_docs()
-
-    # Download and unzip
-    web = requests.get(URL)
-    zip = zipfile.ZipFile(io.BytesIO(web.content))
-    zip.extractall(docs)
 
 
-def figures():
 
-    # Locate paths
-    here = Path.cwd()
-    docs = locate_docs()
-    data = docs / "tutorial-resources" / "data"
-    scripts = docs / "tutorial-resources" / "scripts"
-    images = docs / "images"
+"Runs the indicated command from the CLI"
+if __name__ == "__main__":
+    here = sys.modules[__name__]
+    command = getattr(here, sys.argv[1])
+    command()
 
-    # Error if the data hasn't been downloaded
-    if not data.exists():
-        raise RuntimeError(
-            'Cannot locate the tutorial data. Try running the "download_tutorials" '
-            "command first."
-        )
-
-    # Move the tutorial scripts to the workspace
-    if scripts.exists():
-        shutil.rmtree(scripts)
-    shutil.copytree(docs / "tutorials" / "scripts", scripts)
-
-    # Move to the sandbox
-    try:
-        os.chdir(data)
-
-        # Iterate through plotting tutorials. Delete existing figures
-        tutorials = ["preprocess", "assessment"]
-        for tutorial in tutorials:
-            figures = images / tutorial
-            if figures.exists():
-                shutil.rmtree(figures)
-
-            # Run the figure script
-            script = scripts / f"{tutorial}_plots.py"
-            subprocess.run(["python", str(script)], check=True)
-
-            # Move the figures to the images folder
-            os.mkdir(images / tutorial)
-            files = os.listdir(data)
-            for file in files:
-                if file.endswith(".png"):
-                    destination = images / tutorial / file
-                    os.rename(file, destination)
-
-    # Move back when finished
-    finally:
-        os.chdir(here)

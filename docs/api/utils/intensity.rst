@@ -1,5 +1,5 @@
-pfdf.utils.intensity module
-===========================
+utils.intensity module
+======================
 
 .. _pfdf.utils.intensity:
 
@@ -43,19 +43,31 @@ pfdf.utils.intensity module
 
 .. _pfdf.utils.intensity.from_accumulation:
 
-.. py:function:: from_accumulation(R, durations)
+.. py:function:: from_accumulation(R, durations, *, dim = None)
 
     Converts rainfall accumulations to intensities
 
-    ::
+    .. dropdown:: Convert to Intensity
 
-        from_accumulation(R, durations)
+        ::
 
-    Converts the input rainfall accumulations from mm over a duration to rainfall intensities in mm/hour. R should be an array of values representing millimeters of accumulation over one or more durations. The array is assumed to originate from the s17.accumulation function, so durations are broadcast across the second dimension. The input durations should be in minutes and may either be scalar or a vector with one element per column in R.
+            from_accumulation(R, durations)
+
+        Converts the input rainfall accumulations from mm over a duration to rainfall intensities in mm/hour. R should be an array of values representing millimeters of accumulation over one or more durations. The input durations should be in minutes. By default, the durations are broadcast across the final dimension of R, so the length of `durations` should either be 1, or the final value in ``R.shape``.
+
+    .. dropdown:: Broadcasting Dimension
+
+        ::
+
+            from_accumulation(..., *, dim)
+
+        Specifies the dimension of R that durations should be broadcast over. Here, `dim` is the *index* of a dimension of R. So for example, use 0 to broadcast durations over the first dimension, 1 to broadcast along the second dimension, etc. The `dim` input must be a scalar positive index. If None, broadcasts along the final dimension. When using the `dim` option, the length of the durations vector should either be 1, or ``R.shape[dim]``.
+
 
     :Inputs:
         * **R** (*ndarray*) -- An array of rainfall accumulations in millimeters over durations
-        * **durations** (*vector*) -- Rainfall durations in minutes. Either scalar, or a vector with one element per column of R
+        * **durations** (*vector*) -- Rainfall durations in minutes
+        * **dim** (*scalar*) -- The index of the dimension of R over which to broadcast durations
 
     :Outputs:
         *numpy array* -- The converted rainfall intensities (mm/hour)

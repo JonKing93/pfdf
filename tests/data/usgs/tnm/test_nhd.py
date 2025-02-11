@@ -125,9 +125,12 @@ class TestDownload:
         }
         content_mock.return_value = zip_data
 
-        path = tmp_path / "test"
+        parent = tmp_path
+        name = "test"
+        path = parent / name
+
         assert not path.exists()
-        output = nhd.download("1506", path=path)
+        output = nhd.download("1506", parent=parent, name=name)
         assert output == path
         self.check_data(path)
 
@@ -137,7 +140,7 @@ class TestLive:
     def test(_, tmp_path):
 
         path = tmp_path / "test"
-        output = nhd.download("15010006", path)
+        output = nhd.download("15010006", parent=tmp_path, name="test")
         assert output == path
 
         contents = list(path.iterdir())

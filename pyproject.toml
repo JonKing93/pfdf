@@ -1,6 +1,6 @@
 [project]
 name = "pfdf"
-version = "3.0.0a1"
+version = "3.0.0"
 description = "A package to facilitate post-wildfire debris-flow hazard assessments and research"
 license = "GPL-3.0-only"
 readme = "README.md"
@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tutorials = ["cartopy>=0.22", "matplotlib>=3.8.2", "jupyter"]
+tutorials = ["cartopy>=0.22", "matplotlib>=3.8.2", "contextily", "jupyter"]
 
 [project.urls]
 repository = "https://code.usgs.gov/ghsc/lhp/pfdf"
@@ -73,9 +73,10 @@ twine = "*"
 
 # Docs
 sphinx = ">=7.2.6"
-sphinx-rtd-theme = ">=1.3.0"
+furo = "*"
 sphinx_design = ">=0.5"
 sphinx-copybutton = "*"
+myst-nb = "*"
 
 #####
 # Dev tool configurations
@@ -111,9 +112,66 @@ profile = "black"
 # Dev scripts
 #####
 
+##### Utils
+
+[tool.poe.tasks._rmtree]
+help = "Deletes a folder and its contents"
+expr = "shutil.rmtree(sys.argv[1]) if pathlib.Path(sys.argv[1]).exists() else None"
+imports = ["shutil", "pathlib"]
+
+[tool.poe.tasks._delete]
+help = "Deletes a file"
+expr = "pathlib.Path(sys.argv[1]).unlink() if pathlib.Path(sys.argv[1]).exists() else None"
+imports = ["pathlib"]
+
+[tool.poe.tasks._open]
+help = "Opens an HTML index page in a browser"
+expr = "webbrowser.open(pathlib.Path.cwd() / sys.argv[1] / 'index.html')"
+imports = ["webbrowser", "pathlib"]
+
+
+##### Dependencies: Safety, Lock
+
 [tool.poe.tasks.safety]
 help = "Checks package dependencies for security issues"
 cmd = "safety check"
+
+[tool.poe.tasks.update]
+help = "Deletes poetry.lock and reinstalls the project"
+sequence = [
+  {ref = "_delete poetry.lock" },
+  {cmd = "poetry install --all-groups --all-extras" },
+]
+
+
+##### Formatting
+
+[tool.poe.tasks.format]
+help = "Applies black and isort to pfdf and its tests"
+sequence = [
+  "isort pfdf", 
+  "isort tests", 
+  "isort tutorials/tools",
+  "black pfdf", 
+  "black tests",
+  "black tutorials/tools",
+  ]
+default_item_type = "cmd"
+
+[tool.poe.tasks.lint]
+help = "Requires pfdf and its tests to be properly formatted"
+sequence = [
+  "isort pfdf --check", 
+  "isort tests --check",
+  "isort tutorials/tools --check",
+  "black pfdf --check", 
+  "black tests --check",
+  "black tutorials/tools --check",
+]
+default_item_type = "cmd"
+
+
+##### Testing and test coverage
 
 [tool.poe.tasks.tests]
 help = "Runs the tests and requires 100% coverage. Excludes live web tests"
@@ -134,16 +192,6 @@ cmd = "pytest tests -m web"
 help = "Prints the coverage report for the tests"
 cmd = "coverage report"
 
-[tool.poe.tasks._rmtree]
-help = "Deletes a folder and its contents"
-expr = "shutil.rmtree(sys.argv[1]) if pathlib.Path(sys.argv[1]).exists() else None"
-imports = ["shutil", "pathlib"]
-
-[tool.poe.tasks._open]
-help = "Opens an HTML index page in a browser"
-expr = "webbrowser.open(pathlib.Path.cwd() / sys.argv[1] / 'index.html')"
-imports = ["webbrowser", "pathlib"]
-
 [tool.poe.tasks.htmlcov]
 help = "Builds an HTML coverage report and opens in browser"
 sequence = [
@@ -152,48 +200,69 @@ sequence = [
   { ref = "_open htmlcov" },
 ]
 
-[tool.poe.tasks.format]
-help = "Applies black and isort to pfdf and its tests"
-sequence = ["isort pfdf", "isort tests", "black pfdf", "black tests"]
-default_item_type = "cmd"
 
-[tool.poe.tasks.lint]
-help = "Requires pfdf and its tests to be properly formatted"
-sequence = [
-  "isort pfdf --check", 
-  "isort tests --check", 
-  "black pfdf --check", 
-  "black tests --check",
-]
-default_item_type = "cmd"
+##### Tutorials
 
-[tool.poe.tasks.pipeline]
-help = "Mimics the Gitlab pipeline. Runs safety check, tests, and lint"
-sequence = ["safety", "lint", "tests"]
+[tool.poe.tasks.tutorials]
+help = "Opens the tutorials in Jupyter lab"
+cmd = "jupyter lab --notebook-dir tutorials"
 
-[tool.poe.tasks.docs]
-help = "Deletes and then rebuilds the documentation"
+[tool.poe.tasks.lint-tutorials]
+help = "Checks the tutorial Jupyter notebooks are clean"
+script = "scripts.tutorials:check"
+
+[tool.poe.tasks.clean-tutorials]
+help = "Cleans the tutorial Jupyter notebooks"
+script = "scripts.tutorials:clean"
+
+[tool.poe.tasks.setup-precommit]
+help = "Sets up a pre-commit git hook to check Jupyter notebooks are clean"
+script = "scripts.precommit:setup"
+
+[tool.poe.tasks.build-tutorials]
+help = "Builds the tutorials"
+script = "scripts.tutorials:build"
+
+[tool.poe.tasks.run-tutorials]
+help = "Runs pre-built tutorials"
+script = "scripts.tutorials:run"
+
+[tool.poe.tasks.refresh-tutorials]
+help = "Rebuilds and runs the tutorials"
+sequence = ["build-tutorials", "run-tutorials"]
+
+[tool.poe.tasks.copy-tutorials]
+help = "Copies built tutorial notebooks into the docs"
+script = "scripts.tutorials:copy"
+
+
+##### Docs
+
+[tool.poe.tasks._reset_docs]
+help = "Resets the docs in preparation for a rebuild" 
 sequence = [
   { ref = "_rmtree public" },
+  { script = "scripts.docs:add_copyright" },
+]
+
+[tool.poe.tasks._sphinx_build]
+help = "Uses sphinx to rebuild the docs"
+sequence = [
   { cmd = "sphinx-build -qa docs public" },
+  { ref = "_rmtree jupyter_execute" },
 ]
 
 [tool.poe.tasks.open-docs]
 help = "Opens the docs in a webbrowser"
 ref = "_open public"
 
-[tool.poe.tasks.tutorials]
-help = "Opens the tutorials in Jupyter lab"
-cmd = "jupyter lab --notebook-dir tutorials"
+[tool.poe.tasks.docs]
+help = "Deletes and then rebuilds the documentation"
+sequence = ["_reset_docs", "_sphinx_build"]
+default_item_type = "ref"
 
-[tool.poe.tasks.download-tutorials]
-help = "Downloads data for the tutorials"
-script = "scripts.docs:download_tutorials"
+[tool.poe.tasks.docs-all]
+help = "Rebuilds the docs from scratch, rebuilding and running all tutorials"
+sequence = ["refresh-tutorials", "copy-tutorials", "docs"]
 
-[tool.poe.tasks.figures]
-help = "Builds the figures for the tutorials"
-script = "scripts.docs:figures"
 
-[tool.poe.tasks.docs-pipeline]
-help = "Downloads tutorial data, creates figures, and rebuilds the docs"
-sequence = ["download-tutorials", "figures", "docs"]

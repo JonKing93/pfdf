@@ -1,14 +1,14 @@
 /* Removes the copyright text enforced by the read-the-docs theme */
-   div[role=contentinfo] {
-	visibility: hidden;
-	position: relative;
+div[class=copyright] {
+    visibility: hidden;
+    position: relative;
 }
 
 /* The desired attribution text */
-div[role=contentinfo]:after {
-	visibility: visible;
-	position: absolute;
-	top: 0;
-	left: 0;
-	content: "USGS 2024, Public Domain";
+div[class=copyright]:after {
+    visibility: visible;
+    position: absolute;
+    top: 0;
+    left: 0;
+    content: "USGS 2025, Public Domain";
 }

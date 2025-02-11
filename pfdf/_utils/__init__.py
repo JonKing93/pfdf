@@ -21,6 +21,7 @@ Modules:
     merror      - Functions to supplement memory-related error messages
     nodata      - Utilities for working with NoData values
     patches     - Context managers for patching pysheds
+    slug        - Functions to generate anchor link slugs for the docs
     units       - Functions to facilitate unit conversion
 """
 

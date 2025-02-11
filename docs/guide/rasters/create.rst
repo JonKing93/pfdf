@@ -101,7 +101,6 @@ Although you can call the *Raster* constructor on numpy arrays, the resulting ob
     >>> # The created raster lacks spatial metadata, and has a default NoData value
     >>> print(raster)
     Raster:
-        Name: raster
         Shape: (5, 20)
         Dtype: int32
         NoData: -2147483648
@@ -121,7 +120,6 @@ The :ref:`Raster.from_array <pfdf.raster.Raster.from_array>` command allows you 
     >>> # The created Raster has spatial metadata and a custom NoData value
     >>> print(raster)
     Raster:
-        Name: raster
         Shape: (5, 20)
         Dtype: int32
         NoData: -999
@@ -140,7 +138,6 @@ You can also use the ``spatial`` parameter to optionally match the CRS and trans
     # Created raster has the CRS and transform of the template
     >>> print(raster)
     Raster:
-        Name: raster
         Shape: (5, 20)
         Dtype: int32
         NoData: -2147483648
@@ -160,7 +157,6 @@ Sometimes, you will have a dataset represented as a set of polygon or multi-poly
     >>> # Create a Raster from polygon features
     >>> perimeter = Raster.from_polygons("fire-perimeter.shp")
     Raster:
-        Name: raster
         Shape: (1328, 1677)
         Dtype: bool
         NoData: False
@@ -193,7 +189,6 @@ However, other datasets (such as soil properties) are better represented by nume
     >>> # Create a raster from a polygon field
     >>> kf = Raster.from_polygons('kf-factor.shp', field="KFFACT")
     Raster:
-        Name: raster
         Shape: (3161, 3635)
         Dtype: float64
         NoData: nan
@@ -213,7 +208,6 @@ You can also use the ``nodata`` option to specify a custom NoData value:
 
     >>> kf = Raster.from_polygons('kf-factor.shp', field="KFFACT", nodata=-999)
     Raster:
-        Name: raster
         Shape: (3161, 3635)
         Dtype: float64
         NoData: -999

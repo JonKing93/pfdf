@@ -63,8 +63,12 @@ class TestDownload:
     def test_relative_path(self, mock, response, monkeypatch, tmp_path):
         mock.return_value = response
         monkeypatch.chdir(tmp_path)
-        output = la_county.download("test.gdb")
-        assert output == tmp_path / "test.gdb"
+
+        name = "test.gdb"
+        path = tmp_path / name
+        output = la_county.download(name=name)
+
+        assert output == path
         self.check_contents(output)
         mock.assert_called_with(
             url="https://pw.lacounty.gov/sur/nas/landbase/AGOL/Debris_Basin.gdb.zip",
@@ -75,8 +79,12 @@ class TestDownload:
     @patch("requests.get", spec=True)
     def test_absolute_path(self, mock, response, tmp_path):
         mock.return_value = response
-        path = tmp_path / "test.gdb"
-        output = la_county.download(path)
+
+        parent = tmp_path
+        name = "test.gdb"
+        path = parent / name
+
+        output = la_county.download(parent=parent, name=name)
         assert output == path
         self.check_contents(output)
         mock.assert_called_with(
@@ -90,7 +98,7 @@ class TestDownload:
 class TestLive:
     def test(_, tmp_path):
         path = tmp_path / "test.gdb"
-        output = la_county.download(tmp_path / "test.gdb")
+        output = la_county.download(parent=tmp_path, name="test.gdb")
         assert output == path
         assert output.is_dir()
         RasterMetadata.from_points(output)

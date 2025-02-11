@@ -10,7 +10,7 @@ Low level:
 Paths:
     input_file      - Checks input is an existing path
     output_file     - Checks output is a file path, and optionally prevents overwriting
-    output_folder   - Checks output is the path to an empty or non-existent folder
+    download_path   - Checks options for a file download
 
 Unit Conversion:
     units           - Checks units are supported
@@ -81,6 +81,6 @@ from pfdf._validate.core._elements import (
 )
 from pfdf._validate.core._low import callable_ as callable
 from pfdf._validate.core._low import option, string, type
-from pfdf._validate.core._path import input_file, output_file, output_folder
+from pfdf._validate.core._path import download_path, input_file, output_file
 from pfdf._validate.core._units import conversion, units
 from pfdf._validate.core._url import http, timeout, url

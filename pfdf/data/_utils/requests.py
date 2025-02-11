@@ -29,6 +29,7 @@ from pfdf._validate import core as validate
 from pfdf.errors import InvalidJSONError
 
 if typing.TYPE_CHECKING:
+    from pathlib import Path
     from typing import Any, Optional
 
     from requests import Response
@@ -123,6 +124,21 @@ def json(
         raise InvalidJSONError(
             f"The {servers[0]} response was not valid JSON"
         ) from error
+
+
+def download(
+    path: Path,
+    url: str,
+    params: dict[str, Any],
+    timeout: Any,
+    servers: strs,
+    outages: Optional[strs] = None,
+) -> Path:
+    "Downloads a web dataset to the indicated path"
+
+    response = content(url, params, timeout, servers, outages)
+    path.write_bytes(response)
+    return path
 
 
 #####

@@ -202,7 +202,7 @@ class Raster:
         ----------
         Raster(raster)
         Returns the input raster as a Raster object. Supports a variety of raster
-        datasets including: the path to a file-based raster, numpy arrays, other
+        datasets including: the path or URL to a file-based raster, numpy arrays, other
         pfdf.raster.Raster objects, and pysheds.sview.Raster objects. The input
         raster should refer to a 2D array with a boolean, integer, or floating
         dtype - raises Exceptions when this is not the case.
@@ -429,7 +429,7 @@ class Raster:
                 value to the raster's dtype.
 
         Outputs:
-            RasterMetadata: The metadata object for the raster
+            Raster: A Raster object for the dataset at the URL
         """
 
         url, bounds = rvalidate.url(
@@ -908,13 +908,12 @@ class Raster:
 
         The indicated data field must exist in the data properties, and must have an int
         or float type. By default, the dtype of the output raster will be int32 or
-        float64, as appropriate for the data field type.
-        Use the "dtype" option to specify the type of the output raster instead. In this
-        case, the data field values will be cast to the indicated dtype before being
-        used to build the raster. By default, field values must be safely castable to
-        the indicated dtype. Use the "field_casting" option to select different casting
-        rules. The "dtype" and "field_casting" options are ignored if you do not specify
-        a field.
+        float64, as appropriate for the data field type. Use the "dtype" option to
+        specify the type of the output raster instead. In this case, the data field
+        values will be cast to the indicated dtype before being used to build the
+        raster. By default, field values must be safely castable to the indicated dtype.
+        Use the "field_casting" option to select different casting rules. The "dtype"
+        and "field_casting" options are ignored if you do not specify a field.
 
         Raster.from_points(..., field, *, nodata)
         Raster.from_points(..., field, *, nodata, casting)
@@ -986,7 +985,8 @@ class Raster:
             path: The path to a Point or MultiPoint feature file
             field: The name of a data property field used to set pixel values.
                 The data field must have an int or float type.
-            dtype: The dtype of the output raster when building from a data field
+            dtype: The dtype of the output raster when building from a data field.
+                Defaults to int32 or float64, as appropriate.
             field_casting: The type of data casting allowed to occur when converting
                 data field values to a specified output dtype. Options are "no",
                 "equiv", "safe" (default), "same_kind", and "unsafe".
@@ -1107,17 +1107,16 @@ class Raster:
 
         The indicated data field must exist in the data properties, and must have an int
         or float type. By default, the dtype of the output raster will be int32 or
-        float64, as appropriate..
-        Use the "dtype" option to specify the type of the output raster instead. In this
-        case, the data field values will be cast to the indicated dtype before being
-        used to build the raster. Note that only some numpy dtypes are supported for
-        building a raster from polygons. Supported dtypes are: bool, int16, int32,
-        uint8, uint16, uint32, float32, and float64. Raises an error if you select a
-        different dtype.
-        By default, field values must be safely castable to
-        the indicated dtype. Use the "field_casting" option to select different casting
-        rules. The "dtype" and "field_casting" options are ignored if you do not specify
-        a field.
+        float64, as appropriate. Use the "dtype" option to specify the type of the
+        output raster instead. In this case, the data field values will be cast to the
+        indicated dtype before being used to build the raster. Note that only some numpy
+        dtypes are supported for building a raster from polygons. Supported dtypes are:
+        bool, int16, int32, uint8, uint16, uint32, float32, and float64. Raises an error
+        if you select a different dtype.
+
+        By default, field values must be safely castable to the indicated dtype. Use the
+        "field_casting" option to select different casting rules. The "dtype" and
+        "field_casting" options are ignored if you do not specify a field.
 
         Raster.from_polygons(..., field, *, nodata)
         Raster.from_polygons(..., field, *, nodata, casting)
@@ -1189,7 +1188,9 @@ class Raster:
             path: The path to a Polygon or MultiPolygon feature file
             field: The name of a data property field used to set pixel values.
                 The data field must have an int or float type.
-            dtype: The dtype of the output raster when building from a data field
+            dtype: The dtype of the output raster when building from a data field.
+                Defaults to int32 or float64, as appropriate. Supported dtypes are:
+                bool, int16, int32, uint8, uint16, uint32, float32, and float64
             field_casting: The type of data casting allowed to occur when converting
                 data field values to a specified output dtype. Options are "no",
                 "equiv", "safe" (default), "same_kind", and "unsafe".

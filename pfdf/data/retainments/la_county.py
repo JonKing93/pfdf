@@ -32,14 +32,15 @@ def data_url() -> str:
     so the URL provides direct access to the dataset as a zip archive.
     ----------
     Outputs:
-        str: The URL for the downloaded dataset
+        str: The URL for the downloadable dataset
     """
     return "https://pw.lacounty.gov/sur/nas/landbase/AGOL/Debris_Basin.gdb.zip"
 
 
 def download(
-    path: Optional[Pathlike] = None,
     *,
+    parent: Optional[Pathlike] = None,
+    name: Optional[str] = None,
     timeout: Optional[timeout] = 15,
 ) -> Path:
     """
@@ -54,10 +55,13 @@ def download(
     does not require an ESRI license. Raises an error if the geodatabase already exists
     on the file system.
 
-    download(path)
-    Specifies the path where the downloaded geodatabase should be saved. If a relative
-    path, then the path is interpreted relative to the current directory. Raises an
-    error if the path already exists.
+    download(..., *, parent)
+    download(..., *, name)
+    Options for downloading the geodatabase. The `parent` option is the path to the
+    parent folder where the geodatabase should be downloaded. If a relative path, then
+    `parent` is interpreted relative to the current folder. Use `name` to set the name
+    of the downloaded geodatabase. Rases an error if the path to the geodatabase already
+    exists.
 
     download(..., *, timeout)
     Specifies a maximum time in seconds for connecting to the LA County data
@@ -69,15 +73,18 @@ def download(
     your code may hang indefinitely if the server fails to respond.
     ----------
     Inputs:
-        path: The path where the downloaded geodatabase should be saved. Defaults to
-            "la-county-retainments.gdb" in the current folder.
+        parent: The path to the parent folder where the geodatabase should be downloaded.
+            Defaults to the current folder.
+        name: The name for the downloaded geodatabase. Defaults to "la-county-retainments.gdb"
         timeout: A maximum number of seconds to connect with the LA County data server
 
     Outputs:
         Path: The path to the downloaded geodatabase
     """
 
-    path = validate.output_folder(path, default="la-county-retainments.gdb")
+    path = validate.download_path(
+        parent, name, default_name="la-county-retainments.gdb", overwrite=False
+    )
     data = requests.content(data_url(), {}, timeout, "LA County data")
     unzip(data, path, item="Debris_Basin.gdb")
     return path

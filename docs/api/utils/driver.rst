@@ -1,5 +1,5 @@
-pfdf.utils.driver module
-========================
+utils.driver module
+===================
 
 .. _pfdf.utils.driver:
 

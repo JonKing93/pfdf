@@ -1,5 +1,5 @@
-pfdf.models.cannon2010 module
-=============================
+models.cannon2010 module
+========================
 
 .. _pfdf.models.cannon2010:
 

@@ -161,12 +161,12 @@ class RasterMetadata:
         copy            - Returns a copy of the current metadata object
 
     Updated Metadata:
-        __getitem__     - Returns a copy of the current metadata for the indexed portion of a data array
         update          - Returns a copy of the current metadata with updated fields
         as_bool         - Returns updated metadata suitable for a boolean data array
         ensure_nodata   - Returns updated metadata guaranteed to have a NoData value
 
     Preprocessing:
+        __getitem__     - Returns a copy of the current metadata for the indexed portion of a data array
         fill            - Returns metadata without a NoData value
         buffer          - Returns updated metadata for a buffered raster
         clip            - Returns updated metadata for a clipped raster
@@ -357,6 +357,12 @@ class RasterMetadata:
             str: A string summary of the raster metadata
         """
 
+        # Only include non-default names
+        if self.name == "raster":
+            name = ""
+        else:
+            name = f"    Name: {self.name}\n"
+
         # CRS
         if self.crs is None:
             crs = "CRS: None"
@@ -374,7 +380,7 @@ class RasterMetadata:
         # Build final string
         return (
             f"RasterMetadata:\n"
-            f"    Name: {self.name}\n"
+            f"{name}"
             f"    Shape: {self.shape}\n"
             f"    Dtype: {self.dtype}\n"
             f"    NoData: {self.nodata}\n"
@@ -1113,7 +1119,7 @@ class RasterMetadata:
                 disable this behavior.
 
         Outputs:
-            Raster: A raster object for the array-based raster dataset
+            RasterMetadata: A metadata object for the array-based raster dataset
         """
 
         metadata, _ = factory.array(
@@ -1190,7 +1196,7 @@ class RasterMetadata:
         output raster. Use the "casting" option to select other casting rules. NoData
         options are ignored if you do not specify a field.
 
-        Raster.from_points(..., field, *, operation)
+        RasterMetadata.from_points(..., field, *, operation)
         Applies the indicated function to the data field values. The input function
         should accept one numeric input, and return one real-valued numeric output.
         Useful when data field values require a conversion. For example, you could use
@@ -1252,7 +1258,8 @@ class RasterMetadata:
             path: The path to a Point or MultiPoint feature file
             field: The name of a data property field used to set pixel values.
                 The data field must have an int or float type.
-            dtype: The dtype of the output metadata when building from a data field
+            dtype: The dtype of the output metadata when building from a data field.
+                Defaults to int32 or float64, as appropriate.
             field_casting: The type of data casting allowed to occur when converting
                 data field values to a specified output dtype. Options are "no",
                 "equiv", "safe" (default), "same_kind", and "unsafe".
@@ -1426,7 +1433,9 @@ class RasterMetadata:
             path: The path to a Polygon or MultiPolygon feature file
             field: The name of a data property field used to set pixel values.
                 The data field must have an int or float type.
-            dtype: The dtype of the metadata when building from a data field
+            dtype: The dtype of the output raster when building from a data field.
+                Defaults to int32 or float64, as appropriate. Supported dtypes are:
+                bool, int16, int32, uint8, uint16, uint32, float32, and float64
             field_casting: The type of data casting allowed to occur when converting
                 data field values to a specified output dtype. Options are "no",
                 "equiv", "safe" (default), "same_kind", and "unsafe".
@@ -1687,6 +1696,9 @@ class RasterMetadata:
             crs: The CRS for the reprojection. Overrides the template CRS
             transform: The transform used to determine resolution and grid alignment.
                 Overrides the template transform
+
+        Outputs:
+            RasterMetadata: The RasterMetadata object for the reprojected raster
         """
 
         # Validate. Require a reprojection parameter and transform

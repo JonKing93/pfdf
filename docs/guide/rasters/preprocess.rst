@@ -5,7 +5,9 @@ Some pfdf routines requires multiple rasters as input. When this is the case, th
 
 .. note:: The commands in this section usually alter an existing raster in-place, rather than returning a new *Raster* object.
 
-.. tip:: See also the :doc:`preprocessing tutorial </tutorials/preprocess>` for in-depth examples of these commands.
+.. tip:: 
+    
+    See also the :doc:`Preprocessing Tutorial </tutorials/notebooks/04_Preprocessing>` for in-depth examples of these commands.
 
 ----
 
