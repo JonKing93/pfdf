@@ -36,6 +36,8 @@ variables:
 build:
   stage: build
   extends: .multiple-python-versions
+  rules:
+    - if: $CI
   before_script:
     # Forces daily tests to install from the latest repositories
     - if [ "$CI_PIPELINE_SOURCE" == "schedule" ]; then rm poetry.lock; fi
@@ -57,18 +59,24 @@ build:
 safety:
   stage: test
   extends: .latest-python
+  rules:
+    - if: $CI
   script:
     - poe safety
 
 format:
   stage: test
   extends: .latest-python
+  rules:
+    - if: $CI
   script:
     - poe lint
 
 test:
   stage: test
   extends: .multiple-python-versions
+  rules:
+    - if: $CI
   script:
     - source "venv-$VERSION/bin/activate"
     - poe tests
@@ -82,9 +90,9 @@ test:
 
 webtest:
   stage: test
+  extends: .latest-python
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  extends: .latest-python
   script:
     - poe webtest
 
@@ -95,6 +103,8 @@ webtest:
 check-tutorials:
   stage: tutorials
   extends: .latest-python
+  rules:
+    - if: $CI
   script:
     - poe lint-tutorials
 
@@ -102,7 +112,7 @@ run-tutorials:
   stage: tutorials
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_PIPELINE_SOURCE == 'push'
+    - if: $CI
       when: manual
   extends: .latest-python
   script:
@@ -114,8 +124,10 @@ run-tutorials:
 
 pages:
   stage: deploy
-  when: manual
   extends: .latest-python
+  rules:
+    - if: $CI
+      when: manual
   script:
     - poe docs-all
   artifacts:
@@ -124,9 +136,9 @@ pages:
 
 release:
   stage: deploy
+  extends: .latest-python
   rules:
     - if: $CI_COMMIT_TAG
-  extends: .latest-python
   script:
     - poetry build
     - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
