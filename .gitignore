@@ -20,12 +20,11 @@ public
 
 # Tutorials source
 .ipynb_checkpoints
-tutorials/**
-!tutorials/*.ipynb
-!tutorials/check_installation
-!tutorials/tools
+tutorials/examples
+tutorials/exports
+tutorials/preprocessed
 
-# Allow small tutorial datasets
+tutorials/data/**
 !tutorials/data/perimeter.geojson
 !tutorials/data/dnbr.tif
 
