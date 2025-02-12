@@ -45,13 +45,15 @@ workflow:
   extends: 
     - .python11-base
     - .activate
-  dependencies: build11
+  dependencies: 
+    - build11
 
 .python12:
   extends: 
     - .python12-base
     - .activate
-  dependencies: build12
+  dependencies: 
+    - build12
 
 # Alias to the latest supported python version
 .latest-python:
