@@ -60,5 +60,5 @@ If you use pfdf for a publication, please consider citing it. Please see the :do
     :hidden:
     :caption: Releases
 
-    Latest Release <https://code.usgs.gov/ghsc/lhp/pfdf/-/releases/permalink/latest>
     Release Notes <resources/release-notes/index>
+    Latest Release <https://code.usgs.gov/ghsc/lhp/pfdf/-/releases/permalink/latest>

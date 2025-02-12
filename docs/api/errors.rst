@@ -192,6 +192,8 @@ Models
 
 ----
 
+.. _data-api-errors:
+
 Data Acquisition
 ----------------
 
