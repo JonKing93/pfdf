@@ -8,6 +8,15 @@ default:
   tags:
     - us-west-2
 
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+
 #####
 # Python Versions
 #####
@@ -36,10 +45,8 @@ variables:
 build:
   stage: build
   extends: .multiple-python-versions
-  rules:
-    - if: $CI
   before_script:
-    # Forces daily tests to install from the latest repositories
+    # Forces daily build to install from the latest repositories
     - if [ "$CI_PIPELINE_SOURCE" == "schedule" ]; then rm poetry.lock; fi
   script:
     - pip install virtualenv
@@ -59,24 +66,18 @@ build:
 safety:
   stage: test
   extends: .latest-python
-  rules:
-    - if: $CI
   script:
     - poe safety
 
 format:
   stage: test
   extends: .latest-python
-  rules:
-    - if: $CI
   script:
     - poe lint
 
 test:
   stage: test
   extends: .multiple-python-versions
-  rules:
-    - if: $CI
   script:
     - source "venv-$VERSION/bin/activate"
     - poe tests
@@ -92,8 +93,7 @@ webtest:
   stage: test
   extends: .latest-python
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI
+    - if: $CI_COMMIT_BRANCH
       when: manual
   script:
     - poe webtest
@@ -105,16 +105,13 @@ webtest:
 check-tutorials:
   stage: tutorials
   extends: .latest-python
-  rules:
-    - if: $CI
   script:
     - poe lint-tutorials
 
 run-tutorials:
   stage: tutorials
   rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI
+    - if: $CI_COMMIT_BRANCH
       when: manual
   extends: .latest-python
   script:
@@ -127,9 +124,7 @@ run-tutorials:
 pages:
   stage: deploy
   extends: .latest-python
-  rules:
-    - if: $CI
-      when: manual
+  when: manual
   script:
     - poe docs-all
   artifacts:
