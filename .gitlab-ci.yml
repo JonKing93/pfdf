@@ -23,7 +23,7 @@ workflow:
 # Base versions have no dependencies, so can be used for builds
 
 .image:
-  image: "python:3.$VERSION"
+  image: "code.usgs.gov:5001/devops/images/usgs/python:3.$VERSION"
 
 .python11-base:
   variables:
@@ -106,18 +106,10 @@ safety:
 #   script:
 #     - poe lint
 
-# .test
+# .test:
 #   stage: test
 #   script:
-#     - source "venv-$VERSION/bin/activate"
 #     - poe tests
-
-
-
-# test:
-#   stage: test
-#   extends: .multiple-python-versions
-
 #   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
 #   artifacts:
 #     expire_in: 1 hour
@@ -125,6 +117,16 @@ safety:
 #       coverage_report:
 #         coverage_format: cobertura
 #         path: coverage.xml
+
+# test11:
+#   extends:
+#     - .test
+#     - .python11
+
+# test12:
+#   extends:
+#     - .test
+#     - .python12
 
 # webtest:
 #   stage: test
