@@ -23,7 +23,7 @@ workflow:
 # Base versions have no dependencies, so can be used for builds
 
 .image:
-  image: "code.usgs.gov:5001/devops/images/usgs/python:3.$VERSION"
+  image: "python:3.$VERSION"
 
 .python11-base:
   variables:
