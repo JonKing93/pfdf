@@ -76,6 +76,8 @@ Updates
 * Added developer scripts to build and run tutorials
 * Pipeline now runs tutorials and web tests on merge requests
 * Added a scheduled pipeline for daily builds. The daily builds do not use ``poetry.lock``, instead building from the most up-to-date dependencies.
+* ``pyproject.toml`` now conforms to `PEP 508 <https://peps.python.org/pep-0508/>`_ and poetry 2+
+* Improved pipeline implementation of multiple Python builds
 
 .. _3.0.0-api-breaks:
 
