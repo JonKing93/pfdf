@@ -134,6 +134,7 @@ webtest:
   rules:
     - if: $CI_COMMIT_BRANCH
       when: manual
+      allow_failure: true
   script:
     - poe webtest
 
@@ -152,6 +153,7 @@ run-tutorials:
   rules:
     - if: $CI_COMMIT_BRANCH
       when: manual
+      allow_failure: true
   extends: .latest-python
   script:
     - poe refresh-tutorials
