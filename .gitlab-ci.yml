@@ -132,6 +132,9 @@ webtest:
   stage: test
   extends: .latest-python
   rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+      allow_failure: false
     - if: $CI_COMMIT_BRANCH
       when: manual
       allow_failure: true
@@ -151,6 +154,9 @@ check-tutorials:
 run-tutorials:
   stage: tutorials
   rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+      allow_failure: false
     - if: $CI_COMMIT_BRANCH
       when: manual
       allow_failure: true
