@@ -24,7 +24,7 @@ BibTeX::
 Prior Releases
 --------------
 
-Please see the dropdown menus to cite previous releases:
+Please consult the dropdown menus to cite previous releases:
 
 .. dropdown:: pfdf 2.0.0
 

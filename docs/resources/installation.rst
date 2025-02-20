@@ -14,7 +14,7 @@ pfdf requires `Python 3.11 or 3.12 <https://www.python.org/downloads/>`_.
 
 Virtual Environment
 +++++++++++++++++++
-We **strongly recommend** installing pfdf in a clean virtual environment. This is because other geospatial software can sometimes interfere with pfdf's backend. There are many tools for managing virtual environments including `miniforge`_, `conda`_, `venv`_, and `virtualenv`_. If you are not familiar with virtual environments, then we suggest trying out `miniforge`_.
+We **strongly recommend** installing pfdf in a clean virtual environment. This is because other geospatial software can sometimes interfere with pfdf's backend. There are many tools for managing virtual environments including `miniforge`_, `conda`_, `venv`_, and `virtualenv`_. If you are not familiar with virtual environments, then `miniforge`_ may be a good starting point.
 
 For example, after installing miniforge, you can create a new python environment using::
 

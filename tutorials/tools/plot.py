@@ -62,7 +62,7 @@ def raster(raster, cmap, title, clabel=None, show_basemap: bool = False):
     plt.colorbar(im, label=clabel)
 
 
-def mask(mask, title, spatial=None, basemap: bool = True):
+def mask(mask, title, legend=None, spatial=None, basemap: bool = True):
     "Plots a raster mask"
 
     # Initialize plot and get CRS
@@ -91,11 +91,16 @@ def mask(mask, title, spatial=None, basemap: bool = True):
 
     # Plot the mask
     extent = bounds.xs + bounds.ys
-    cmap = ListedColormap([0.5, 0.5, 0.5])
+    color = [0.5, 0.5, 0.5]
+    cmap = ListedColormap(color)
     ax.imshow(values, extent=extent, cmap=cmap, interpolation="nearest")
 
     # Label the plot
     label(ax, title)
+    if legend is None:
+        legend = title
+    mask = mpl.patches.Patch(color=color, label=legend)
+    plt.legend(handles=[mask], loc='upper left')
 
 
 def load_retainments(path, crs):

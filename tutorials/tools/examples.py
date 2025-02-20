@@ -25,8 +25,8 @@ def values():
 
     rng = np.random.default_rng(seed=123456789)
     values = rng.integers(low=0, high=100, size=(50, 75), dtype="int16")
-    values[[0, -1], :] = -1
-    values[:, [0, -1]] = -1
+    values[[0, -1], :] = -999
+    values[:, [0, -1]] = -999
     return values
 
 
@@ -42,7 +42,7 @@ def _folder():
     return path
 
 
-def _write(filename, values):
+def _write(filename, values, nodata):
     "Writes data values to file"
 
     with rasterio.open(
@@ -54,20 +54,20 @@ def _write(filename, values):
         crs=CRS.from_epsg(26911),
         transform=Affine(10, 0, 0, 0, -10, 0),
         dtype=values.dtype,
-        nodata=-1,
+        nodata=nodata,
     ) as file:
         file.write(values, 1)
 
 
 def build_raster():
     "Saves an example raster file"
-    _write("raster.tif", values())
+    _write("raster.tif", values(), nodata=-999)
     print("Built example raster")
 
 
 def build_mask():
     "Saves and example raster mask"
-    _write("mask.tif", mask().astype("int8"))
+    _write("mask.tif", mask().astype("int8"), nodata=0)
     print("Built example raster mask")
 
 
