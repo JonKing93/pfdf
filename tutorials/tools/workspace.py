@@ -99,6 +99,9 @@ def _remove(folder, files: list[str], folders: list[str] = []):
 
 def remove_examples():
     "Removes example datasets from the workspace"
+    examples = workspace() / "examples"
+    if not examples.exists():
+        examples.mkdir()
     _remove("examples", ["example-raster.tif", "example-mask.tif", "my-raster.tif"])
     print("Cleaned workspace of example files")
 
