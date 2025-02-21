@@ -37,9 +37,9 @@ Functions that access precipitation frequency estimates (PFEs) from
 
             download(lat, lon)
             
-        Downloads a .csv file with precipitation frequency estimates for the given point. The ``lat`` and ``lon`` coordinates should be provided in decimal degrees, and ``lon`` should be on the interval [-180, 180]. By default, downloads mean PFEs of precipitation intensity for partial duration time series. See below for alternative options.
+        Downloads a .csv file with precipitation frequency estimates for the given point. The ``lat`` and ``lon`` coordinates should be provided in decimal degrees, and ``lon`` should be on the interval [-180, 180]. By default, downloads mean PFEs of precipitation intensity for partial duration time series. Refer below for alternative options.
 
-        Returns the path to the downloaded csv file as output. By default, this command will download the dataset to the current folder, and the data file will be named ``noaa-atlas14-mean-pds-intensity.csv``. Raises an error if the file already exists. (And see the following syntax for additional file options).
+        Returns the path to the downloaded csv file as output. By default, this command will download the dataset to the current folder, and the data file will be named ``noaa-atlas14-mean-pds-intensity.csv``. Raises an error if the file already exists. (And refer to the following syntax for additional file options).
 
     .. dropdown:: File Path
 

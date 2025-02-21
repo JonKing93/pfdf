@@ -96,7 +96,7 @@ It can also be useful to represent segment basins as a raster. The **terminal ou
 
 .. tip:: 
     
-    Locating outlet basins is computationally difficult. See the :doc:`parallelization guide <parallel>` for options that can sometimes speed up this process.
+    Locating outlet basins is computationally difficult. Refer to the :doc:`parallelization guide <parallel>` for options that can sometimes speed up this process.
 
 
 .. _catchment-mask:

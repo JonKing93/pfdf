@@ -41,7 +41,7 @@ projection.Transform class
             * - affine        
               - The Transform as an `affine.Affine`_ object
             * - orientation   
-              - The cartesian quadrant associated with the Transform. :ref:`See below <pfdf.projection.Transform.orientation>` for details.
+              - The cartesian quadrant associated with the Transform. :ref:`Refer below <pfdf.projection.Transform.orientation>` for details.
             * -
               -
             * - **CRS**

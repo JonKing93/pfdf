@@ -7,7 +7,7 @@ Some pfdf routines requires multiple rasters as input. When this is the case, th
 
 .. tip:: 
     
-    See also the :doc:`Preprocessing Tutorial </tutorials/notebooks/04_Preprocessing>` for in-depth examples of these commands.
+    Read the :doc:`Preprocessing Tutorial </tutorials/notebooks/04_Preprocessing>` for in-depth examples of these commands.
 
 ----
 
@@ -81,7 +81,7 @@ By default, this method will use nearest-neighbor interpolation to reproject the
     # Uses bilinear resampling
     dnbr.reproject(template=dem, resampling='bilinear')
 
-See the :ref:`reproject API <pfdf.raster.Raster.reproject>` for a complete list of supported algorithms.
+Refer to the :ref:`reproject API <pfdf.raster.Raster.reproject>` for a complete list of supported algorithms.
 
 ----
 

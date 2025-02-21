@@ -3,7 +3,9 @@ Export
 
 It's often useful to export segments and assessment results to other formats for visualization, and the class provides two methods to support this. The :ref:`save <pfdf.segments.Segments.save>` method saves a network to a vector feature file, and the :ref:`geojson <pfdf.segments.Segments.geojson>` method converts a network to a `geojson.FeatureCollection <https://pypi.org/project/geojson/#featurecollection>`_.
 
-.. note:: The examples on this page are for ShapeFiles, but pfdf supports most common vector file formats. See the :ref:`vector driver guide <vector-drivers>` for more information on supported formats. 
+.. note:: 
+  
+    The examples on this page are for ShapeFiles, but pfdf supports most common vector file formats. Refer to the :ref:`vector driver guide <vector-drivers>` for more information on supported formats. 
 
 Export Types
 ------------

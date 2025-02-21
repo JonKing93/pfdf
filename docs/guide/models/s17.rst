@@ -201,7 +201,7 @@ You can also use the ``durations`` option to query specific durations:
   >>> Cs
   array([0.22, 0.7 ])
 
-:ref:`See below <s17-models>` for implementation details of individual models.
+:ref:`Refer below <s17-models>` for implementation details of individual models.
 
 
 
@@ -363,7 +363,7 @@ As stated, the :ref:`likelihood <pfdf.models.staley2017.likelihood>` and :ref:`a
 
 .. note:: 
   
-  When designing custom models, the rainfall accumulations are always parsed/returned relative to the duration interval used to calibrate the model parameters. See above for an explanation of how this affects the :ref:`likelihood <prob-duration>` and :ref:`accumulation <acc-duration>` commands for the M1-4 models.
+  When designing custom models, the rainfall accumulations are always parsed/returned relative to the duration interval used to calibrate the model parameters. Refer above for an explanation of how this affects the :ref:`likelihood <prob-duration>` and :ref:`accumulation <acc-duration>` commands for the M1-4 models.
 
 Parameter Sweeps
 ++++++++++++++++

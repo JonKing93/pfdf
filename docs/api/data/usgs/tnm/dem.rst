@@ -57,7 +57,7 @@ Load Data
             read(bounds)
             read(bounds, resolution)
 
-        Reads data within the bounding box from the current 1/3 arc-second DEM and returns the results as a Raster object. Automatically mosaics raster data spread across multiple DEM tiles. The ``bounds`` should be a BoundingBox-like object with a CRS. Raises an error if the bounding box intersects more than 10 DEM tiles, but see the ``max_tiles`` option below to raise this limit.
+        Reads data within the bounding box from the current 1/3 arc-second DEM and returns the results as a Raster object. Automatically mosaics raster data spread across multiple DEM tiles. The ``bounds`` should be a BoundingBox-like object with a CRS. Raises an error if the bounding box intersects more than 10 DEM tiles, but use the ``max_tiles`` option (described below) to raise this limit.
 
         By default, reads data from the 1/3 arc-second DEM dataset. Use the ``resolution`` option to read from a different dataset instead. Supported resolutions include: 1/3 arc-second, 1 arc-second, 1 meter, 1/9 arc-second, 2 arc-second, and 5 meter. Note that all tiles being read must use the same CRS. Raises an error if this is not the case. This restriction is usually most relevant for the 1 meter dataset, which uses different CRS for data in different UTM zones. If you are reading data from the 1 meter dataset, then check that your bounding box does not span more than 1 UTM zone.
 
@@ -263,7 +263,7 @@ Low-level API
         * bounds (BoundingBox): An EPSG:4326 BoundingBox for the tile's extent
         * extent (str): Short description of the tile's extent
 
-        By default, this command limits itself to a single API query with a maximum of 500 search results, so will raise an error if the search results contain more than 500 tiles. See the ``max_queries`` and ``max_per_query`` options below to raise these limits.
+        By default, this command limits itself to a single API query with a maximum of 500 search results, so will raise an error if the search results contain more than 500 tiles. Use the ``max_queries`` and ``max_per_query`` options (described below) to raise these limits.
 
     .. dropdown:: Filter by HUC
 

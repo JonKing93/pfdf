@@ -319,7 +319,7 @@ Object Creation
             RasterMetadata(..., *, nodata)
             RasterMetadata(..., *, dtype, nodata, casting)
 
-        Specifies metadata fields that describe a raster's data array. The dtype input should be convertible to a real-valued numpy dtype, and the NoData value should be a scalar value. If you only provide a nodata value, then the dtype will be inherited from that value. If you provide both the dtype and nodata inputs, then the nodata value will be cast to the indicated dtype. By default, requires safe casting, but see the "casting" input to use other casting rules.
+        Specifies metadata fields that describe a raster's data array. The dtype input should be convertible to a real-valued numpy dtype, and the NoData value should be a scalar value. If you only provide a nodata value, then the dtype will be inherited from that value. If you provide both the dtype and nodata inputs, then the nodata value will be cast to the indicated dtype. By default, requires safe casting, but use the "casting" input to use other casting rules.
 
     .. dropdown:: Spatial Metadata
 
@@ -371,9 +371,9 @@ Object Creation
 
         Builds a RasterMetadata object for the file at the given URL. Ultimately, this method uses rasterio (and thereby GDAL) to open URLs. As such, many common URL schemes are supported, including: http(s), ftp, s3, (g)zip, tar, etc. Note that although the local "file" URL scheme is theoretically supported, we recommend instead using :ref:`RasterMetadata.from_file <pfdf.raster.RasterMetadata.from_file>` to build metadata from local file paths.
 
-        If a URL follows an http(s) scheme, uses the "requests" library to check the URL before loading metadata. This check is optional (see below to disable), but typically provides more informative error messages when connection problems occur. Note that the check assumes the URL supports HEAD requests, as is the case for most http(s) URLs. All other URL schemes are passed directly to rasterio.
+        If a URL follows an http(s) scheme, uses the "requests" library to check the URL before loading metadata. This check is optional (refer below to disable), but typically provides more informative error messages when connection problems occur. Note that the check assumes the URL supports HEAD requests, as is the case for most http(s) URLs. All other URL schemes are passed directly to rasterio.
 
-        After loading the URL, this method behaves nearly identically to the :ref:`RasterMetadata.from_file <pfdf.raster.RasterMetadata.from_file>` command. Please see that command's documentation for details on the following options: name, bounds, band, isbool, ensure_nodata, default_nodata, casting, and driver.
+        After loading the URL, this method behaves nearly identically to the :ref:`RasterMetadata.from_file <pfdf.raster.RasterMetadata.from_file>` command. Please read that command's documentation for details on the following options: name, bounds, band, isbool, ensure_nodata, default_nodata, casting, and driver.
 
     .. dropdown:: HTTP(S) Options
 
@@ -418,9 +418,9 @@ Object Creation
             RasterMetadata.from_file(path)
             RasterMetadata.from_file(path, name)
 
-        Returns the RasterMetadata object for the raster in the indicated file. Raises a FileNotFoundError if the file cannot be located. By default, records the dtype of band 1, but see below for additional options. The "name" input can be used to provide an optional name for the metadata, defaults to "raster" if unset. By default, if the file does not have a NoData value, then selects a default value based on the dtype. See below for other NoData options.
+        Returns the RasterMetadata object for the raster in the indicated file. Raises a FileNotFoundError if the file cannot be located. By default, records the dtype of band 1, but refer below for additional options. The "name" input can be used to provide an optional name for the metadata, defaults to "raster" if unset. By default, if the file does not have a NoData value, then selects a default value based on the dtype. Refer below for other NoData options.
 
-        Also, by default the method will attempt to use the file extension to detect the file format driver used to read data from the file. Raises an Exception if the driver cannot be determined, but see below for options to explicitly set the driver. You can also use::
+        Also, by default the method will attempt to use the file extension to detect the file format driver used to read data from the file. Raises an Exception if the driver cannot be determined, but refer below for options to explicitly set the driver. You can also use::
 
             >>> pfdf.utils.driver.extensions('raster')
 
@@ -629,7 +629,7 @@ Object Creation
 
             RasterMetadata.from_array(..., *, spatial)
 
-        Specifies a Raster or RasterMetadata object to use as a default spatial metadata template. By default, transform and crs properties from the template will be copied to the new raster. However, see below for a syntax to override this behavior.
+        Specifies a Raster or RasterMetadata object to use as a default spatial metadata template. By default, transform and crs properties from the template will be copied to the new raster. However, refer below for a syntax to override this behavior.
 
     .. dropdown:: Spatial Keywords
 
@@ -693,11 +693,11 @@ From Vector Features
 
             RasterMetadata.from_points(path)
 
-        Returns metadata derived from the input point features. The contents of the inpu MultiPoint geometries (and see below if the file contains multiple layers). The CRS of the output metadata is inherited from the input feature file. The default resolution of the output metadata is 10 meters, although see below to specify other resolutions. The bounds of the metadata will be the minimal bounds required to contain all input points at the indicated resolution.
+        Returns metadata derived from the input point features. The contents of the inpu MultiPoint geometries (and refer below if the file contains multiple layers). The CRS of the output metadata is inherited from the input feature file. The default resolution of the output metadata is 10 meters, although refer below to specify other resolutions. The bounds of the metadata will be the minimal bounds required to contain all input points at the indicated resolution.
 
-        If you do not specify an attribute field, then the metadata will have a boolean dtype. See below to build the metadata from an data property field instead.
+        If you do not specify an attribute field, then the metadata will have a boolean dtype. Refer below to build the metadata from an data property field instead.
 
-        By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, see below for syntax to specify the driver and encoding, regardless of extension. You can also use::
+        By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, refer below for syntax to specify the driver and encoding, regardless of extension. You can also use::
 
             >>> pfdf.utils.driver.extensions('vector')
 
@@ -815,11 +815,11 @@ From Vector Features
 
             RasterMetadata.from_polygons(path)
 
-        Returns metadata derived from the input polygon features. The contents of the input file should resolve to a FeatureCollection of Polygon and/or MultiPolygon geometries (and see below if the file contains multiple layers). The CRS of the metadata is inherited from the input feature file. The default resolution of the metadata is 10 meters, although see below to specify other resolutions. The bounds will be the minimal bounds required to contain all input polygons at the indicated resolution.
+        Returns metadata derived from the input polygon features. The contents of the input file should resolve to a FeatureCollection of Polygon and/or MultiPolygon geometries (and refer below if the file contains multiple layers). The CRS of the metadata is inherited from the input feature file. The default resolution of the metadata is 10 meters, although refer below to specify other resolutions. The bounds will be the minimal bounds required to contain all input polygons at the indicated resolution.
 
-        If you do not specify an attribute field, then the returned metadata will have a boolean dtype. See below to build the raster from an data property field instead.
+        If you do not specify an attribute field, then the returned metadata will have a boolean dtype. Refer below to build the raster from an data property field instead.
 
-        By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, see below for syntax to specify the driver and encoding, regardless of extension. You can also use::
+        By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, refer below for syntax to specify the driver and encoding, regardless of extension. You can also use::
 
             >>> pfdf.utils.driver.extensions('vector')
 
@@ -1180,7 +1180,7 @@ Updated Metadata
             self.update(*, nodata)
             self.update(*, nodata, casting)
 
-        Returns a new RasterMetadata object with updated data array metadata. If the updated object does not have a dtype and you provide a NoData value, then the updated object will inherit the dtype of that value. Otherwise, a new NoData value will be cast to the dtype of the updated raster. By default, requires safe casting, but see the "casting" options to use other casting rules.
+        Returns a new RasterMetadata object with updated data array metadata. If the updated object does not have a dtype and you provide a NoData value, then the updated object will inherit the dtype of that value. Otherwise, a new NoData value will be cast to the dtype of the updated raster. By default, requires safe casting, but use the "casting" options to use other casting rules.
 
     .. dropdown:: Spatial Metadata
 
@@ -1263,7 +1263,7 @@ Updated Metadata
             self.ensure_nodata(default)
             self.ensure_nodata(default, casting)
 
-        Specifies the default NoData value to use if the metadata does not already have a NoData value. If the metadata object does not have a dtype, then the new object will also inherit the dtype of the NoData value. Otherwise, the NoData value is cast to the metadata's dtype. By default, requires safe casting, but see the "casting" option to select other casting rules.
+        Specifies the default NoData value to use if the metadata does not already have a NoData value. If the metadata object does not have a dtype, then the new object will also inherit the dtype of the NoData value. Otherwise, the NoData value is cast to the metadata's dtype. By default, requires safe casting, but use the "casting" option to select other casting rules.
 
     :Inputs:
         * **default** (*scalar*) -- The NoData value to use if the metadata does not already have a NoData value

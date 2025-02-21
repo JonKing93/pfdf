@@ -27,13 +27,23 @@ These docs contain a variety of resources for pfdf users. We recommend most user
 
 The tutorials are only intended as an introduction, so do not discuss every component of pfdf. After completing the tutorials, users may find the :doc:`User Guide </guide/index>` a useful resource. The guide discusses every module and class in pfdf, with more detailed discussions of the components introduced in the tutorials. Finally, the :doc:`API </api/index>` is the complete reference guide to pfdf, and describes every command and option in full detail.
 
-This documentation also provides various resources for the pfdf community. These include links to :doc:`commonly used datasets <resources/datasets>`, :doc:`contribution guidelines <resources/contributing>` (including a :doc:`developer guide <resources/dev-guide>`), :doc:`legal documents <resources/legal>`, :doc:`release notes <resources/release-notes/index>`, and the `latest release`_. You can find links to these resources in the navigation sidebar.
+This documentation also provides various resources for the pfdf community. These include:
+
+* :doc:`FAQs <resources/faqs>`, 
+* links to :doc:`commonly used datasets <resources/datasets>`, 
+* :doc:`suggested citations <resources/citation>`,
+* :doc:`contribution guidelines <resources/contributing>` (including a :doc:`developer guide <resources/dev-guide>`), 
+* :doc:`legal documents <resources/legal>`, 
+* :doc:`release notes <resources/release-notes/index>`, and 
+* the `latest release`_. 
+
+You can find links to these resources in the navigation sidebar.
 
 .. _latest release: https://code.usgs.gov/ghsc/lhp/pfdf/-/releases/permalink/latest
 
 Citation
 --------
-If you use pfdf for a publication, please consider citing it. Please see the :doc:`Citation Page </resources/citation>` for more details.
+If you use pfdf for a publication, please consider citing it. Please read the :doc:`Citation Page </resources/citation>` for more details.
 
 
 .. toctree::

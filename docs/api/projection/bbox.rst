@@ -54,7 +54,7 @@ projection.BoundingBox class
             * - **Orientation**
               -
             * - orientation   
-              - The Cartesian quadrant of the box's orientation. See :ref:`below <pfdf.projection.BoundingBox.orient>` for details.
+              - The Cartesian quadrant of the box's orientation. Use :ref:`below <pfdf.projection.BoundingBox.orient>` for details.
             * -
               - 
             * - **CRS**
@@ -235,7 +235,7 @@ Orientation
 
 .. py:property:: BoundingBox.orientation
   
-    The Cartesian quadrant of the box's orientation. See :ref:`below <pfdf.projection.BoundingBox.orient>` for details.
+    The Cartesian quadrant of the box's orientation. Use :ref:`below <pfdf.projection.BoundingBox.orient>` for details.
 
 
 CRS

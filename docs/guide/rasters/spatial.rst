@@ -59,7 +59,7 @@ When this is the case, you can use the property to specify a CRS for the raster.
 
 .. note::
 
-    You cannot set the ``crs`` property if a *Raster* already has a CRS. However, see the :ref:`reproject method <guide-reproject>` to reproject a *Raster* to a different CRS.
+    You cannot set the ``crs`` property if a *Raster* already has a CRS. Instead, use the :ref:`reproject method <guide-reproject>` to reproject a *Raster* to a different CRS.
 
 ----
 
@@ -104,7 +104,7 @@ Note that resolution is strictly positive. Equivalently, resolution is the absol
 
 .. tip::
 
-    See also the :doc:`spatial metadata tutorial </tutorials/notebooks/08_Spatial_Metadata>` for more advanced use of transform commands.
+    Read the :doc:`spatial metadata tutorial </tutorials/notebooks/08_Spatial_Metadata>` for more advanced use of transform commands.
 
 
 Missing Transform
@@ -139,7 +139,7 @@ Since the transform and bounding box represent the same information, initializin
 
 .. note::
 
-    You cannot set the ``transform`` property if a *Raster* already has a transform. However, see the :ref:`reproject method <guide-reproject>` to reproject a *Raster* to a different transform.
+    You cannot set the ``transform`` property if a *Raster* already has a transform. Instead, use the :ref:`reproject method <guide-reproject>` to reproject a *Raster* to a different transform.
 
 ----
 
@@ -183,7 +183,7 @@ And the ``utm_zone`` property returns the CRS of the UTM zone that overlaps this
     
 .. tip::
 
-    See also the :doc:`spatial metadata tutorial </tutorials/notebooks/08_Spatial_Metadata>` for more advanced use of BoundingBox commands.
+    Also read the :doc:`spatial metadata tutorial </tutorials/notebooks/08_Spatial_Metadata>` for more advanced use of BoundingBox commands.
 
 
 Missing Bounding Box
@@ -217,4 +217,4 @@ Since the bounding box and transform represent the same information, initializin
 
 .. note::
 
-    You cannot set the ``bounds`` property if a *Raster* already has a bounding box. However, see the :ref:`clip method <guide-clip>` to clip a *Raster* to different bounds.
+    You cannot set the ``bounds`` property if a *Raster* already has a bounding box. Instead, use the :ref:`clip method <guide-clip>` to clip a *Raster* to different bounds.

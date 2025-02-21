@@ -1,7 +1,7 @@
 Watershed Module
 ================
 
-The :ref:`watershed module <pfdf.watershed>` provides functions that analyze watersheds using output from a digital elevation model (DEM). Most notably, the ``flow`` function is used to compute flow directions, which are required to delineate a stream segment network. Note that the functions in this module process an entire watershed raster. Please see the :doc:`segments module </guide/segments/values>` if you only need values for individual stream segments or stream segment catchment basins.
+The :ref:`watershed module <pfdf.watershed>` provides functions that analyze watersheds using output from a digital elevation model (DEM). Most notably, the ``flow`` function is used to compute flow directions, which are required to delineate a stream segment network. Note that the functions in this module process an entire watershed raster. Please read the :doc:`segments module </guide/segments/values>` if you only need values for individual stream segments or stream segment catchment basins.
 
 The typical base workflow for using this module is to use:
 
@@ -17,7 +17,7 @@ These flow directions are an essential input to all other watershed functions, a
 
 .. admonition:: DEM Resolution
 
-    Many of the hazard assessment models in pfdf were calibrated using data from a 10 meter DEM. As such, we recommend using a 10 meter DEM for standard applications of the models. See also `Smith et al., (2019) <https://doi.org/10.5194/esurf-7-475-2019>`_ for a discussion of the effects of DEM resolution on topographic analysis.
+    Many of the hazard assessment models in pfdf were calibrated using data from a 10 meter DEM. As such, we recommend using a 10 meter DEM for standard applications of the models. Read `Smith et al., (2019) <https://doi.org/10.5194/esurf-7-475-2019>`_ for a discussion of the effects of DEM resolution on topographic analysis.
 
 
 .. admonition:: Georeferencing

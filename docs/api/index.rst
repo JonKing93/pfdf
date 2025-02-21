@@ -1,7 +1,7 @@
 API
 ===
 
-This API provides a complete reference guide to pfdf, examining every command and option in full detail. See also the :doc:`Tutorials </tutorials/index>` for (1) an introduction to pfdf and (2) examples of common use cases. Also see the :doc:`User Guide </guide/index>` for detailed discussions of pfdf components and concepts.
+This API provides a complete reference guide to pfdf, examining every command and option in full detail. Refer to the :doc:`Tutorials </tutorials/index>` for (1) an introduction to pfdf and (2) examples of common use cases. Also read the :doc:`User Guide </guide/index>` for detailed discussions of pfdf components and concepts.
 
 .. toctree::
     

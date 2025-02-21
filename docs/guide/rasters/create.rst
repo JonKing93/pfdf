@@ -12,7 +12,7 @@ You are not required to convert raster datasets to *Raster* objects, as pfdf han
 
 .. tip:: 
     
-    This guide uses GeoTiff files as examples, but pfdf supports most common raster file formats. See also the :ref:`raster driver guide <raster-drivers>` for more information on supported file formats.
+    This guide uses GeoTiff files as examples, but pfdf supports most common raster file formats. Refer to the :ref:`raster driver guide <raster-drivers>` for more information on supported file formats.
 
 ----
 
@@ -167,7 +167,7 @@ Sometimes, you will have a dataset represented as a set of polygon or multi-poly
 
 .. tip:: 
     
-    This guide uses Shapefiles as examples, but pfdf supports most common vector feature file formats. See also the :ref:`vector driver guide <vector-drivers>` for more information on supported file formats.
+    This guide uses Shapefiles as examples, but pfdf supports most common vector feature file formats. Refer to the :ref:`vector driver guide <vector-drivers>` for more information on supported file formats.
 
 Building from Data Fields
 +++++++++++++++++++++++++

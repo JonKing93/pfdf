@@ -351,7 +351,7 @@ Unit Conversions
         base_to_units(crs, axis, distances, units)
         base_to_units(..., y)
 
-    Converts distances from axis base units to another unit system. See :ref:`utils.units.supported <pfdf.utils.units.supported>` for a list of supported unit systems. If converting units for an angular (geographic) coordinate system, converts units as if distances were measured at the equator. Use the ``y`` input to specify different latitudes instead. Note that y should be in axis base units.
+    Converts distances from axis base units to another unit system. Use :ref:`utils.units.supported <pfdf.utils.units.supported>` for a list of supported unit systems. If converting units for an angular (geographic) coordinate system, converts units as if distances were measured at the equator. Use the ``y`` input to specify different latitudes instead. Note that y should be in axis base units.
 
     The ``distances`` input may be an array of any shape. If using the ``y`` input, then ``y`` should be an array that can be broadcasted against the distances. The shape of the output array will match this broadcasted shape.
 
@@ -378,7 +378,7 @@ Unit Conversions
         units_to_base(crs, axis, distances, unit)
         units_to_base(..., y)
 
-    Converts distances to axis base units from another unit system supported by pfdf. See pfdf.utils.units.supported for a list of supported unit systems. If converting units for an angular (geographic) coordinate system, converts units as if the distances were measured at the equator. Use the ``y`` input to specify a different latitudes instead. Note that y should be in axis base units.
+    Converts distances to axis base units from another unit system supported by pfdf. Use pfdf.utils.units.supported for a list of supported unit systems. If converting units for an angular (geographic) coordinate system, converts units as if the distances were measured at the equator. Use the ``y`` input to specify a different latitudes instead. Note that y should be in axis base units.
 
     The ``distances`` input may be an array of any shape. If using the ``y`` input, then ``y`` should be an array that can be broadcasted against the distances. The shape of the output array will match this broadcasted shape.
 

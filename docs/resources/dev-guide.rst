@@ -25,7 +25,7 @@ You can install poetry using::
 
     pip install poetry
 
-and see also the `poetry documentation <https://python-poetry.org/docs/#installation>`_ for additional installation instructions.
+and also read the `poetry documentation <https://python-poetry.org/docs/#installation>`_ for additional installation instructions.
 
 Next, clone your fork of the project and navigate to the cloned repository. Then, use::
 
@@ -80,7 +80,7 @@ We use `poe <https://poethepoet.natn.io/>`_ to implement scripts for various dev
 
     poe <script-name>
 
-The following table summarizes the available scripts, and see the sections below for more details:
+The following table summarizes the available scripts, and read the sections below for more details:
 
 .. list-table::
     :header-rows: 1

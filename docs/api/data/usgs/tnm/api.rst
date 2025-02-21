@@ -52,7 +52,7 @@ Functions supporting low-level TNM API calls.
 
             query(datasets)
 
-        Makes a single query to the TNM API and returns the response as a JSON dict. By default, raises an error if the response contains error messages, but see below to disable this behavior. The ``datasets`` should be a string or list of strings.
+        Makes a single query to the TNM API and returns the response as a JSON dict. By default, raises an error if the response contains error messages, but refer below to disable this behavior. The ``datasets`` should be a string or list of strings.
 
     .. dropdown:: Spatial Filters
 
@@ -177,7 +177,7 @@ Functions supporting low-level TNM API calls.
 
         Returns info on all products in the queried datasets. Returns a list with one element per product. Each element is a JSON dict with the product's information.
 
-        By default, this command limits itself to a single API query with a maximum of 500 search results, so will raise an error if the search results contain more than 500 products. See the ``max_queries`` and ``max_per_query`` options below to raise these limits.
+        By default, this command limits itself to a single API query with a maximum of 500 search results, so will raise an error if the search results contain more than 500 products. Use the ``max_queries`` and ``max_per_query`` options (described below) to raise these limits.
 
     .. dropdown:: Spatial Filters
 

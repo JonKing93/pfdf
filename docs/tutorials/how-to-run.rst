@@ -12,7 +12,7 @@ When possible, we recommend running the tutorials as Jupyter notebooks, as this 
 
 Download Workspace
 ------------------
-First, you'll need to download the tutorial workspace. You can do so here: :download:`Download Tutorial Workspace <tutorials.zip>` or on the previous page of these docs. The download is a zip archive holding the tutorial notebooks, and various other resources. You will need to extract the archive to run the tutorials.
+First, download the tutorial workspace. You can do so here: :download:`Download Tutorial Workspace <tutorials.zip>` or on the previous page of these docs. The download is a zip archive holding the tutorial notebooks, and various other resources. You will need to extract the archive to run the tutorials.
 
 In addition to the tutorial Jupyter notebooks, the workspace will include the following contents:
 
@@ -31,7 +31,7 @@ Installation
 ------------
 To run the tutorials, you must install pfdf with the additional tutorial dependencies. You can find detailed instructions in the :ref:`Installation Guide <tutorial-install>`, but in brief, the steps are:
 
-1. `Create and activate <install-environment>` a clean virtual environment,
+1. `Create and activate <install-environment>`_ a clean virtual environment,
 2. Install `Python 3.11 or 3.12 <https://www.python.org/downloads/>`_, and then
 3. Install :ref:`pfdf with tutorial dependencies <tutorial-install>` using::
 

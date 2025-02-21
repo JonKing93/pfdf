@@ -18,22 +18,22 @@ The pfdf (postfire debris-flow) package provides utilities intended to facilitat
 
 ## Documentation
 
-Please see the [Documentation](https://ghsc.code-pages.usgs.gov/lhp/pfdf/) for detailed usage instructions, including [Tutorials](https://ghsc.code-pages.usgs.gov/lhp/pfdf/tutorials/index.html), a [User Guide](https://ghsc.code-pages.usgs.gov/lhp/pfdf/guide/index.html), and a complete reference [API](https://ghsc.code-pages.usgs.gov/lhp/pfdf/api/index.html). We recommend new users start with the tutorials.
+Please read the [Documentation](https://ghsc.code-pages.usgs.gov/lhp/pfdf/) for detailed usage instructions, including [Tutorials](https://ghsc.code-pages.usgs.gov/lhp/pfdf/tutorials/index.html), a [User Guide](https://ghsc.code-pages.usgs.gov/lhp/pfdf/guide/index.html), and a complete reference [API](https://ghsc.code-pages.usgs.gov/lhp/pfdf/api/index.html). We recommend new users start with the tutorials.
 
 
 ## Installation
 
-See the [Installation Page](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/installation) for instructions on installing pfdf.
+Please read the [Installation Page](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/installation) for instructions on installing pfdf.
 
 
 ## Contributing
 
-Please see the [Contribution Guidelines](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/contributing.html) if you would like to contribute to pfdf.
+Please read the [Contribution Guidelines](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/contributing.html) if you would like to contribute to pfdf.
 
 
 ## Citation, DOI, IP number
 
-See the [Citation Page](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/citation.html) for a suggested citation, as well as the DOI and IP number associated with each release.
+Please read the [Citation Page](https://ghsc.code-pages.usgs.gov/lhp/pfdf/resources/citation.html) for a suggested citation, as well as the DOI and IP number associated with each release.
 
 
 ## References

@@ -69,7 +69,7 @@ And the :ref:`vectors <pfdf.utils.driver.vectors>` function returns the supporte
 Extensions
 ----------
 
-Alternatively, you can use the :ref:`extensions <pfdf.utils.driver.extensions>` function to see the file format inferred by various extensions:
+Alternatively, you can use the :ref:`extensions <pfdf.utils.driver.extensions>` function to determine the file format inferred by various extensions:
 
 .. code:: pycon
 

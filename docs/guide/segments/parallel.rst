@@ -75,5 +75,5 @@ Neglecting this step will cause the routine to attempt to create an infinite num
 
 .. tip:: 
     
-    See also the :doc:`parallel basins tutorial </tutorials/notebooks/10_Parallel_Basins>` for a detailed example of basin parallelization.
+    Read the :doc:`parallel basins tutorial </tutorials/notebooks/10_Parallel_Basins>` for a detailed example of basin parallelization.
 

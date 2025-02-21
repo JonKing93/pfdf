@@ -33,7 +33,7 @@ Functions to load hydrologic unit (HU) datasets from the USGS National Hydrologi
 
             download(huc)
 
-        Downloads the data bundle for a HU4 or HU8 code to the local filesystem. Raises an error if a matching HUC cannot be found. By default, downloads a Shapefile data bundle into a folder named ``huc4-<code>`` or ``huc8-<code>`` in the current directory, but see below for other path options. Note that ``huc`` should be a string representing a HUC, rather than an int. This is to preserve leading zeros in the HUC. Returns the path to the downloaded data folder as output.
+        Downloads the data bundle for a HU4 or HU8 code to the local filesystem. Raises an error if a matching HUC cannot be found. By default, downloads a Shapefile data bundle into a folder named ``huc4-<code>`` or ``huc8-<code>`` in the current directory, but refer below for other path options. Note that ``huc`` should be a string representing a HUC, rather than an int. This is to preserve leading zeros in the HUC. Returns the path to the downloaded data folder as output.
 
     .. dropdown:: File Path
 

@@ -200,7 +200,7 @@ segments package
 
     .. tip:: 
         
-        See the :doc:`/guide/glossary` for descriptions of many terms used throughout this documentation.
+        Read the :doc:`/guide/glossary` for descriptions of many terms used throughout this documentation.
 
 ----
 
@@ -410,7 +410,7 @@ Outlets
 
         .. tip::
 
-            If you instead want the unique IDs of the terminal segments, see the :ref:`terminal_ids property <pfdf.segments.Segments.terminal_ids>` instead.
+            If you instead want the unique IDs of the terminal segments, use the :ref:`terminal_ids property <pfdf.segments.Segments.terminal_ids>` instead.
 
 
     .. dropdown:: Specific Segments
@@ -1260,7 +1260,7 @@ Generic Statistics
     a segment's summary value will still be NaN if every pixel in the stream
     segment is NaN.
 
-    :Inputs: * **statistic** (*str*) -- A string naming the requested statistic. See ``Segments.statistics()`` for info on supported statistics
+    :Inputs: * **statistic** (*str*) -- A string naming the requested statistic. Use ``Segments.statistics()`` for info on supported statistics
              * **values** (*Raster*) -- A raster of data values over which to compute stream segment summary values.
 
     :Outputs: *ndarray* -- The summary statistic for each stream segment
@@ -1284,7 +1284,7 @@ Generic Statistics
 
         .. tip::
 
-            We recommend only the "outlet", "mean", "sum", "nanmean", and "nansum" statistics whenever possible. The remaining statistics require a less efficient algorithm, and so are much slower to compute. Alternatively, see below for an option to only compute statistics for terminal outlet basins.
+            We recommend only the "outlet", "mean", "sum", "nanmean", and "nansum" statistics whenever possible. The remaining statistics require a less efficient algorithm, and so are much slower to compute. Alternatively, refer below for an option to only compute statistics for terminal outlet basins.
 
 
     .. dropdown:: Masked Summary
@@ -1303,7 +1303,7 @@ Generic Statistics
 
         Only computes statistics for the terminal outlet basins. The output will have one element per terminal segment. The order of values will match the order of IDs reported by the ``Segments.termini`` method. The number of terminal outlet basins is often much smaller than the total number of segments. As such, this option presents a faster alternative and is particularly suitable when computing statistics other than "outlet", "mean", "sum", "nanmean", or "nansum".
 
-    :Inputs: * **statistic** (*str*) -- A string naming the requested statistic. See ``Segments.statistics()`` for info on supported statistics.
+    :Inputs: * **statistic** (*str*) -- A string naming the requested statistic. Use ``Segments.statistics()`` for info on supported statistics.
              * **values** (*Raster*) -- A raster of data values over which to compute basin summaries
              * **mask** (*Raster*) -- An optional raster mask for the data values. True elements are used to compute basin statistics. False elements are ignored.
              * **terminal** (*bool*) -- True to only compute statistics for terminal outlet basins. False (default) to compute statistics for every catchment basin.
@@ -1503,7 +1503,7 @@ Export
 
         Saves the network to the indicated path. Each segment is saved as a vector feature with a LineString geometry whose coordinates proceed from upstream to downstream. The vector features will not have any data properties. In the default state, the method will raise a FileExistsError if the file already exists. Set overwrite=True to enable the replacement of existing files. Returns the absolute path to the saved file as output.
 
-        By default, the method will attempt to guess the intended file format based on the path extensions, and will raise an Exception if the file format cannot be guessed. However, see below for a syntax to specify the driver, regardless of extension. You can use::
+        By default, the method will attempt to guess the intended file format based on the path extensions, and will raise an Exception if the file format cannot be guessed. However, refer below for a syntax to specify the driver, regardless of extension. You can use::
 
             >>> pfdf.utils.driver.extensions('vector')
 

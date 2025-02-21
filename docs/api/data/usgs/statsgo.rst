@@ -87,7 +87,7 @@ Load Data
 
         The dataset in the downloaded file spans the Continental US at a nominal 30 meter resolution. A downloaded file will require 336MB of disk space. Note that the COG format uses compression internally to reduce file size, so reading the full dataset into memory will require ~60GB of RAM - significantly more memory than the size of the downloaded file.
 
-        Returns the path to the downloaded file as output. By default, downloads a file named ``STATSGO-<field>.tif`` to the current folder. Raises an error if the file exists. (And see the following syntax for additional file path options).
+        Returns the path to the downloaded file as output. By default, downloads a file named ``STATSGO-<field>.tif`` to the current folder. Raises an error if the file exists. (And refer to the following syntax for additional file path options).
 
     .. dropdown:: File Path
 

@@ -403,9 +403,9 @@ Object Creation
             Raster.from_file(path)
             Raster.from_file(path, name)
 
-        Builds a *Raster* from the indicated file. Raises a FileNotFoundError if the file cannot be located. Loads file data when building the object By default, loads all data from band 1, but see below for additional options. The name input can be used to provide an optional name for the raster, defaults to "raster" if unset. By default, if the file does not have a NoData value, then selects a default value based on the dtype. See below for other NoData options.
+        Builds a *Raster* from the indicated file. Raises a FileNotFoundError if the file cannot be located. Loads file data when building the object By default, loads all data from band 1, but refer below for additional options. The name input can be used to provide an optional name for the raster, defaults to "raster" if unset. By default, if the file does not have a NoData value, then selects a default value based on the dtype. Refer below for other NoData options.
 
-        Also, by default the method will attempt to use the file extension to detect the file format driver used to read data from the file. Raises an Exception if the driver cannot be determined, but see below for options to explicitly set the driver. You can also use::
+        Also, by default the method will attempt to use the file extension to detect the file format driver used to read data from the file. Raises an Exception if the driver cannot be determined, but refer below for options to explicitly set the driver. You can also use::
 
             >>> pfdf.utils.driver.extensions('raster')
 
@@ -494,9 +494,9 @@ Object Creation
 
         Builds a Raster object for the file at the given URL. Ultimately, this method uses rasterio (and thereby GDAL) to open URLs. As such, many common URL schemes are supported, including: http(s), ftp, s3, (g)zip, tar, etc. Note that although the local "file" URL scheme is theoretically supported, we recommend instead using :ref:`Raster.from_file <pfdf.raster.Raster.from_file>` to build metadata from local file paths.
 
-        If a URL follows an http(s) scheme, uses the `requests library <https://requests.readthedocs.io/en/latest/>`_ to check the URL before loading data. This check is optional (see below to disable), but typically provides more informative error messages when connection problems occur. Note that the check assumes the URL supports HEAD requests, as is the case for most http(s) URLs. All other URL schemes are passed directly to rasterio.
+        If a URL follows an http(s) scheme, uses the `requests library <https://requests.readthedocs.io/en/latest/>`_ to check the URL before loading data. This check is optional (refer below to disable), but typically provides more informative error messages when connection problems occur. Note that the check assumes the URL supports HEAD requests, as is the case for most http(s) URLs. All other URL schemes are passed directly to rasterio.
 
-        After loading the URL, this method behaves nearly identically to the :ref:`Raster.from_file <pfdf.raster.Raster.from_file>` command. Please see that command's documentation for details on the following options: name, bounds, band, isbool, ensure_nodata, default_nodata, casting, and driver.
+        After loading the URL, this method behaves nearly identically to the :ref:`Raster.from_file <pfdf.raster.Raster.from_file>` command. Please read that command's documentation for details on the following options: name, bounds, band, isbool, ensure_nodata, default_nodata, casting, and driver.
 
     .. dropdown:: HTTP Connection Options
 
@@ -662,7 +662,7 @@ Object Creation
         
             Raster.from_array(..., *, spatial)
 
-        Specifies a Raster object to use as a default spatial metadata template. By default, transform and crs properties from the template will be copied to the new raster. However, see below for a syntax to override this behavior.
+        Specifies a Raster object to use as a default spatial metadata template. By default, transform and crs properties from the template will be copied to the new raster. However, refer below for a syntax to override this behavior.
 
     .. dropdown:: Spatial Keywords
 
@@ -732,11 +732,11 @@ From Vector Features
 
             Raster.from_points(path)
 
-        Returns a raster derived from the input point features. The contents of the input file should resolve to a FeatureCollection of Point and/or MultiPoint geometries (and see below if the file contains multiple layers). The CRS of the output raster is inherited from the input feature file. The default resolution of the output raster is 10 meters, although see below to specify other resolutions. The bounds of the raster will be the minimal bounds required to contain all input points at the indicated resolution.
+        Returns a raster derived from the input point features. The contents of the input file should resolve to a FeatureCollection of Point and/or MultiPoint geometries (and refer below if the file contains multiple layers). The CRS of the output raster is inherited from the input feature file. The default resolution of the output raster is 10 meters, although refer below to specify other resolutions. The bounds of the raster will be the minimal bounds required to contain all input points at the indicated resolution.
 
-        If you do not specify an attribute field, then the returned raster will have a boolean dtype. Pixels containing a point are set to True. All other pixels are set to False. See below to build the raster from an data property field instead.
+        If you do not specify an attribute field, then the returned raster will have a boolean dtype. Pixels containing a point are set to True. All other pixels are set to False. Refer below to build the raster from an data property field instead.
 
-        By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, see below for syntax to specify the driver and encoding, regardless of extension. You can also use::
+        By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, refer below for syntax to specify the driver and encoding, regardless of extension. You can also use::
 
             >>> pfdf.utils.driver.extensions('vector')
 
@@ -750,7 +750,7 @@ From Vector Features
             Raster.from_points(..., *, dtype)
             Raster.from_points(..., *, dtype, field_casting)
 
-        Builds the raster using one of the data property fields for the point features. Pixels that contain a point are set to the value of the data field for that point. If a pixel contains multiple points, then the pixel's value will match the data value of the final point in the set. Pixels that do not contain a point are set to a default NoData value, but see below for options to specify the NoData value instead.
+        Builds the raster using one of the data property fields for the point features. Pixels that contain a point are set to the value of the data field for that point. If a pixel contains multiple points, then the pixel's value will match the data value of the final point in the set. Pixels that do not contain a point are set to a default NoData value, but refer below for options to specify the NoData value instead.
 
         The indicated data field must exist in the data properties, and must have an int or float type. By default, the dtype of the output raster will match this type. Use the ``dtype`` option to specify the type of the output raster instead. In this case, the data field values will be cast to the indicated dtype before being used to build the raster. By default, field values must be safely castable to the indicated dtype. Use the ``field_casting`` option to select different casting rules. The ``dtype`` and ``field_casting`` options are ignored if you do not specify a field.
 
@@ -856,11 +856,11 @@ From Vector Features
 
             Raster.from_polygons(path)
 
-        Returns a raster derived from the input polygon features. The contents of the input file should resolve to a FeatureCollection of Polygon and/or MultiPolygon geometries (and see below if the file contains multiple layers). The CRS of the output raster is inherited from the input feature file. The default resolution of the output raster is 10 meters, although see below to specify other resolutions. The bounds of the raster will be the minimal bounds required to contain all input polygons at the indicated resolution.
+        Returns a raster derived from the input polygon features. The contents of the input file should resolve to a FeatureCollection of Polygon and/or MultiPolygon geometries (and refer below if the file contains multiple layers). The CRS of the output raster is inherited from the input feature file. The default resolution of the output raster is 10 meters, although refer below to specify other resolutions. The bounds of the raster will be the minimal bounds required to contain all input polygons at the indicated resolution.
 
-        If you do not specify an attribute field, then the returned raster will have a boolean dtype. Pixels whose centers are in any of the polygons are set to True. All other pixels are set to False. See below to build the raster from an data property field instead.
+        If you do not specify an attribute field, then the returned raster will have a boolean dtype. Pixels whose centers are in any of the polygons are set to True. All other pixels are set to False. Refer below to build the raster from an data property field instead.
 
-        By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, see below for syntax to specify the driver and encoding, regardless of extension. You can also use::
+        By default, this method will attempt to guess the intended file format and encoding based on the path extension. Raises an error if the format or encoding cannot be determined. However, refer below for syntax to specify the driver and encoding, regardless of extension. You can also use::
 
             >>> pfdf.utils.driver.extensions('vector')
 
@@ -874,7 +874,7 @@ From Vector Features
             Raster.from_polygons(..., *, dtype)
             Raster.from_polygons(..., *, dtype, field_casting)
 
-        Builds the raster using one of the data property fields for the polygon features. Pixels whose centers lie within a polygon are set to the value of the data field for that polygon. If a pixel is in multiple polygons, then the pixel's value will match the data value of the final polygon in the set. Pixels that do no lie within a polygon are set to a default NoData value, but see below for options to specify the NoData value instead.
+        Builds the raster using one of the data property fields for the polygon features. Pixels whose centers lie within a polygon are set to the value of the data field for that polygon. If a pixel is in multiple polygons, then the pixel's value will match the data value of the final polygon in the set. Pixels that do no lie within a polygon are set to a default NoData value, but refer below for options to specify the NoData value instead.
 
 
         The indicated data field must exist in the data properties, and must have an int or float type. By default, the dtype of the output raster will be int32 or float64, as appropriate. Use the ``dtype`` option to specify the type of the output raster instead. In this case, the data field values will be cast to the  indicated dtype before being used to build the raster. Note that only some numpy dtypes are supported for building a raster from polygons. Supported dtypes are: bool, int16, int32, uint8, uint16, uint32, float32, and float64. Raises an error 
@@ -1070,7 +1070,7 @@ IO
     crs       EPSG 4326
     ========  =======
 
-    Please see the `pysheds documentation <https://mattbartos.com/pysheds/raster.html>`_ for additional details on using these outputs.
+    Please read the `pysheds documentation <https://mattbartos.com/pysheds/raster.html>`_ for additional details on using these outputs.
 
     :Outputs: *pysheds.sview.Raster* -- The *Raster* as a ``pysheds.sview.Raster`` object.
 
@@ -1096,7 +1096,7 @@ Numeric Preprocessing
 
             self.fill(value)
 
-            Locates NoData pixels in the raster and replaces them with the indicated value. The fill value must be safely castable to the dtype of the raster. The updated raster will no longer have a NoData value, as all NoData pixels will have been replaced. By default, this method creates a copy of the raster's data array before replacing NoData values. As such, other copies of the raster will not be affected (although see below to fill values wihout copying).
+            Locates NoData pixels in the raster and replaces them with the indicated value. The fill value must be safely castable to the dtype of the raster. The updated raster will no longer have a NoData value, as all NoData pixels will have been replaced. By default, this method creates a copy of the raster's data array before replacing NoData values. As such, other copies of the raster will not be affected (although refer below to fill values wihout copying).
 
     .. dropdown:: Disable Copying
 
@@ -1142,9 +1142,9 @@ Numeric Preprocessing
 
             self.set_range(min, max)
 
-        Forces the raster's data values to fall within a specified range. The min and max inputs specify lower and upper bounds for the range, and must be safely castable to the dtype of the raster. By default, uses inclusive bounds, although see below to use exclusive bounds instead. Data values that fall outside these bounds are clipped - pixels less than the lower bound are set to equal the bound, and pixels greater than the upper bound are set to equal that bound. If a bound is None, does not enforce that bound. Raises an error if both bounds are None.
+        Forces the raster's data values to fall within a specified range. The min and max inputs specify lower and upper bounds for the range, and must be safely castable to the dtype of the raster. By default, uses inclusive bounds, although refer below to use exclusive bounds instead. Data values that fall outside these bounds are clipped - pixels less than the lower bound are set to equal the bound, and pixels greater than the upper bound are set to equal that bound. If a bound is None, does not enforce that bound. Raises an error if both bounds are None.
 
-        This method does not alter NoData pixels, even if the NoData value is outside the indicated bounds. By default, this method creates a copy of the raster's data array before replacing out-of-bounds pixels, so copies of the raster are not affected. See below to alter this behavior.
+        This method does not alter NoData pixels, even if the NoData value is outside the indicated bounds. By default, this method creates a copy of the raster's data array before replacing out-of-bounds pixels, so copies of the raster are not affected. Refer below to alter this behavior.
 
     .. dropdown:: Replace with NoData
 
@@ -1313,7 +1313,7 @@ Spatial Preprocessing
 
         Reprojects the current raster to match the spatial characteristics of a template raster. The current raster is projected into the same CRS, resolution, and grid alignment as the template. If either raster does not have a CRS, then the rasters are assumed to have the same CRS. If either raster does not have an affine transform, then the rasters are assumed to have the same resolution and grid alignment.
 
-        If the raster is projected outside of its current bounds, then the reprojected pixels outside the bounds are set to the raster's NoData value. Raises an error if the raster does not have a NoData value. If resampling is required, uses nearest-neighbor interpolation by default, but see below for additional resampling options.
+        If the raster is projected outside of its current bounds, then the reprojected pixels outside the bounds are set to the raster's NoData value. Raises an error if the raster does not have a NoData value. If resampling is required, uses nearest-neighbor interpolation by default, but refer below for additional resampling options.
 
     .. dropdown:: Reproject by Keyword
 
@@ -1330,7 +1330,7 @@ Spatial Preprocessing
 
             self.reproject(..., *, resampling)
 
-        Specifies the interpolation algorithm used for resampling. The default is nearest-neighbor interpolation. Other options include bilinear, cubic, cubic-spline, Lanczos-windowed, average, and mode resampling. Additional algorithms may be available depending on your GDAL installation. See the rasterio documentation for additional details on resampling algorithms and their requirements: `Resampling Algorithms <https://rasterio.readthedocs.io/en/stable/api/rasterio.enums.html#rasterio.enums.Resampling>`_
+        Specifies the interpolation algorithm used for resampling. The default is nearest-neighbor interpolation. Other options include bilinear, cubic, cubic-spline, Lanczos-windowed, average, and mode resampling. Additional algorithms may be available depending on your GDAL installation. Read the rasterio documentation for additional details on resampling algorithms and their requirements: `Resampling Algorithms <https://rasterio.readthedocs.io/en/stable/api/rasterio.enums.html#rasterio.enums.Resampling>`_
 
     .. dropdown:: Computational Performance
 

@@ -7,7 +7,7 @@ We welcome feedback and contributions, such as: suggestions for new features, bu
 * Contact the developers, or
 * Contact the `Landslides Hazards Program <https://www.usgs.gov/programs/landslide-hazards>`_
 
-If you plan to contribute code, then please see the :doc:`Developer Guide <dev-guide>`
+If you plan to contribute code, then please read the :doc:`Developer Guide <dev-guide>`
 
 .. toctree::
     :hidden:

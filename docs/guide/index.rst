@@ -1,7 +1,7 @@
 User Guide
 ==========
 
-Welcome to the pfdf user guide. This guide is intended for users who have read the :doc:`main series tutorials </tutorials/main-series>` and are ready for a more detailed discussion of pfdf. Specifically, the guide provides more in-depth discussions of pfdf components and concepts, with some practical suggestions for implementing common workflows. Although the guide is more detailed than the tutorials, it is not exhausted, and users should see the :doc:`API </api/index>` for a complete reference guide to pfdf.
+Welcome to the pfdf user guide. This guide is intended for users who have read the :doc:`main series tutorials </tutorials/main-series>` and are ready for a more detailed discussion of pfdf. Specifically, the guide provides more in-depth discussions of pfdf components and concepts, with some practical suggestions for implementing common workflows. Although the guide is more detailed than the tutorials, it is not exhaustive. For a complete reference guide to pfdf, please consult the :doc:`API </api/index>` instead.
 
 ----
 

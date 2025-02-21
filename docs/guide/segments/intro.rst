@@ -31,7 +31,7 @@ Building a Network
 ------------------
 You can build an initial stream segment network by :ref:`initializing a Segments object <pfdf.segments.Segments.__init__>`. There are two essential inputs for this procedure: 
 
-1. A D8 flow direction raster (see the :doc:`watershed module </guide/watershed/watershed>`), and
+1. A D8 flow direction raster (discussed in the :doc:`watershed module </guide/watershed/watershed>`), and
 2. A raster mask indicating watershed pixels that may potentially be stream segments. 
 
 ::

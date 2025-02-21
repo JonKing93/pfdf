@@ -34,7 +34,7 @@ This class includes methods to:
 
 .. note:: 
   
-    See also the :doc:`Raster Intro </tutorials/notebooks/02_Raster_Intro>` and :doc:`Preprocessing </tutorials/notebooks/04_Preprocessing>` tutorials for detailed examples using *Raster* commands.
+    The :doc:`Raster Intro </tutorials/notebooks/02_Raster_Intro>` and :doc:`Preprocessing </tutorials/notebooks/04_Preprocessing>` tutorials include detailed examples using *Raster* commands.
 
 In many cases, you can create a *Raster* object by calling :ref:`the constructor <pfdf.raster.Raster.__init__>` on a file or an array-like dataset. For example, from a file:
 
@@ -128,5 +128,9 @@ Some other useful properties include:
       - True elements indicate NoData pixels
       - 2D boolean numpy array
 
-(and see the :doc:`Raster API </api/raster/raster>` for a complete summary of *Raster* properties). The remainder of this section will outline key *Raster* commands, and see also the :doc:`Raster Intro </tutorials/notebooks/02_Raster_Intro>`, :doc:`Preprocessing </tutorials/notebooks/04_Preprocessing>`, and :doc:`Spatial Metadata </tutorials/notebooks/08_Spatial_Metadata>` tutorials for more detailed examples.
+(and consult the :doc:`Raster API </api/raster/raster>` for a complete summary of *Raster* properties). The remainder of this section will outline key *Raster* commands.
+
+.. tip::
+  
+  The :doc:`Raster Intro </tutorials/notebooks/02_Raster_Intro>`, :doc:`Preprocessing </tutorials/notebooks/04_Preprocessing>`, and :doc:`Spatial Metadata </tutorials/notebooks/08_Spatial_Metadata>` tutorials include detailed examples ``Raster`` commands.
 
