@@ -100,7 +100,7 @@ def mask(mask, title, legend=None, spatial=None, basemap: bool = True):
     if legend is None:
         legend = title
     mask = mpl.patches.Patch(color=color, label=legend)
-    plt.legend(handles=[mask], loc='upper left')
+    plt.legend(handles=[mask], loc="upper left")
 
 
 def load_retainments(path, crs):
