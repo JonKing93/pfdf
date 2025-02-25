@@ -20,7 +20,7 @@ Data:
 
 TNM API:
     dataset     - Returns the fully-qualified TNM name for the NHD dataset
-    product     - Returns product info for a HUC4 or HUC8
+    product     - Returns TNM product info for a HUC4 or HUC8
 
 Internal:
     _no_huc_error   - Raises an informative error when a matching HUC cannot be found
@@ -57,7 +57,9 @@ def dataset() -> str:
     return "National Hydrography Dataset (NHD) Best Resolution"
 
 
-def product(huc: str, *, format="Shapefile", timeout: Optional[timeout] = 60) -> dict:
+def product(
+    huc: str, *, format: Format = "Shapefile", timeout: Optional[timeout] = 60
+) -> dict:
     """
     Returns the product info for the queried HUC
     ----------
@@ -127,9 +129,10 @@ def _no_huc_error(huc) -> NoReturn:
 
 def download(
     huc: str,
-    path: Optional[Pathlike] = None,
     *,
-    format="Shapefile",
+    parent: Optional[Pathlike] = None,
+    name: Optional[str] = None,
+    format: Format = "Shapefile",
     timeout: Optional[timeout] = 60,
 ) -> Path:
     """
@@ -143,10 +146,13 @@ def download(
     representing a HUC, rather than an int. This is to preserve leading zeros in the
     HUC. Returns the path to the downloaded data folder as output.
 
-    download(..., path)
-    Specifies the path where the downloaded data bundle should be saved. If a relative
-    path, then the path is interpreted relative to the current directory. Raises an
-    error if the path already exists.
+    download(..., *, parent)
+    download(..., *, name)
+    Options for downloading the the data bundle. The `parent` option is the path to the
+    parent folder where the data bundle should be downloaded. If a relative path, then
+    `parent` is interpreted relative to the current folder. Use `name` to set the name
+    of the downloaded data bundle. Rases an error if the path to the data bundle already
+    exists.
 
     download(..., *, format)
     Downloads a data bundle in the indicated file format. Supported options include:
@@ -165,19 +171,23 @@ def download(
     ----------
     Inputs:
         huc: A string of the HU4 or HU8 code whose data bundle should be downloaded
-        path: The path where the downloaded data folder should be saved. Defaults to
-            "huc4-<code>" or "huc8-<code> in the current folder, as appropriate.
+        parent: The path to the parent folder where the data bundle should be downloaded.
+            Defaults to the current folder.
+        name: The name for the downloaded data bundle. Defaults to huc4-<code> or
+            huc8-<code>, as appropriate
         format: The file format that should be download. Options are "Shapefile",
             "GeoPackage", and "FileGDB"
         timeout: The maximum number of seconds to connect to the TNM server
 
     Outputs:
-        Path: The path to the downloaded data folder
+        Path: The path to the downloaded data bundle
     """
 
     # Validate
     huc, huc_type = _validate.huc48(huc)
-    path = cvalidate.output_folder(path, default=f"{huc_type}-{huc}")
+    path = cvalidate.download_path(
+        parent, name, default_name=f"{huc_type}-{huc}", overwrite=False
+    )
 
     # Find the HUC record. Download and unzip the dataset
     record = product(huc, format=format, timeout=timeout)

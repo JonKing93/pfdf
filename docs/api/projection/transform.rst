@@ -1,18 +1,14 @@
-pfdf.projection.transform module
-================================
+projection.Transform class
+==========================
 
 .. _pyproj.CRS: https://pyproj4.github.io/pyproj/stable/examples.html
 
 .. _affine.Affine: https://pypi.org/project/affine/
 
-.. _pfdf.projection.transform:
-
-.. py:module:: pfdf.projection.transform
-
-.. _pfdf.projection.transform.Transform:
+.. _pfdf.projection.Transform:
 
 .. py:class:: Transform
-    :module: pfdf.projection.transform
+    :module: pfdf.projection
 
     The *Transform* class implements objects that represent affine transformation matrices. These matrices are used convert the row and column indices of a raster's pixels to spatial coordinates, and take the form:
 
@@ -25,7 +21,7 @@ pfdf.projection.transform module
 
     Here, dx and dy are the change in spatial coordinate when incrementing one column or row, respectively. The "left" and "top" variables indicate the spatial coordinates of the data grid's left and top edges. The two remaining coefficients can be used to implement shear transforms. However, pfdf only supports rectangular pixels, so these will always be 0 for our purposes.
 
-    *Transform* objects include methods to report ``dx``, ``dy``, ``left``, and ``top`` values, as well as other pixel geometry properties. An object may optionally have an associated CRS (via the ``crs`` property) which provides an absolute reference frame for the left and top coordinates. *Transform* objects support resolution values in both meters and native CRS units. Because a Transform only defines the top-left corner of a raster, the location of the raster center is unknown. As such, methods that report values derived from X-axis resolution are most accurate when an optional Y-coordinate (representing the location of the raster center) is also provided. If this coordinate is not set, X-axis resolutions are calculated as if at the equator. In addition to pixel properties, *Transform* objects include methods to reproject to other coordinate systems, and to convert to a :ref:`BoundingBox object <pfdf.projection.bbox.BoundingBox>`.
+    *Transform* objects include methods to report ``dx``, ``dy``, ``left``, and ``top`` values, as well as other pixel geometry properties. An object may optionally have an associated CRS (via the ``crs`` property) which provides an absolute reference frame for the left and top coordinates. *Transform* objects support resolution values in both meters and native CRS units. Because a Transform only defines the top-left corner of a raster, the location of the raster center is unknown. As such, methods that report values derived from X-axis resolution are most accurate when an optional Y-coordinate (representing the location of the raster center) is also provided. If this coordinate is not set, X-axis resolutions are calculated as if at the equator. In addition to pixel properties, *Transform* objects include methods to reproject to other coordinate systems, and to convert to a :ref:`BoundingBox object <pfdf.projection.BoundingBox>`.
 
     .. dropdown:: Properties
 
@@ -45,7 +41,7 @@ pfdf.projection.transform module
             * - affine        
               - The Transform as an `affine.Affine`_ object
             * - orientation   
-              - The cartesian quadrant associated with the Transform. :ref:`See below <pfdf.projection.transform.Transform.orientation>` for details.
+              - The cartesian quadrant associated with the Transform. :ref:`Refer below <pfdf.projection.Transform.orientation>` for details.
             * -
               -
             * - **CRS**
@@ -71,85 +67,89 @@ pfdf.projection.transform module
               -
             * - **Object Creation**
               -
-            * - :ref:`__init__ <pfdf.projection.transform.Transform.__init__>`      
+            * - :ref:`__init__ <pfdf.projection.Transform.__init__>`      
               - Create Transform from dx, dy, left, top, and optional CRS
-            * - :ref:`from_dict <pfdf.projection.transform.Transform.from_dict>`     
+            * - :ref:`from_dict <pfdf.projection.Transform.from_dict>`     
               - Create Transform from a keyword dict
-            * - :ref:`from_list <pfdf.projection.transform.Transform.from_list>`     
+            * - :ref:`from_list <pfdf.projection.Transform.from_list>`     
               - Create Transform from a list or tuple
-            * - :ref:`from_affine <pfdf.projection.transform.Transform.from_affine>`   
+            * - :ref:`from_affine <pfdf.projection.Transform.from_affine>`   
               - Create Transform from an `affine.Affine`_ object
-            * - :ref:`copy <pfdf.projection.transform.Transform.copy>`          
+            * - :ref:`copy <pfdf.projection.Transform.copy>`          
               - Returns a copy of the current Transform
             * -
               -
             * - **Dunders**
               -
-            * - :ref:`__repr__ <pfdf.projection.transform.Transform.__repr__>`
+            * - :ref:`__repr__ <pfdf.projection.Transform.__repr__>`
               - A string representing the Transform
-            * - :ref:`__eq__ <pfdf.projection.transform.Transform.__eq__>`
+            * - :ref:`__eq__ <pfdf.projection.Transform.__eq__>`
               - True if two Transform objects have the same affine matrix and CRS
             * -
               -
             * - **Resolution**
               -
-            * - :ref:`dx <pfdf.projection.transform.Transform.dx>`
+            * - :ref:`dx <pfdf.projection.Transform.dx>`
               - The change in X coordinate when moving one pixel right
-            * - :ref:`dy <pfdf.projection.transform.Transform.dy>`
+            * - :ref:`dy <pfdf.projection.Transform.dy>`
               - The change in Y coordinate when moving one pixel down
-            * - :ref:`xres <pfdf.projection.transform.Transform.xres>`
+            * - :ref:`xres <pfdf.projection.Transform.xres>`
               - The X-axis resolution. Equal to the absolute value of dx
-            * - :ref:`yres <pfdf.projection.transform.Transform.yres>`
+            * - :ref:`yres <pfdf.projection.Transform.yres>`
               - The Y-axis resolution. Equal to the absolute value of dy
-            * - :ref:`resolution <pfdf.projection.transform.Transform.resolution>`
+            * - :ref:`resolution <pfdf.projection.Transform.resolution>`
               - An (X resolution, Y resolution) tuple
             * - 
               -
             * - **Pixel Geometries**
               -
-            * - :ref:`pixel_area <pfdf.projection.transform.Transform.pixel_area>`
+            * - :ref:`pixel_area <pfdf.projection.Transform.pixel_area>`
               - The area of a pixel
-            * - :ref:`pixel_diagonal <pfdf.projection.transform.Transform.pixel_diagonal>`
+            * - :ref:`pixel_diagonal <pfdf.projection.Transform.pixel_diagonal>`
               - The length of a pixel diagonal
             * -
               -
             * - **Units per meter**
               -
-            * - :ref:`units_per_m <pfdf.projection.transform.Transform.units_per_m>`
+            * - :ref:`units_per_m <pfdf.projection.Transform.units_per_m>`
               - The number of CRS units per meter along the X and Y axes
-            * - :ref:`x_units_per_m <pfdf.projection.transform.Transform.x_units_per_m>`
+            * - :ref:`x_units_per_m <pfdf.projection.Transform.x_units_per_m>`
               - The number of X axis units per meter
-            * - :ref:`y_units_per_m <pfdf.projection.transform.Transform.y_units_per_m>`
+            * - :ref:`y_units_per_m <pfdf.projection.Transform.y_units_per_m>`
               - The number of Y axis units per meter
             * -
               -
-            * - **Reprojection**
+            * - **Reprojection and CRS**
               -
-            * - :ref:`reproject <pfdf.projection.transform.Transform.reproject>`
+            * - :ref:`reproject <pfdf.projection.Transform.reproject>`
               - Returns a copy of a Transform in a new CRS
+            * - :ref:`match_crs <pfdf.projection.Transform.match_crs>`
+              - Returns a copy of a Transform compatible with an input CRS
+            * - :ref:`remove_crs <pfdf.projection.Transform.remove_crs>`
+              - Returns a copy of the Transform without a CRS
             * -
               -
             * - **BoundingBox Conversion**
               -
-            * - :ref:`right <pfdf.projection.transform.Transform.right>`
+            * - :ref:`right <pfdf.projection.Transform.right>`
               - Computes the right edge, given a number of columns
-            * - :ref:`bottom <pfdf.projection.transform.Transform.bottom>`
+            * - :ref:`bottom <pfdf.projection.Transform.bottom>`
               - Computes the bottom edge, given a number of rows
-            * - :ref:`bounds <pfdf.projection.transform.Transform.bounds>`
+            * - :ref:`bounds <pfdf.projection.Transform.bounds>`
               - Converts Transform to BoundingBox, given the number of raster columns and rows
             * -
               -
             * - **As Built-in**
               -
-            * - :ref:`tolist <pfdf.projection.transform.Transform.tolist>`
+            * - :ref:`tolist <pfdf.projection.Transform.tolist>`
               - Returns a transform as a list
-            * - :ref:`todict <pfdf.projection.transform.Transform.todict>`
+            * - :ref:`todict <pfdf.projection.Transform.todict>`
               - Returns a transform as a dict
             * -
               -
             * - **Testing**
               -
-            * - :ref:`isclose <pfdf.projection.transform.Transform.isclose>`
+            * - :ref:`isclose <pfdf.projection.Transform.isclose>`
               - True if an input is a Transform with similar values
 
 ----
@@ -172,7 +172,7 @@ Misc
     
     The Transform as an `affine.Affine`_ object
 
-.. _pfdf.projection.transform.Transform.orientation:
+.. _pfdf.projection.Transform.orientation:
 
 .. py:property:: Transform.orientation
     
@@ -222,7 +222,7 @@ CRS
 Object Creation
 ---------------
 
-.. _pfdf.projection.transform.Transform.__init__:
+.. _pfdf.projection.Transform.__init__:
 
 .. py:method:: Transform.__init__(self, dx, dy, left, top, crs = None)
 
@@ -246,7 +246,7 @@ Object Creation
         *Transform* - The new Transform object
 
 
-.. _pfdf.projection.transform.Transform.from_affine:
+.. _pfdf.projection.Transform.from_affine:
 
 .. py:method:: Transform.from_affine(input, crs = None)
 
@@ -267,7 +267,7 @@ Object Creation
         *Transform* - The new Transform object
 
 
-.. _pfdf.projection.transform.Transform.from_dict:
+.. _pfdf.projection.Transform.from_dict:
 
 .. py:method:: Transform.from_dict(cls, input)
 
@@ -284,7 +284,7 @@ Object Creation
     :Outputs: *Transform* -- A Transform created from the input dict
 
 
-.. _pfdf.projection.transform.Transform.from_list:
+.. _pfdf.projection.Transform.from_list:
 
 .. py:method:: Transform.from_list(input)
 
@@ -303,7 +303,7 @@ Object Creation
         *Transform* - The new Transform object
 
 
-.. _pfdf.projection.transform.Transform.copy:
+.. _pfdf.projection.Transform.copy:
 
 .. py:method:: Transform.copy(self)
 
@@ -322,7 +322,7 @@ Object Creation
 Dunders
 -------
 
-.. _pfdf.projection.transform.Transform.__repr__:
+.. _pfdf.projection.Transform.__repr__:
 
 .. py:method::  Transform.__repr__(self)
 
@@ -336,7 +336,7 @@ Dunders
     :Output: *str* -- String representation of the Transform
 
 
-.. _pfdf.projection.transform.Transform.__eq__:
+.. _pfdf.projection.Transform.__eq__:
 
 .. py:method:: Transform.__eq__(self, other)
 
@@ -354,7 +354,7 @@ Dunders
 Resolution
 ----------
 
-.. _pfdf.projection.transform.Transform.dx:
+.. _pfdf.projection.Transform.dx:
 
 .. py:method:: Transform.dx(self, units = "base", y = None)
     
@@ -376,7 +376,7 @@ Resolution
         *float* -- The dx for the transform
         
 
-.. _pfdf.projection.transform.Transform.dy:
+.. _pfdf.projection.Transform.dy:
 
 .. py:method:: Transform.dy(self, units = "base")
 
@@ -396,7 +396,7 @@ Resolution
         *float* -- The dy for the transform
 
 
-.. _pfdf.projection.transform.Transform.xres:
+.. _pfdf.projection.Transform.xres:
 
 .. py:method:: Transform.xres(self, units = "base", y = None)
 
@@ -418,7 +418,7 @@ Resolution
         *float* -- The X resolution for the Transform
         
 
-.. _pfdf.projection.transform.Transform.yres:
+.. _pfdf.projection.Transform.yres:
 
 .. py:method:: Transform.yres(self, units = "base")
 
@@ -438,7 +438,7 @@ Resolution
         *float* -- The Y resolution for the Transform
         
 
-.. _pfdf.projection.transform.Transform.resolution:
+.. _pfdf.projection.Transform.resolution:
 
 .. py:method:: Transform.resolution(self, units = "base", y = None)
 
@@ -465,7 +465,7 @@ Resolution
 Pixel geometries
 ----------------
 
-.. _pfdf.projection.transform.Transform.pixel_area:
+.. _pfdf.projection.Transform.pixel_area:
 
 .. py:method:: Transform.pixel_area(self, units = "base", y = None)
 
@@ -487,7 +487,7 @@ Pixel geometries
         *float* -- The area of a pixel in the Transform
 
 
-.. _pfdf.projection.transform.Transform.pixel_diagonal:
+.. _pfdf.projection.Transform.pixel_diagonal:
 
 .. py:method:: Transform.pixel_diagonal(self, units = "base", y = None)
 
@@ -516,7 +516,7 @@ Units per meter
 ---------------
 
 
-.. _pfdf.projection.transform.Transform.x_units_per_m:
+.. _pfdf.projection.Transform.x_units_per_m:
 
 .. py:method:: Transform.x_units_per_m(self, y = None)
 
@@ -536,7 +536,7 @@ Units per meter
         *float | None* - The number of X axis units per meter
 
 
-.. _pfdf.projection.transform.Transform.y_units_per_m:
+.. _pfdf.projection.Transform.y_units_per_m:
 
 .. py:method:: Transform.y_units_per_m(self)
 
@@ -552,7 +552,7 @@ Units per meter
         *float | None* - The number of Y axis units per meter.
 
 
-.. _pfdf.projection.transform.Transform.units_per_m:
+.. _pfdf.projection.Transform.units_per_m:
 
 .. py:method:: Transform.units_per_m(self, y = None)
 
@@ -578,33 +578,70 @@ Reprojection
 ------------
 
 
-.. _pfdf.projection.transform.Transform.reproject:
+.. _pfdf.projection.Transform.reproject:
 
-.. py:method:: Transform.reproject(self, crs, y = None)
+.. py:method:: Transform.reproject(self, crs)
 
     Reprojects the Transform into a different CRS
 
     ::
 
         self.reproject(crs)
-        self.reproject(crs, y)
 
-    Reprojects the Transform into a different CRS. By default, reprojects the  Transform as for a dataset located at the equator. Use the "y" input to specify a different latitude for reprojection. Note that y should be in the base unit of the current CRS.
+    Reprojects the Transform into a different CRS. 
+    
+    .. note::
+      
+        Transform reprojections are often less accurate than BoundingBox reprojections. As such, this method is not recommended when a raster shape is also available. In this case, you can achieve a more accurate reprojection by: (1) converting the Transform to a BoundingBox, (2) reprojecting the BoundingBox, and (3) converting the reprojected box back to a Transform.
 
     :Inputs:
         * **crs** (*CRS-like*) - The CRS in which to reproject the Transform
-        * **y** (*float*) - The Y coordinate at which to perform the reprojection. Defaults to the equator.
 
     :Outputs:
         *Transform* - The reprojected Transform
 
 
+
+.. _pfdf.projection.Transform.match_crs:
+
+.. py:method:: Transform.match_crs(self, crs)
+
+    Returns a copy of the Transform whose CRS is compatible with a CRS-like input
+
+    ::
+
+        self.match_crs(crs)
+
+    Returns an object whose CRS is compatible with a CRS-like input. If the ``crs`` input is None, returns the current object. If the current object does not have a CRS, returns an object whose CRS has been updated to match the input. Otherwise, reprojects the object to match the input CRS.
+
+    :Inputs:
+        * **crs** (*CRS-like*) -- A CRS-like input or None
+
+    :Outputs: *Transform* -- A Transform compatible with the input CRS
+
+
+.. _pfdf.projection.Transform.remove_crs:
+
+.. py:method:: Transform.remove_crs(self)
+
+    Returns a copy of the current Transform that does not have a CRS
+
+    ::
+
+        self.remove_crs()
+
+    Returns a copy of the current Transform whose CRS is set to None.
+
+    :Outputs:
+        *Transform* -- A copy of the current Transform without a CRS
+
+
 ----
 
-Bounds Conversion
------------------
+BoundingBox Conversion
+----------------------
 
-.. _pfdf.projection.transform.Transform.right:
+.. _pfdf.projection.Transform.right:
 
 .. py:method:: Transform.right(self, ncols)
 
@@ -623,7 +660,7 @@ Bounds Conversion
         *float* - The spatial coordinate of the raster's right edge
 
 
-.. _pfdf.projection.transform.Transform.bottom:
+.. _pfdf.projection.Transform.bottom:
 
 .. py:method:: Transform.bottom(self, nrows)
 
@@ -642,7 +679,7 @@ Bounds Conversion
         *float* - The spatial coordinate of the raster's bottom edge
 
 
-.. _pfdf.projection.transform.Transform.bounds:
+.. _pfdf.projection.Transform.bounds:
 
 .. py:method:: Transform.bounds(self, nrows, ncols)
 
@@ -667,7 +704,7 @@ Bounds Conversion
 As Built-In
 -----------
 
-.. _pfdf.projection.transform.Transform.tolist:
+.. _pfdf.projection.Transform.tolist:
 
 .. py:method:: Transform.tolist(self, crs = True)
 
@@ -685,7 +722,7 @@ As Built-In
 
     :Outputs: *list* -- The Transform as a list
 
-.. _pfdf.projection.transform.Transform.todict:
+.. _pfdf.projection.Transform.todict:
 
 .. py:method:: Transform.todict(self)
 
@@ -705,7 +742,7 @@ As Built-In
 Testing
 -------
 
-.. _pfdf.projection.transform.Transform.isclose:
+.. _pfdf.projection.Transform.isclose:
 
 .. py:method:: Transform.isclose(self, other, rtol = 1e-5, atol = 1e-8)
 

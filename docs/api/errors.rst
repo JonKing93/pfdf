@@ -1,5 +1,5 @@
-pfdf.errors module
-==================
+errors module
+=============
 
 .. _pfdf.errors:
 
@@ -111,7 +111,7 @@ Rasters
     When a raster has an invalid affine transformation
 
 
-.. py:exception:: pfdf.errors.RasterCrsError
+.. py:exception:: pfdf.errors.RasterCRSError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.RasterError`
@@ -188,3 +188,73 @@ Models
     Bases: :py:class:`Exception`
 
     When queried rainfall durations are not recognized
+
+
+----
+
+.. _data-api-errors:
+
+Data Acquisition
+----------------
+
+.. py:exception:: pfdf.errors.DataAPIError
+
+    Bases: :py:class:`Exception`
+
+    When an API response is not valid
+
+
+.. py:exception:: pfdf.errors.InvalidJSONError
+
+    Bases: :py:class:`~pfdf.errors.DataAPIError`
+
+    When API JSON is not valid
+
+
+.. py:exception:: pfdf.errors.MissingAPIFieldError
+
+    Bases: :py:class:`~pfdf.errors.DataAPIError`, :py:class:`KeyError`
+
+    When an API JSON response is missing a required field   
+
+
+.. py:exception:: pfdf.errors.TNMError
+
+    Bases: :py:class:`~pfdf.errors.DataAPIError`
+
+    Errors unique to the TNM API
+
+
+.. py:exception:: pfdf.errors.TooManyTNMProductsError
+
+    Bases: :py:class:`~pfdf.errors.TNMError`
+
+    When a TNM query has too many search results
+
+
+.. py:exception:: pfdf.errors.NoTNMProductsError
+
+    Bases: :py:class:`~pfdf.errors.TNMError`
+
+    When there are no TNM products in the search results
+
+
+.. py:exception:: pfdf.errors.LFPSError
+
+    Bases: :py:class:`~pfdf.errors.DataAPIError`
+
+    Errors unique to the LANDFIRE LFPS API
+
+
+.. py:exception:: pfdf.errors.InvalidLFPSJobError
+
+    Bases: :py:class:`~pfdf.errors.LFPSError`
+
+    When a LANDFIRE LFPS job cannot be used for a data read
+
+
+.. py:exception:: pfdf.errors.LFPSJobTimeoutError
+
+    Bases: :py:class:`~pfdf.errors.LFPSError`
+
+    When a LANDFIRE LFPS job takes too long to execute

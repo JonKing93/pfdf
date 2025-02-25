@@ -189,6 +189,17 @@ class TestJson:
         assert_contains(error, "The TNM response was not valid JSON")
 
 
+class TestDownload:
+    @patch("requests.get", spec=True)
+    def test(_, mock, tmp_path, response, args):
+        mock.return_value = response(200, b"This is some file")
+        path = tmp_path / "test.txt"
+        output = _requests.download(path, *args)
+
+        assert output == path
+        assert output.read_text() == "This is some file"
+
+
 #####
 # Live requests - queries TNM for JSON response
 #####

@@ -73,5 +73,7 @@ Second, the code in the parallelized script must be protected by a ``if __name__
 
 Neglecting this step will cause the routine to attempt to create an infinite number of parallel processes, crashing the terminal.
 
-.. tip:: See also the :doc:`parallel basins tutorial </tutorials/parallel>` for a detailed example of basin parallelization.
+.. tip:: 
+    
+    Read the :doc:`parallel basins tutorial </tutorials/notebooks/10_Parallel_Basins>` for a detailed example of basin parallelization.
 

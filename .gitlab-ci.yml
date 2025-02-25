@@ -1,53 +1,94 @@
 stages:
   - build
   - test
+  - tutorials
   - deploy
 
 default:
   tags:
     - us-west-2
 
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
 #####
 # Python Versions
 #####
 
-# Latest python release
-variables:
-  LATEST: '12'
+# Base versions have no dependencies, so can be used for builds
 
-# Activates latest python build for non-parallel jobs
-.latest-python:
-  image: "python:3.$LATEST"
-  before_script:
-    - source venv-$LATEST/bin/activate
-
-# Run a job on multiple versions of python in parallel
-.multiple-python-versions:
-  parallel:
-    matrix:
-      - VERSION: ['11', '12']
+.image:
   image: "python:3.$VERSION"
+
+.python11-base:
+  variables:
+    VERSION: '11'
+  extends: .image
+
+.python12-base:
+  variables:
+    VERSION: '12'
+  extends: .image
+
+# Everything else requires specific build artifacts
+
+.activate:
+  before_script:
+    - source venv-$VERSION/bin/activate
+
+.python11:
+  extends: 
+    - .python11-base
+    - .activate
+  dependencies: 
+    - build11
+
+.python12:
+  extends: 
+    - .python12-base
+    - .activate
+  dependencies: 
+    - build12
+
+# Alias to the latest supported python version
+.latest-python:
+  extends: .python12
 
 #####
 # Build
 #####
 
-build:
-  stage: build
-  extends: .multiple-python-versions
+.build:
+  # Forces daily builds to install from the latest dependencies
   before_script:
-    # Forces daily tests to install from the latest repositories
     - if [ "$CI_PIPELINE_SOURCE" == "schedule" ]; then rm poetry.lock; fi
   script:
     - pip install virtualenv
     - virtualenv "venv-$VERSION"
     - source "venv-$VERSION/bin/activate"
     - pip install poetry
-    - poetry install --with dev --extras tutorials
+    - poetry install --all-groups --all-extras
   artifacts:
     expire_in: 1 hour
     paths:
       - "venv-$VERSION"
+
+build11:
+  stage: build
+  extends: 
+    - .python11-base
+    - .build
+
+build12:
+  stage: build
+  extends:
+    - .python12-base
+    - .build
 
 #####
 # Test: Safety, Formatting, Tests
@@ -65,11 +106,9 @@ format:
   script:
     - poe lint
 
-test:
+.test:
   stage: test
-  extends: .multiple-python-versions
   script:
-    - source "venv-$VERSION/bin/activate"
     - poe tests
   coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
@@ -79,27 +118,71 @@ test:
         coverage_format: cobertura
         path: coverage.xml
 
+test11:
+  extends:
+    - .test
+    - .python11
+
+test12:
+  extends:
+    - .test
+    - .python12
+
+webtest:
+  stage: test
+  extends: .latest-python
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+      allow_failure: false
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+      allow_failure: true
+  script:
+    - poe webtest
+
+#####
+# Tutorials
+#####
+
+check-tutorials:
+  stage: tutorials
+  extends: .latest-python
+  script:
+    - poe lint-tutorials
+
+run-tutorials:
+  stage: tutorials
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+      allow_failure: false
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+      allow_failure: true
+  extends: .latest-python
+  script:
+    - poe refresh-tutorials
+
 #####
 # Deploy: Packaging and sphinx docs
 #####
 
 pages:
   stage: deploy
-  when: manual
   extends: .latest-python
+  when: manual
   script:
-    - poe download-tutorials
-    - poe figures
-    - poe docs
+    - poe docs-all
   artifacts:
     paths:
     - public
 
 release:
   stage: deploy
+  extends: .latest-python
   rules:
     - if: $CI_COMMIT_TAG
-  extends: .latest-python
   script:
     - poetry build
     - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*

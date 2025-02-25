@@ -7,6 +7,7 @@ Function:
 
 from __future__ import annotations
 
+import shutil
 import typing
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,5 +35,4 @@ def unzip(data: bytes, path: Path, item: Optional[str] = None) -> None:
         # Get the final output folder and move to the requested path
         if item is not None:
             extracted = extracted / item
-        path.parent.mkdir(parents=True, exist_ok=True)
-        extracted.rename(path)
+        shutil.copytree(src=extracted, dst=path)

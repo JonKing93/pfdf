@@ -1,0 +1,142 @@
+pfdf 3.0.0 Release Notes
+========================
+
+This release adds the :ref:`data package <pfdf.data>`, which provides routines to download commonly used datasets from the internet. The release also provides pfdf tutorials as Jupyter Notebooks, improves array broadcasting in the :ref:`gartner2014 <pfdf.models.gartner2014>` and :ref:`staley2017 <pfdf.models.staley2017>` modules, and introduces the :ref:`RasterMetadata class <pfdf.raster.RasterMetadata>` (which manages raster metaata without loading data arrays to memory).
+
+.. admonition:: Backwards Compatibility
+
+    The updates to array broadcasting in the :ref:`gartner2014 <pfdf.models.gartner2014>` and :ref:`staley2017 <pfdf.models.staley2017>` modules may break backwards compatibility in some cases. Please read the :ref:`breaking changes section <3.0.0-api-breaks>` for details.
+
+----
+
+Updates
+-------
+
+**Major Additions**
+
+* Added the :ref:`data package <pfdf.data>`, which provides routines to download commonly-used datasets from the internet
+* Added the :ref:`RasterMetadata class <pfdf.raster.RasterMetadata>`, which manages raster metadata without loading raster data arrays into memory
+
+**Tutorials**
+
+* Converted the tutorials to Jupyter Notebooks
+* Added a tutorial on the ``data`` package
+* Split the raster tutorial into three tutorials: an introduction, raster properties, and raster factories
+* Added a tutorial on the ``RasterMetadata`` class
+
+**Installation**
+
+* pfdf can now be installed from the official USGS package registry. This is the recommended way to install pfdf.
+
+**Projection Package**
+
+* Added the :ref:`projection.crs module <pfdf.projection.crs>`, which provides utilities for working with ``pyproj.CRS`` objects
+* Added the ``match_crs`` and ``remove_crs`` methods to the :ref:`BoundingBox <pfdf.projection.BoundingBox>` and :ref:`Transform <pfdf.projection.Transform>` classes
+
+**Raster**
+
+* Added the ``from_url`` factory, which builds ``Raster`` objects for datasets accessed via web URLs
+* ``save`` now returns the path to the saved file
+* Added the ``dtype``, ``field_casting``, and ``operation`` options to :ref:`from_points <pfdf.raster.Raster.from_points>` and :ref:`from_polygons <pfdf.raster.Raster.from_polygons>`
+* Pinned rasterized vector feature dtypes to ``int32`` for integer fields, and ``float64`` for floating-point fields
+* Added :ref:`__getitem__ <pfdf.raster.Raster.__getitem__>`, which allows indexing into ``Raster`` objects
+* Added ``copy`` option to :ref:`Raster.fill <pfdf.raster.Raster.fill>` and :ref:`Raster.set_range <pfdf.raster.Raster.set_range>`
+* ``repr`` now only includes non-default raster names
+
+**Segments**
+
+* Added the ``located_basins`` property, which indicates if the object has pre-located outlet basins,
+* ``save`` now returns the path to the saved file
+* ``repr`` now includes more info on the network
+
+**Models**
+
+* Improved broadcasting in the :ref:`staley2017 models <pfdf.models.staley2017>`. Output arrays are now (Segments x Accumulations/Probabilities x Parameter Runs)
+* Improved broadcasting in the :ref:`gartner2014 models <pfdf.models.gartner2014>`. Output arrays are now (Segments x Rainfall Intensities x Parameter Runs x Confidence Intervals).
+* Users can now disable confidence interval calculations in the :ref:`gartner2014 models <pfdf.models.gartner2014>`
+* :ref:`utils.intensity.from_accumulation <pfdf.utils.intensity.from_accumulation>` now broadcasts along the final array dimension by default.
+* Added the ``dim`` option to :ref:`utils.intensity.from_accumulation <pfdf.utils.intensity.from_accumulation>` to select the broadcasting dimension.
+
+**Exceptions**
+
+* Added :ref:`9 new exceptions <data-api-errors>` pertaining to download errors from third-party data providers
+
+**Bug Fixes**
+
+* Fixed a bug where :ref:`Raster.from_points <pfdf.raster.Raster.from_points>` and :ref:`Raster.from_polygons <pfdf.raster.Raster.from_polygons>` would ignore an entire MultiPoint or MultiPolygon feature if a single point or polygon was outside a queried bounding box
+* Fixed a bug that prevented ``Raster.from_points`` and ``Raster.from_polygons`` from rasterizing features in geodatabases and other structured directories
+* Fixed a bug where some ``BoundingBox`` and ``Transform`` properties were returned as numpy arrays instead of floats
+* Fixed a bug wherein ``Raster.from_file`` would ignore the ``driver`` option
+* Removed the unused ``y`` option from :ref:`projection.Transform.reproject <pfdf.projection.Transform.reproject>`
+
+**For Developers**
+
+* Added slow and web markers
+* Added ``quicktest`` and ``webtest`` developer scripts
+* Added developer scripts to build and run tutorials
+* Pipeline now runs tutorials and web tests on merge requests
+* Added a scheduled pipeline for daily builds. The daily builds do not use ``poetry.lock``, instead building from the most up-to-date dependencies.
+* ``pyproject.toml`` now conforms to `PEP 508 <https://peps.python.org/pep-0508/>`_ and poetry 2+
+* Improved pipeline implementation of multiple Python builds
+
+.. _3.0.0-api-breaks:
+
+API Breaking Changes
+--------------------
+
+Changes to model broadcasting in the :ref:`gartner2014 <pfdf.models.gartner2014>` and :ref:`staley2017 <pfdf.models.staley2017>` wil break backwards compatibility in some cases. This section details these changes and suggest possible fixes.
+
+gartner2014
++++++++++++
+
+Formerly, output arrays from the ``gartner2014`` module had dimensions of (Segments x Parameter Runs). In this formulation, rainfall intensities and confidence interval parameters were grouped with the model coefficients to characterize parameter runs. In v3.0.0, rainfall intensities and confidence intervals have been separated into their own dimensions. As such, output arrays can now be 4D with dimensions of (Segments x Rainfall Intensities x Parameter Runs x Confidence Intervals). 
+
+This change is unlikely to affect most users, as running the model with multiple coefficients and/or confidence intervals is rare. The most common case is to run the multiple over a stream segment network for multiple rainfall intensities, and this will still return a 2D array of model results.
+
+staley2017
+++++++++++
+
+Formerly, output arrays from the ``likelihood`` and ``accumulation`` functions had dimensions of (Segments x Durations x Accumulations/Probabilities). The order of these dimensions has been altered to (Segments x Accumulations/Probabilities x Durations) in order to simplify broadcasting for the most common use cases.
+
+This change is most likely to affect users of the ``accumulation`` function (often referred to as *rainfall thresholds*), as this function is often run with multiple sets of model coefficients. This change will also affect users of the ``likelihood`` function who set ``keepdims = True``. The following is a suggested fix for common use cases:
+
+**Accumulation**
+
+Change this::
+
+    accumulations = s17.accumulation(...)
+    for s in segments:
+        for d in durations:
+            for p in probabilities:
+                accumulations[s, d, p]
+
+to this::
+
+    accumulations = s17.accumulation(...)
+    for s in segments:
+        for p in probabilities:
+            for d in durations:
+                accumulations[s, p, d]
+
+**Likelihood**
+
+Change this::
+
+    likelihoods = s17.likelihood(..., keepdims=True)
+    for s in segments:
+        for r in R15:
+            likelihoods[s, :, r]
+
+to this::
+
+    likelihoods = s17.likelihood(..., keepdims=True)
+    for s in segments:
+        for r in R15:
+            likelihoods[s, r, :]
+
+intensity.from_accumulation
++++++++++++++++++++++++++++
+
+The :ref:`utils.intensity.from_accumulation <pfdf.utils.intensity.from_accumulation>` function has been updated to accommodate the new dimension order in the ``staley2017`` model. Formerly, this function always broadcast durations along the second dimension of an array. Now, this function broadcasts durations along the final array dimension, regardless of dimensional index.
+
+This change is unlikely to affect most users, as the dimensions of the accumulation arrays from the ``staley2017`` module have shifted in a like manner.

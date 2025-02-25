@@ -73,6 +73,10 @@ class Transform(Locator):
         from_affine     - Create Transform from an affine.Affine object
         copy            - Returns a copy of the current Transform
 
+    Dunders:
+        __repr__        - Returns a string representing the Transform
+        __eq__          - True if two Transform objects have the same affine matrix and CRS
+
     Resolution:
         dx              - The change in X coordinate when moving one pixel right
         dy              - The change in Y coordinate when moving one pixel down
@@ -89,15 +93,15 @@ class Transform(Locator):
         x_units_per_m   - The number of X axis units per meter
         y_units_per_m   - The number of Y axis units per meter
 
-    BoundingBox conversion:
-        right           - Computes the right edge, given a number of columns
-        bottom          - Computes the bottom edge, given a number of rows
-        bounds          - Converts Transform to BoundingBox, given the number of raster columns and rows
-
     Reprojection and CRS:
         reproject       - Returns a copy of a Transform in a new CRS
         match_crs       - Returns a copy of a Transform compatible with an input CRS
         remove_crs      - Returns a copy of the Transform without a CRS
+
+    BoundingBox conversion:
+        right           - Computes the right edge, given a number of columns
+        bottom          - Computes the bottom edge, given a number of rows
+        bounds          - Converts Transform to BoundingBox, given the number of raster columns and rows
 
     As built-in:
         tolist          - Returns a transform as a list

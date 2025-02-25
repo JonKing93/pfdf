@@ -1,5 +1,5 @@
-pfdf.severity module
-====================
+severity module
+===============
 
 .. _pfdf.severity:
 
@@ -93,7 +93,7 @@ pfdf.severity module
             
             estimate(raster)
 
-        Estimates a BARC4 burn severity from a raster assumed to be (raw dNBR * 1000). (See the following syntax if you instead have raw dNBR, BARC256, or another burn-severity measure). This process classifies the burn severity of each raster pixel using an integer from 1 to 4. The classification scheme is as follows:
+        Estimates a BARC4 burn severity from a raster assumed to be (raw dNBR * 1000). (Refer to the following syntax if you instead have raw dNBR, BARC256, or another burn-severity measure). This process classifies the burn severity of each raster pixel using an integer from 1 to 4. The classification scheme is as follows:
         
         =====  =========== ===========
         Class  dNBR Range  Level

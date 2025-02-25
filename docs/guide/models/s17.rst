@@ -201,7 +201,7 @@ You can also use the ``durations`` option to query specific durations:
   >>> Cs
   array([0.22, 0.7 ])
 
-:ref:`See below <s17-models>` for implementation details of individual models.
+:ref:`Refer below <s17-models>` for implementation details of individual models.
 
 
 
@@ -210,13 +210,13 @@ Likelihood
 
 You can solve :ref:`equation 1 <s17-equation-1>` using the :ref:`likelihood <pfdf.models.staley2017.likelihood>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 1. This function solves for debris-flow likelihoods given a set of rainfall accumulations (R). Note that the function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to rainfall accumulations.
 
-In the simplest case - a single rainfall accumulation - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations). For example:
+In the simplest case - a single rainfall accumulation and duration - the function returns a vector of data values, with one element per stream segment. For example:
 
 .. code:: pycon
   
   >>> # Compute variables and parameters for the M1 model
   >>> T, F, S = s17.M1.variables(segments, mod_high, slopes, dnbr, kf)
-  >>> B, Ct, Cf, Cs = s17.M1.parameters()
+  >>> B, Ct, Cf, Cs = s17.M1.parameters(durations=15)
 
   >>> # Examine sizes
   >>> len(segments)
@@ -224,23 +224,33 @@ In the simplest case - a single rainfall accumulation - the function returns a m
   >>> T.size, F.size, S.size
   (2561, 2561, 2561)
   >>> B.size, Ct.size, Cf.size, Cs.size
-  (3, 3, 3, 3)
+  (1, 1, 1, 1)
 
   >>> # Compute likelihoods given rainfall accumulation
   >>> R = 6 # mm/duration
   >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
-  (2561, 3)
+  (2561, )
 
-You can also solve for multiple rainfall accumulations simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of accumulations:
+You can also solve for multiple rainfall accumulations simultaneously. In this case, the output array will be a matrix, where each row holds results for a stream segment, and each column is a rainfall duration:
 
 .. code:: pycon
 
   >>> # Compute likelihoods for multiple rainfall accumulations
+  >>> R = [4, 6, 7, 10] 
+  >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
+  >>> p.shape
+  (2561, 4)
+
+The command also allows you to solve for multiple parameter values simultaneously (as is common when solving for multiple rainfall durations). In this case, the output will be 3D, with each element along the third dimension representing one set of parameters:
+
+.. code:: pycon
+
+  >>> B, Ct, Cf, Cs = s17.M1.durations([15, 30, 60])
   >>> R = [4, 6, 7, 10]
   >>> p = s17.likelihood(R, B, Ct, T, Cf, F, Cs, S)
   >>> p.shape
-  (2561, 3, 4)
+  (2561, 4, 3)
 
 
 .. _prob-duration:
@@ -248,13 +258,15 @@ You can also solve for multiple rainfall accumulations simultaneously. In this c
 Durations and Intensities
 +++++++++++++++++++++++++
 
-The ``likelihood`` function requires rainfall *accumulations* rather than intensities. Note that the input rainfall accumulations should be in millimeters, and are interpreted as the total accumulation over the duration associated with each set of parameters. Continuing the example, we provided three sets of parameters, for 15, 30 and 60 minute intervals, respectively. So the single rainfall accumulation is equivalent to the following intensities:
+The ``likelihood`` function requires rainfall *accumulations* rather than intensities. Note that the input rainfall accumulations should be in millimeters, and are interpreted as the total accumulation over the duration associated with each set of parameters. 
+
+For example, say we used a single rainfall accumulation of 6 mm for 15, 30, and 60-minute rainfall durations. Then the single rainfall accumulation is equivalent to the following intensities:
 
 * 6 mm in 15 minutes = 24 mm / hour
 * 6 mm in 30 minutes = 12 mm / hour
 * 6 mm in 60 minutes = 6 mm / hour
 
-which correspond to the columns of the output array, respectively.
+which correspond to the final dimension of the output array, respectively.
 
 .. tip:: 
   
@@ -273,13 +285,13 @@ Rainfall Accumulation
 ---------------------
 You can solve :ref:`equation 2 <s17-equation-2>` using the :ref:`accumulation <pfdf.models.staley2017.accumulation>` function. The equation has a general form, so the function is suitable for any of the 4 models in the paper, as well as any custom models following equation 2. This function computes the rainfall accumulation needed to achieve a given debris-flow probability level (p). In some cases, it is not possible to achieve the desired probability level with any rainfall level. This is most common when a catchment basin is minimally burned, so the terrain (T) and fire (F) variables are very small. When this occurs, the rainfall accumulation for the stream segment will be nan.
 
-This function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to probability levels. In the simplest case - a single probability level - the function returns a matrix of data values, with one row per stream segment and one column per set of parameters (often the number of computed durations).  For example:
+This function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) in addition to probability levels. In the simplest case - a single probability level and single rainfall duration - the function returns a vector of data values, with one element per stream segment. For example:
 
 .. code:: pycon
 
   >>> # Compute variables and parameters for the M1 model
   >>> T, F, S = s17.M1.variables(segments, mod_high, slopes, dnbr, kf)
-  >>> B, Ct, Cf, Cs = s17.M1.parameters()
+  >>> B, Ct, Cf, Cs = s17.M1.parameters(durations=15)
 
   >>> # Examine sizes
   >>> len(segments)
@@ -287,15 +299,15 @@ This function requires model variables (T, F, S) and parameters (B, Ct, Cf, Cs) 
   >>> T.size, F.size, S.size
   (2561, 2561, 2561)
   >>> B.size, Ct.size, Cf.size, Cs.size
-  (3, 3, 3, 3)
+  (1, 1, 1, 1)
 
   >>> # Compute accumulations given probability
   >>> p = 0.5
   >>> R = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
   >>> R.shape
-  (2561, 3)
+  (2561,)
 
-You can also solve for multiple probability levels simultaneously. In this case, the output array will have 3 dimensions, and the length of the third dimension will match the number of probability levels:
+You can also solve for multiple probability levels simultaneously. In this case, the output array will be a matrix. Each row holds results for a string segment, and each column is a probability level. For example:
 
 .. code:: pycon
 
@@ -303,9 +315,17 @@ You can also solve for multiple probability levels simultaneously. In this case,
   >>> p = [.2, .4, .6, .8]
   >>> R = s17.accumulation(p, B, Ct, T, Cf, F, Cs, S)
   >>> R.shape
-  (2561, 3, 4)
+  (2561, 4)
 
+The command also allows you to solve for multiple parameter values simultaneously (as is common when solving for multiple rainfall durations). In this case, the output will be 3D, with each element along the third dimension representing one set of parameters:
 
+.. code:: pycon
+
+  >>> B, Ct, Cf, Cs = s17.M1.durations([15, 30, 60])
+  >>> p = [.2, .4, .6, .8]
+  >>> R = s17.accumulations(p, B, Ct, T, Cf, F, Cs, S)
+  >>> R.shape
+  (2561, 4, 3)
 
 
 .. _acc-duration:
@@ -343,7 +363,7 @@ As stated, the :ref:`likelihood <pfdf.models.staley2017.likelihood>` and :ref:`a
 
 .. note:: 
   
-  When designing custom models, the rainfall accumulations are always parsed/returned relative to the duration interval used to calibrate the model parameters. See above for an explanation of how this affects the :ref:`likelihood <prob-duration>` and :ref:`accumulation <acc-duration>` commands for the M1-4 models.
+  When designing custom models, the rainfall accumulations are always parsed/returned relative to the duration interval used to calibrate the model parameters. Refer above for an explanation of how this affects the :ref:`likelihood <prob-duration>` and :ref:`accumulation <acc-duration>` commands for the M1-4 models.
 
 Parameter Sweeps
 ++++++++++++++++

@@ -1,5 +1,5 @@
-pfdf.utils.units module
-=======================
+utils.units module
+==================
 
 .. _pfdf.utils.units:
 

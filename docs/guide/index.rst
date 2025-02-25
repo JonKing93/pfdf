@@ -1,7 +1,7 @@
 User Guide
 ==========
 
-This guide provides an initial overview of pfdf, and is intended to introduce users to commonly used commands and options. As such, the guide is not exhaustive. For a complete reference for every command and option, see the :doc:`API </api/index>`. See also the :doc:`tutorials </tutorials/index>` for detailed examples of common use cases.
+Welcome to the pfdf user guide. This guide is intended for users who have read the :doc:`main series tutorials </tutorials/main-series>` and are ready for a more detailed discussion of pfdf. Specifically, the guide provides more in-depth discussions of pfdf components and concepts, with some practical suggestions for implementing common workflows. Although the guide is more detailed than the tutorials, it is not exhaustive. For a complete reference guide to pfdf, please consult the :doc:`API </api/index>` instead.
 
 ----
 
@@ -10,6 +10,9 @@ This guide provides an initial overview of pfdf, and is intended to introduce us
 
 :doc:`Rasters <rasters/index>`
     A class to manage raster datasets.
+
+:doc:`Download Data <data>`
+    Routines to download commonly used datasets from the internet.
 
 :doc:`Watershed Analyses <watershed/index>`
     Modules that analyze watershed datasets, including: 
@@ -42,6 +45,7 @@ This guide provides an initial overview of pfdf, and is intended to introduce us
 
     Working with arrays <arrays>
     Rasters <rasters/index>
+    Download Data <data>
     Watershed Analyses <watershed/index>
     Segments <segments/index>
     Models <models/index>

@@ -1,5 +1,5 @@
-pfdf.utils.driver module
-========================
+utils.driver module
+===================
 
 .. _pfdf.utils.driver:
 
@@ -36,7 +36,7 @@ pfdf.utils.driver module
 
     The driver module contains functions with information about the file-format drivers used to read and save raster and vector-feature files. The pfdf package uses rasterio andd fiona to write raster and vector files, respectively. These libraries support a variety of file formats, which can be selected using an optional "driver" input. Users can return a summary of the available drivers using the :ref:`vectors <pfdf.utils.driver.vectors>` and :ref:`rasters <pfdf.utils.driver.rasters>` functions. Note that these summaries are for drivers expected to work by default - that is, they do not require the installation of external libraries.
 
-    When a driver is not provided, pfdf will attempt to determine the appropriate file format using the file extension. See the :ref:`extensions <pfdf.utils.driver.extensions>` command for a summary of the drivers inferred from various extensions. Alternatively, use the :ref:`from_path <pfdf.utils.driver.from_path>` or :ref:`from_extension <pfdf.utils.driver.from_extension>` command to return a summary of the driver inferred from a specific file path or extension.
+    When a driver is not provided, pfdf will attempt to determine the appropriate file format using the file extension. Use the :ref:`extensions <pfdf.utils.driver.extensions>` command for a summary of the drivers inferred from various extensions. Alternatively, use the :ref:`from_path <pfdf.utils.driver.from_path>` or :ref:`from_extension <pfdf.utils.driver.from_extension>` command to return a summary of the driver inferred from a specific file path or extension.
 
 ----
 
@@ -149,7 +149,7 @@ File Extensions
             
             from_path(path)
 
-        Returns a pandas.DataFrame summarizing the driver inferred from the input file path. Returns None if the file path has an unrecognized extension. Attempts to determine whether the file path is intended for a raster file or vector feature file. Raises a ValueError if the path ends in a ".xml", as this extension is associated with both raster and vector feature drivers, and so requires the "type" input (see next syntax).
+        Returns a pandas.DataFrame summarizing the driver inferred from the input file path. Returns None if the file path has an unrecognized extension. Attempts to determine whether the file path is intended for a raster file or vector feature file. Raises a ValueError if the path ends in a ".xml", as this extension is associated with both raster and vector feature drivers, and so requires the "type" input (refer to the next syntax).
 
     .. dropdown:: Specify file type
 
@@ -183,7 +183,7 @@ File Extensions
 
             from_extension(ext)
 
-        Returns a ``pandas.DataFrame`` summarizing the driver inferred from the input file extension. Returns None if the extension is unrecognized. Adds a "." to the input extension if the extension does not begin with one. Attempts to determine whether the extension is intended for a raster file or vector feature file. Raises a ValueError if the extension is ".xml", as this extension is associated with both raster and vector feature drivers, and so requires the "type" input (see next syntax).
+        Returns a ``pandas.DataFrame`` summarizing the driver inferred from the input file extension. Returns None if the extension is unrecognized. Adds a "." to the input extension if the extension does not begin with one. Attempts to determine whether the extension is intended for a raster file or vector feature file. Raises a ValueError if the extension is ".xml", as this extension is associated with both raster and vector feature drivers, and so requires the "type" input (refer to the next syntax).
 
     .. dropdown:: Specify file type
 

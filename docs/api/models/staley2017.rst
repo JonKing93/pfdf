@@ -1,5 +1,5 @@
-pfdf.models.staley2017 module
-=============================
+models.staley2017 module
+========================
 
 .. _Staley et al., 2017: https://doi.org/10.1016/j.geomorph.2016.10.019
 
@@ -101,53 +101,39 @@ Solver Functions
 
     Computes debris-flow likelihood for the specified rainfall durations
 
-    .. dropdown:: Solve Likelihood
+    ::
 
-        ::
+        likelihood(R, B, Ct, T, Cf, F, Cs, S)
+        likelihood(..., keepdims=True)
 
-            likelihood(R, B, Ct, T, Cf, F, Cs, S)
+    Solves the debris-flow likelihoods for the specified rainfall accumulations. This function is agnostic to the actual model being run, and thus can implement all 4 of the models presented in the paper (as well as any other model following the form of Equation 1).
 
-        Solves the debris-flow likelihoods for the specified rainfall accumulations. This function is agnostic to the actual model being run, and thus can implement all 4 of the models presented in the paper following the form:
+    All of the inputs to this function should be real-valued numpy arrays. The R values are the rainfall accumulations for which the model should be solved. For example, R = 6 solves for debris-flow likelihood when rainfall accumulation is 6 mm/duration. R should be a 1D array listing all the accumulations that should be solved for.
 
-        .. math::
+    The three variables - T, F, and S - represent the terrain steepness, wildfire severity, and surface properties variables for the model. In most cases, these are 1D arrays with one element per stream segment being assessed. Variables can also be scalar (in which the same value is used for every segment), or 2D arrays (refer below for details of this less common use case).
 
-            p = \mathrm{\frac{e^X}{1 + e^X}}
+    The four parameters - B, Ct, Cf, and Cs - are the parameters of the logistic model link equation. B is the intercept, and each C parameter is the coefficient of the associated variable. Parameters can be used to implement multiple runs of the assessment model. Here, we define a "run" as an implementation of the hazard model using a unique set of logistic model parameters. Each parameter should be either a scalar, or vector of parameter values. If a vector, the input should have one element per run. If a scalar, then the same value is used for every run of the model. A common use case is solving the model for multiple rainfall durations (for example: 15, 30, and 60 minute intervals). In the example with 3 durations, each parameter should have 3 elements - each element corresponds to parameter value for the corresponding rainfall duration. Another use case for multiple runs is implementing a parameter sweep to validate model parameters.
 
-        .. math::
+    This function solves the debris-flow likelihoods for all stream segments, rainfall accumulations, and parameter runs provided. Note that rainfall accumulations should be relative to the rainfall durations associated with each set of parameters. For example, if using parameters for 15-minute and 30-minute rainfall durations, then the input rainfall accumulations should be for 15-minute and 30-minute intervals, respectively. Accumulation units are the units of the rainfall values used to calibrate the model's parameters. For the 4 models described in the paper, accumulations are millimeters of accumulations per rainfall duration.
 
-            \mathrm{X = B + C_t\ T\ R + C_f\ F\ R + C_s\ S\ R}
+    The returned output will be a numpy array with up to 3 dimensions. The first dimension is stream segments, second dimension is rainfall accumulations, and third dimension is parameter runs. By default, this command will remove singleton dimensions from the output array. The first dimension is always retained, but the second is removed if there is a single rainfall accumulation, and the third is removed if there is a single parameter run. Alternatively, set keepdims=True to always return a 3D array.
 
-        All of the inputs to this function should be real-valued numpy arrays. The three variables - T, F, and S - represent the terrain steepness, wildfire severity, and surface properties variables for the model. In most cases, these are 1D arrays with one element per stream segment being assessed. Variables can also be scalar (in which the same value is used for every segment), or 2D arrays (see below for details of this less common use case).
+    As mentioned, one or more variables can also be a 2D array. In this case each row is a stream segment, and each column is a parameter run. Each column will be used to solve the model for (only) the associated parameter run. This allows use of different values for a variable. An example use case could be testing the model using different datasets to derive one or more variables.
 
-        The four parameters - B, Ct, Cf, and Cs - are the parameters of the logistic model link equation. B is the intercept, and each C parameter is the coefficient of the associated variable. Parameters can be used to implement multiple runs of the assessment model. Here, we define a "run" as an implementation of the hazard model using a unique set of logistic model parameters. Each parameter should be either a scalar, or vector of parameter values. If a vector, the input should have one element per run. If a scalar, then the same value is used for every run of the model. A common use case is solving the model for multiple rainfall durations (for example: 15, 30, and 60 minute intervals). In the example with 3 durations, each parameter should have 3 elements - each element corresponds to parameter value for the corresponding rainfall duration. Another use case for multiple runs is implementing a parameter sweep to validate model parameters.
 
-        The R values are the rainfall accumulations for which the model should be solved. For example, R = 6 solves for debris-flow likelihoods when rainfall accumulation is 6 mm/duration. R should be a 1D array listing all the accumulations that should be solved for.
+    :Inputs: 
+        * **R** (*vector (R values)*) -- The rainfall accumulations for which to solve the model
+        * **B** (*scalar | vector (Runs)*) -- The intercepts of the link equation
+        * **Ct** (*scalar | vector (Runs)*) -- The coefficients for the terrain steepness variable
+        * **T** (*vector (Segments) | matrix (Segments x Runs)*) -- The terrain steepness variable
+        * **Cf** (*scalar | vector (Runs)*) -- The coefficients for the wildfire severity variable
+        * **F** (*vector (Segments) | matrix (Segments x Runs)*) -- The wildfire severity variable
+        * **Cs** (*scalar | vector (Runs)*) -- The coefficients for the surface properties variable
+        * **S** (*vector (Segments) | matrix (Segments x Runs)*) -- The surface properties variable
+        * **keepdims** (*bool*) -- True to always return a 3D numpy array. If False (default), returns a 2D array when there is 1 R value, and a 1D array if there is 1 R value and 1 parameter run.
 
-        This function solves the debris-flow likelihoods for all stream segments, parameter runs, and rainfall accumulations provided. Note that rainfall accumulations should be relative to the rainfall durations associated with each set of parameters. For example, if using parameters for 15-minute and 30-minute rainfall durations, then input accumulations should be for 15-minute and 30-minute intervals, respectively. Accumulation units are the units of the rainfall values used to calibrate the model's parameters. For the 4 models described in the paoer, accumulations are in mm.
-
-        The returned output will be a numpy array with up to 3 dimensions. The first dimension is stream segments, second dimension is parameter runs, and third dimension is queried rainfall accumulations. If only a single accumulation is provided, the output is returned as a 2D array. If there is a single parameter run and a single rainfall accumulation, then output is returned as a 1D array. (Or see below for an option that always returns a 3D array).
-
-        As mentioned, one or more variable can also be a 2D array. In this case each row is a stream segment, and each column is a parameter run. Each column will be used to solve the model for (only) the associated parameter run. This allows use of different values for a variable. An example use case could be testing the model using different datasets to derive one or more variables.
-
-    .. dropdown:: 3D Output
-
-        ::
-
-            likelihood(..., *, keepdims = True)
-
-        Always returns the output as a 3D numpy array, regardless of the number of R values and parameter runs.
-
-    :Inputs: * **R** (*vector (R values)*) -- The rainfall accumulations for which to solve the model
-             * **B** (*scalar | vector (Runs)*) -- The intercepts of the link equation
-             * **Ct** (*scalar | vector (Runs)*) -- The coefficients for the terrain steepness variable
-             * **T** (*vector (Segments) | matrix (Segments x Runs)*) -- The terrain steepness variable
-             * **Cf** (*scalar | vector (Runs)*) -- The coefficients for the wildfire severity variable
-             * **F** (*vector (Segments) | matrix (Segments x Runs)*) -- The wildfire severity variable
-             * **Cs** (*scalar | vector (Runs)*) -- The coefficients for the surface properties variable
-             * **S** (*vector (Segments) | matrix (Segments x Runs)*) -- The surface properties variable
-             * **keepdims** (*bool*) -- True to always return a 3D numpy array. If False (default), returns a 2D array when there is 1 R value, and a 1D array if there is 1 R value and 1 parameter run.
-
-    :Outputs: *ndarray (Segments x Runs x R values)* -- The computed likelihoods
+    :Outputs: 
+        *ndarray (Segments x R values x Parameter Runs)* -- The computed likelihoods
 
 
 .. _pfdf.models.staley2017.accumulation:
@@ -155,60 +141,58 @@ Solver Functions
 .. py:function:: accumulation(p, B, Ct, T, Cf, F, Cs, S, *, keepdims = False, screen = True)
     :module: pfdf.models.staley2017
 
-Computes rainfall accumulations needed for specified debris-flow probability levels
+    Computes rainfall accumulations needed for specified debris-flow probability levels
 
-.. dropdown:: Solve Rainfall Accumulation
+    .. dropdown:: Solve Rainfall Accumulation
 
-    ::
+        ::
 
-        accumulation(p, B, Ct, T, Cf, F, Cs, S)
+            accumulation(p, B, Ct, T, Cf, F, Cs, S)
 
-    Returns the rainfall accumulations required to achieve the specified p-values. This function is agnostic to the actual model being run, and thus can implement all 4 of the models presented in the paper, as well as any other model following the form:
+        Returns the rainfall accumulations required to achieve the specified p-values. This function is agnostic to the actual model being run, and thus can implement all 4 of the models presented in the paper (as well as any other model following the form of Equation 1).
 
-    .. math::
+        All of the inputs to this function should be real-valued numpy arrays. The p-values - p - are the design probabilities for which the model should be solved. For example, p=0.5 estimates the rainfall accumulation that would result in a 50% probability of a debris flow event. Here, `p` should be a 1D array listing all the design probabilities that should be solved for.
 
-        \mathrm{R} = \frac{\mathrm{ln}(\frac{p}{1-p}) - \mathrm{B}}{\mathrm{C_t\ T\ R + C_f\ F\ R + C_s\ S\ R}}
+        The three variables - T, F, and S - represent the terrain steepness, wildfire severity, and surface properties variables for the model. In most cases, these are 1D arrays with one element per stream segment being assessed. Variables can also be scalar (in which the same value is used for every segment), or 2D arrays (refer below for details of this less common use case).
 
-    All of the inputs to this function should be real-valued numpy arrays. The three variables - T, F, and S - represent the terrain steepness, wildfire severity, and surface properties variables for the model. In most cases, these are 1D arrays with one element per stream segment being assessed. Variables can also be scalar (in which the same value is used for every segment), or 2D arrays (see below for details of this less common use case).
+        The four parameters - B, Ct, Cf, and Cs - are the parameters of the logistic model link equation. B is the intercept, and each C parameter is the coefficient of the associated variable. Parameters can be used to implement multiple runs of the assessment model. Here, we define a "run" as an implementation of the hazard model using a unique set of logistic model parameters. Each parameter should be either a scalar, or vector of parameter values. If a vector, the input should have one element per run. If a scalar, then the same value is used for every run of the model. A common use case is solving the model for multiple rainfall durations (for example: 15, 30, and 60 minute intervals). In the example with 3 durations, each parameter should have 3 elements - each element corresponds to parameter value for the corresponding rainfall duration. Another use case for multiple runs is implementing a parameter sweep to validate model parameters.
 
-    The four parameters - B, Ct, Cf, and Cs - are the parameters of the logistic model link equation. B is the intercept, and each C parameter is the coefficient of the associated variable. Parameters can be used to implement multiple runs of the assessment model. Here, we define a "run" as an implementation of the hazard model using a unique set of logistic model parameters. Each parameter should be either a scalar, or vector of parameter values. If a vector, the input should have one element per run. If a scalar, then the same value is used for every run of the model. A common use case is solving the model for multiple rainfall durations (for example: 15, 30, and 60 minute intervals). In the example with 3 durations, each parameter should have 3 elements - each element corresponds to parameter value for the corresponding rainfall duration. Another use case for multiple runs is implementing a parameter sweep to validate model parameters.
+        This function solves the rainfall accumulations for all stream segments, p-values, and parameter runs provided. Each accumulation describes the total rainfall required within the rainfall duration associated with its parameters. For example, if using parameters for a 15-minute rainfall duration, the accumulation describes the total rainfall required within a 15-minute window. Accumulation units are the units of the rainfall values used to calibrate the model's parameters. For the 4 models described in the paper, accumulations are in mm.
 
-    The p-values - p - are the probabilities for which the model should be solved. For example, p=0.5 solves for the rainfall accumulations that cause a 50% likelihood of a debris-flow. p should be a 1D array listing all the probabilities that should be solved for.
+        The returned output will be a numpy array with up to 3 dimensions. The first dimension is stream segments, second dimension is p-values, and third dimension is parameter runs. By default, this command will remove singleton dimensions from the output array. The first dimension is always retained, but the second is removed if there is a single design probability, and the third is removed if there is a single parameter run. Alternatively, set keepdims=True to always return a 3D array.
 
-    This function solves the rainfall accumulations for all stream segments, parameter runs, and p-values provided. Each accumulation describes the total rainfall required within the rainfall duration associated with its parameters. For example, if using parameters for a 15-minute rainfall duration, the accumulation describes the total rainfall required within a 15-minute window. Accumulation units are the units of the rainfall values used to calibrate the model's parameters. For the 4 models described in the paper, accumulations are in mm.
+        As mentioned, one or more variable can also be a 2D array. In this case each row is a stream segment, and each column is a parameter run. Each column will be used to solve the model for (only) the associated parameter run. This allows use of different values for a variable. An example use case could be testing the model using different datasets to derive one or more variables.
 
-    The returned output will be a numpy array with up to 3 dimensions. The first dimension is stream segments, second dimension is parameter runs, and third dimension is p-values. If only a single p-value is provided, the output is returned as a 2D array. If there is a single parameter run and a single p-value, then output is returned as a 1D array. (Or see below for an option that always returns a 3D array). By default, the routine screens out unphysical negative accumulations and replaces them with nan. See below to disable this screening.
+    .. dropdown:: 3D Output
 
-    As mentioned, one or more variable can also be a 2D array. In this case each row is a stream segment, and each column is a parameter run. Each column will be used to solve the model for (only) the associated parameter run. This allows use of different values for a variable. An example use case could be testing the model using different datasets to derive one or more variables.
+        ::
 
-.. dropdown:: 3D Output
+            accumulation(..., *, keepdims = True)
 
-    ::
+        Always returns the output as a 3D numpy array, regardless of the number of p-values and parameter runs.
 
-        accumulation(..., *, keepdims = True)
+    .. dropdown:: Disable Screening
 
-    Always returns the output as a 3D numpy array, regardless of the number of p-values and parameter runs.
+        ::
 
-.. dropdown:: Disable Screening
+            accumulation(..., *, screen = False)
 
-    ::
+        Disables the screening of negative accumulations. When screening is disabled, negative accumulations are retained in the output, instead of being replaced by nan.
 
-        accumulation(..., *, screen = False)
+    :Inputs: 
+        * **p** (*vector (p values)*) -- The probability levels for which to solve the model
+        * **B** (*scalar | vector (Runs)*) -- The intercepts of the link equation
+        * **Ct** (*scalar | vector (Runs)*) -- The coefficients for the terrain steepness variable
+        * **T** (*vector (Segments) | matrix (Segments x Runs)*) -- The terrain steepness variable
+        * **Cf** (*scalar | vector (Runs)*) -- The coefficients for the wildfire severity variable
+        * **F** (*vector (Segments) | matrix (Segments x Runs)*) -- The wildfire severity variable
+        * **Cs** (*scalar | vector (Runs)*) -- The coefficients for the surface properties variable
+        * **S** (*vector (Segments) | matrix (Segments x Runs)*) -- The surface properties variable
+        * **keepdims** (*bool*) -- True to always return a 3D numpy array. If false (default), returns a 2D array when there is 1 p-value, and a 1D array if there is 1 p-value and 1 parameter run.
+        * **screen** (*bool*) -- True (default) to replace negative accumulations with NaN. False to disable this screening.
 
-    Disables the screening of negative accumulations. When screening is disabled, negative accumulations are retained in the output, instead of being replaced by nan.
-
-:Inputs: * **p** (*vector (p values)*) -- The probability levels for which to solve the model
-            * **B** (*scalar | vector (Runs)*) -- The intercepts of the link equation
-            * **Ct** (*scalar | vector (Runs)*) -- The coefficients for the terrain steepness variable
-            * **T** (*vector (Segments) | matrix (Segments x Runs)*) -- The terrain steepness variable
-            * **Cf** (*scalar | vector (Runs)*) -- The coefficients for the wildfire severity variable
-            * **F** (*vector (Segments) | matrix (Segments x Runs)*) -- The wildfire severity variable
-            * **Cs** (*scalar | vector (Runs)*) -- The coefficients for the surface properties variable
-            * **S** (*vector (Segments) | matrix (Segments x Runs)*) -- The surface properties variable
-            * **keepdims** (*bool*) -- True to always return a 3D numpy array. If False (default), returns a 2D array when there is 1 R value, and a 1D array if there is 1 R value and 1 parameter run.
-            * **screen** (*bool*) -- True (default) to replace negative accumulations with NaN. False to disable this screening.
-
-:Outputs: *ndarray (Segments x Runs x p values)* -- The computed rainfall accumulations
+    :Outputs: 
+        *ndarray (Segments x P-values x Parameter Runs)* -- The computed rainfall accumulations
 
 
 Model Classes

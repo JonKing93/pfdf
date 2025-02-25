@@ -1,5 +1,5 @@
-pfdf.watershed module
-=====================
+watershed module
+================
 
 .. _pfdf.watershed:
 

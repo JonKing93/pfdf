@@ -298,9 +298,6 @@ class TestFlow:
         flow = watershed.flow(dem)
         assert isinstance(flow, Raster)
 
-        print(flow.values)
-        print(expected)
-
         assert np.array_equal(flow.values[1:-1, 1:-1], expected[1:-1, 1:-1])
         assert flow.nodata == 0
         assert flow.crs is None

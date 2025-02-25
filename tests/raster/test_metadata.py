@@ -301,7 +301,6 @@ class TestRepr:
         a = RasterMetadata((1, 2))
         assert repr(a) == (
             "RasterMetadata:\n"
-            "    Name: raster\n"
             "    Shape: (1, 2)\n"
             "    Dtype: None\n"
             "    NoData: None\n"

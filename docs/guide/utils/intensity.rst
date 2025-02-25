@@ -31,7 +31,7 @@ You can alternatively provide a specific duration for each input intensity:
 From Accumulation
 -----------------
 
-The :ref:`from_accumulation command <pfdf.utils.intensity.from_accumulation>` converts from rainfall accumulations to intensities, again given the relevant durations (in minutes). This command is specifically designed for output from the :ref:`s17.accumulation command <pfdf.models.staley2017.accumulation>`, so the input durations are broadcast across the second dimension of the input accumulations array:
+The :ref:`from_accumulation command <pfdf.utils.intensity.from_accumulation>` converts from rainfall accumulations to intensities, again given the relevant durations (in minutes). By default, this command is intended for output from the :ref:`s17.accumulation command <pfdf.models.staley2017.accumulation>`, so the input durations are broadcast along the final dimension of the input accumulations array:
 
 .. code:: pycon
 
@@ -56,3 +56,17 @@ The :ref:`from_accumulation command <pfdf.utils.intensity.from_accumulation>` co
            [44., 44., 45.],
            [ 4.,  6.,  7.],
            [28., 28., 29.]])
+
+Alternatively, you can use the ``dim`` option to specify the index of the dimension over which to broadcast durations. For example:
+
+    >>> R = np.array([
+        [1, 2],
+        [2, 4],
+        [4, 8], 
+    ])
+    >>> durations = [15, 30, 60]
+    >>> I = intensity.from_accumulation(R, durations, dim=0),
+    >>> print(I)
+    array([[4., 8.],
+           [4., 8.],
+           [4., 8.]]),

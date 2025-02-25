@@ -13,7 +13,7 @@ This release substantially improves support for working with datasets in a mix o
 
 Overview
 --------
-This section provides an overview of the major changes to the library. :ref:`See below <2.0.0-change-list>` for a complete list of changes.
+This section provides an overview of the major changes to the library. :ref:`Refer below <2.0.0-change-list>` for a complete list of changes.
 
 Spatial Projections
 +++++++++++++++++++
@@ -320,7 +320,7 @@ Errors
 
 Migration Guide
 ---------------
-This release breaks backwards compatibility with pfdf versions 1.X. As such, previously written code will likely break when upgraded to version 2.0.0. This section describes fixes for common problems. See also the :ref:`API break list <2.0.0-api-changes>` for a complete list of API breaking changes.
+This release breaks backwards compatibility with pfdf versions 1.X. As such, previously written code will likely break when upgraded to version 2.0.0. This section describes fixes for common problems. Read also the :ref:`API break list <2.0.0-api-changes>` for a complete list of API breaking changes.
 
 
 Filtering
@@ -535,7 +535,7 @@ to::
 
 API Breaking Changes
 --------------------
-This section provides a complete list of API-breaking changes. See also the :ref:`migration guide <2.0.0-migration>` for fixes to common problems.
+This section provides a complete list of API-breaking changes. Read also the :ref:`migration guide <2.0.0-migration>` for fixes to common problems.
 
 
 Raster Class

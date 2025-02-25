@@ -255,13 +255,11 @@ def validate(crs: CRSlike | None, strict: bool = False) -> CRS | None:
     Checks that an input represents a pyproj.CRS object or is None
     ----------
     validate(crs)
+    validate(crs, strict=True)
     Checks that the input either (1) represents a supported pyproj.CRS object or
     (2) is None. If 1, returns the input as a CRS object. Raises an error if the input
-    is neither 1 nor 2.
-
-    validate(crs, strict=True)
-    Checks that an input represents a supported pyproj.CRS. Does not allow the CRS to
-    be None.
+    is neither 1 nor 2. Set strict=True to only allow case 1 and raise an error if a
+    CRS is None.
     ----------
     Inputs:
         crs: An input being validated.
@@ -524,7 +522,7 @@ def units_to_base(
     distances were measured at the equator. Use the "y" input to specify a different
     latitudes instead. Note that y should be in axis base units.
 
-    The "distances" input may be an array of any shape. TIf using the "y" input, then
+    The "distances" input may be an array of any shape. If using the "y" input, then
     "y" should be an array that can be broadcasted against the distances. The shape of
     the output array will match this broadcasted shape.
     ----------

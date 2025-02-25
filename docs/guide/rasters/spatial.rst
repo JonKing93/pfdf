@@ -5,7 +5,7 @@ As stated, a raster's spatial metadata consists of a coordinate reference system
 
 When the shape of a raster's data grid is known (as is the case for all *Raster* objects), you can implement a complete spatial reference system using either (1) a CRS and a transform, or (2) a CRS and a bounding box. The transform and bounding box provide the same information, albeit formatted for different purposes. The transform is typically more useful for examining pixel resolution and locations, whereas a bounding box is more useful for locating the edges or center of the overall raster dataset. 
 
-The remainder of this page describes some common commands for examining a *Raster* object's :ref:`CRS <guide-crs>`, :ref:`transform <guide-transform>`, and :ref:`bounding box <guide-bbox>` metadata. Note that this page is only an introduction; you can find additional commands and more advanced use cases in the :doc:`projection tutorial </tutorials/projections>`.
+The remainder of this page describes some common commands for examining a *Raster* object's :ref:`CRS <guide-crs>`, :ref:`transform <guide-transform>`, and :ref:`bounding box <guide-bbox>` metadata. Note that this page is only an introduction; you can find additional commands and more advanced use cases in the :doc:`spatial metadata tutorial </tutorials/notebooks/08_Spatial_Metadata>`.
 
 ----
 
@@ -59,7 +59,7 @@ When this is the case, you can use the property to specify a CRS for the raster.
 
 .. note::
 
-    You cannot set the ``crs`` property if a *Raster* already has a CRS. However, see the :ref:`reproject method <guide-reproject>` to reproject a *Raster* to a different CRS.
+    You cannot set the ``crs`` property if a *Raster* already has a CRS. Instead, use the :ref:`reproject method <guide-reproject>` to reproject a *Raster* to a different CRS.
 
 ----
 
@@ -68,7 +68,7 @@ When this is the case, you can use the property to specify a CRS for the raster.
 Transform
 ---------
 
-You can use the ``transform`` property to return a :ref:`Transform object <pfdf.projection.transform.Transform>` for a *Raster*. A *Transform* object includes information on a raster's resolution, as well as the locations of the left and top edges:
+You can use the ``transform`` property to return a :ref:`Transform object <pfdf.projection.Transform>` for a *Raster*. A *Transform* object includes information on a raster's resolution, as well as the locations of the left and top edges:
 
 .. code:: pycon
 
@@ -104,7 +104,7 @@ Note that resolution is strictly positive. Equivalently, resolution is the absol
 
 .. tip::
 
-    See also the :doc:`projection tutorial </tutorials/projections>` for more advanced use of transform commands.
+    Read the :doc:`spatial metadata tutorial </tutorials/notebooks/08_Spatial_Metadata>` for more advanced use of transform commands.
 
 
 Missing Transform
@@ -139,7 +139,7 @@ Since the transform and bounding box represent the same information, initializin
 
 .. note::
 
-    You cannot set the ``transform`` property if a *Raster* already has a transform. However, see the :ref:`reproject method <guide-reproject>` to reproject a *Raster* to a different transform.
+    You cannot set the ``transform`` property if a *Raster* already has a transform. Instead, use the :ref:`reproject method <guide-reproject>` to reproject a *Raster* to a different transform.
 
 ----
 
@@ -147,7 +147,7 @@ Since the transform and bounding box represent the same information, initializin
 
 Bounding Box
 ------------
-You can use the ``bounds`` property to return a :ref:`BoundingBox object <pfdf.projection.bbox.BoundingBox>` for a *Raster*. This reports the spatial coordinates raster's edges:
+You can use the ``bounds`` property to return a :ref:`BoundingBox object <pfdf.projection.BoundingBox>` for a *Raster*. This reports the spatial coordinates raster's edges:
 
 .. code:: pycon
 
@@ -183,7 +183,7 @@ And the ``utm_zone`` property returns the CRS of the UTM zone that overlaps this
     
 .. tip::
 
-    See also the :doc:`projection tutorial </tutorials/projections>` for more advanced use of BoundingBox commands.
+    Also read the :doc:`spatial metadata tutorial </tutorials/notebooks/08_Spatial_Metadata>` for more advanced use of BoundingBox commands.
 
 
 Missing Bounding Box
@@ -217,4 +217,4 @@ Since the bounding box and transform represent the same information, initializin
 
 .. note::
 
-    You cannot set the ``bounds`` property if a *Raster* already has a bounding box. However, see the :ref:`clip method <guide-clip>` to clip a *Raster* to different bounds.
+    You cannot set the ``bounds`` property if a *Raster* already has a bounding box. Instead, use the :ref:`clip method <guide-clip>` to clip a *Raster* to different bounds.

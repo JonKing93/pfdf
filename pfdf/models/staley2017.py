@@ -253,7 +253,7 @@ def likelihood(
     example, if using parameters for 15-minute and 30-minute rainfall durations, then
     the input rainfall accumulations should be for 15-minute and 30-minute intervals,
     respectively. Accumulation units are the units of the rainfall values used to
-    calibrate the model's parameters. For the 4 models described in the paoer,
+    calibrate the model's parameters. For the 4 models described in the paper,
     accumulations are millimeters of accumulations per rainfall duration.
 
     The returned output will be a numpy array with up to 3 dimensions. The first
