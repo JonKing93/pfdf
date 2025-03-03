@@ -29,6 +29,10 @@ Vector Features:
     PolygonError            - When a polygon's coordinates are not valid
     PointError              - When a point's coordinates are not valid
 
+Overlap:
+    NoOverlapError          - When a dataset does not overlap a bounding box
+    NoOverlappingFeaturesError  - When vector features do not overlap a bounding box
+
 Models:
     DurationsError          - When queried rainfall durations are not recognized
 
@@ -142,6 +146,19 @@ class PolygonError(CoordinateError):
 
 class PointError(CoordinateError):
     "When point feature coordinates are not valid"
+
+
+#####
+# Overlap
+#####
+
+
+class NoOverlapError(Exception):
+    "When a dataset does not overlap an indicated bounding box"
+
+
+class NoOverlappingFeaturesError(NoOverlapError, NoFeaturesError):
+    "When vector features do not overlap a required bounding box"
 
 
 #####

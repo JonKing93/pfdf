@@ -23,6 +23,7 @@ from rasterio.windows import Window
 import pfdf._validate.core as cvalidate
 from pfdf import raster
 from pfdf._utils import limits
+from pfdf.errors import NoOverlapError
 from pfdf.projection import CRS, Transform
 from pfdf.raster import _features
 from pfdf.raster._utils import parse
@@ -81,7 +82,7 @@ def window(
 
     # Optional error if there is no overlap
     if require_overlap and 0 in shape:
-        raise ValueError(
+        raise NoOverlapError(
             f"The bounds must overlap the raster dataset for at least 1 pixel.\n"
             f"    Raster dataset bounds: {metadata.bounds}"
         )
