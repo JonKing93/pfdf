@@ -166,16 +166,41 @@ Vector Features
 .. py:exception:: pfdf.errors.PolygonError
     :module: pfdf.errors
 
-    Bases: :py:class:`~pfdf.errors.CoordinatesError`
+    Bases: :py:class:`~pfdf.errors.CoordinateError`
 
     When a polygon's coordinates are not valid
 
 .. py:exception:: pfdf.errors.PointError
     :module: pfdf.errors
 
-    Bases: :py:class:`~pfdf.errors.CoordinatesError`
+    Bases: :py:class:`~pfdf.errors.CoordinateError`
 
     When a point's coordinates are not valid
+
+
+----
+
+.. _overlap-errors:
+
+Overlap
+-------
+
+.. py:exception:: pfdf.errors.NoOverlapError
+    :module: pfdf.errors
+
+    Bases: :py:class:`Exception`
+
+    When a dataset does not overlap a required bounding box.
+
+.. py:exception:: pfdf.errors.NoOverlappingFeaturesError
+    :module: pfdf.errors
+
+    Bases: :py:class:`~pfdf.errors.NoOverlapError`, :py:class:`~pfdf.errors.NoFeaturesError`
+
+    When a vector feature dataset does not overlap a required bounding box.
+
+
+
 
 ----
 
