@@ -1883,6 +1883,17 @@ class TestSetRange:
         assert np.array_equal(raster.values, expected)
         assert raster.nodata == -999
 
+    def test_float32_nan(_, araster):
+        araster = araster.astype("float32")
+        raster = Raster.from_array(araster, nodata=np.float32(nan))
+        raster.set_range(min=3, max=6, fill=True)
+        expected = araster.copy()
+        expected[expected < 3] = nan
+        expected[expected > 6] = nan
+        assert np.array_equal(raster.values, expected, equal_nan=True)
+        assert raster.dtype == "float32"
+        assert isnan(raster.nodata)
+
     def test_clip(_, araster):
         raster = Raster(araster, ensure_nodata=False)
         raster.set_range(min=3, max=6)
