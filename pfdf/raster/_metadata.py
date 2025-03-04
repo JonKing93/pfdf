@@ -666,6 +666,7 @@ class RasterMetadata:
         # Parse NoData and dtype. Return the updated object
         elif default is None and self.dtype is not None:
             nodata = default_nodata(self.dtype)
+            casting = "unsafe"
         else:
             nodata = default
         return self.update(nodata=nodata, casting=casting)
