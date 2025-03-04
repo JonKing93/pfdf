@@ -10,28 +10,28 @@ errors module
 Numpy Arrays
 ------------
 
-.. py:exception:: pfdf.errors.ArrayError
+.. py:exception:: ArrayError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
 
     Generic class for invalid numpy arrays
 
-.. py:exception:: pfdf.errors.EmptyArrayError
+.. py:exception:: EmptyArrayError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.ArrayError`
 
     When a numpy array has no elements
 
-.. py:exception:: pfdf.errors.DimensionError
+.. py:exception:: DimensionError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.ArrayError`
 
     When a numpy array has invalid nonsingleton dimensions
 
-.. py:exception:: pfdf.errors.ShapeError
+.. py:exception:: ShapeError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.ArrayError`
@@ -43,7 +43,7 @@ Numpy Arrays
 Spatial Metadata
 ----------------
 
-.. py:exception:: pfdf.errors.CRSError
+.. py:exception:: CRSError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
@@ -51,7 +51,7 @@ Spatial Metadata
     When a coordinate reference system is invalid
 
 
-.. py:exception:: pfdf.errors.MissingCRSError
+.. py:exception:: MissingCRSError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.CRSError`
@@ -59,7 +59,7 @@ Spatial Metadata
     When a required CRS is missing.
 
 
-.. py:exception:: pfdf.errors.TransformError
+.. py:exception:: TransformError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
@@ -67,7 +67,7 @@ Spatial Metadata
     When an affine transformation is invalid
 
 
-.. py:exception:: pfdf.errors.MissingTransformError
+.. py:exception:: MissingTransformError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.TransformError`
@@ -75,7 +75,7 @@ Spatial Metadata
     When a required transform is missing
 
 
-.. py:exception:: pfdf.errors.MissingNoDataError
+.. py:exception:: MissingNoDataError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
@@ -87,7 +87,7 @@ Spatial Metadata
 Rasters
 -------
 
-.. py:exception:: pfdf.errors.RasterError
+.. py:exception:: RasterError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
@@ -95,7 +95,7 @@ Rasters
     Generic class for invalid Raster metadata.
 
 
-.. py:exception:: pfdf.errors.RasterShapeError
+.. py:exception:: RasterShapeError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.RasterError`
@@ -103,7 +103,7 @@ Rasters
     When a raster array has an invalid shape
 
 
-.. py:exception:: pfdf.errors.RasterTransformError
+.. py:exception:: RasterTransformError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.RasterError`
@@ -111,7 +111,7 @@ Rasters
     When a raster has an invalid affine transformation
 
 
-.. py:exception:: pfdf.errors.RasterCRSError
+.. py:exception:: RasterCRSError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.RasterError`
@@ -123,7 +123,7 @@ Rasters
 Vector Features
 ---------------
 
-.. py:exception:: pfdf.errors.FeaturesError
+.. py:exception:: FeaturesError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
@@ -131,7 +131,7 @@ Vector Features
     When vector features are not valid
 
 
-.. py:exception:: pfdf.errors.FeatureFileError
+.. py:exception:: FeatureFileError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.FeaturesError`
@@ -139,7 +139,7 @@ Vector Features
     When a vector feature file cannot be read
 
 
-.. py:exception:: pfdf.errors.NoFeaturesError
+.. py:exception:: NoFeaturesError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.FeaturesError`
@@ -147,7 +147,7 @@ Vector Features
     When there are no vector features to convert to a raster
 
 
-.. py:exception:: pfdf.errors.GeometryError
+.. py:exception:: GeometryError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.FeaturesError`
@@ -155,7 +155,7 @@ Vector Features
     When a feature geometry is not valid
 
 
-.. py:exception:: pfdf.errors.CoordinateError
+.. py:exception:: CoordinateError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.GeometryError`
@@ -163,14 +163,14 @@ Vector Features
     When a feature's coordinates are not valid
 
 
-.. py:exception:: pfdf.errors.PolygonError
+.. py:exception:: PolygonError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.CoordinateError`
 
     When a polygon's coordinates are not valid
 
-.. py:exception:: pfdf.errors.PointError
+.. py:exception:: PointError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.CoordinateError`
@@ -185,14 +185,14 @@ Vector Features
 Overlap
 -------
 
-.. py:exception:: pfdf.errors.NoOverlapError
+.. py:exception:: NoOverlapError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
 
     When a dataset does not overlap a required bounding box.
 
-.. py:exception:: pfdf.errors.NoOverlappingFeaturesError
+.. py:exception:: NoOverlappingFeaturesError
     :module: pfdf.errors
 
     Bases: :py:class:`~pfdf.errors.NoOverlapError`, :py:class:`~pfdf.errors.NoFeaturesError`
@@ -207,7 +207,7 @@ Overlap
 Models
 ------
 
-.. py:exception:: pfdf.errors.DurationsError
+.. py:exception:: DurationsError
     :module: pfdf.errors
 
     Bases: :py:class:`Exception`
@@ -222,63 +222,63 @@ Models
 Data Acquisition
 ----------------
 
-.. py:exception:: pfdf.errors.DataAPIError
+.. py:exception:: DataAPIError
 
     Bases: :py:class:`Exception`
 
     When an API response is not valid
 
 
-.. py:exception:: pfdf.errors.InvalidJSONError
+.. py:exception:: InvalidJSONError
 
     Bases: :py:class:`~pfdf.errors.DataAPIError`
 
     When API JSON is not valid
 
 
-.. py:exception:: pfdf.errors.MissingAPIFieldError
+.. py:exception:: MissingAPIFieldError
 
     Bases: :py:class:`~pfdf.errors.DataAPIError`, :py:class:`KeyError`
 
     When an API JSON response is missing a required field   
 
 
-.. py:exception:: pfdf.errors.TNMError
+.. py:exception:: TNMError
 
     Bases: :py:class:`~pfdf.errors.DataAPIError`
 
     Errors unique to the TNM API
 
 
-.. py:exception:: pfdf.errors.TooManyTNMProductsError
+.. py:exception:: TooManyTNMProductsError
 
     Bases: :py:class:`~pfdf.errors.TNMError`
 
     When a TNM query has too many search results
 
 
-.. py:exception:: pfdf.errors.NoTNMProductsError
+.. py:exception:: NoTNMProductsError
 
     Bases: :py:class:`~pfdf.errors.TNMError`
 
     When there are no TNM products in the search results
 
 
-.. py:exception:: pfdf.errors.LFPSError
+.. py:exception:: LFPSError
 
     Bases: :py:class:`~pfdf.errors.DataAPIError`
 
     Errors unique to the LANDFIRE LFPS API
 
 
-.. py:exception:: pfdf.errors.InvalidLFPSJobError
+.. py:exception:: InvalidLFPSJobError
 
     Bases: :py:class:`~pfdf.errors.LFPSError`
 
     When a LANDFIRE LFPS job cannot be used for a data read
 
 
-.. py:exception:: pfdf.errors.LFPSJobTimeoutError
+.. py:exception:: LFPSJobTimeoutError
 
     Bases: :py:class:`~pfdf.errors.LFPSError`
 

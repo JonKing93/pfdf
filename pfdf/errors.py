@@ -25,7 +25,7 @@ Vector Features:
     FeatureFileError        - When a vector feature file cannot be read
     NoFeaturesError         - When there are no vector features to convert to a raster
     GeometryError           - When a feature geometry is not valid
-    CoordinateError        - When a feature's coordinates are not valid
+    CoordinateError         - When a feature's coordinates are not valid
     PolygonError            - When a polygon's coordinates are not valid
     PointError              - When a point's coordinates are not valid
 
