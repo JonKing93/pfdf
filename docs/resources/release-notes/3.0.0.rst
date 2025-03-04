@@ -69,6 +69,7 @@ Updates
 * Fixed a bug where some ``BoundingBox`` and ``Transform`` properties were returned as numpy arrays instead of floats
 * Fixed a bug wherein ``Raster.from_file`` would ignore the ``driver`` option
 * Fixed a bug wherein ``Raster.set_range`` and ``Raster.fill`` would fail when filling a float32 raster with NaN NoData
+* Fixed a bug that prevented loading float32 rasters from file with default NoData
 * Removed the unused ``y`` option from :ref:`projection.Transform.reproject <pfdf.projection.Transform.reproject>`
 
 **For Developers**
