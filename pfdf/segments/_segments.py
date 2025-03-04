@@ -30,7 +30,7 @@ from pfdf.segments import _basins, _confinement, _geojson, _update
 
 if typing.TYPE_CHECKING:
     from pathlib import Path
-    from typing import Literal, Optional, Self
+    from typing import Literal, Optional
 
     import shapely
     from geojson import FeatureCollection
@@ -2085,7 +2085,7 @@ class Segments:
         keep = svalidate.selection(self, selected, type)
         self.remove(~keep)
 
-    def copy(self) -> Self:
+    def copy(self) -> Segments:
         """
         copy  Returns a copy of a Segments object
         ----------

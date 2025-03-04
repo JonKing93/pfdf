@@ -2,7 +2,13 @@ import fiona
 import numpy as np
 import pytest
 
-from pfdf.errors import DimensionError, GeometryError, NoFeaturesError, PointError
+from pfdf.errors import (
+    DimensionError,
+    GeometryError,
+    NoFeaturesError,
+    NoOverlappingFeaturesError,
+    PointError,
+)
 from pfdf.projection import BoundingBox
 from pfdf.raster._features import _features
 from pfdf.raster._features._ffile import FeatureFile
@@ -237,7 +243,7 @@ class TestRequireFeatures:
         )
 
     def test_none_in_bounds(_, assert_contains):
-        with pytest.raises(NoFeaturesError) as error:
+        with pytest.raises(NoOverlappingFeaturesError) as error:
             _features._require_features(
                 "polygon", [], BoundingBox(1, 2, 3, 4), "a/file/path"
             )

@@ -283,6 +283,15 @@ class TestFill:
         expected = np.array([3, 3, 3, 0, 0, 0, 0, 0]).reshape(2, 4).astype(float)
         assert np.array_equal(output, expected)
 
+    def test_preserve_float32(_, araster):
+        araster = araster.astype("float32")
+        mask = NodataMask(araster, 8)
+        output = mask.fill(araster, nan)
+        assert output.dtype == "float32"
+        assert output is araster
+        expected = np.array([1, 2, 3, 4, 5, 6, 7, nan]).reshape(2, 4).astype("float32")
+        assert np.array_equal(output, expected, equal_nan=True)
+
 
 class TestIsnan:
     def test_none(_):

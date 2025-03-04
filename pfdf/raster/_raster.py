@@ -38,7 +38,7 @@ from pfdf.raster._utils import clip, factory
 from pfdf.raster._utils.writeable import WriteableArray
 
 if typing.TYPE_CHECKING:
-    from typing import Any, Optional, Self
+    from typing import Any, Optional
 
     from affine import Affine
 
@@ -311,7 +311,7 @@ class Raster:
         ensure_nodata: bool,
         default_nodata: Optional[Any] = None,
         casting: Optional[Any] = None,
-    ) -> Self:
+    ) -> Raster:
         """Creates a new raster for a factory function. Implements isbool and
         ensure_nodata options before finalizing the object"""
 
@@ -340,7 +340,7 @@ class Raster:
         self._values = values
         self._metadata = metadata
 
-    def _copy(self, template: Self) -> None:
+    def _copy(self, template: Raster) -> None:
         "Copies the attributes from a template raster to the current raster"
 
         self._values = template._values
@@ -459,7 +459,7 @@ class Raster:
         default_nodata: Optional[scalar] = None,
         casting: str = "safe",
         driver: Optional[str] = None,
-    ) -> Self:
+    ) -> Raster:
         """
         Builds a Raster object from a file-based dataset
         ----------
@@ -609,7 +609,7 @@ class Raster:
         ensure_nodata: bool = True,
         default_nodata: Optional[scalar] = None,
         casting: str = "safe",
-    ) -> Self:
+    ) -> Raster:
         """
         Builds a raster from a rasterio.DatasetReader
         ----------
@@ -704,7 +704,7 @@ class Raster:
     @staticmethod
     def from_pysheds(
         sraster: PyshedsRaster, name: Optional[str] = None, isbool: bool = False
-    ) -> Self:
+    ) -> Raster:
         """
         Creates a Raster from a pysheds.sview.Raster object
         ----------
@@ -749,11 +749,11 @@ class Raster:
         crs: Optional[CRSInput] = None,
         transform: Optional[TransformInput] = None,
         bounds: Optional[BoundsInput] = None,
-        spatial: Optional[Self] = None,
+        spatial: Optional[Raster] = None,
         isbool: bool = False,
         ensure_nodata: bool = True,
         copy: bool = True,
-    ) -> Self:
+    ) -> Raster:
         """
         Create a Raster from a numpy array
         ----------
@@ -869,7 +869,7 @@ class Raster:
         layer: Optional[int | str] = None,
         driver: Optional[str] = None,
         encoding: Optional[str] = None,
-    ) -> Self:
+    ) -> Raster:
         """
         Creates a Raster from a set of point/multi-point features
         ----------
@@ -1068,7 +1068,7 @@ class Raster:
         layer: Optional[int | str] = None,
         driver: Optional[str] = None,
         encoding: Optional[str] = None,
-    ) -> Self:
+    ) -> Raster:
         """
         Creates a Raster from a set of polygon/multi-polygon features
         ----------
@@ -1375,7 +1375,7 @@ class Raster:
             and np.array_equal(self.values, other.values, equal_nan=True)
         )
 
-    def validate(self, raster: RasterInput, name: str) -> Self:
+    def validate(self, raster: RasterInput, name: str) -> Raster:
         """
         validate  Validates a second raster and its metadata against the current raster
         ----------
@@ -1522,7 +1522,7 @@ class Raster:
             file.write(self._values, 1)
         return path
 
-    def copy(self) -> Self:
+    def copy(self) -> Raster:
         """
         Returns a copy of the current Raster
         ----------
@@ -1631,11 +1631,11 @@ class Raster:
 
         # Fill the NoData values, and update the Raster
         with WriteableArray(values):
-            nodatas.fill(values, value)
+            values = nodatas.fill(values, value)
         metadata = self.metadata.fill()
         self._update(values, metadata)
 
-    def find(self, values: RealArray) -> Self:
+    def find(self, values: RealArray) -> Raster:
         """
         Returns a boolean raster indicating pixels that match specified values
         ----------
@@ -1760,8 +1760,8 @@ class Raster:
 
         # Replace out-of-bounds values with either the closest bound, or NoData
         with WriteableArray(values):
-            too_large.fill(values, max)
-            too_small.fill(values, min)
+            values = too_large.fill(values, max)
+            values = too_small.fill(values, min)
         self._update(values, self.metadata)
 
     #####

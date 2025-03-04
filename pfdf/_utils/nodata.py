@@ -268,7 +268,7 @@ class NodataMask:
                 return array
 
         # If filling with NaN, need to ensure the array has a float dtype
-        if isnan(fill):
+        if isnan(fill) and not np.issubdtype(array.dtype, np.floating):
             array = array.astype(float, copy=False)
 
         # Fill values

@@ -13,7 +13,7 @@ import typing
 
 import shapely.geometry
 
-from pfdf.errors import NoFeaturesError
+from pfdf.errors import NoFeaturesError, NoOverlappingFeaturesError
 from pfdf.projection import BoundingBox
 from pfdf.raster._features import _bounds, _validate
 
@@ -128,7 +128,7 @@ def _require_features(
                 f"{geometry} features.\nFile: {path}"
             )
         else:
-            raise NoFeaturesError(
+            raise NoOverlappingFeaturesError(
                 f"None of the {geometry} features intersect the input bounds.\n"
                 f"File: {path}"
             )

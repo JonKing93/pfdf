@@ -8,6 +8,7 @@ from pysheds.sview import Raster as PyshedsRaster
 from pysheds.sview import ViewFinder
 from rasterio.windows import Window
 
+from pfdf.errors import NoOverlapError
 from pfdf.projection import BoundingBox
 from pfdf.raster import RasterMetadata
 from pfdf.raster._utils import factory
@@ -88,7 +89,7 @@ class TestWindow:
         bounds = BoundingBox(*bounds)
         for quadrant in [1, 2, 3, 4]:
             bounds = bounds.orient(quadrant)
-            with pytest.raises(ValueError) as error:
+            with pytest.raises(NoOverlapError) as error:
                 factory.window(metadata, bounds, True)
             assert_contains(
                 error, "bounds must overlap the raster dataset for at least 1 pixel"
